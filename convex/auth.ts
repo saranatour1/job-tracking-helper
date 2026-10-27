@@ -1,5 +1,6 @@
 import { components, internal } from "./_generated/api"
 import { setupConvexAuth } from "@convex-dev/auth/server"
+import { setupAnonymous } from "@convex-dev/auth/methods/anonymous/server"
 import { setupGithub } from "@convex-dev/auth/methods/github/server"
 import { setupGoogle } from "@convex-dev/auth/methods/google/server"
 import { setupUsernamePassword } from "@convex-dev/auth/methods/username-password/server"
@@ -29,4 +30,8 @@ export const { startSignInWithGoogle, completeSignInWithGoogle } = setupGoogle(a
 export const { startSignInWithGithub, completeSignInWithGithub } = setupGithub(auth, {
   component: components.authGithub,
   allowedRedirectOrigins: [siteUrl],
+}).attachUserCallbacks(userCallbacks)
+
+export const { signInAnonymously } = setupAnonymous(auth, {
+  component: components.authAnonymous,
 }).attachUserCallbacks(userCallbacks)
