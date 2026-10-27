@@ -9,6 +9,7 @@ import {
   useSignInWithGoogle,
   type OauthFlowError,
 } from "@convex-dev/auth/methods/google/react"
+import { useQuery } from "convex/react"
 import { useState } from "react"
 
 import { Button } from "@/components/ui/button"
@@ -50,10 +51,11 @@ export function SignIn() {
   const { flowError } = useOauth()
   const [formError, setError] = useState<string>()
   const error = formError ?? (flowError ? messages[flowError.error] : undefined)
+  const providers = useQuery(api.auth.oauthProviders)
   const oauth = [
-    { label: "Continue with Google", signIn: signInWithGoogle },
-    { label: "Continue with GitHub", signIn: signInWithGithub },
-  ]
+    { label: "Continue with Google", signIn: signInWithGoogle, enabled: providers?.google },
+    { label: "Continue with GitHub", signIn: signInWithGithub, enabled: providers?.github },
+  ].filter((provider) => provider.enabled)
 
   return (
     <main className="flex min-h-svh items-center justify-center p-6">

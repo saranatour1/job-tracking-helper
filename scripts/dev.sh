@@ -1,0 +1,20 @@
+#!/bin/sh
+# Convex rejects a push while the Google or GitHub client vars are unset, so dev
+# fills each missing one with "disabled" and the sign-in form hides that button.
+set -eu
+
+oauth_vars="AUTH_GOOGLE_CLIENT_ID AUTH_GOOGLE_CLIENT_SECRET AUTH_GITHUB_CLIENT_ID AUTH_GITHUB_CLIENT_SECRET"
+
+if grep -qs '^CONVEX_DEPLOYMENT=' .env.local; then
+  existing=$(pnpm exec convex env list | cut -d= -f1)
+  missing=""
+  for n in $oauth_vars; do
+    printf '%s\n' "$existing" | grep -qx "$n" || missing="$missing$n=disabled
+"
+  done
+  if [ -n "$missing" ]; then
+    printf '%s' "$missing" | pnpm exec convex env set --from-file /dev/stdin
+  fi
+fi
+
+exec pnpm exec convex dev --start 'vp dev --port 3000'
