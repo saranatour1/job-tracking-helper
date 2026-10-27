@@ -70,7 +70,7 @@ export function SignIn() {
           setError(result.status === "error" ? messages[result.userError.error] : undefined)
         }}
       >
-        <h1 className="text-lg font-medium">
+        <h1 className="font-heading text-lg font-medium">
           {mode === "signIn" ? "Sign in" : "Create an account"}
         </h1>
         <div className="grid gap-1.5">
