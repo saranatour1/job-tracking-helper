@@ -5,7 +5,7 @@ The sign-in form shows `Continue with Google` and `Continue with GitHub` only wh
 ## Sub-features
 
 - `oauth-hidden` hides both buttons while the variables are `disabled`.
-- `oauth-shown` shows a provider's button once its real credentials are pushed with `scripts/secrets.sh push`.
+- `oauth-shown` shows a provider's button once its real credentials are pushed from 1Password with `vp run secrets:push`.
 - `oauth-round-trip` covers the provider redirect back to the dashboard. Only the user can verify it.
 
 ## How to get to it (user POV)
@@ -26,4 +26,4 @@ Preconditions:
 
 - Never act on `accounts.google.com` or `github.com` sign-in pages. Signing in at a provider is the user's to do, and they have declined it in the Browser pane before.
 - Button visibility comes from the `auth:oauthProviders` query, which treats unset, empty, and `disabled` as off. The buttons hide when a value is missing, not when it's wrong. A wrong client ID still shows the button and fails at the provider.
-- Pushing real secrets is the user's job, through `scripts/secrets.sh`. Never set OAuth env vars yourself.
+- Pushing real secrets is the user's job, through `vp run secrets:push`, which reads them from 1Password. Never run it, and never set OAuth env vars yourself.

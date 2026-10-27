@@ -5,6 +5,7 @@
   "type": "module",
   "scripts": {
     "dev": "sh scripts/dev.sh",
+    "secrets:push": "sh scripts/push-secrets.sh",
     "typecheck": "tsrs --noEmit -p tsconfig.json && tsrs --noEmit -p convex",
     "build": "vp build",
     "preview": "vp preview"
