@@ -1,6 +1,6 @@
 # Sidebar
 
-Signed-in users get a left sidebar with an `Applications` link and a `Sign out` button. It collapses to icons and expands again from the header button or the keyboard.
+Signed-in users get a left sidebar with an `Applications` link and, in the footer, an `Account menu` button showing the user's avatar, name and email. The menu holds `Account` and `Sign out`. It collapses to icons and expands again from the header button or the keyboard.
 
 ## Sub-features
 
@@ -26,7 +26,8 @@ Preconditions:
 - **Toggle by key.** Run `computer` `key` `cmd+b`. The state flips. Press it again to restore.
 - **Nav.** `find` `"Applications"` (the link) and click it. The URL is `http://localhost:3000/` and the `Applications` heading shows.
 - **Proof.** Save each `data-state` reading with its action in `steps.md`, and copy a screenshot of the collapsed state into the evidence dir.
-- **Sign out.** Click `Sign out`. The `Sign in` heading returns.
+- **User menu.** `find` `"Account menu"` and click it. `find` `"menuitem"` returns `Account` (`href="/account"`) and `Sign out`. On desktop the menu opens to the right of the sidebar. On a phone-size pane it opens upward, and choosing an item closes the sheet.
+- **Sign out.** Choose the `Sign out` menu item. The `Sign in` heading returns.
 
 ## Gotchas
 

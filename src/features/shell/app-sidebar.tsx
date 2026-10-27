@@ -1,6 +1,5 @@
-import { useAuthActions } from "@convex-dev/auth/react"
 import { Link } from "@tanstack/react-router"
-import { Briefcase01Icon, Logout01Icon, UserIcon } from "@hugeicons/core-free-icons"
+import { Briefcase01Icon } from "@hugeicons/core-free-icons"
 import { HugeiconsIcon } from "@hugeicons/react"
 
 import {
@@ -12,15 +11,14 @@ import {
   SidebarMenuButton,
   SidebarMenuItem,
   SidebarRail,
+  useSidebar,
 } from "@/components/ui/sidebar"
+import { NavUser } from "@/features/shell/nav-user"
 
-const nav = [
-  { title: "Applications", to: "/", icon: Briefcase01Icon },
-  { title: "Account", to: "/account", icon: UserIcon },
-] as const
+const nav = [{ title: "Applications", to: "/", icon: Briefcase01Icon }] as const
 
 export const AppSidebar = (props: React.ComponentProps<typeof Sidebar>) => {
-  const { signOut } = useAuthActions()
+  const { setOpenMobile } = useSidebar()
   return (
     <Sidebar collapsible="icon" {...props}>
       <SidebarContent>
@@ -28,7 +26,11 @@ export const AppSidebar = (props: React.ComponentProps<typeof Sidebar>) => {
           <SidebarMenu>
             {nav.map((item) => (
               <SidebarMenuItem key={item.to}>
-                <SidebarMenuButton render={<Link to={item.to} />} tooltip={item.title}>
+                <SidebarMenuButton
+                  render={<Link to={item.to} />}
+                  tooltip={item.title}
+                  onClick={() => setOpenMobile(false)}
+                >
                   <HugeiconsIcon icon={item.icon} />
                   <span>{item.title}</span>
                 </SidebarMenuButton>
@@ -38,14 +40,7 @@ export const AppSidebar = (props: React.ComponentProps<typeof Sidebar>) => {
         </SidebarGroup>
       </SidebarContent>
       <SidebarFooter>
-        <SidebarMenu>
-          <SidebarMenuItem>
-            <SidebarMenuButton tooltip="Sign out" onClick={() => void signOut()}>
-              <HugeiconsIcon icon={Logout01Icon} />
-              <span>Sign out</span>
-            </SidebarMenuButton>
-          </SidebarMenuItem>
-        </SidebarMenu>
+        <NavUser />
       </SidebarFooter>
       <SidebarRail />
     </Sidebar>
