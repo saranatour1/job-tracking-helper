@@ -4,13 +4,9 @@ import { setupGithub } from "@convex-dev/auth/methods/github/server"
 import { setupGoogle } from "@convex-dev/auth/methods/google/server"
 import { setupUsernamePassword } from "@convex-dev/auth/methods/username-password/server"
 import { components, internal } from "../../../_generated/api"
+import { env } from "../../../_generated/server"
 
-const siteUrl = process.env.SITE_URL
-if (!siteUrl) {
-  throw new Error(
-    "SITE_URL is not set. Run `pnpm exec convex env set SITE_URL=http://localhost:3000`."
-  )
-}
+const siteUrl = env.SITE_URL
 const userCallbacks = { createUser: internal.auth.createUser }
 
 const auth = setupConvexAuth({ component: components.auth })

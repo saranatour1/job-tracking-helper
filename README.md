@@ -70,6 +70,7 @@ Code rules, enforced by `vp check`: arrow functions only, no `useEffect`. Files 
 | Backend       | Convex, Convex Auth v2, convex-helpers                          |
 | Validation    | arktype, shared by the form and the `applications:add` mutation |
 | Type checking | tsrs                                                            |
+| Convex lint   | `@convex-dev/eslint-plugin` recommended rules, loaded by oxlint |
 | Secrets       | 1Password CLI (`op`)                                            |
 
 Made for this repo:

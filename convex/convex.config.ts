@@ -9,6 +9,7 @@ import authAnonymous from "@convex-dev/auth/components/anonymous/convex.config.j
 
 const app = defineApp({
   env: {
+    SITE_URL: v.string(),
     AUTH_PRIVATE_KEY: v.string(),
     AUTH_JWKS: v.string(),
     AUTH_GOOGLE_CLIENT_ID: v.string(),
