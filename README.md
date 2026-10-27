@@ -47,6 +47,7 @@ src/
   components/ui/                       shadcn/coss components, managed by the shadcn CLI
 scripts/                               dev and secrets scripts
 .claude/skills/verify-job-tracking-helper/   how an agent launches, drives and checks the app
+.claude/skills/write-pr/             how an agent writes commits and PRs
 ```
 
 Code rules, enforced by `vp check`: arrow functions only, no `useEffect`. Files the shadcn CLI manages are exempt.
@@ -69,3 +70,4 @@ Made for this repo:
 - `scripts/push-secrets.sh` copies the OAuth keys from 1Password into Convex without printing them or writing them to disk.
 - `convex/lib/functions.ts` has function builders that require sign-in and check arguments with arktype.
 - `.claude/skills/verify-job-tracking-helper` is an agent skill with a health check, an evidence helper and step-by-step checks for each feature.
+- `.claude/skills/write-pr` is an agent skill for Conventional Commits titles and short PR bodies, matching `.github/pull_request_template.md`. Its script uploads screenshots to the `pr-assets` branch.
