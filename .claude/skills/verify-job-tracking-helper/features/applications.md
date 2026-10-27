@@ -1,13 +1,14 @@
 # Applications
 
-The dashboard home lists job applications in a table, with Company, Role, and Status columns. A form above it adds a row once company and role are both filled.
+The dashboard home lists the signed-in user's job applications in a table, with Company, Role, and Status columns. A form above it adds a row, which is stored in Convex and survives reloads.
 
 ## Sub-features
 
-- `apps-list` shows the two sample rows, Linear and Vercel.
-- `apps-add` appends a row and resets the form.
-- `apps-validate` blocks an empty company or role and shows an error under the field.
+- `apps-list` shows only the signed-in user's rows. A new user sees column headers only.
+- `apps-validate` blocks an empty or whitespace-only company or role, and shows an error under the field.
+- `apps-add` stores a row, shows it in the table, and resets the form.
 - `apps-status` sets the new row's status from the select.
+- `apps-persist` keeps rows after a reload.
 
 ## How to get to it (user POV)
 
@@ -18,16 +19,21 @@ The dashboard home lists job applications in a table, with Company, Role, and St
 
 Preconditions:
 
-- Signed in, with the `Applications` heading visible.
+- Signed in as a fresh guest, so the table starts empty. Use Guest sign-in.
+- `evidence.sh table "$dir" applications before` has saved the starting count.
 
-- **List.** Run `get_page_text` and save it as `01-list.txt`. The table holds `Linear` with `Product Engineer` and `interviewing`, and `Vercel` with `Frontend Engineer` and `applied`.
-- **Validation.** With both fields empty, `find` `"Add"` and click the button. `company must be non-empty` and `role must be non-empty` appear under the fields. The table still has two rows.
-- **Add.** `find` `"company"`, `"role"`, and `"combobox"`. `form_input` `Acme` into the company textbox, `Designer` into the role textbox, and `offer` into the combobox. Click `Add`. A third row reads `Acme`, `Designer`, `offer`, and both error lines are gone. Save it as `02-added.txt`.
+- **Empty list.** Run `get_page_text`. It shows the `Company`, `Role`, and `Status` headers and no rows. Save it as `01-empty.txt`.
+- **Validation, empty.** `find` `"Add"` and click the button. `company must be non-empty` and `role must be non-empty` appear.
+- **Validation, whitespace.** `find` `"textbox"`, which returns the `company` and `role` textboxes. `form_input` three spaces into company and `Designer` into role, then click `Add`. Only `company must be non-empty` shows, and the table is still empty.
+- **Add.** `form_input` `  Acme  `, with surrounding spaces, into company. `find` `"combobox"` and `form_input` `offer` into it. Click `Add`. The row `Acme`, `Designer`, `offer` appears. Save it as `02-added.txt`, and copy in a screenshot.
 - **Reset.** Run `javascript_tool` with `[...document.querySelectorAll('#company,#role,#status')].map(e => e.id + '=' + e.value).join(' ')`. It returns `company= role= status=applied`.
+- **Side effect.** Run `evidence.sh table "$dir" applications after`. The count is one more than before, and the new row's `company` is `Acme`, with no spaces. That proves the server-side arktype check ran, because the form sends the raw value.
+- **Persist.** Run `navigate` to `http://localhost:3000/`. The `Acme` row is still there.
 
 ## Gotchas
 
-- Rows live in React state, not Convex. A reload drops added rows and shows only the two samples. Don't prove `apps-add` with a reload or with `convex data`.
-- A Convex reconnect also drops them. When `convex dev` logs `Retrying request`, auth re-checks and the dashboard remounts. Capture the added row right after `Add`.
-- The labels render as `Company` and `Role` through CSS, and `get_page_text` shows them that way. Their accessible names are lowercase `company` and `role`, and `find` returns the label, the textbox, and the table header for each. Pick the `textbox` match.
+- Rows belong to the user who added them. A guest who signs out can't see their rows again. Start each run as a fresh guest instead of hunting for old rows.
+- The labels render as `Company` and `Role` through CSS, and `get_page_text` shows them that way. Their accessible names are lowercase `company` and `role`. Find them with `"textbox"`, or pick the `textbox` match.
 - The status select's accessible name is its current value, such as `applied`, not `Status`. Find it with `"combobox"`.
+- `convex data applications` prints `There are no documents in this table.` on stderr when the table is empty. `evidence.sh` still reports `0`.
+- A screenshot taken right after `Add` can catch a stale red invalid ring on company. Read `aria-invalid` with `javascript_tool` instead of trusting the frame.

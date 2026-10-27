@@ -23,14 +23,14 @@ Preconditions:
 - Baseline preconditions hold.
 - A fresh username and password are written to `$dir/credentials.txt`, as the skill's Test accounts section describes.
 
-- **Snapshot before.** Run `evidence.sh users "$dir" before`.
+- **Snapshot before.** Run `evidence.sh table "$dir" users before`.
 - **Switch to sign-up.** `find` `"Need an account? Sign up"` and click it. The heading reads `Create an account`, and the submit button reads `Sign up`.
 - **Too-short password.** Fill `Username` with the fresh username and `Password` with `abc`, then click `Sign up`. The alert reads `Password is too short.` and the heading is unchanged.
 - **Sign up.** Fill `Password` with the fresh password and click `Sign up`. The `Applications` heading appears. Save it as `01-signed-up.txt`.
-- **Side effect.** Run `evidence.sh users "$dir" after-sign-up`. The count is the before count plus one.
+- **Side effect.** Run `evidence.sh table "$dir" users after-sign-up`. The count is the before count plus one.
 - **Sign out.** Click `Sign out`. The `Sign in` heading returns.
 - **Wrong password.** Fill the fresh username and a different password, then click `Sign in`. The alert reads `Wrong username or password.`
-- **Sign in.** Fill the fresh password and click `Sign in`. The `Applications` heading appears. Save it as `02-signed-in.txt`. Run `evidence.sh users "$dir" after-sign-in`. The count is unchanged from after-sign-up, because sign-in creates no user.
+- **Sign in.** Fill the fresh password and click `Sign in`. The `Applications` heading appears. Save it as `02-signed-in.txt`. Run `evidence.sh table "$dir" users after-sign-in`. The count is unchanged from after-sign-up, because sign-in creates no user.
 - **Username taken.** Sign out, switch to sign-up, and submit the same username with any valid password. The alert reads `That username is taken.`
 - **Toggle clears the error.** Choose `Have an account? Sign in`. The alert disappears.
 

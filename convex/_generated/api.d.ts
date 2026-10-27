@@ -8,19 +8,27 @@
  * @module
  */
 
+import type * as applications from "../applications.js"
 import type * as auth from "../auth.js"
+import type * as features_applications_functions from "../features/applications/functions.js"
+import type * as features_applications_validators from "../features/applications/validators.js"
 import type * as features_auth_methods from "../features/auth/methods.js"
 import type * as features_auth_providers from "../features/auth/providers.js"
 import type * as features_users_create from "../features/users/create.js"
+import type * as lib_functions from "../lib/functions.js"
 import type * as users from "../users.js"
 
 import type { ApiFromModules, FilterApi, FunctionReference } from "convex/server"
 
 declare const fullApi: ApiFromModules<{
+  applications: typeof applications
   auth: typeof auth
+  "features/applications/functions": typeof features_applications_functions
+  "features/applications/validators": typeof features_applications_validators
   "features/auth/methods": typeof features_auth_methods
   "features/auth/providers": typeof features_auth_providers
   "features/users/create": typeof features_users_create
+  "lib/functions": typeof lib_functions
   users: typeof users
 }>
 

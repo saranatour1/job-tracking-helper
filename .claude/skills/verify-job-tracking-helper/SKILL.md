@@ -35,7 +35,7 @@ The port is fixed at 3000 (`scripts/dev.sh` runs `vp dev --port 3000`), and ever
 
 `scripts/dev.sh` then fills the four Google and GitHub variables with `disabled` on every start. If the doctor reports `.env.local` or an env var missing, stop and give the user the matching step. Don't run login flows yourself.
 
-No seed step exists. The Convex `users` table starts empty and fills as people sign in. The Applications rows are two in-memory samples, Linear and Vercel, that reset on every page load.
+No seed step exists. The Convex `users` table fills as people sign in, and each user starts with an empty Applications table.
 
 ## Doctor
 
@@ -74,15 +74,15 @@ These handles are stable, all from the source:
 
 ```bash
 dir=$(.claude/skills/verify-job-tracking-helper/scripts/evidence.sh new <feature-id>)
-.claude/skills/verify-job-tracking-helper/scripts/evidence.sh users "$dir" before
-.claude/skills/verify-job-tracking-helper/scripts/evidence.sh users "$dir" after
+.claude/skills/verify-job-tracking-helper/scripts/evidence.sh table "$dir" users before
+.claude/skills/verify-job-tracking-helper/scripts/evidence.sh table "$dir" users after
 ```
 
-`new` prints a fresh directory under `.verify-evidence/`, which is gitignored. `users` saves the `users` table as JSON lines and prints the row count. A proof directory holds four kinds of file:
+`new` prints a fresh directory under `.verify-evidence/`, which is gitignored. `table` saves a Convex table (`users` or `applications`) as JSON lines and prints the row count. A proof directory holds four kinds of file:
 
 - `steps.md`, which you write: each user action, the tool call that did it, and what the page showed after.
 - One `get_page_text` or `read_page` dump per meaningful state, saved with Write, named like `02-after-sign-in.txt`, plus a screenshot copied in for each key state.
-- The `users-*.jsonl` snapshots, wherever the feature writes to the backend.
+- The `<table>-*.jsonl` snapshots, wherever the feature writes to the backend.
 - `credentials.txt`, when you created an account.
 
 Each `computer` `screenshot` result ends with an `[Image: source: <path>]` line. Copy that file into the evidence dir with a step-numbered name such as `01-dashboard.jpg`, because the source lives in session scratch space.
@@ -91,7 +91,7 @@ The proof has to meet these standards:
 
 - **Real user path.** Click the buttons a user clicks. Never call Convex functions directly (`convex run`, `runOneoffQuery`) to stand in for a UI step.
 - **Action and result.** Save the state before and after each action, not only the final screen.
-- **Side effects.** A sign-in or sign-up must add exactly one row to `users`, so compare the before and after counts. The Applications form writes nothing to the backend. Its proof is the table on the page.
+- **Side effects.** A sign-in or sign-up must add exactly one row to `users`, so compare the before and after counts. An added application must add exactly one row to `applications`.
 - **No mocks.** The only fake is the `disabled` OAuth placeholder that `scripts/dev.sh` sets. Real OAuth can't be verified here, as the oauth feature file explains.
 
 ## Cleanup
@@ -105,9 +105,9 @@ Accounts created during verification stay in the dev deployment. They're throwaw
 
 ## Helpers
 
-| Script                | Run it as                                                               | Does                                                  |
-| --------------------- | ----------------------------------------------------------------------- | ----------------------------------------------------- |
-| `scripts/doctor.sh`   | `.claude/skills/verify-job-tracking-helper/scripts/doctor.sh`           | read-only health check, exits 1 on failure            |
-| `scripts/evidence.sh` | `… evidence.sh new <feature-id>` or `… evidence.sh users <dir> <label>` | makes an evidence dir, or snapshots the `users` table |
+| Script                | Run it as                                                                       | Does                                               |
+| --------------------- | ------------------------------------------------------------------------------- | -------------------------------------------------- |
+| `scripts/doctor.sh`   | `.claude/skills/verify-job-tracking-helper/scripts/doctor.sh`                   | read-only health check, exits 1 on failure         |
+| `scripts/evidence.sh` | `… evidence.sh new <feature-id>` or `… evidence.sh table <dir> <table> <label>` | makes an evidence dir, or snapshots a Convex table |
 
 Both run from any directory inside the repo.

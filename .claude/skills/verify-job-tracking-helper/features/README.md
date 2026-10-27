@@ -15,6 +15,7 @@ This directory is the maintained source for verifying the user-facing behavior o
 - Find elements with `mcp__Claude_Browser__find` by the accessible name in quotes, then click the returned `ref`. Never click by coordinates.
 - Fill text with `mcp__Claude_Browser__form_input` on the `ref`.
 - Refs go stale when the page swaps between the sign-in form and the dashboard. Run `find` again after every sign-in, sign-out, or reload.
+- Refs can also reset between separate tool calls, which fails with `ref map not initialized`. Put the `find` and the click that uses its ref in one `browser_batch`.
 - Wait for a visible state, such as a heading, an alert, or a row, and not for a fixed sleep. Convex round trips take up to a second or two.
 - Treat every quoted name as literal.
 
@@ -22,7 +23,7 @@ This directory is the maintained source for verifying the user-facing behavior o
 
 - Capture the user action and the resulting state, not only the final screen.
 - UI proof is a saved `get_page_text` dump plus a screenshot copied from its `[Image: source: …]` path.
-- Backend proof is the `users` row count, before and after, from `evidence.sh users`.
+- Backend proof is the row count of the touched table (`users` or `applications`), before and after, from `evidence.sh table`.
 - Record the feature ID and entry point used in `steps.md`.
 - If a path can't be reached, report the attempted step and the unmet precondition.
 - Don't report a skipped entry point as verified through a different path.

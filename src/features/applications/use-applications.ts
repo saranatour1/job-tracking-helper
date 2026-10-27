@@ -1,41 +1,33 @@
 import { useForm } from "@tanstack/react-form"
 import { createColumnHelper, tableFeatures, useTable } from "@tanstack/react-table"
-import { type } from "arktype"
-import { useState } from "react"
+import { useMutation, useQuery } from "convex/react"
 
-export const statuses = ["applied", "interviewing", "offer", "rejected"] as const
+import { api } from "../../../convex/_generated/api"
+import type { Doc } from "../../../convex/_generated/dataModel"
+import { Application } from "../../../convex/features/applications/validators"
 
-export const Application = type({
-  company: "string > 0",
-  role: "string > 0",
-  status: type.enumerated(...statuses),
-})
-export type Application = typeof Application.infer
+export { statuses } from "../../../convex/features/applications/validators"
 
 const features = tableFeatures({})
-const helper = createColumnHelper<typeof features, Application>()
+const helper = createColumnHelper<typeof features, Doc<"applications">>()
 const columns = helper.columns([
   helper.accessor("company", { header: "Company" }),
   helper.accessor("role", { header: "Role" }),
   helper.accessor("status", { header: "Status" }),
 ])
 
-const sample: Application[] = [
-  { company: "Linear", role: "Product Engineer", status: "interviewing" },
-  { company: "Vercel", role: "Frontend Engineer", status: "applied" },
-]
+const emptyApplication: typeof Application.inferIn = { company: "", role: "", status: "applied" }
+const noRows: Doc<"applications">[] = []
 
-const emptyApplication: Application = { company: "", role: "", status: "applied" }
-
-// ponytail: rows live in React state until applications get a Convex table.
 export const useApplications = () => {
-  const [data, setData] = useState(sample)
-  const table = useTable({ features, columns, data })
+  const rows = useQuery(api.applications.list)
+  const add = useMutation(api.applications.add)
+  const table = useTable({ features, columns, data: rows ?? noRows })
   const form = useForm({
     defaultValues: emptyApplication,
     validators: { onSubmit: Application },
-    onSubmit: ({ value, formApi }) => {
-      setData((rows) => [...rows, value])
+    onSubmit: async ({ value, formApi }) => {
+      await add(value)
       formApi.reset()
     },
   })

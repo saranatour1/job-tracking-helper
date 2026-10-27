@@ -9,7 +9,8 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table"
-import { statuses, useApplications, type Application } from "./use-applications"
+import type { Application } from "../../../convex/features/applications/validators"
+import { statuses, useApplications } from "./use-applications"
 
 export const Applications = () => {
   const { table, form } = useApplications()
