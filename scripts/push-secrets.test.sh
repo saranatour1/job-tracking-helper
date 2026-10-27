@@ -8,8 +8,6 @@ trap 'rm -rf "$dir"' EXIT
 mkdir "$dir/bin"
 cat > "$dir/bin/op" <<'EOF'
 #!/bin/sh
-# Fake `op run -- cmd...`: resolves each op://<vault>/job-tracking-helper/<NAME>
-# env var to a value with quotes and a dollar sign, and records the reference.
 [ "$1 $2" = "run --" ] || { echo "unexpected op call: $*" >&2; exit 1; }
 for n in $(env | sed -n 's/^\([A-Z_][A-Z0-9_]*\)=op:.*/\1/p'); do
   printenv "$n" >> "$REFS"
