@@ -7,7 +7,12 @@ export default defineConfig({
   resolve: { tsconfigPaths: true },
   // Discovered late, these re-optimize mid-session and load a second React copy.
   optimizeDeps: {
-    include: ["@convex-dev/auth/react", "@convex-dev/auth/methods/username-password/react"],
+    include: [
+      "@convex-dev/auth/react",
+      "@convex-dev/auth/methods/username-password/react",
+      "@convex-dev/auth/methods/google/react",
+      "@convex-dev/auth/methods/github/react",
+    ],
   },
   plugins: [tailwindcss(), tanstackStart(), viteReact()],
   lint: {
