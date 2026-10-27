@@ -7,6 +7,7 @@ export const createUser = internalMutation({
   args: {
     provider: v.union(
       v.object({ name: v.literal("password"), accountId: v.string(), profile: v.object({}) }),
+      v.object({ name: v.literal("anonymous"), accountId: v.string(), profile: v.object({}) }),
       v.object({ name: v.literal("google"), accountId: v.string(), profile: vGoogleProfile }),
       v.object({ name: v.literal("github"), accountId: v.string(), profile: vGithubProfile })
     ),

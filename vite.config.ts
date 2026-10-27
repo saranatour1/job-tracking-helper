@@ -12,6 +12,7 @@ export default defineConfig({
       "@convex-dev/auth/methods/username-password/react",
       "@convex-dev/auth/methods/google/react",
       "@convex-dev/auth/methods/github/react",
+      "@convex-dev/auth/methods/anonymous/react",
     ],
   },
   plugins: [tailwindcss(), tanstackStart(), viteReact()],

@@ -2,6 +2,7 @@ import {
   useSignInWithUsernamePassword,
   useSignUpWithUsernamePassword,
 } from "@convex-dev/auth/methods/username-password/react"
+import { useSignInAnonymously } from "@convex-dev/auth/methods/anonymous/react"
 import { useSignInWithGithub } from "@convex-dev/auth/methods/github/react"
 import {
   useOauth,
@@ -45,6 +46,7 @@ export function SignIn() {
   const [mode, setMode] = useState<"signIn" | "signUp">("signIn")
   const { signIn: signInWithGoogle } = useSignInWithGoogle(api.auth)
   const { signIn: signInWithGithub } = useSignInWithGithub(api.auth)
+  const { signIn: signInAnonymously } = useSignInAnonymously(api.auth)
   const { flowError } = useOauth()
   const [formError, setError] = useState<string>()
   const error = formError ?? (flowError ? messages[flowError.error] : undefined)
@@ -106,6 +108,13 @@ export function SignIn() {
             {label}
           </Button>
         ))}
+        <Button
+          type="button"
+          variant="ghost"
+          onClick={() => signInAnonymously().catch(() => setError(messages.OTHER_ERROR))}
+        >
+          Continue as guest
+        </Button>
         <Button
           type="button"
           variant="link"

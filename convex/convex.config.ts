@@ -5,6 +5,7 @@ import authPassword from "@convex-dev/auth/components/password/convex.config.js"
 import authUsername from "@convex-dev/auth/components/username/convex.config.js"
 import authGoogle from "@convex-dev/auth/components/google/convex.config.js"
 import authGithub from "@convex-dev/auth/components/github/convex.config.js"
+import authAnonymous from "@convex-dev/auth/components/anonymous/convex.config.js"
 
 const app = defineApp({
   env: {
@@ -26,6 +27,7 @@ app.use(auth, {
 })
 app.use(authPassword)
 app.use(authUsername)
+app.use(authAnonymous)
 app.use(authGoogle, {
   httpPrefix: "/oauth/google",
   env: {
