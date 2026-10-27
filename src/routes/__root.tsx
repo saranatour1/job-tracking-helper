@@ -1,10 +1,11 @@
 import { HeadContent, Scripts, createRootRoute } from "@tanstack/react-router"
 
 import { AppSidebar } from "@/components/app-sidebar"
+import { SignIn } from "@/components/sign-in"
 import { SidebarInset, SidebarProvider, SidebarTrigger } from "@/components/ui/sidebar"
 import { TooltipProvider } from "@/components/ui/tooltip"
 import { ConvexAuthProvider } from "@convex-dev/auth/react"
-import { ConvexReactClient } from "convex/react"
+import { Authenticated, ConvexReactClient, Unauthenticated } from "convex/react"
 import { api } from "../../convex/_generated/api"
 import appCss from "../styles.css?url"
 
@@ -53,17 +54,22 @@ function RootDocument({ children }: { children: React.ReactNode }) {
       </head>
       <body>
         <ConvexAuthProvider client={convex} api={authApi}>
-          <TooltipProvider>
-            <SidebarProvider>
-              <AppSidebar />
-              <SidebarInset>
-                <header className="flex h-12 items-center border-b px-4">
-                  <SidebarTrigger />
-                </header>
-                {children}
-              </SidebarInset>
-            </SidebarProvider>
-          </TooltipProvider>
+          <Authenticated>
+            <TooltipProvider>
+              <SidebarProvider>
+                <AppSidebar />
+                <SidebarInset>
+                  <header className="flex h-12 items-center border-b px-4">
+                    <SidebarTrigger />
+                  </header>
+                  {children}
+                </SidebarInset>
+              </SidebarProvider>
+            </TooltipProvider>
+          </Authenticated>
+          <Unauthenticated>
+            <SignIn />
+          </Unauthenticated>
         </ConvexAuthProvider>
         <Scripts />
       </body>
