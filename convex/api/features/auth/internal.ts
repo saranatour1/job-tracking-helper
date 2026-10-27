@@ -13,7 +13,14 @@ const createUser = internalMutation({
     ),
   },
   returns: v.id("users"),
-  handler: (ctx) => ctx.db.insert("users", {}),
+  // Google and GitHub share their name and email; other methods start empty.
+  handler: (ctx, { provider }) =>
+    ctx.db.insert(
+      "users",
+      provider.name === "google" || provider.name === "github"
+        ? { name: provider.profile.name, email: provider.profile.email }
+        : {}
+    ),
 })
 
 export const internalApi = { createUser }
