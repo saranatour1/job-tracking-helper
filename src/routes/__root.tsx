@@ -1,9 +1,7 @@
 import { HeadContent, Scripts, createRootRoute } from "@tanstack/react-router"
 
-import { AppSidebar } from "@/components/app-sidebar"
-import { SignIn } from "@/components/sign-in"
-import { SidebarInset, SidebarProvider, SidebarTrigger } from "@/components/ui/sidebar"
-import { TooltipProvider } from "@/components/ui/tooltip"
+import { SignIn } from "@/features/auth/sign-in"
+import { AppShell } from "@/features/shell/app-shell"
 import { ConvexAuthProvider } from "@convex-dev/auth/react"
 import { Authenticated, ConvexReactClient, Unauthenticated } from "convex/react"
 import { api } from "../../convex/_generated/api"
@@ -15,6 +13,25 @@ if (!convexUrl) {
 }
 const convex = new ConvexReactClient(convexUrl)
 const authApi = { refreshSession: api.auth.refreshSession, signOut: api.auth.signOut }
+
+const RootDocument = ({ children }: { children: React.ReactNode }) => (
+  <html lang="en">
+    <head>
+      <HeadContent />
+    </head>
+    <body>
+      <ConvexAuthProvider client={convex} api={authApi}>
+        <Authenticated>
+          <AppShell>{children}</AppShell>
+        </Authenticated>
+        <Unauthenticated>
+          <SignIn />
+        </Unauthenticated>
+      </ConvexAuthProvider>
+      <Scripts />
+    </body>
+  </html>
+)
 
 export const Route = createRootRoute({
   head: () => ({
@@ -45,34 +62,3 @@ export const Route = createRootRoute({
   ),
   shellComponent: RootDocument,
 })
-
-function RootDocument({ children }: { children: React.ReactNode }) {
-  return (
-    <html lang="en">
-      <head>
-        <HeadContent />
-      </head>
-      <body>
-        <ConvexAuthProvider client={convex} api={authApi}>
-          <Authenticated>
-            <TooltipProvider>
-              <SidebarProvider>
-                <AppSidebar />
-                <SidebarInset>
-                  <header className="flex h-12 items-center border-b px-4">
-                    <SidebarTrigger />
-                  </header>
-                  {children}
-                </SidebarInset>
-              </SidebarProvider>
-            </TooltipProvider>
-          </Authenticated>
-          <Unauthenticated>
-            <SignIn />
-          </Unauthenticated>
-        </ConvexAuthProvider>
-        <Scripts />
-      </body>
-    </html>
-  )
-}

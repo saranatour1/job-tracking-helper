@@ -26,3 +26,6 @@ dist-ssr
 .nitro
 .tanstack
 .output
+
+# Proof artifacts from .claude/skills/verify-job-tracking-helper
+.verify-evidence
