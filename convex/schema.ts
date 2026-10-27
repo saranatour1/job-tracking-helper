@@ -1,14 +1,11 @@
 import { defineSchema, defineTable } from "convex/server"
-import { v } from "convex/values"
-import { statuses } from "./features/applications/validators"
+import { Application } from "./features/applications/validators"
+import { arkId, arkOutputToConvex } from "./lib/ark"
 
 export default defineSchema({
   users: defineTable({}),
-  // Stored shape only. Input rules (trimmed, non-empty) live in the arktype `Application`.
-  applications: defineTable({
-    userId: v.id("users"),
-    company: v.string(),
-    role: v.string(),
-    status: v.union(...statuses.map((status) => v.literal(status))),
-  }).index("by_userId", ["userId"]),
+  applications: defineTable(arkOutputToConvex(Application.and({ userId: arkId("users") }))).index(
+    "by_userId",
+    ["userId"]
+  ),
 })

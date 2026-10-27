@@ -15,6 +15,7 @@ import type * as features_applications_validators from "../features/applications
 import type * as features_auth_methods from "../features/auth/methods.js";
 import type * as features_auth_providers from "../features/auth/providers.js";
 import type * as features_users_create from "../features/users/create.js";
+import type * as lib_ark from "../lib/ark.js";
 import type * as lib_functions from "../lib/functions.js";
 import type * as users from "../users.js";
 
@@ -32,6 +33,7 @@ declare const fullApi: ApiFromModules<{
   "features/auth/methods": typeof features_auth_methods;
   "features/auth/providers": typeof features_auth_providers;
   "features/users/create": typeof features_users_create;
+  "lib/ark": typeof lib_ark;
   "lib/functions": typeof lib_functions;
   users: typeof users;
 }>;

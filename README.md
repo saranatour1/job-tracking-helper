@@ -30,6 +30,7 @@ Checks:
 ```bash
 vp check
 vp run typecheck
+vp test
 sh scripts/push-secrets.test.sh
 ```
 
@@ -40,7 +41,7 @@ convex/
   auth.ts, users.ts, applications.ts   public API: only these files register functions
   features/<feature>/                  function definitions, re-exported by the files above
   lib/functions.ts                     authedQuery, authedMutation, arkMutation
-  schema.ts                            tables
+  schema.ts                            tables, built from arktype types
 src/
   routes/                              pages (TanStack Router); they only import a feature
   features/<feature>/                  a component plus a use-* hook holding its logic
@@ -69,5 +70,6 @@ Made for this repo:
 - `scripts/dev.sh` runs Convex and Vite together. It fills in missing Google and GitHub keys with `disabled`, so dev works without them.
 - `scripts/push-secrets.sh` copies the OAuth keys from 1Password into Convex without printing them or writing them to disk.
 - `convex/lib/functions.ts` has function builders that require sign-in and check arguments with arktype.
+- `convex/lib/ark.ts` turns arktype types into Convex validators (`arkToConvex`, `arkOutputToConvex`, `arkId`), so tables and args are defined once in arktype.
 - `.claude/skills/verify-job-tracking-helper` is an agent skill with a health check, an evidence helper and step-by-step checks for each feature.
 - `.claude/skills/write-pr` is an agent skill for Conventional Commits titles and short PR bodies, matching `.github/pull_request_template.md`. Its script uploads screenshots to the `pr-assets` branch.

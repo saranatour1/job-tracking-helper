@@ -6,9 +6,10 @@ import {
   type CustomCtx,
 } from "convex-helpers/server/customFunctions"
 import type { Type } from "arktype"
-import { v, type Validator } from "convex/values"
+import type { Validator } from "convex/values"
 import type { ReturnValueForOptionalValidator } from "convex/server"
 import { mutation, query } from "../_generated/server"
+import { arkToConvex } from "./ark"
 
 const signedIn = customCtx(async (ctx: Parameters<typeof getAuthUserId>[0]) => {
   const userId = await getAuthUserId(ctx)
@@ -20,9 +21,8 @@ const signedIn = customCtx(async (ctx: Parameters<typeof getAuthUserId>[0]) => {
 export const authedQuery = customQuery(query, signedIn)
 export const authedMutation = customMutation(mutation, signedIn)
 
-// Convex can't read arktype, so it accepts any args and arktype checks them before
-// the handler runs. Clients still see the arktype input type. The trade-off: the
-// dashboard and `convex function-spec` show these args as `any`.
+// Convex checks the args' shape, and the arktype type then applies the rules
+// Convex can't express, such as trimming, before the handler runs.
 export const arkMutation = <
   T extends Type<object>,
   R extends Validator<unknown, "required", string>,
@@ -35,7 +35,7 @@ export const arkMutation = <
   ) => ReturnValueForOptionalValidator<R>
 }) =>
   authedMutation({
-    args: v.any() as Validator<T["inferIn"], "required", string>,
+    args: arkToConvex(def.args),
     returns: def.returns,
     handler: (ctx, args) => def.handler(ctx, def.args.assert(args)),
   })
