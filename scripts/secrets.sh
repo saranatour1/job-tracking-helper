@@ -57,7 +57,7 @@ case "${1:-}" in
     security unlock-keychain "$KEYCHAIN"
     for n in $NAMES; do
       if read_secret "$n" >/dev/null; then
-        read_secret "$n" | npx convex env set "$n"
+        read_secret "$n" | pnpm exec convex env set "$n"
       else
         echo "skipped $n: not in the keychain (run: $0 set $n)" >&2
       fi

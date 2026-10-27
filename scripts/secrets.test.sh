@@ -1,17 +1,17 @@
 #!/bin/sh
-# Drives scripts/secrets.sh against a throwaway keychain and a fake npx, so it
+# Drives scripts/secrets.sh against a throwaway keychain and a fake pnpm, so it
 # never touches your real keychain or Convex deployment.
 set -eu
 
 dir=$(mktemp -d)
 trap 'security delete-keychain "$dir/test.keychain-db" 2>/dev/null; rm -rf "$dir"' EXIT
 mkdir "$dir/bin"
-cat > "$dir/bin/npx" <<'EOF'
+cat > "$dir/bin/pnpm" <<'EOF'
 #!/bin/sh
-[ "$1 $2 $3" = "convex env set" ] || { echo "unexpected npx call: $*" >&2; exit 1; }
-printf '%s=%s\n' "$4" "$(cat)" >> "$PUSHED"
+[ "$1 $2 $3 $4" = "exec convex env set" ] || { echo "unexpected pnpm call: $*" >&2; exit 1; }
+printf '%s=%s\n' "$5" "$(cat)" >> "$PUSHED"
 EOF
-chmod +x "$dir/bin/npx"
+chmod +x "$dir/bin/pnpm"
 export SECRETS_KEYCHAIN="$dir/test.keychain-db" PUSHED="$dir/pushed.txt" PATH="$dir/bin:$PATH"
 
 cat > "$dir/run.exp" <<'EOF'
