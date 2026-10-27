@@ -5,6 +5,7 @@
   "type": "module",
   "scripts": {
     "dev": "sh scripts/dev.sh",
+    "secrets:push": "sh scripts/push-secrets.sh",
     "build": "vp build",
     "preview": "vp preview"
   },
