@@ -16,7 +16,7 @@ import {
 
 const nav = [{ title: "Applications", to: "/", icon: Briefcase01Icon }] as const
 
-export function AppSidebar(props: React.ComponentProps<typeof Sidebar>) {
+export const AppSidebar = (props: React.ComponentProps<typeof Sidebar>) => {
   const { signOut } = useAuthActions()
   return (
     <Sidebar collapsible="icon" {...props}>
