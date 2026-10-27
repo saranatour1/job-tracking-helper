@@ -1,11 +1,8 @@
-import { defineSchema, defineTable } from "convex/server"
-import { Application } from "./features/applications/validators"
-import { arkId, arkOutputToConvex } from "./lib/ark"
+import { defineSchema } from "convex/server"
+import { applicationsTable } from "./api/features/applications/models"
+import { usersTable } from "./api/features/users/models"
 
 export default defineSchema({
-  users: defineTable({}),
-  applications: defineTable(arkOutputToConvex(Application.and({ userId: arkId("users") }))).index(
-    "by_userId",
-    ["userId"]
-  ),
+  users: usersTable,
+  applications: applicationsTable,
 })

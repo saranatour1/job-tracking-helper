@@ -8,16 +8,19 @@
  * @module
  */
 
+import type * as api_features_applications_index from "../api/features/applications/index.js";
+import type * as api_features_applications_models from "../api/features/applications/models.js";
+import type * as api_features_applications_public from "../api/features/applications/public.js";
+import type * as api_features_applications_validators from "../api/features/applications/validators.js";
+import type * as api_features_auth_index from "../api/features/auth/index.js";
+import type * as api_features_auth_internal from "../api/features/auth/internal.js";
+import type * as api_features_auth_public from "../api/features/auth/public.js";
+import type * as api_features_auth_utils from "../api/features/auth/utils.js";
+import type * as api_features_users_models from "../api/features/users/models.js";
 import type * as applications from "../applications.js";
 import type * as auth from "../auth.js";
-import type * as features_applications_functions from "../features/applications/functions.js";
-import type * as features_applications_validators from "../features/applications/validators.js";
-import type * as features_auth_methods from "../features/auth/methods.js";
-import type * as features_auth_providers from "../features/auth/providers.js";
-import type * as features_users_create from "../features/users/create.js";
 import type * as lib_ark from "../lib/ark.js";
 import type * as lib_functions from "../lib/functions.js";
-import type * as users from "../users.js";
 
 import type {
   ApiFromModules,
@@ -26,16 +29,19 @@ import type {
 } from "convex/server";
 
 declare const fullApi: ApiFromModules<{
+  "api/features/applications/index": typeof api_features_applications_index;
+  "api/features/applications/models": typeof api_features_applications_models;
+  "api/features/applications/public": typeof api_features_applications_public;
+  "api/features/applications/validators": typeof api_features_applications_validators;
+  "api/features/auth/index": typeof api_features_auth_index;
+  "api/features/auth/internal": typeof api_features_auth_internal;
+  "api/features/auth/public": typeof api_features_auth_public;
+  "api/features/auth/utils": typeof api_features_auth_utils;
+  "api/features/users/models": typeof api_features_users_models;
   applications: typeof applications;
   auth: typeof auth;
-  "features/applications/functions": typeof features_applications_functions;
-  "features/applications/validators": typeof features_applications_validators;
-  "features/auth/methods": typeof features_auth_methods;
-  "features/auth/providers": typeof features_auth_providers;
-  "features/users/create": typeof features_users_create;
   "lib/ark": typeof lib_ark;
   "lib/functions": typeof lib_functions;
-  users: typeof users;
 }>;
 
 /**
