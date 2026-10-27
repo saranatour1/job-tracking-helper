@@ -20,7 +20,7 @@ pnpm exec convex env set SITE_URL=http://localhost:3000
 pnpm exec auth
 ```
 
-Username/password and guest sign-in work right away. Google and GitHub sign-in show up once their keys are in Convex:
+Username/password and guest sign-in work right away. The Google and GitHub buttons work once their keys are in Convex:
 
 1. In 1Password, add an item `job-tracking-helper` to your Private vault, with fields `AUTH_GOOGLE_CLIENT_ID`, `AUTH_GOOGLE_CLIENT_SECRET`, `AUTH_GITHUB_CLIENT_ID` and `AUTH_GITHUB_CLIENT_SECRET`.
 2. Run `vp run secrets:push`. Set `OP_VAULT` to use another vault.
@@ -73,7 +73,7 @@ Code rules, enforced by `vp check`: arrow functions only, no `useEffect`. Files 
 
 Made for this repo:
 
-- `scripts/dev.sh` runs Convex and Vite together. It fills in missing Google and GitHub keys with `disabled`, so dev works without them.
+- `scripts/dev.sh` runs Convex and Vite together. It fills in missing Google and GitHub keys with `disabled`, so Convex starts without them. Those two buttons fail until real keys are pushed.
 - `scripts/push-secrets.sh` copies the OAuth keys from 1Password into Convex without printing them or writing them to disk.
 - `convex/lib/functions.ts` has function builders that require sign-in and check arguments with arktype.
 - `convex/lib/ark.ts` turns arktype types into Convex validators (`arkToConvex`, `arkOutputToConvex`, `arkId`), so tables and args are defined once in arktype.

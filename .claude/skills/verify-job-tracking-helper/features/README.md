@@ -41,7 +41,7 @@ Each feature file starts with an H1 title and one paragraph describing the user-
 
 - [Guest sign-in](./guest-sign-in.md) covers `Continue as guest`, which creates an anonymous user and opens the dashboard.
 - [Password sign-in](./password-sign-in.md) covers sign-up, sign-in, the mode toggle, and the wrong-password, taken-username, and short-password errors.
-- [OAuth buttons](./oauth-buttons.md) covers whether the Google and GitHub buttons show, and why the round trip is user-only.
+- [OAuth buttons](./oauth-buttons.md) covers the Google and GitHub buttons, and why the round trip is user-only.
 - [Sidebar](./sidebar.md) covers toggling by button and keyboard, the Applications link, and `Sign out`.
 - [Applications](./applications.md) covers the table, the add form, and its validation.
 - [Account](./account.md) covers editing the profile, the custom username, the profile image, and deleting the account.

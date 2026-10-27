@@ -3,10 +3,7 @@ import { setupAnonymous } from "@convex-dev/auth/methods/anonymous/server"
 import { setupGithub } from "@convex-dev/auth/methods/github/server"
 import { setupGoogle } from "@convex-dev/auth/methods/google/server"
 import { setupUsernamePassword } from "@convex-dev/auth/methods/username-password/server"
-import { v } from "convex/values"
 import { components, internal } from "../../../_generated/api"
-import { query } from "../../../_generated/server"
-import { configured } from "./utils"
 
 const siteUrl = process.env.SITE_URL
 if (!siteUrl) {
@@ -37,15 +34,6 @@ const anonymous = setupAnonymous(auth, {
   component: components.authAnonymous,
 }).attachUserCallbacks(userCallbacks)
 
-const oauthProviders = query({
-  args: {},
-  returns: v.object({ google: v.boolean(), github: v.boolean() }),
-  handler: () => ({
-    google: configured("AUTH_GOOGLE_CLIENT_ID", "AUTH_GOOGLE_CLIENT_SECRET"),
-    github: configured("AUTH_GITHUB_CLIENT_ID", "AUTH_GITHUB_CLIENT_SECRET"),
-  }),
-})
-
 export const publicApi = {
   signOut: auth.signOut,
   refreshSession: auth.refreshSession,
@@ -57,5 +45,4 @@ export const publicApi = {
   startSignInWithGithub: github.startSignInWithGithub,
   completeSignInWithGithub: github.completeSignInWithGithub,
   signInAnonymously: anonymous.signInAnonymously,
-  oauthProviders,
 }
