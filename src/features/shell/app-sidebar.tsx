@@ -25,11 +25,9 @@ export const AppSidebar = (props: React.ComponentProps<typeof Sidebar>) => {
           <SidebarMenu>
             {nav.map((item) => (
               <SidebarMenuItem key={item.to}>
-                <SidebarMenuButton asChild tooltip={item.title}>
-                  <Link to={item.to}>
-                    <HugeiconsIcon icon={item.icon} />
-                    <span>{item.title}</span>
-                  </Link>
+                <SidebarMenuButton render={<Link to={item.to} />} tooltip={item.title}>
+                  <HugeiconsIcon icon={item.icon} />
+                  <span>{item.title}</span>
                 </SidebarMenuButton>
               </SidebarMenuItem>
             ))}

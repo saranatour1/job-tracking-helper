@@ -37,7 +37,7 @@ export default defineConfig({
     // shadcn generates these; edits get lost on the next `shadcn add`.
     overrides: [
       {
-        files: ["src/components/ui/**"],
+        files: ["src/components/ui/**", "src/hooks/use-media-query.ts"],
         rules: { "func-style": "off", "no-restricted-imports": "off" },
       },
     ],
