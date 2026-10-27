@@ -1,6 +1,7 @@
 #!/bin/sh
 # Convex rejects a push while the Google or GitHub client vars are unset, so dev
-# fills each missing one with "disabled" and the sign-in form hides that button.
+# fills each missing one with "disabled". Those buttons fail until real keys are
+# pushed with `vp run secrets:push`.
 set -eu
 
 oauth_vars="AUTH_GOOGLE_CLIENT_ID AUTH_GOOGLE_CLIENT_SECRET AUTH_GITHUB_CLIENT_ID AUTH_GITHUB_CLIENT_SECRET"
