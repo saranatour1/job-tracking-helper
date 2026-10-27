@@ -50,6 +50,7 @@ convex/
   schema.ts                            collects each feature's tables
 src/
   routes/                              pages (TanStack Router); they only import a feature
+    _app.tsx, _auth.tsx                layouts: signed-in pages, and /sign-in + /sign-up
   features/<feature>/                  the feature's components
   components/ui/                       shadcn/coss components, managed by the shadcn CLI
 scripts/                               dev and secrets scripts

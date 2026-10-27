@@ -5,7 +5,7 @@ This directory is the maintained source for verifying the user-facing behavior o
 ## Baseline preconditions
 
 - `.claude/skills/verify-job-tracking-helper/scripts/doctor.sh` passes.
-- The Browser pane tab shows `http://localhost:3000/`.
+- The Browser pane tab shows `http://localhost:3000/`. Signed out, every page redirects to `/sign-in`.
 - The pane is signed out, so the `Sign in` heading is visible. If it isn't, choose `Sign out` first.
 - The deployment's OAuth variables are the `disabled` placeholders from `scripts/dev.sh`, unless the user says real credentials are pushed.
 - An evidence dir exists from `evidence.sh new <feature-id>`.

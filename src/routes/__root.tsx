@@ -1,9 +1,7 @@
 import { HeadContent, Scripts, createRootRoute } from "@tanstack/react-router"
 
-import { SignIn } from "@/features/auth/sign-in"
-import { AppShell } from "@/features/shell/app-shell"
 import { ConvexAuthProvider } from "@convex-dev/auth/react"
-import { Authenticated, ConvexReactClient, Unauthenticated } from "convex/react"
+import { ConvexReactClient } from "convex/react"
 import { api } from "@convex/_generated/api"
 import appCss from "@/styles.css?url"
 
@@ -21,12 +19,7 @@ const RootDocument = ({ children }: { children: React.ReactNode }) => (
     </head>
     <body>
       <ConvexAuthProvider client={convex} api={authApi}>
-        <Authenticated>
-          <AppShell>{children}</AppShell>
-        </Authenticated>
-        <Unauthenticated>
-          <SignIn />
-        </Unauthenticated>
+        {children}
       </ConvexAuthProvider>
       <Scripts />
     </body>
