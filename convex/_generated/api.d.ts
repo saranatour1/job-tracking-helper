@@ -16,11 +16,15 @@ import type * as api_features_auth_index from "../api/features/auth/index.js";
 import type * as api_features_auth_internal from "../api/features/auth/internal.js";
 import type * as api_features_auth_public from "../api/features/auth/public.js";
 import type * as api_features_auth_utils from "../api/features/auth/utils.js";
+import type * as api_features_users_index from "../api/features/users/index.js";
 import type * as api_features_users_models from "../api/features/users/models.js";
+import type * as api_features_users_public from "../api/features/users/public.js";
+import type * as api_features_users_validators from "../api/features/users/validators.js";
 import type * as applications from "../applications.js";
 import type * as auth from "../auth.js";
 import type * as lib_ark from "../lib/ark.js";
 import type * as lib_functions from "../lib/functions.js";
+import type * as users from "../users.js";
 
 import type {
   ApiFromModules,
@@ -37,11 +41,15 @@ declare const fullApi: ApiFromModules<{
   "api/features/auth/internal": typeof api_features_auth_internal;
   "api/features/auth/public": typeof api_features_auth_public;
   "api/features/auth/utils": typeof api_features_auth_utils;
+  "api/features/users/index": typeof api_features_users_index;
   "api/features/users/models": typeof api_features_users_models;
+  "api/features/users/public": typeof api_features_users_public;
+  "api/features/users/validators": typeof api_features_users_validators;
   applications: typeof applications;
   auth: typeof auth;
   "lib/ark": typeof lib_ark;
   "lib/functions": typeof lib_functions;
+  users: typeof users;
 }>;
 
 /**

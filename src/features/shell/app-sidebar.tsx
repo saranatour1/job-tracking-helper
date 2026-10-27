@@ -1,6 +1,6 @@
 import { useAuthActions } from "@convex-dev/auth/react"
 import { Link } from "@tanstack/react-router"
-import { Briefcase01Icon, Logout01Icon } from "@hugeicons/core-free-icons"
+import { Briefcase01Icon, Logout01Icon, UserIcon } from "@hugeicons/core-free-icons"
 import { HugeiconsIcon } from "@hugeicons/react"
 
 import {
@@ -14,7 +14,10 @@ import {
   SidebarRail,
 } from "@/components/ui/sidebar"
 
-const nav = [{ title: "Applications", to: "/", icon: Briefcase01Icon }] as const
+const nav = [
+  { title: "Applications", to: "/", icon: Briefcase01Icon },
+  { title: "Account", to: "/account", icon: UserIcon },
+] as const
 
 export const AppSidebar = (props: React.ComponentProps<typeof Sidebar>) => {
   const { signOut } = useAuthActions()
