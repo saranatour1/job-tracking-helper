@@ -29,3 +29,6 @@ dist-ssr
 
 # Proof artifacts from .claude/skills/verify-job-tracking-helper
 .verify-evidence
+
+# Never commit env files, secrets or not.
+.env*
