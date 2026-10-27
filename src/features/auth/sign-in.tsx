@@ -10,6 +10,7 @@ import {
   type OauthFlowError,
 } from "@convex-dev/auth/methods/google/react"
 import { api } from "@convex/_generated/api"
+import { Link } from "@tanstack/react-router"
 import { useState } from "react"
 
 import { Button } from "@/components/ui/button"
@@ -44,8 +45,7 @@ const messages: Record<ErrorCode, string> = {
   OTHER_ERROR: "Something went wrong. Try again.",
 }
 
-export const SignIn = () => {
-  const [mode, setMode] = useState<"signIn" | "signUp">("signIn")
+export const SignIn = ({ mode }: { mode: "signIn" | "signUp" }) => {
   const [formError, setFormError] = useState<string>()
   const { signIn, pending: signingIn } = useSignInWithUsernamePassword(api.auth)
   const { signUp, pending: signingUp } = useSignUpWithUsernamePassword(api.auth)
@@ -118,14 +118,7 @@ export const SignIn = () => {
         >
           Continue as guest
         </Button>
-        <Button
-          type="button"
-          variant="link"
-          onClick={() => {
-            setMode(mode === "signIn" ? "signUp" : "signIn")
-            setFormError(undefined)
-          }}
-        >
+        <Button variant="link" render={<Link to={mode === "signIn" ? "/sign-up" : "/sign-in"} />}>
           {mode === "signIn" ? "Need an account? Sign up" : "Have an account? Sign in"}
         </Button>
       </form>
