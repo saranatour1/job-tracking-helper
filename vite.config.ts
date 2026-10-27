@@ -19,6 +19,7 @@ export default defineConfig({
   lint: {
     ignorePatterns: ["src/routeTree.gen.ts", "convex/_generated"],
     options: { typeAware: true, typeCheck: true },
+    jsPlugins: ["@convex-dev/eslint-plugin"],
     rules: {
       "func-style": ["error", "expression"],
       "no-restricted-imports": [
@@ -36,6 +37,20 @@ export default defineConfig({
     },
     // shadcn generates these; edits get lost on the next `shadcn add`.
     overrides: [
+      // @convex-dev/eslint-plugin's recommended set.
+      {
+        files: ["convex/**/*.ts"],
+        rules: {
+          "@convex-dev/no-old-registered-function-syntax": "error",
+          "@convex-dev/require-args-validator": "error",
+          "@convex-dev/explicit-table-ids": "error",
+          "@convex-dev/no-filter-in-query": "warn",
+          "@convex-dev/no-top-of-hour-crons": "warn",
+          "@convex-dev/no-schema-import-cycle": "error",
+          "@convex-dev/no-duplicate-indexes": "error",
+          "@convex-dev/no-process-env": "error",
+        },
+      },
       {
         files: ["src/components/ui/**", "src/hooks/use-media-query.ts"],
         rules: { "func-style": "off", "no-restricted-imports": "off" },
