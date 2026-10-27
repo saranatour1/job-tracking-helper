@@ -6,7 +6,7 @@ This directory is the maintained source for verifying the user-facing behavior o
 
 - `.claude/skills/verify-job-tracking-helper/scripts/doctor.sh` passes.
 - The Browser pane tab shows `http://localhost:3000/`. Signed out, every page redirects to `/sign-in`.
-- The pane is signed out, so the `Sign in` heading is visible. If it isn't, choose `Sign out` first.
+- The pane is signed out, so the `Sign in` heading is visible. If it isn't, open `Account menu` and choose `Sign out` first.
 - The deployment's OAuth variables are the `disabled` placeholders from `scripts/dev.sh`, unless the user says real credentials are pushed.
 - An evidence dir exists from `evidence.sh new <feature-id>`.
 
@@ -42,6 +42,6 @@ Each feature file starts with an H1 title and one paragraph describing the user-
 - [Guest sign-in](./guest-sign-in.md) covers `Continue as guest`, which creates an anonymous user and opens the dashboard.
 - [Password sign-in](./password-sign-in.md) covers sign-up, sign-in, the mode toggle, and the wrong-password, taken-username, and short-password errors.
 - [OAuth buttons](./oauth-buttons.md) covers the Google and GitHub buttons, and why the round trip is user-only.
-- [Sidebar](./sidebar.md) covers toggling by button and keyboard, the Applications link, and `Sign out`.
+- [Sidebar](./sidebar.md) covers toggling by button and keyboard, the Applications link, and the user menu with `Account` and `Sign out`.
 - [Applications](./applications.md) covers the table, the add form, and its validation.
 - [Account](./account.md) covers editing the profile, the custom username, the profile image, and deleting the account.

@@ -12,7 +12,7 @@ A signed-in user can edit their name, email and custom username, upload or remov
 
 ## How to get to it (user POV)
 
-- Choose `Account` in the sidebar, or open `http://localhost:3000/account`.
+- Open `Account menu` in the sidebar footer and choose `Account`, or open `http://localhost:3000/account`.
 
 ## Driving it with Claude Browser
 

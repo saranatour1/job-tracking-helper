@@ -61,12 +61,12 @@ Vite serves source directly, so a passing doctor means the running UI is the wor
 
 These handles are stable, all from the source:
 
-| Where         | Handle                                                                                                                                                                                                                                                                                    |
-| ------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Sign-in form  | heading `Sign in` or `Create an account`; textboxes `Username` and `Password`; buttons `Sign in`, `Sign up`, `Continue as guest`, `Need an account? Sign up`, `Have an account? Sign in`; error text in `role="alert"`                                                                    |
-| OAuth buttons | `Continue with Google` and `Continue with GitHub`, rendered only when that provider's variables are real                                                                                                                                                                                  |
-| Shell         | button `Toggle Sidebar` in the header (a second, `generic` match is the sidebar rail); `Cmd+B` or `Ctrl+B`; sidebar link `Applications`; `Sign out`, which `find` reports as `generic` but clicks fine; the sidebar root `[data-slot="sidebar"][data-state]` is `expanded` or `collapsed` |
-| Applications  | heading `Applications`; textboxes `company` and `role`; the status select, which `find` returns for `"combobox"`, named after its current value (`applied`, `interviewing`, `offer`, `rejected`); button `Add`; table with columns `Company`, `Role`, `Status`                            |
+| Where         | Handle                                                                                                                                                                                                                                                                                                        |
+| ------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Sign-in form  | heading `Sign in` or `Create an account`; textboxes `Username` and `Password`; buttons `Sign in`, `Sign up`, `Continue as guest`, `Need an account? Sign up`, `Have an account? Sign in`; error text in `role="alert"`                                                                                        |
+| OAuth buttons | `Continue with Google` and `Continue with GitHub`, rendered only when that provider's variables are real                                                                                                                                                                                                      |
+| Shell         | button `Toggle Sidebar` in the header (a second, `generic` match is the sidebar rail); `Cmd+B` or `Ctrl+B`; sidebar link `Applications`; the footer button `Account menu`, which opens menu items `Account` and `Sign out`; the sidebar root `[data-slot="sidebar"][data-state]` is `expanded` or `collapsed` |
+| Applications  | heading `Applications`; textboxes `company` and `role`; the status select, which `find` returns for `"combobox"`, named after its current value (`applied`, `interviewing`, `offer`, `rejected`); button `Add`; table with columns `Company`, `Role`, `Status`                                                |
 
 **Test accounts.** Generate a fresh username for each run, letters and digits only, such as `verify` plus a Unix timestamp, and a random password of 12 or more characters. Write both to `<evidence dir>/credentials.txt`. Never type a real password from anywhere else, and don't repeat the values in your reply.
 
@@ -96,7 +96,7 @@ The proof has to meet these standards:
 
 ## Cleanup
 
-1. In the pane, choose `Sign out`. This resets the pane to the sign-in form for the next run.
+1. In the pane, open `Account menu` and choose `Sign out`. This resets the pane to the sign-in form for the next run.
 2. If `STARTED=yes`, run `mcp__Claude_Browser__preview_stop` with the saved `serverId`. Then check `lsof -tiTCP:3000 -sTCP:LISTEN`. Stopping `convex dev` with a signal can leave vite running, so if the pid you recorded at launch is still listening, `kill <that pid>`. Kill only that pid, never by name.
 3. If `STARTED=no`, leave the process alone.
 4. Keep `.verify-evidence/`. Confirm the run's directory still exists and holds `steps.md`.

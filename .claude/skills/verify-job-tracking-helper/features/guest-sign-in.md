@@ -23,7 +23,7 @@ Preconditions:
 - **Save state.** Run `get_page_text` and save it as `01-dashboard.txt`. It contains the `Applications` heading and the `Company`, `Role`, and `Status` column headers.
 - **Side effect.** Run `evidence.sh table "$dir" users after`. The count is the before count plus one.
 - **Reload.** Run `navigate` to `http://localhost:3000/`. The `Applications` heading shows again with no sign-in form, which proves `guest-persist`.
-- **Sign out.** Run `find` with `"Sign out"`, then `left_click`. The `Sign in` heading returns. Save it as `02-signed-out.txt`.
+- **Sign out.** `find` `"Account menu"` and click it, then `find` `"menuitem"` and click `Sign out`. The `Sign in` heading returns. Save it as `02-signed-out.txt`.
 
 ## Gotchas
 
