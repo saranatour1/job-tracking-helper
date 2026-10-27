@@ -4,6 +4,8 @@ import { setupAnonymous } from "@convex-dev/auth/methods/anonymous/server"
 import { setupGithub } from "@convex-dev/auth/methods/github/server"
 import { setupGoogle } from "@convex-dev/auth/methods/google/server"
 import { setupUsernamePassword } from "@convex-dev/auth/methods/username-password/server"
+import { v } from "convex/values"
+import { query } from "./_generated/server"
 
 const siteUrl = process.env.SITE_URL
 if (!siteUrl) {
@@ -35,3 +37,16 @@ export const { startSignInWithGithub, completeSignInWithGithub } = setupGithub(a
 export const { signInAnonymously } = setupAnonymous(auth, {
   component: components.authAnonymous,
 }).attachUserCallbacks(userCallbacks)
+
+// scripts/dev.sh sets "disabled" so dev can push without real OAuth apps.
+const configured = (...names: string[]) =>
+  names.every((name) => ![undefined, "", "disabled"].includes(process.env[name]))
+
+export const oauthProviders = query({
+  args: {},
+  returns: v.object({ google: v.boolean(), github: v.boolean() }),
+  handler: () => ({
+    google: configured("AUTH_GOOGLE_CLIENT_ID", "AUTH_GOOGLE_CLIENT_SECRET"),
+    github: configured("AUTH_GITHUB_CLIENT_ID", "AUTH_GITHUB_CLIENT_SECRET"),
+  }),
+})
