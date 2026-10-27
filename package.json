@@ -6,6 +6,7 @@
   "scripts": {
     "dev": "sh scripts/dev.sh",
     "secrets:push": "sh scripts/push-secrets.sh",
+    "typecheck": "tsrs --noEmit -p tsconfig.json && tsrs --noEmit -p convex",
     "build": "vp build",
     "preview": "vp preview"
   },
@@ -37,6 +38,7 @@
     "@types/react-dom": "^19",
     "@vitejs/plugin-react": "^6.1.2",
     "tailwindcss": "^4.3.3",
+    "tsrs": "0.20.0-ts7.1.0-beta",
     "typescript": "~6.0.3",
     "vite": "catalog:",
     "vite-plus": "catalog:"
