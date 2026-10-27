@@ -18,7 +18,7 @@ Signed-in users get a left sidebar with an `Applications` link and a `Sign out` 
 Preconditions:
 
 - Signed in. Use Guest sign-in, which is the fastest.
-- The viewport is desktop width, 768px or more. Below that, the sidebar becomes a sheet. See Gotchas.
+- The viewport is desktop width, 800px or more. Below that, the sidebar becomes a sheet. See Gotchas.
 
 - **Read the start state.** Run `javascript_tool` with `document.querySelector('[data-slot="sidebar"][data-state]').dataset.state`. It returns `expanded`.
 - **Collapse by button.** `find` `"Toggle Sidebar"` and click the `button` match. The `generic` match is the rail. Read the state again: `collapsed`. The `Applications` label is hidden, and only icons remain.
