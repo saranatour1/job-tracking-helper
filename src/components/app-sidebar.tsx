@@ -1,6 +1,7 @@
 import { useAuthActions } from "@convex-dev/auth/react"
 import { Link } from "@tanstack/react-router"
-import { BriefcaseIcon, LogOutIcon } from "lucide-react"
+import { Briefcase01Icon, Logout01Icon } from "@hugeicons/core-free-icons"
+import { HugeiconsIcon } from "@hugeicons/react"
 
 import {
   Sidebar,
@@ -13,7 +14,7 @@ import {
   SidebarRail,
 } from "@/components/ui/sidebar"
 
-const nav = [{ title: "Applications", to: "/", icon: BriefcaseIcon }] as const
+const nav = [{ title: "Applications", to: "/", icon: Briefcase01Icon }] as const
 
 export function AppSidebar(props: React.ComponentProps<typeof Sidebar>) {
   const { signOut } = useAuthActions()
@@ -26,7 +27,7 @@ export function AppSidebar(props: React.ComponentProps<typeof Sidebar>) {
               <SidebarMenuItem key={item.to}>
                 <SidebarMenuButton asChild tooltip={item.title}>
                   <Link to={item.to}>
-                    <item.icon />
+                    <HugeiconsIcon icon={item.icon} />
                     <span>{item.title}</span>
                   </Link>
                 </SidebarMenuButton>
@@ -39,7 +40,7 @@ export function AppSidebar(props: React.ComponentProps<typeof Sidebar>) {
         <SidebarMenu>
           <SidebarMenuItem>
             <SidebarMenuButton tooltip="Sign out" onClick={() => void signOut()}>
-              <LogOutIcon />
+              <HugeiconsIcon icon={Logout01Icon} />
               <span>Sign out</span>
             </SidebarMenuButton>
           </SidebarMenuItem>

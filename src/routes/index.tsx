@@ -60,7 +60,7 @@ function Applications() {
 
   return (
     <main className="flex flex-col gap-6 p-6">
-      <h1 className="text-lg font-medium">Applications</h1>
+      <h1 className="font-heading text-lg font-medium">Applications</h1>
 
       <form
         className="flex flex-wrap items-end gap-3"
