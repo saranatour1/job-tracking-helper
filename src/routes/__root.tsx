@@ -4,8 +4,8 @@ import { SignIn } from "@/features/auth/sign-in"
 import { AppShell } from "@/features/shell/app-shell"
 import { ConvexAuthProvider } from "@convex-dev/auth/react"
 import { Authenticated, ConvexReactClient, Unauthenticated } from "convex/react"
-import { api } from "../../convex/_generated/api"
-import appCss from "../styles.css?url"
+import { api } from "@convex/_generated/api"
+import appCss from "@/styles.css?url"
 
 const convexUrl: string | undefined = import.meta.env.VITE_CONVEX_URL
 if (!convexUrl) {

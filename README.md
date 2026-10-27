@@ -50,14 +50,14 @@ convex/
   schema.ts                            collects each feature's tables
 src/
   routes/                              pages (TanStack Router); they only import a feature
-  features/<feature>/                  a component plus a use-* hook holding its logic
+  features/<feature>/                  the feature's components
   components/ui/                       shadcn/coss components, managed by the shadcn CLI
 scripts/                               dev and secrets scripts
 .claude/skills/verify-job-tracking-helper/   how an agent launches, drives and checks the app
 .claude/skills/write-pr/             how an agent writes commits and PRs
 ```
 
-Code rules, enforced by `vp check`: arrow functions only, no `useEffect`. Files the shadcn CLI manages are exempt.
+Code rules, enforced by `vp check`: arrow functions only, no `useEffect`. Files the shadcn CLI manages are exempt. Frontend imports use `@/` for `src/` and `@convex/` for `convex/`.
 
 ## Tools
 

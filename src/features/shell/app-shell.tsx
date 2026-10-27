@@ -1,6 +1,6 @@
 import { SidebarInset, SidebarProvider, SidebarTrigger } from "@/components/ui/sidebar"
 import { TooltipProvider } from "@/components/ui/tooltip"
-import { AppSidebar } from "./app-sidebar"
+import { AppSidebar } from "@/features/shell/app-sidebar"
 
 export const AppShell = ({ children }: { children: React.ReactNode }) => (
   <TooltipProvider>

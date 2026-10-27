@@ -1,3 +1,10 @@
+import { api } from "@convex/_generated/api"
+import type { Doc } from "@convex/_generated/dataModel"
+import { Application, statuses } from "@convex/api/features/applications/validators"
+import { useForm } from "@tanstack/react-form"
+import { createColumnHelper, tableFeatures, useTable } from "@tanstack/react-table"
+import { useMutation, useQuery } from "convex/react"
+
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
@@ -9,11 +16,30 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table"
-import type { Application } from "../../../convex/api/features/applications/validators"
-import { statuses, useApplications } from "./use-applications"
+
+const features = tableFeatures({})
+const helper = createColumnHelper<typeof features, Doc<"applications">>()
+const columns = helper.columns([
+  helper.accessor("company", { header: "Company" }),
+  helper.accessor("role", { header: "Role" }),
+  helper.accessor("status", { header: "Status" }),
+])
+
+const emptyApplication: typeof Application.inferIn = { company: "", role: "", status: "applied" }
+const noRows: Doc<"applications">[] = []
 
 export const Applications = () => {
-  const { table, form } = useApplications()
+  const rows = useQuery(api.applications.list)
+  const add = useMutation(api.applications.add)
+  const table = useTable({ features, columns, data: rows ?? noRows })
+  const form = useForm({
+    defaultValues: emptyApplication,
+    validators: { onSubmit: Application },
+    onSubmit: async ({ value, formApi }) => {
+      await add(value)
+      formApi.reset()
+    },
+  })
 
   return (
     <main className="flex flex-col gap-6 p-6">
@@ -57,7 +83,7 @@ export const Applications = () => {
                 id="status"
                 className="border-input h-9 rounded-md border bg-transparent px-2 text-sm"
                 value={field.state.value}
-                onChange={(e) => field.handleChange(e.target.value as Application["status"])}
+                onChange={(e) => field.handleChange(e.target.value as (typeof statuses)[number])}
               >
                 {statuses.map((status) => (
                   <option key={status} value={status}>
