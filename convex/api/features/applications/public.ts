@@ -1,6 +1,6 @@
 import { v } from "convex/values"
-import schema from "../../schema"
-import { arkMutation, authedQuery } from "../../lib/functions"
+import schema from "../../../schema"
+import { arkMutation, authedQuery } from "../../../lib/functions"
 import { Application } from "./validators"
 
 const list = authedQuery({
@@ -20,4 +20,4 @@ const add = arkMutation({
     ctx.db.insert("applications", { ...application, userId: ctx.userId }),
 })
 
-export const applicationsApi = { list, add }
+export const publicApi = { list, add }

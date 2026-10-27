@@ -1,7 +1,5 @@
-// Public module: Convex registers what this file exports as `api.auth.*`, and the
-// Convex Auth React hooks take `api.auth` whole. Definitions live in ./features/auth.
-import { methodsApi } from "./features/auth/methods"
-import { providersApi } from "./features/auth/providers"
+// Registers `api.auth.*` and `internal.auth.*`. Definitions live in ./api/features/auth.
+import { authApi } from "./api/features/auth"
 
 export const {
   signOut,
@@ -14,5 +12,6 @@ export const {
   startSignInWithGithub,
   completeSignInWithGithub,
   signInAnonymously,
-} = methodsApi
-export const { oauthProviders } = providersApi
+  oauthProviders,
+  createUser,
+} = authApi

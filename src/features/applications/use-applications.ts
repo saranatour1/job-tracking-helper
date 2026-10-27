@@ -4,9 +4,9 @@ import { useMutation, useQuery } from "convex/react"
 
 import { api } from "../../../convex/_generated/api"
 import type { Doc } from "../../../convex/_generated/dataModel"
-import { Application } from "../../../convex/features/applications/validators"
+import { Application } from "../../../convex/api/features/applications/validators"
 
-export { statuses } from "../../../convex/features/applications/validators"
+export { statuses } from "../../../convex/api/features/applications/validators"
 
 const features = tableFeatures({})
 const helper = createColumnHelper<typeof features, Doc<"applications">>()

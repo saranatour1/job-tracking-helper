@@ -9,7 +9,7 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table"
-import type { Application } from "../../../convex/features/applications/validators"
+import type { Application } from "../../../convex/api/features/applications/validators"
 import { statuses, useApplications } from "./use-applications"
 
 export const Applications = () => {

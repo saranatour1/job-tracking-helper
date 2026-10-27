@@ -38,10 +38,16 @@ sh scripts/push-secrets.test.sh
 
 ```
 convex/
-  auth.ts, users.ts, applications.ts   public API: only these files register functions
-  features/<feature>/                  function definitions, re-exported by the files above
-  lib/functions.ts                     authedQuery, authedMutation, arkMutation
-  schema.ts                            tables, built from arktype types
+  <feature>.ts                         registers api.<feature>.* (auth.ts, applications.ts)
+  api/features/<feature>/
+    models.ts                          the feature's tables
+    validators.ts                      arktype rules, safe to import from the frontend
+    public.ts                          functions the frontend calls
+    internal.ts                        functions only this feature calls
+    utils.ts                           helpers used only here
+    index.ts                           collects public and internal into one object
+  lib/                                 shared helpers: arktype to Convex, signed-in builders
+  schema.ts                            collects each feature's tables
 src/
   routes/                              pages (TanStack Router); they only import a feature
   features/<feature>/                  a component plus a use-* hook holding its logic

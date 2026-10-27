@@ -1,7 +1,7 @@
 import { vGithubProfile } from "@convex-dev/auth/methods/github/server"
 import { vGoogleProfile } from "@convex-dev/auth/methods/google/server"
 import { v } from "convex/values"
-import { internalMutation } from "../../_generated/server"
+import { internalMutation } from "../../../_generated/server"
 
 const createUser = internalMutation({
   args: {
@@ -16,4 +16,4 @@ const createUser = internalMutation({
   handler: (ctx) => ctx.db.insert("users", {}),
 })
 
-export const usersApi = { createUser }
+export const internalApi = { createUser }
