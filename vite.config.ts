@@ -17,7 +17,7 @@ export default defineConfig({
   },
   plugins: [tailwindcss(), tanstackStart(), viteReact()],
   lint: {
-    ignorePatterns: ["src/routeTree.gen.ts"],
+    ignorePatterns: ["src/routeTree.gen.ts", "convex/_generated"],
     options: { typeAware: true, typeCheck: true },
     rules: {
       "func-style": ["error", "expression"],
@@ -45,6 +45,6 @@ export default defineConfig({
   fmt: {
     semi: false,
     trailingComma: "es5",
-    ignorePatterns: ["src/routeTree.gen.ts"],
+    ignorePatterns: ["src/routeTree.gen.ts", "convex/_generated"],
   },
 })
