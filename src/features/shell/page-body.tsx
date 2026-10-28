@@ -1,6 +1,6 @@
 import { cn } from "@/lib/utils"
 
-// The style the Preferences tabs share: an intro with the tab's title and what it's
+// The style Preferences and Loops share: an intro with the tab's title and what it's
 // for, then dashed tiles on the card fill that group things. A raised chip names each
 // tile, and dashed chips add things.
 

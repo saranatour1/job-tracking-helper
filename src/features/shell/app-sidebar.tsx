@@ -4,6 +4,7 @@ import {
   InboxIcon,
   Layers01Icon,
   PencilEdit02Icon,
+  RepeatIcon,
   Target02Icon,
   Task01Icon,
   UserCircleIcon,
@@ -66,6 +67,7 @@ export const AppSidebar = (props: React.ComponentProps<typeof Sidebar>) => {
     { title: "Inbox", to: "/inbox", icon: InboxIcon, badge: useUnreadCount() },
     { title: "Applications", to: "/", icon: Briefcase01Icon },
     { title: "Preferences", to: "/preferences", icon: UserCircleIcon },
+    { title: "Loops", to: "/loops", icon: RepeatIcon },
   ]
   return (
     <Sidebar collapsible="icon" {...props}>

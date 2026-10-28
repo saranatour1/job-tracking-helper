@@ -37,7 +37,15 @@ import { ScrollArea } from "@/components/ui/scroll-area"
 import { Tabs, TabsList, TabsPanel, TabsTab } from "@/components/ui/tabs"
 import { Textarea } from "@/components/ui/textarea"
 import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group"
-import { addChip, addTile, chip, PageIntro, pageBody, Tile, tileGrid } from "./page-body"
+import {
+  addChip,
+  addTile,
+  chip,
+  PageIntro,
+  pageBody,
+  Tile,
+  tileGrid,
+} from "@/features/shell/page-body"
 import { PageHeader } from "@/features/shell/page-header"
 import { cn } from "@/lib/utils"
 
@@ -785,6 +793,7 @@ const PreferencesForm = ({
   const goTo = (next: number) => {
     if (next < 0 || next >= steps.length || next === step) return
     void navigate({
+      from: "/preferences",
       to: "/preferences",
       search: (prev) => ({ ...prev, step: next }),
       state: { forward: next > step },
@@ -1085,6 +1094,7 @@ const PreferencesForm = ({
         value={tab}
         onValueChange={(v) =>
           void navigate({
+            from: "/preferences",
             to: "/preferences",
             search: (prev) => ({ ...prev, tab: v as PreferencesTab }),
           })

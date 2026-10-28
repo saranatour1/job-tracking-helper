@@ -15,6 +15,7 @@ import type * as api_features_applications_validators from "../api/features/appl
 import type * as api_features_auth_index from "../api/features/auth/index.js";
 import type * as api_features_auth_internal from "../api/features/auth/internal.js";
 import type * as api_features_auth_public from "../api/features/auth/public.js";
+import type * as api_features_loops_catalog from "../api/features/loops/catalog.js";
 import type * as api_features_preferences_index from "../api/features/preferences/index.js";
 import type * as api_features_preferences_models_entries from "../api/features/preferences/models/entries.js";
 import type * as api_features_preferences_models_index from "../api/features/preferences/models/index.js";
@@ -48,6 +49,7 @@ declare const fullApi: ApiFromModules<{
   "api/features/auth/index": typeof api_features_auth_index;
   "api/features/auth/internal": typeof api_features_auth_internal;
   "api/features/auth/public": typeof api_features_auth_public;
+  "api/features/loops/catalog": typeof api_features_loops_catalog;
   "api/features/preferences/index": typeof api_features_preferences_index;
   "api/features/preferences/models/entries": typeof api_features_preferences_models_entries;
   "api/features/preferences/models/index": typeof api_features_preferences_models_index;
