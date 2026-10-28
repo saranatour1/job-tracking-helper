@@ -21,7 +21,6 @@ import {
   MenuTrigger,
 } from "@/components/ui/menu"
 import { ScrollArea } from "@/components/ui/scroll-area"
-import { chip, Tile } from "@/features/shell/page-body"
 import { PageHeader } from "@/features/shell/page-header"
 import { cn } from "@/lib/utils"
 
@@ -77,12 +76,12 @@ const NotificationRow = ({
 }) => {
   const app = findApplication(n.applicationId)
   return (
-    <li className="group relative">
+    <li className="group relative border-b">
       <button
         type="button"
         aria-current={selected}
         onClick={onSelect}
-        className="hover:bg-accent/50 aria-[current=true]:bg-accent flex w-full items-center gap-2.5 rounded-md px-2.5 py-2 text-start transition-colors duration-150"
+        className="hover:bg-accent/50 aria-[current=true]:bg-accent flex w-full items-center gap-2.5 px-3 py-2 text-start transition-colors duration-150"
       >
         <span
           className={cn(
@@ -212,67 +211,60 @@ export const Inbox = () => {
                 {tab === "unread" ? "You're all caught up." : "No notifications here yet."}
               </p>
             ) : (
-              <div className="flex flex-col gap-2 p-2">
-                {keys.map((key) => (
-                  <Tile
-                    key={key}
-                    label={key || "Notifications"}
-                    title={
-                      groupBy !== "none" && (
-                        <h2 className={cn(chip, "me-auto flex items-center gap-1.5")}>
-                          {groupBy === "status" && <StatusIcon status={key as Status} />}
-                          {groupBy === "status" ? statusLabels[key as Status] : key}
-                        </h2>
-                      )
-                    }
-                    className="gap-1 p-1.5"
-                  >
-                    <ul>
-                      {shown
-                        .filter((n) => groupKey(n, groupBy) === key)
-                        .map((n) => (
-                          <NotificationRow
-                            key={n.id}
-                            n={n}
-                            selected={selected === n.id}
-                            onSelect={() => select(n)}
-                          />
-                        ))}
-                    </ul>
-                  </Tile>
-                ))}
-              </div>
+              keys.map((key) => (
+                <section key={key} aria-label={key || "Notifications"}>
+                  {groupBy !== "none" && (
+                    <h2 className="bg-muted/40 text-muted-foreground flex h-7 items-center gap-1.5 border-b px-3 text-xs">
+                      {groupBy === "status" && <StatusIcon status={key as Status} />}
+                      {groupBy === "status" ? statusLabels[key as Status] : key}
+                    </h2>
+                  )}
+                  <ul>
+                    {shown
+                      .filter((n) => groupKey(n, groupBy) === key)
+                      .map((n) => (
+                        <NotificationRow
+                          key={n.id}
+                          n={n}
+                          selected={selected === n.id}
+                          onSelect={() => select(n)}
+                        />
+                      ))}
+                  </ul>
+                </section>
+              ))
             )}
           </ScrollArea>
         </div>
         <section className="hidden flex-1 items-center justify-center md:flex">
           {note && a ? (
-            <div className="w-full max-w-md p-6">
-              <Tile title={`${a.id} · ${ago(note.at)}`} className="gap-3">
-                <h2 className="font-heading text-lg font-semibold">
-                  {a.role} <span className="text-muted-foreground font-normal">at {a.company}</span>
-                </h2>
-                <p className="text-[13px]">{note.message}</p>
-                <p className="text-muted-foreground flex items-center gap-2 text-[13px]">
-                  <StatusIcon status={a.status} /> {statusLabels[a.status]}
-                </p>
-                <div className="flex gap-2">
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    render={<Link to="/pipeline/$id" params={{ id: a.id }} />}
-                  >
-                    Open application
-                  </Button>
-                  <Button
-                    variant="ghost"
-                    size="sm"
-                    onClick={() => setUnread([note.id], !note.unread)}
-                  >
-                    Mark as {note.unread ? "read" : "unread"}
-                  </Button>
-                </div>
-              </Tile>
+            <div className="flex w-full max-w-md flex-col gap-3 p-6">
+              <span className="text-muted-foreground text-xs">
+                {a.id} · {ago(note.at)}
+              </span>
+              <h2 className="font-heading text-lg font-semibold">
+                {a.role} <span className="text-muted-foreground font-normal">at {a.company}</span>
+              </h2>
+              <p className="text-[13px]">{note.message}</p>
+              <p className="text-muted-foreground flex items-center gap-2 text-[13px]">
+                <StatusIcon status={a.status} /> {statusLabels[a.status]}
+              </p>
+              <div className="flex gap-2">
+                <Button
+                  variant="outline"
+                  size="sm"
+                  render={<Link to="/pipeline/$id" params={{ id: a.id }} />}
+                >
+                  Open application
+                </Button>
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={() => setUnread([note.id], !note.unread)}
+                >
+                  Mark as {note.unread ? "read" : "unread"}
+                </Button>
+              </div>
             </div>
           ) : (
             <div className="text-muted-foreground flex flex-col items-center gap-3">

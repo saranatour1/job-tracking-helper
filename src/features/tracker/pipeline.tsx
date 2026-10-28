@@ -42,9 +42,7 @@ import { FilterChips, FilterMenu, toggleFilter } from "./filters"
 import { ApplicationPeek } from "./application"
 import { PriorityIcon, StatusIcon } from "./icons"
 import { NewApplicationDialog } from "./new-application"
-import { addChip, chip, Tile } from "@/features/shell/page-body"
 import { type Crumb, PageHeader } from "@/features/shell/page-header"
-import { cn } from "@/lib/utils"
 
 type Tab = "active" | "saved" | "all"
 const tabs: Record<Tab, readonly Status[]> = {
@@ -122,15 +120,6 @@ const Properties = ({ a, shown }: { a: Application; shown: Display["shown"] }) =
   </>
 )
 
-// A group's name and count, in the chip that names every tile.
-const GroupChip = ({ g }: { g: Group }) => (
-  <span className={cn(chip, "flex items-center gap-1.5")}>
-    {g.icon}
-    {g.label}
-    <span className="text-muted-foreground font-normal">{g.items.length}</span>
-  </span>
-)
-
 type Peek = { id?: string; open?: (id: string) => void }
 
 // The first click opens the side panel. Clicking the open card again, or a
@@ -147,7 +136,7 @@ const Card = ({ a, shown, peek }: { a: Application; shown: Display["shown"]; pee
     params={{ id: a.id }}
     onClick={peekOnClick(peek, a.id)}
     aria-current={peek.id === a.id || undefined}
-    className="bg-muted hover:border-ring/40 aria-[current=true]:border-ring/70 flex flex-col transition-colors duration-150 gap-1.5 rounded-md border px-2.5 py-2 text-[13px] shadow-xs/5"
+    className="bg-card hover:border-ring/40 aria-[current=true]:border-ring/70 flex flex-col transition-colors duration-150 gap-1.5 rounded-md border px-2.5 py-2 text-[13px] shadow-xs/5"
   >
     <span className="text-muted-foreground flex justify-between text-[11px] empty:hidden">
       {shown.includes("id") && <span>{a.id}</span>}
@@ -172,7 +161,7 @@ const Row = ({ a, shown, peek }: { a: Application; shown: Display["shown"]; peek
     params={{ id: a.id }}
     onClick={peekOnClick(peek, a.id)}
     aria-current={peek.id === a.id || undefined}
-    className="hover:bg-accent/50 aria-[current=true]:bg-accent flex h-9 items-center gap-2.5 rounded-md px-2.5 text-[13px] transition-colors duration-150"
+    className="hover:bg-accent/50 aria-[current=true]:bg-accent flex transition-colors duration-150 h-9 items-center gap-2.5 border-b px-4 text-[13px]"
   >
     {shown.includes("priority") && <PriorityIcon priority={a.priority} />}
     {shown.includes("id") && (
@@ -311,25 +300,23 @@ const InsightsPanel = ({
               </ToggleGroupItem>
             ))}
           </ToggleGroup>
-          <Tile title={panelFields[field]} className="p-1.5">
-            <ul className="flex flex-col">
-              {[...counts.entries()]
-                .sort((a, b) => b[1] - a[1])
-                .map(([value, count]) => (
-                  <li key={value}>
-                    <button
-                      type="button"
-                      aria-pressed={filters[field as FilterField]?.includes(value) ?? false}
-                      onClick={() => onChange(toggleFilter(filters, field, value))}
-                      className="hover:bg-accent aria-pressed:bg-accent flex w-full items-center justify-between rounded-md px-2 py-1.5 text-sm"
-                    >
-                      <span className="truncate">{label(value)}</span>
-                      <span className="text-muted-foreground tabular-nums">{count}</span>
-                    </button>
-                  </li>
-                ))}
-            </ul>
-          </Tile>
+          <ul className="flex flex-col">
+            {[...counts.entries()]
+              .sort((a, b) => b[1] - a[1])
+              .map(([value, count]) => (
+                <li key={value}>
+                  <button
+                    type="button"
+                    aria-pressed={filters[field as FilterField]?.includes(value) ?? false}
+                    onClick={() => onChange(toggleFilter(filters, field, value))}
+                    className="hover:bg-accent aria-pressed:bg-accent flex w-full items-center justify-between rounded-md px-2 py-1.5 text-sm"
+                  >
+                    <span className="truncate">{label(value)}</span>
+                    <span className="text-muted-foreground tabular-nums">{count}</span>
+                  </button>
+                </li>
+              ))}
+          </ul>
         </div>
       </ScrollArea>
     </aside>
@@ -528,9 +515,9 @@ export const Pipeline = ({
             filters={filters}
             onChange={setFilters}
             trigger={
-              <button type="button" className={cn(addChip, "h-6")}>
-                <HugeiconsIcon icon={FilterIcon} className="size-3.5" /> Add filter
-              </button>
+              <Button variant="ghost" size="icon-xs" aria-label="Add filter">
+                <HugeiconsIcon icon={PlusSignIcon} />
+              </Button>
             }
           />
           <Button variant="ghost" size="xs" className="ms-auto" onClick={() => setFilters({})}>
@@ -559,21 +546,19 @@ export const Pipeline = ({
                 <section
                   key={g.key}
                   aria-label={g.label}
-                  className="bg-card flex w-64 shrink-0 flex-col gap-1.5 rounded-xl border border-dashed p-1.5"
+                  className="bg-muted/40 flex w-64 shrink-0 flex-col gap-1.5 rounded-lg p-1.5"
                 >
-                  <header className="flex items-center gap-1">
-                    <GroupChip g={g} />
-                    <span className="ms-auto flex items-center gap-1">
+                  <header className="flex h-7 items-center gap-1.5 px-1 text-[13px]">
+                    {g.icon}
+                    <span className="font-medium">{g.label}</span>
+                    <span className="text-muted-foreground">{g.items.length}</span>
+                    <span className="ms-auto flex">
                       <IconButton label="Group options" icon={MoreHorizontalIcon} size="icon-xs" />
                       <NewApplicationDialog
                         trigger={
-                          <button
-                            type="button"
-                            aria-label={`Add to ${g.label}`}
-                            className={cn(addChip, "h-6 px-1.5")}
-                          >
-                            <HugeiconsIcon icon={PlusSignIcon} className="size-3.5" />
-                          </button>
+                          <Button variant="ghost" size="icon-xs" aria-label={`Add to ${g.label}`}>
+                            <HugeiconsIcon icon={PlusSignIcon} />
+                          </Button>
                         }
                       />
                     </span>
@@ -591,15 +576,18 @@ export const Pipeline = ({
           </ScrollArea>
         ) : (
           <ScrollArea className="@container min-w-0 flex-1">
-            <div className="flex flex-col gap-3 p-3">
-              {groups.map((g) => (
-                <Tile key={g.key} title={<GroupChip g={g} />} className="gap-1 p-1.5">
-                  {g.items.map((a) => (
-                    <Row key={a.id} a={a} shown={display.shown} peek={peeking} />
-                  ))}
-                </Tile>
-              ))}
-            </div>
+            {groups.map((g) => (
+              <section key={g.key} aria-label={g.label}>
+                <header className="bg-muted/40 flex h-8 items-center gap-2 border-b px-4 text-[13px]">
+                  {g.icon}
+                  <span className="font-medium">{g.label}</span>
+                  <span className="text-muted-foreground">{g.items.length}</span>
+                </header>
+                {g.items.map((a) => (
+                  <Row key={a.id} a={a} shown={display.shown} peek={peeking} />
+                ))}
+              </section>
+            ))}
           </ScrollArea>
         )}
         {peek ? (

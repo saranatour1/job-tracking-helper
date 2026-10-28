@@ -20,7 +20,6 @@ import {
 } from "@/components/ui/dialog"
 import { Meter, MeterIndicator, MeterTrack } from "@/components/ui/meter"
 import { Textarea } from "@/components/ui/textarea"
-import { chip, PageIntro, pageBody, Tile, tile } from "@/features/shell/page-body"
 import { PageHeader } from "@/features/shell/page-header"
 import { cn } from "@/lib/utils"
 
@@ -125,88 +124,71 @@ export const Goals = () => {
   return (
     <>
       <PageHeader crumbs={[{ label: "Tracker" }, { label: "Goals" }]} actions={<NewGoalDialog />} />
-      <main className={pageBody}>
-        <PageIntro
-          title="Goals"
-          description="Stretches of your search with a target date, newest first. Each opens its applications."
-        />
-        <ol className="flex flex-col">
-          {sorted.map((goal, i) => {
-            const status = goalStatus(goal)
-            const progress = goalProgress(goal)
-            const { items } = stats(goal)
-            return (
-              <li
-                key={goal.id}
-                className="grid grid-cols-[4.5rem_1.5rem_minmax(0,1fr)] items-stretch"
-              >
-                <span className="text-muted-foreground pt-5 pe-2 text-end text-xs leading-tight">
-                  {formatDate(goal.start)}
-                </span>
-                <span className="relative flex justify-center">
-                  <span
-                    className={cn(
-                      "bg-border absolute w-px",
-                      i === 0
-                        ? "top-6 bottom-0"
-                        : i === sorted.length - 1
-                          ? "top-0 h-6"
-                          : "inset-y-0"
-                    )}
-                  />
-                  <span
-                    className={cn(
-                      "relative mt-[1.3rem] size-2 rounded-full border",
-                      status === "Active" && "bg-primary border-primary",
-                      status === "Completed" && "bg-muted-foreground border-muted-foreground",
-                      status === "Upcoming" && "bg-background border-muted-foreground"
-                    )}
-                  />
-                </span>
-                <Link
-                  to="/goals/$id"
-                  params={{ id: goal.id }}
+      <ol className="flex flex-col py-2">
+        {sorted.map((goal, i) => {
+          const status = goalStatus(goal)
+          const progress = goalProgress(goal)
+          const { items } = stats(goal)
+          return (
+            <li
+              key={goal.id}
+              className="grid grid-cols-[4.5rem_1.5rem_minmax(0,1fr)] items-stretch"
+            >
+              <span className="text-muted-foreground pt-4 pe-2 text-end text-xs leading-tight">
+                {formatDate(goal.start)}
+              </span>
+              <span className="relative flex justify-center">
+                <span
                   className={cn(
-                    tile,
-                    "hover:bg-accent/30 mb-3 min-w-0 text-[13px] transition-colors"
+                    "bg-border absolute w-px",
+                    i === 0 ? "top-5 bottom-0" : i === sorted.length - 1 ? "top-0 h-5" : "inset-y-0"
                   )}
-                >
+                />
+                <span
+                  className={cn(
+                    "relative mt-[1.1rem] size-2 rounded-full border",
+                    status === "Active" && "bg-primary border-primary",
+                    status === "Completed" && "bg-muted-foreground border-muted-foreground",
+                    status === "Upcoming" && "bg-background border-muted-foreground"
+                  )}
+                />
+              </span>
+              <Link
+                to="/goals/$id"
+                params={{ id: goal.id }}
+                className="hover:bg-accent/50 me-3 flex min-w-0 items-center gap-3 rounded-md border-b px-3 py-3 text-[13px] transition-colors"
+              >
+                <HugeiconsIcon
+                  icon={Target02Icon}
+                  className="text-muted-foreground size-4 shrink-0"
+                />
+                <span className="flex min-w-0 flex-col">
+                  <span className="truncate font-medium">{goal.name}</span>
+                  <span className="text-muted-foreground text-xs">
+                    {formatDate(goal.start)} → {formatDate(goal.target)}
+                  </span>
+                </span>
+                <span className="text-muted-foreground ms-auto hidden shrink-0 items-center gap-4 text-xs sm:flex">
+                  <GoalBadge goal={goal} />
                   <span className="flex items-center gap-2">
-                    <span className={cn(chip, "flex min-w-0 items-center gap-1.5")}>
-                      <HugeiconsIcon
-                        icon={Target02Icon}
-                        className="text-muted-foreground size-3.5 shrink-0"
-                      />
-                      <span className="truncate">{goal.name}</span>
-                    </span>
-                    <span className="ms-auto">
-                      <GoalBadge goal={goal} />
-                    </span>
+                    <GoalMeter goal={goal} className="w-16" />
+                    <span className="text-foreground w-8 tabular-nums">{progress}%</span>
                   </span>
-                  <span className="text-muted-foreground flex flex-wrap items-center gap-x-4 gap-y-1 px-1 text-xs">
-                    <span>
-                      {formatDate(goal.start)} → {formatDate(goal.target)}
-                    </span>
-                    <span className="flex items-center gap-2">
-                      <GoalMeter goal={goal} className="w-16" />
-                      <span className="text-foreground w-8 tabular-nums">{progress}%</span>
-                    </span>
-                    <span>
-                      <span className="text-foreground tabular-nums">
-                        {goal.milestones.filter((m) => m.done).length}/{goal.milestones.length}
-                      </span>{" "}
-                      milestones
-                    </span>
-                    <span className="w-24">
-                      <span className="text-foreground tabular-nums">{items}</span> applications
-                    </span>
+                  <span>
+                    <span className="text-foreground tabular-nums">
+                      {goal.milestones.filter((m) => m.done).length}/{goal.milestones.length}
+                    </span>{" "}
+                    milestones
                   </span>
-                </Link>
-              </li>
-            )
-          })}
-        </ol>
-      </main>
+                  <span className="w-24">
+                    <span className="text-foreground tabular-nums">{items}</span> applications
+                  </span>
+                </span>
+              </Link>
+            </li>
+          )
+        })}
+      </ol>
     </>
   )
 }
@@ -215,50 +197,41 @@ export const Goals = () => {
 const GoalSummary = ({ goal }: { goal: Goal }) => {
   const { items, interviews, offers } = stats(goal)
   return (
-    <div className="flex flex-col gap-3">
-      <Tile
-        label={goal.name}
-        title={
-          <h2 className={cn(chip, "me-auto flex min-w-0 items-center gap-1.5")}>
-            <HugeiconsIcon icon={Target02Icon} className="text-muted-foreground size-3.5" />
-            <span className="truncate">{goal.name}</span>
-          </h2>
-        }
-        actions={<GoalBadge goal={goal} />}
-        className="gap-3"
-      >
-        <div className="flex flex-col gap-1 px-1">
-          <span className="text-muted-foreground text-xs">
-            {formatDate(goal.start)} → {formatDate(goal.target)}
-          </span>
-          <p className="text-muted-foreground text-[13px]">{goal.summary}</p>
-        </div>
-        <GoalMeter goal={goal} />
-        <dl className="grid grid-cols-3 gap-2 text-xs">
-          {(
-            [
-              ["Progress", `${goalProgress(goal)}%`],
-              ["Interviews", `${interviews}/${items}`],
-              ["Offers", `${offers}`],
-            ] as const
-          ).map(([label, value]) => (
-            <div key={label} className="flex flex-col gap-0.5">
-              <dt className="text-muted-foreground">{label}</dt>
-              <dd className="text-[13px] font-medium tabular-nums">{value}</dd>
-            </div>
-          ))}
-        </dl>
-      </Tile>
-      <Tile
-        title="Milestones"
-        actions={
-          <span className="text-muted-foreground flex items-center gap-1 text-xs">
-            <PriorityIcon priority={goal.priority} className="size-3" />
-            {priorityLabels[goal.priority]}
-          </span>
-        }
-      >
-        <ol className="flex flex-col px-1">
+    <div className="flex flex-col gap-4 border-b pb-4">
+      <div className="text-muted-foreground flex items-center gap-2 text-xs">
+        <GoalBadge goal={goal} />
+        <span>
+          {formatDate(goal.start)} → {formatDate(goal.target)}
+        </span>
+      </div>
+      <div className="flex flex-col gap-1">
+        <h2 className="flex items-center gap-2 text-[15px] font-semibold">
+          <HugeiconsIcon icon={Target02Icon} className="text-muted-foreground size-4" />
+          {goal.name}
+        </h2>
+        <p className="text-muted-foreground text-[13px]">{goal.summary}</p>
+      </div>
+      <GoalMeter goal={goal} />
+      <dl className="grid grid-cols-3 gap-2 text-xs">
+        {(
+          [
+            ["Progress", `${goalProgress(goal)}%`],
+            ["Interviews", `${interviews}/${items}`],
+            ["Offers", `${offers}`],
+          ] as const
+        ).map(([label, value]) => (
+          <div key={label} className="flex flex-col gap-0.5">
+            <dt className="text-muted-foreground">{label}</dt>
+            <dd className="text-[13px] font-medium tabular-nums">{value}</dd>
+          </div>
+        ))}
+      </dl>
+      <div className="flex flex-col gap-1">
+        <span className="text-muted-foreground text-xs">
+          Milestones · <PriorityIcon priority={goal.priority} className="inline size-3" />{" "}
+          {priorityLabels[goal.priority]}
+        </span>
+        <ol className="flex flex-col">
           {goal.milestones.map((m) => (
             <li key={m.name} className="flex items-center gap-2 py-1 text-[13px]">
               <span
@@ -276,7 +249,7 @@ const GoalSummary = ({ goal }: { goal: Goal }) => {
             </li>
           ))}
         </ol>
-      </Tile>
+      </div>
     </div>
   )
 }

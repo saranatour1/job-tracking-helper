@@ -32,15 +32,7 @@ import { ScrollArea } from "@/components/ui/scroll-area"
 import { Tabs, TabsList, TabsPanel, TabsTab } from "@/components/ui/tabs"
 import { Textarea } from "@/components/ui/textarea"
 import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group"
-import {
-  addChip,
-  addTile,
-  chip,
-  PageIntro,
-  pageBody,
-  Tile,
-  tileGrid,
-} from "@/features/shell/page-body"
+import { addChip, addTile, chip, PageIntro, pageBody, Tile, tileGrid } from "./page-body"
 import { PageHeader } from "@/features/shell/page-header"
 import { cn } from "@/lib/utils"
 
@@ -1197,7 +1189,7 @@ export const Preferences = () => {
   const data = useQuery(api.preferences.get)
   const me = useQuery(api.users.me)
   return (
-    <div className="flex h-svh flex-col md:h-[calc(100svh-1rem)]">
+    <div className="soft-theme bg-background text-foreground flex h-svh flex-col rounded-[inherit] md:h-[calc(100svh-1rem)]">
       <PageHeader crumbs={[{ label: "Preferences" }]} />
       {data && me && (
         <PreferencesForm
