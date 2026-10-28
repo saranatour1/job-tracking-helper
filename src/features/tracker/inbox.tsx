@@ -9,6 +9,7 @@ import { HugeiconsIcon } from "@hugeicons/react"
 import { Link } from "@tanstack/react-router"
 import { useState, useSyncExternalStore } from "react"
 
+import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import {
   Menu,
@@ -19,6 +20,7 @@ import {
   MenuRadioItem,
   MenuTrigger,
 } from "@/components/ui/menu"
+import { ScrollArea } from "@/components/ui/scroll-area"
 import { PageHeader } from "@/features/shell/page-header"
 import { cn } from "@/lib/utils"
 
@@ -79,7 +81,7 @@ const NotificationRow = ({
         type="button"
         aria-current={selected}
         onClick={onSelect}
-        className="hover:bg-accent/50 aria-[current=true]:bg-accent flex w-full items-center gap-2.5 px-3 py-2 text-start"
+        className="hover:bg-accent/50 aria-[current=true]:bg-accent flex w-full items-center gap-2.5 px-3 py-2 text-start transition-colors duration-150"
       >
         <span
           className={cn(
@@ -170,7 +172,9 @@ export const Inbox = () => {
               >
                 {tabs[t]}
                 {t === "unread" && unread.length > 0 && (
-                  <span className="text-muted-foreground">{unread.length}</span>
+                  <Badge variant="secondary" size="sm">
+                    {unread.length}
+                  </Badge>
                 )}
               </Button>
             ))}
@@ -201,7 +205,7 @@ export const Inbox = () => {
               </MenuPopup>
             </Menu>
           </div>
-          <div className="flex-1 overflow-y-auto">
+          <ScrollArea className="min-h-0 flex-1">
             {shown.length === 0 ? (
               <p className="text-muted-foreground p-6 text-center text-[13px]">
                 {tab === "unread" ? "You're all caught up." : "No notifications here yet."}
@@ -230,7 +234,7 @@ export const Inbox = () => {
                 </section>
               ))
             )}
-          </div>
+          </ScrollArea>
         </div>
         <section className="hidden flex-1 items-center justify-center md:flex">
           {note && a ? (

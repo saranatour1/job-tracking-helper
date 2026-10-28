@@ -8,11 +8,15 @@ import {
   Target02Icon,
 } from "@hugeicons/core-free-icons"
 import { HugeiconsIcon } from "@hugeicons/react"
-import { Link } from "@tanstack/react-router"
+import { Link, useNavigate } from "@tanstack/react-router"
 import { useRef, useState } from "react"
 
+import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
+import { ScrollArea } from "@/components/ui/scroll-area"
+import { Tabs, TabsList, TabsTab } from "@/components/ui/tabs"
 import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group"
+import { Toolbar, ToolbarButton } from "@/components/ui/toolbar"
 import { Tooltip, TooltipPopup, TooltipTrigger } from "@/components/ui/tooltip"
 import { useIsMobile } from "@/hooks/use-media-query"
 
@@ -29,15 +33,16 @@ import {
   priorityLabels,
   statusLabels,
   statuses,
-  views,
+  addView,
   useApplications,
+  useViews,
 } from "./data"
 import { type Display, DisplayOptions, defaultDisplay } from "./display-options"
 import { FilterChips, FilterMenu, toggleFilter } from "./filters"
 import { ApplicationPeek } from "./application"
 import { PriorityIcon, StatusIcon } from "./icons"
 import { NewApplicationDialog } from "./new-application"
-import { PageHeader } from "@/features/shell/page-header"
+import { type Crumb, PageHeader } from "@/features/shell/page-header"
 
 type Tab = "active" | "saved" | "all"
 const tabs: Record<Tab, readonly Status[]> = {
@@ -83,9 +88,12 @@ const order: Record<Display["orderBy"], (a: Application, b: Application) => numb
 }
 
 const Chip = ({ children }: { children: React.ReactNode }) => (
-  <span className="text-muted-foreground flex h-5 items-center gap-1 rounded-full border px-1.5 text-[11px]">
+  <Badge
+    variant="outline"
+    className="text-muted-foreground h-5 gap-1 rounded-full px-1.5 text-[11px] font-normal sm:h-5 sm:text-[11px]"
+  >
     {children}
-  </span>
+  </Badge>
 )
 
 const Properties = ({ a, shown }: { a: Application; shown: Display["shown"] }) => (
@@ -128,7 +136,7 @@ const Card = ({ a, shown, peek }: { a: Application; shown: Display["shown"]; pee
     params={{ id: a.id }}
     onClick={peekOnClick(peek, a.id)}
     aria-current={peek.id === a.id || undefined}
-    className="bg-card hover:border-ring/40 aria-[current=true]:border-ring/70 flex flex-col gap-1.5 rounded-md border px-2.5 py-2 text-[13px] shadow-xs/5"
+    className="bg-card hover:border-ring/40 aria-[current=true]:border-ring/70 flex flex-col transition-colors duration-150 gap-1.5 rounded-md border px-2.5 py-2 text-[13px] shadow-xs/5"
   >
     <span className="text-muted-foreground flex justify-between text-[11px] empty:hidden">
       {shown.includes("id") && <span>{a.id}</span>}
@@ -153,18 +161,18 @@ const Row = ({ a, shown, peek }: { a: Application; shown: Display["shown"]; peek
     params={{ id: a.id }}
     onClick={peekOnClick(peek, a.id)}
     aria-current={peek.id === a.id || undefined}
-    className="hover:bg-accent/50 aria-[current=true]:bg-accent flex h-9 items-center gap-2.5 border-b px-4 text-[13px]"
+    className="hover:bg-accent/50 aria-[current=true]:bg-accent flex transition-colors duration-150 h-9 items-center gap-2.5 border-b px-4 text-[13px]"
   >
     {shown.includes("priority") && <PriorityIcon priority={a.priority} />}
     {shown.includes("id") && (
       <span className="text-muted-foreground w-14 shrink-0 text-xs">{a.id}</span>
     )}
     <StatusIcon status={a.status} />
-    <span className="min-w-0 truncate">
+    <span className="min-w-36 flex-1 truncate">
       <span className="font-medium">{a.role}</span>
       <span className="text-muted-foreground"> · {a.company}</span>
     </span>
-    <span className="ms-auto hidden items-center gap-1.5 md:flex">
+    <span className="hidden min-w-0 items-center justify-end gap-1.5 overflow-hidden @2xl:flex">
       <Properties a={a} shown={shown.filter((s) => s !== "priority")} />
     </span>
     {shown.includes("created") && (
@@ -210,7 +218,7 @@ const SidePanel = ({
     <aside
       aria-label="Application details"
       style={{ width }}
-      className="bg-background relative shrink-0 border-s"
+      className="bg-background animate-in fade-in slide-in-from-right-6 relative shrink-0 border-s duration-200 ease-out motion-reduce:animate-none"
     >
       <div
         role="separator"
@@ -252,10 +260,12 @@ const InsightsPanel = ({
   items,
   filters,
   onChange,
+  header,
 }: {
   items: Application[]
   filters: Filters
   onChange: (filters: Filters) => void
+  header?: React.ReactNode
 }) => {
   const [field, setField] = useState<keyof typeof panelFields>("company")
   const counts = new Map<string, number>()
@@ -273,49 +283,75 @@ const InsightsPanel = ({
   return (
     <aside
       aria-label="Insights"
-      className="hidden w-72 shrink-0 flex-col gap-3 border-s p-3 lg:flex"
+      className="animate-in fade-in slide-in-from-right-6 hidden w-80 shrink-0 border-s duration-200 ease-out motion-reduce:animate-none md:block"
     >
-      <ToggleGroup
-        size="sm"
-        className="flex-wrap"
-        value={[field]}
-        onValueChange={(v) => v[0] && setField(v[0] as keyof typeof panelFields)}
-      >
-        {Object.entries(panelFields).map(([value, text]) => (
-          <ToggleGroupItem key={value} value={value} className="rounded-full">
-            {text}
-          </ToggleGroupItem>
-        ))}
-      </ToggleGroup>
-      <ul className="flex flex-col">
-        {[...counts.entries()]
-          .sort((a, b) => b[1] - a[1])
-          .map(([value, count]) => (
-            <li key={value}>
-              <button
-                type="button"
-                aria-pressed={filters[field as FilterField]?.includes(value) ?? false}
-                onClick={() => onChange(toggleFilter(filters, field, value))}
-                className="hover:bg-accent aria-pressed:bg-accent flex w-full items-center justify-between rounded-md px-2 py-1.5 text-sm"
-              >
-                <span className="truncate">{label(value)}</span>
-                <span className="text-muted-foreground tabular-nums">{count}</span>
-              </button>
-            </li>
-          ))}
-      </ul>
+      <ScrollArea>
+        <div className="flex flex-col gap-3 p-3">
+          {header}
+          <ToggleGroup
+            size="sm"
+            className="flex-wrap"
+            value={[field]}
+            onValueChange={(v) => v[0] && setField(v[0] as keyof typeof panelFields)}
+          >
+            {Object.entries(panelFields).map(([value, text]) => (
+              <ToggleGroupItem key={value} value={value} className="rounded-full">
+                {text}
+              </ToggleGroupItem>
+            ))}
+          </ToggleGroup>
+          <ul className="flex flex-col">
+            {[...counts.entries()]
+              .sort((a, b) => b[1] - a[1])
+              .map(([value, count]) => (
+                <li key={value}>
+                  <button
+                    type="button"
+                    aria-pressed={filters[field as FilterField]?.includes(value) ?? false}
+                    onClick={() => onChange(toggleFilter(filters, field, value))}
+                    className="hover:bg-accent aria-pressed:bg-accent flex w-full items-center justify-between rounded-md px-2 py-1.5 text-sm"
+                  >
+                    <span className="truncate">{label(value)}</span>
+                    <span className="text-muted-foreground tabular-nums">{count}</span>
+                  </button>
+                </li>
+              ))}
+          </ul>
+        </div>
+      </ScrollArea>
     </aside>
   )
 }
 
-export const Pipeline = ({ viewId }: { viewId?: string }) => {
-  const view = views.find((v) => v.id === viewId)
+// The board or list of applications, used by the Pipeline, saved views, goal pages and the
+// new-view editor. Each passes its own breadcrumb, starting filters and layout.
+export const Pipeline = ({
+  crumbs,
+  viewId,
+  filters: initialFilters = {},
+  display: initialDisplay,
+  summary,
+  editor = false,
+}: {
+  crumbs: Crumb[]
+  viewId?: string
+  filters?: Filters
+  display?: Partial<Display>
+  // Shown at the top of the side panel, which then starts open (a goal's summary).
+  summary?: React.ReactNode
+  // The new-view editor: name and description fields, and Create view saves the filters.
+  editor?: boolean
+}) => {
+  const navigate = useNavigate()
+  const savedViews = useViews()
   const [tab, setTab] = useState<Tab>("all")
-  const [filters, setFilters] = useState<Filters>(view?.filters ?? {})
-  const [display, setDisplay] = useState<Display>(defaultDisplay)
-  const [panel, setPanel] = useState(false)
+  const [filters, setFilters] = useState<Filters>(initialFilters)
+  const [display, setDisplay] = useState<Display>({ ...defaultDisplay, ...initialDisplay })
+  const [panel, setPanel] = useState(Boolean(summary))
   const [peek, setPeek] = useState<string>()
   const [peekWidth, setPeekWidth] = useState(440)
+  const [name, setName] = useState("")
+  const [description, setDescription] = useState("")
   // Phones have no room for a side panel, so cards open the full page there.
   const peeking: Peek = useIsMobile() ? {} : { id: peek, open: setPeek }
 
@@ -326,6 +362,16 @@ export const Pipeline = ({ viewId }: { viewId?: string }) => {
     (g) => display.showEmpty || g.items.length > 0
   )
   const hasFilters = Object.values(filters).some((v) => v?.length)
+
+  const createView = () => {
+    const slug = name
+      .trim()
+      .toLowerCase()
+      .replace(/[^a-z0-9]+/g, "-")
+    const id = savedViews.some((v) => v.id === slug) ? `${slug}-${savedViews.length}` : slug
+    addView({ id, name: name.trim(), description: description.trim(), filters, display })
+    void navigate({ to: "/pipeline", search: { view: id } })
+  }
 
   return (
     <div
@@ -338,62 +384,128 @@ export const Pipeline = ({ viewId }: { viewId?: string }) => {
       }
     >
       <PageHeader
-        crumbs={[
-          { label: "Tracker" },
-          ...(view
-            ? [{ label: "Pipeline", to: "/pipeline" as const }, { label: view.name }]
-            : [{ label: "Pipeline" }]),
-        ]}
+        crumbs={crumbs}
         actions={
-          <NewApplicationDialog
-            trigger={
-              <Button variant="ghost" size="sm">
-                <HugeiconsIcon icon={PlusSignIcon} /> New application
-              </Button>
-            }
-          />
+          !editor && (
+            <NewApplicationDialog
+              trigger={
+                <Button variant="ghost" size="sm">
+                  <HugeiconsIcon icon={PlusSignIcon} /> New application
+                </Button>
+              }
+            />
+          )
         }
       />
-      <div className="flex items-center gap-1 px-3 py-1.5">
-        {(Object.keys(tabs) as Tab[]).map((t) => (
-          <Button
-            key={t}
-            size="xs"
-            variant={tab === t ? "secondary" : "ghost"}
-            aria-pressed={tab === t}
-            className="rounded-full capitalize"
-            onClick={() => setTab(t)}
-          >
-            {t}
+      {editor && (
+        <div className="flex items-start gap-3 border-b px-4 py-3">
+          <span className="bg-muted flex size-8 shrink-0 items-center justify-center rounded-md">
+            <HugeiconsIcon icon={Layers01Icon} className="size-4" />
+          </span>
+          <div className="flex min-w-0 flex-1 flex-col gap-1">
+            <input
+              aria-label="View name"
+              placeholder="View name"
+              value={name}
+              onChange={(e) => setName(e.target.value)}
+              className="placeholder:text-muted-foreground bg-transparent text-base font-medium outline-none"
+            />
+            <input
+              aria-label="Description"
+              placeholder="Description (optional)"
+              value={description}
+              onChange={(e) => setDescription(e.target.value)}
+              className="placeholder:text-muted-foreground bg-transparent text-[13px] outline-none"
+            />
+          </div>
+          <Button variant="ghost" size="sm" render={<Link to="/views" />}>
+            Cancel
           </Button>
-        ))}
-        <IconButton label="Save as view" icon={Layers01Icon} />
-        <div className="ms-auto flex items-center gap-1">
+          <Button size="sm" disabled={!name.trim()} onClick={createView}>
+            Create view
+          </Button>
+        </div>
+      )}
+      <div className="flex items-center gap-1 overflow-x-auto px-3 py-1.5 [scrollbar-width:none]">
+        <Tabs value={tab} onValueChange={(v) => setTab(v as Tab)} className="shrink-0">
+          <TabsList size="sm" aria-label="Status">
+            {(Object.keys(tabs) as Tab[]).map((t) => (
+              <TabsTab key={t} value={t} className="capitalize">
+                {t}
+              </TabsTab>
+            ))}
+          </TabsList>
+        </Tabs>
+        {!editor && !summary && (
+          <>
+            <span className="bg-border mx-1 h-4 w-px shrink-0" />
+            {/* Saved views as tabs; each one is a link, so the URL names the open view. */}
+            <Tabs value={viewId ?? null} className="shrink-0">
+              <TabsList variant="underline" size="sm" aria-label="Saved views">
+                {savedViews.map((v) => (
+                  <TabsTab
+                    key={v.id}
+                    value={v.id}
+                    render={<Link to="/pipeline" search={{ view: v.id }} />}
+                  >
+                    {v.name}
+                  </TabsTab>
+                ))}
+              </TabsList>
+            </Tabs>
+            <Tooltip>
+              <TooltipTrigger
+                render={
+                  <Button
+                    variant="ghost"
+                    size="icon-xs"
+                    aria-label="New view"
+                    render={<Link to="/views/new" search={{ filters }} />}
+                  />
+                }
+              >
+                <HugeiconsIcon icon={PlusSignIcon} />
+              </TooltipTrigger>
+              <TooltipPopup>New view from these filters</TooltipPopup>
+            </Tooltip>
+          </>
+        )}
+        {/* One tab stop for the view controls; arrow keys move between them. */}
+        <Toolbar
+          aria-label="View controls"
+          className="ms-auto shrink-0 gap-1 border-0 bg-transparent p-0"
+        >
           <FilterMenu
             filters={filters}
             onChange={setFilters}
             trigger={
-              <Button variant="ghost" size="icon-sm" aria-label="Filter">
+              <ToolbarButton render={<Button variant="ghost" size="icon-sm" aria-label="Filter" />}>
                 <HugeiconsIcon icon={FilterIcon} />
-              </Button>
+              </ToolbarButton>
             }
           />
           <DisplayOptions
             display={display}
             onChange={setDisplay}
             trigger={
-              <Button variant="ghost" size="icon-sm" aria-label="Display options">
+              <ToolbarButton
+                render={<Button variant="ghost" size="icon-sm" aria-label="Display options" />}
+              >
                 <HugeiconsIcon icon={SlidersHorizontalIcon} />
-              </Button>
+              </ToolbarButton>
             }
           />
-          <IconButton
-            label="Insights"
-            icon={SidebarRight01Icon}
-            aria-pressed={panel}
-            onClick={() => setPanel(!panel)}
+          <ToolbarButton
+            render={
+              <IconButton
+                label={summary ? "Summary" : "Insights"}
+                icon={SidebarRight01Icon}
+                aria-pressed={panel}
+                onClick={() => setPanel(!panel)}
+              />
+            }
           />
-        </div>
+        </Toolbar>
       </div>
       {hasFilters && (
         <div className="flex flex-wrap items-center gap-1.5 border-y px-3 py-1.5">
@@ -410,9 +522,15 @@ export const Pipeline = ({ viewId }: { viewId?: string }) => {
           <Button variant="ghost" size="xs" className="ms-auto" onClick={() => setFilters({})}>
             Clear
           </Button>
-          <Button variant="outline" size="xs">
-            Save view
-          </Button>
+          {!editor && (
+            <Button
+              variant="outline"
+              size="xs"
+              render={<Link to="/views/new" search={{ filters }} />}
+            >
+              Save view
+            </Button>
+          )}
         </div>
       )}
       <div className="flex min-h-0 flex-1">
@@ -421,38 +539,42 @@ export const Pipeline = ({ viewId }: { viewId?: string }) => {
             No applications match these filters.
           </p>
         ) : display.layout === "board" ? (
-          <div className="flex min-w-0 flex-1 gap-2 overflow-x-auto p-2">
-            {groups.map((g) => (
-              <section
-                key={g.key}
-                aria-label={g.label}
-                className="bg-muted/40 flex w-64 shrink-0 flex-col gap-1.5 rounded-lg p-1.5"
-              >
-                <header className="flex h-7 items-center gap-1.5 px-1 text-[13px]">
-                  {g.icon}
-                  <span className="font-medium">{g.label}</span>
-                  <span className="text-muted-foreground">{g.items.length}</span>
-                  <span className="ms-auto flex">
-                    <IconButton label="Group options" icon={MoreHorizontalIcon} size="icon-xs" />
-                    <NewApplicationDialog
-                      trigger={
-                        <Button variant="ghost" size="icon-xs" aria-label={`Add to ${g.label}`}>
-                          <HugeiconsIcon icon={PlusSignIcon} />
-                        </Button>
-                      }
-                    />
-                  </span>
-                </header>
-                <div className="flex flex-col gap-1.5 overflow-y-auto">
-                  {g.items.map((a) => (
-                    <Card key={a.id} a={a} shown={display.shown} peek={peeking} />
-                  ))}
-                </div>
-              </section>
-            ))}
-          </div>
+          <ScrollArea className="min-w-0 flex-1" fill clampContentMinWidth={false}>
+            <div className="flex h-full gap-2 p-2">
+              {groups.map((g) => (
+                <section
+                  key={g.key}
+                  aria-label={g.label}
+                  className="bg-muted/40 flex w-64 shrink-0 flex-col gap-1.5 rounded-lg p-1.5"
+                >
+                  <header className="flex h-7 items-center gap-1.5 px-1 text-[13px]">
+                    {g.icon}
+                    <span className="font-medium">{g.label}</span>
+                    <span className="text-muted-foreground">{g.items.length}</span>
+                    <span className="ms-auto flex">
+                      <IconButton label="Group options" icon={MoreHorizontalIcon} size="icon-xs" />
+                      <NewApplicationDialog
+                        trigger={
+                          <Button variant="ghost" size="icon-xs" aria-label={`Add to ${g.label}`}>
+                            <HugeiconsIcon icon={PlusSignIcon} />
+                          </Button>
+                        }
+                      />
+                    </span>
+                  </header>
+                  <ScrollArea className="-me-1.5 pe-1.5">
+                    <div className="flex flex-col gap-1.5">
+                      {g.items.map((a) => (
+                        <Card key={a.id} a={a} shown={display.shown} peek={peeking} />
+                      ))}
+                    </div>
+                  </ScrollArea>
+                </section>
+              ))}
+            </div>
+          </ScrollArea>
         ) : (
-          <div className="min-w-0 flex-1 overflow-y-auto">
+          <ScrollArea className="@container min-w-0 flex-1">
             {groups.map((g) => (
               <section key={g.key} aria-label={g.label}>
                 <header className="bg-muted/40 flex h-8 items-center gap-2 border-b px-4 text-[13px]">
@@ -465,14 +587,21 @@ export const Pipeline = ({ viewId }: { viewId?: string }) => {
                 ))}
               </section>
             ))}
-          </div>
+          </ScrollArea>
         )}
         {peek ? (
           <SidePanel width={peekWidth} onResize={setPeekWidth}>
             <ApplicationPeek id={peek} onClose={() => setPeek(undefined)} />
           </SidePanel>
         ) : (
-          panel && <InsightsPanel items={visible} filters={filters} onChange={setFilters} />
+          panel && (
+            <InsightsPanel
+              items={visible}
+              filters={filters}
+              onChange={setFilters}
+              header={summary}
+            />
+          )
         )}
       </div>
     </div>

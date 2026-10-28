@@ -1,50 +1,65 @@
-import { Layers01Icon, PlusSignIcon } from "@hugeicons/core-free-icons"
+import {
+  DashboardSquare01Icon,
+  LeftToRightListBulletIcon,
+  PlusSignIcon,
+} from "@hugeicons/core-free-icons"
 import { HugeiconsIcon } from "@hugeicons/react"
 import { Link } from "@tanstack/react-router"
 
 import { Button } from "@/components/ui/button"
-
-import { type FilterField, applications, matches, optionLabel, views } from "./data"
-import { fieldLabels } from "./filters"
 import { PageHeader } from "@/features/shell/page-header"
 
-// Saved filter sets. Opening one loads its filters into the pipeline.
+import { type FilterField, applications, matches, optionLabel, useViews } from "./data"
+import { groupings } from "./display-options"
+import { fieldLabels } from "./filters"
+
+// Saved views. Each opens in the pipeline with its own filters and layout.
 export const Views = () => (
   <>
     <PageHeader
       crumbs={[{ label: "Tracker" }, { label: "Views" }]}
       actions={
-        <Button variant="ghost" size="sm">
+        <Button variant="ghost" size="sm" render={<Link to="/views/new" />}>
           <HugeiconsIcon icon={PlusSignIcon} /> New view
         </Button>
       }
     />
     <ul className="flex flex-col">
-      {views.map((view) => (
-        <li key={view.id} className="border-b">
-          <Link
-            to="/pipeline"
-            search={{ view: view.id }}
-            className="hover:bg-accent/50 flex items-center gap-3 px-4 py-3"
-          >
-            <HugeiconsIcon icon={Layers01Icon} className="text-muted-foreground size-4 shrink-0" />
-            <span className="flex min-w-0 flex-col">
-              <span className="text-sm font-medium">{view.name}</span>
-              <span className="text-muted-foreground truncate text-xs">
-                {Object.entries(view.filters)
-                  .map(
-                    ([field, values]) =>
-                      `${fieldLabels[field as FilterField]} is ${values!.map((v) => optionLabel(field as FilterField, v)).join(" or ")}`
-                  )
-                  .join(" · ")}
+      {useViews().map((view) => {
+        const list = view.display?.layout === "list"
+        return (
+          <li key={view.id} className="border-b">
+            <Link
+              to="/pipeline"
+              search={{ view: view.id }}
+              className="hover:bg-accent/50 flex items-center gap-3 px-4 py-2.5 transition-colors"
+            >
+              <HugeiconsIcon
+                icon={list ? LeftToRightListBulletIcon : DashboardSquare01Icon}
+                className="text-muted-foreground size-4 shrink-0"
+              />
+              <span className="flex min-w-0 flex-col">
+                <span className="text-[13px] font-medium">{view.name}</span>
+                <span className="text-muted-foreground truncate text-xs">
+                  {Object.entries(view.filters)
+                    .filter(([, values]) => values?.length)
+                    .map(
+                      ([field, values]) =>
+                        `${fieldLabels[field as FilterField]} is ${values!.map((v) => optionLabel(field as FilterField, v)).join(" or ")}`
+                    )
+                    .join(" · ") || "No filters"}
+                </span>
               </span>
-            </span>
-            <span className="text-muted-foreground ms-auto text-sm tabular-nums">
-              {applications.filter((a) => matches(a, view.filters)).length}
-            </span>
-          </Link>
-        </li>
-      ))}
+              <span className="text-muted-foreground ms-auto hidden shrink-0 text-xs sm:inline">
+                {list ? "List" : "Board"} · {groupings[view.display?.groupBy ?? "status"]}
+              </span>
+              <span className="text-muted-foreground w-8 shrink-0 text-end text-[13px] tabular-nums">
+                {applications.filter((a) => matches(a, view.filters)).length}
+              </span>
+            </Link>
+          </li>
+        )
+      })}
     </ul>
   </>
 )

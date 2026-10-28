@@ -1,5 +1,7 @@
 import { useSyncExternalStore } from "react"
 
+import type { Display } from "./display-options"
+
 // shortcut: hard-coded sample data while the tracker UI has no backend; replace
 // with Convex queries once the schema in docs/database-design.md exists.
 
@@ -68,6 +70,7 @@ export type Goal = {
   name: string
   summary: string
   priority: Priority
+  start: string
   target: string
   milestones: Milestone[]
 }
@@ -77,7 +80,14 @@ export const filterFields = ["status", "priority", "label", "goal", "company", "
 export type FilterField = (typeof filterFields)[number]
 export type Filters = Partial<Record<FilterField, string[]>>
 
-export type View = { id: string; name: string; description: string; filters: Filters }
+// A view is a saved set of filters plus how to show them: board or list, grouping, ordering.
+export type View = {
+  id: string
+  name: string
+  description: string
+  filters: Filters
+  display?: Partial<Display>
+}
 
 export type Notification = {
   id: string
@@ -96,6 +106,7 @@ export const goals: Goal[] = [
     name: "Land a frontend role",
     summary: "A full-time frontend or full-stack role before the end of Q1.",
     priority: "high",
+    start: "2026-09-15",
     target: "2027-03-31",
     milestones: [
       { name: "Polish resume and portfolio", done: true, target: "2026-09-30" },
@@ -109,6 +120,7 @@ export const goals: Goal[] = [
     name: "Apply every week",
     summary: "Five good applications a week, tracked here.",
     priority: "medium",
+    start: "2026-09-01",
     target: "2026-12-31",
     milestones: [
       { name: "First 10 applications", done: true },
@@ -121,10 +133,24 @@ export const goals: Goal[] = [
     name: "Contract work on the side",
     summary: "Short contracts to keep income steady while searching.",
     priority: "low",
+    start: "2026-11-02",
     target: "2026-12-15",
     milestones: [
       { name: "Update freelance profiles", done: false },
       { name: "Land one contract", done: false },
+    ],
+  },
+  {
+    id: "portfolio",
+    name: "Rebuild the portfolio",
+    summary: "A new portfolio site with three case studies.",
+    priority: "medium",
+    start: "2026-08-03",
+    target: "2026-09-14",
+    milestones: [
+      { name: "Pick three projects", done: true },
+      { name: "Write the case studies", done: true },
+      { name: "Ship the site", done: true },
     ],
   },
 ]
@@ -323,17 +349,56 @@ const sample: Application[] = [
   }),
 ]
 
+const sampleViews: View[] = [
+  {
+    id: "remote",
+    name: "Remote roles",
+    description: "Everything labelled Remote.",
+    filters: { label: ["Remote"] },
+    display: { layout: "board" },
+  },
+  {
+    id: "in-play",
+    name: "In play",
+    description: "Applied or interviewing, waiting on a next step.",
+    filters: { status: ["applied", "interviewing"] },
+    display: { layout: "list", orderBy: "created" },
+  },
+  {
+    id: "dream",
+    name: "Dream companies",
+    description: "High-stakes applications to prepare carefully.",
+    filters: { label: ["Dream company"], priority: ["urgent", "high"] },
+    display: { layout: "board", groupBy: "priority" },
+  },
+  {
+    id: "frontend-goal",
+    name: "Frontend role goal",
+    description: "Applications counting toward the frontend role goal.",
+    filters: { goal: ["frontend-role"] },
+    display: { layout: "list" },
+  },
+]
+
 // shortcut: edits live in memory and reset on reload; replace with Convex queries and mutations.
-// `applications` is a live binding, so every module that imports it sees edits made anywhere.
+// `applications` and `views` are live bindings, so every module that imports them sees edits made anywhere.
 export let applications = sample
+export let views = sampleViews
 const listeners = new Set<() => void>()
 const subscribe = (listener: () => void) => {
   listeners.add(listener)
   return () => listeners.delete(listener)
 }
+const changed = () => {
+  for (const listener of listeners) listener()
+}
 export const updateApplication = (id: string, patch: Partial<Application>) => {
   applications = applications.map((a) => (a.id === id ? { ...a, ...patch } : a))
-  for (const listener of listeners) listener()
+  changed()
+}
+export const addView = (view: View) => {
+  views = [...views, view]
+  changed()
 }
 export const useApplications = () =>
   useSyncExternalStore(
@@ -341,33 +406,12 @@ export const useApplications = () =>
     () => applications,
     () => sample
   )
-
-export const views: View[] = [
-  {
-    id: "remote",
-    name: "Remote roles",
-    description: "Everything labelled Remote.",
-    filters: { label: ["Remote"] },
-  },
-  {
-    id: "in-play",
-    name: "In play",
-    description: "Applied or interviewing, waiting on a next step.",
-    filters: { status: ["applied", "interviewing"] },
-  },
-  {
-    id: "dream",
-    name: "Dream companies",
-    description: "High-stakes applications to prepare carefully.",
-    filters: { label: ["Dream company"], priority: ["urgent", "high"] },
-  },
-  {
-    id: "frontend-goal",
-    name: "Frontend role goal",
-    description: "Applications counting toward the frontend role goal.",
-    filters: { goal: ["frontend-role"] },
-  },
-]
+export const useViews = () =>
+  useSyncExternalStore(
+    subscribe,
+    () => views,
+    () => sampleViews
+  )
 
 export const notifications: Notification[] = [
   {
@@ -479,3 +523,6 @@ export const ago = (iso: string) => {
 
 export const goalProgress = (goal: Goal) =>
   Math.round((goal.milestones.filter((m) => m.done).length / goal.milestones.length) * 100)
+
+export const goalStatus = (goal: Goal) =>
+  goalProgress(goal) === 100 ? "Completed" : goal.start > today ? "Upcoming" : "Active"

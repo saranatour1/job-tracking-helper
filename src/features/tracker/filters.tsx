@@ -2,6 +2,7 @@ import { Cancel01Icon } from "@hugeicons/core-free-icons"
 import { HugeiconsIcon } from "@hugeicons/react"
 
 import { Button } from "@/components/ui/button"
+import { Group, GroupText } from "@/components/ui/group"
 import {
   Menu,
   MenuCheckboxItem,
@@ -13,6 +14,7 @@ import {
   MenuSubTrigger,
   MenuTrigger,
 } from "@/components/ui/menu"
+import { cn } from "@/lib/utils"
 
 import { type FilterField, type Filters, fieldOptions, filterFields, optionLabel } from "./data"
 
@@ -67,6 +69,9 @@ export const FilterMenu = ({
   </Menu>
 )
 
+// The coss group joins the segments into one chip with shared borders.
+const segment = "h-6 rounded-md px-2 text-xs font-medium sm:text-xs"
+
 // Renders one chip per active filter, such as "Status is any of Applied, Interviewing".
 export const FilterChips = ({
   filters,
@@ -78,25 +83,24 @@ export const FilterChips = ({
   filterFields
     .filter((field) => filters[field]?.length)
     .map((field) => (
-      <span
-        key={field}
-        className="bg-background flex h-6 items-center overflow-hidden rounded-md border text-xs"
-      >
-        <span className="px-2 font-medium">{fieldLabels[field]}</span>
-        <span className="text-muted-foreground border-x px-2 leading-6">
+      <Group key={field} aria-label={`${fieldLabels[field]} filter`}>
+        <GroupText className={segment}>{fieldLabels[field]}</GroupText>
+        <GroupText className={cn(segment, "text-muted-foreground bg-transparent")}>
           {filters[field]!.length > 1 ? "is any of" : "is"}
-        </span>
-        <span className="max-w-56 truncate px-2">
-          {filters[field]!.map((v) => optionLabel(field, v)).join(", ")}
-        </span>
+        </GroupText>
+        <GroupText className={cn(segment, "text-foreground max-w-56 bg-transparent")}>
+          <span className="truncate">
+            {filters[field]!.map((v) => optionLabel(field, v)).join(", ")}
+          </span>
+        </GroupText>
         <Button
-          variant="ghost"
+          variant="outline"
           size="icon-xs"
-          className="rounded-none border-s"
+          className="size-6 sm:size-6"
           aria-label={`Remove ${fieldLabels[field]} filter`}
           onClick={() => onChange({ ...filters, [field]: [] })}
         >
           <HugeiconsIcon icon={Cancel01Icon} />
         </Button>
-      </span>
+      </Group>
     ))

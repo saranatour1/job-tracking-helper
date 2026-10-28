@@ -1,4 +1,4 @@
-import { HeadContent, Scripts, createRootRoute } from "@tanstack/react-router"
+import { HeadContent, ScriptOnce, Scripts, createRootRoute } from "@tanstack/react-router"
 
 import { ConvexAuthProvider } from "@convex-dev/auth/react"
 import { ConvexReactClient } from "convex/react"
@@ -17,7 +17,7 @@ const RootDocument = ({ children }: { children: React.ReactNode }) => (
   // The theme script sets the html class before hydration, so React must not flag the mismatch.
   <html lang="en" suppressHydrationWarning>
     <head>
-      <script dangerouslySetInnerHTML={{ __html: themeScript }} />
+      <ScriptOnce>{themeScript}</ScriptOnce>
       <HeadContent />
     </head>
     <body>

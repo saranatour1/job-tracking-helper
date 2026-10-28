@@ -24,6 +24,7 @@ import {
   MenuRadioItem,
   MenuTrigger,
 } from "@/components/ui/menu"
+import { ScrollArea } from "@/components/ui/scroll-area"
 import { PageHeader } from "@/features/shell/page-header"
 
 import {
@@ -356,11 +357,11 @@ export const ApplicationDetail = ({ id }: { id: string }) => {
         crumbs={[{ label: "Pipeline", to: "/pipeline" }, { label: `${a.id} ${a.role}` }]}
       />
       <div className="flex min-h-0 flex-1 flex-col lg:flex-row">
-        <main className="min-w-0 flex-1 overflow-y-auto">
+        <ScrollArea render={<main />} className="min-w-0 flex-1">
           <div className="mx-auto flex max-w-3xl flex-col gap-8 px-8 py-8">
             <Content a={a} />
           </div>
-        </main>
+        </ScrollArea>
         <aside
           aria-label="Properties"
           className="border-t px-4 py-6 lg:w-72 lg:border-s lg:border-t-0"
@@ -392,9 +393,11 @@ export const ApplicationPeek = ({ id, onClose }: { id: string; onClose: () => vo
           <HugeiconsIcon icon={Cancel01Icon} />
         </Button>
       </header>
-      <div className="flex min-h-0 flex-1 flex-col gap-6 overflow-y-auto p-5">
-        <Content key={a.id} a={a} properties={<Properties a={a} />} />
-      </div>
+      <ScrollArea className="min-h-0 flex-1">
+        <div className="flex flex-col gap-6 p-5">
+          <Content key={a.id} a={a} properties={<Properties a={a} />} />
+        </div>
+      </ScrollArea>
     </div>
   )
 }
