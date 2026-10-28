@@ -8,6 +8,8 @@ export const User = type({
   "email?": "string",
   "userName?": "string",
   "imageId?": arkId("_storage"),
+  // Set when someone saves or skips Preferences, so first run only sends them there once.
+  "onboardedAt?": "number",
 })
 
 export const usersTable = defineTable(arkOutputToConvex(User))

@@ -6,6 +6,7 @@ import {
   PencilEdit02Icon,
   Target02Icon,
   Task01Icon,
+  UserCircleIcon,
 } from "@hugeicons/core-free-icons"
 import { HugeiconsIcon } from "@hugeicons/react"
 
@@ -64,6 +65,7 @@ export const AppSidebar = (props: React.ComponentProps<typeof Sidebar>) => {
   const top = [
     { title: "Inbox", to: "/inbox", icon: InboxIcon, badge: useUnreadCount() },
     { title: "Applications", to: "/", icon: Briefcase01Icon },
+    { title: "Preferences", to: "/preferences", icon: UserCircleIcon },
   ]
   return (
     <Sidebar collapsible="icon" {...props}>

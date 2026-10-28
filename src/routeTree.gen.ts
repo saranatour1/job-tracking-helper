@@ -14,6 +14,7 @@ import { Route as AuthRouteImport } from './routes/_auth'
 import { Route as AppIndexRouteImport } from './routes/_app/index'
 import { Route as AppAccountRouteImport } from './routes/_app/account'
 import { Route as AppInboxRouteImport } from './routes/_app/inbox'
+import { Route as AppPreferencesRouteImport } from './routes/_app/preferences'
 import { Route as AuthSignInRouteImport } from './routes/_auth/sign-in'
 import { Route as AuthSignUpRouteImport } from './routes/_auth/sign-up'
 import { Route as AppGoalsIndexRouteImport } from './routes/_app/goals/index'
@@ -44,6 +45,11 @@ const AppAccountRoute = AppAccountRouteImport.update({
 const AppInboxRoute = AppInboxRouteImport.update({
   id: '/inbox',
   path: '/inbox',
+  getParentRoute: () => AppRoute,
+} as any)
+const AppPreferencesRoute = AppPreferencesRouteImport.update({
+  id: '/preferences',
+  path: '/preferences',
   getParentRoute: () => AppRoute,
 } as any)
 const AuthSignInRoute = AuthSignInRouteImport.update({
@@ -91,6 +97,7 @@ export interface FileRoutesByFullPath {
   '/': typeof AppIndexRoute
   '/account': typeof AppAccountRoute
   '/inbox': typeof AppInboxRoute
+  '/preferences': typeof AppPreferencesRoute
   '/sign-in': typeof AuthSignInRoute
   '/sign-up': typeof AuthSignUpRoute
   '/goals/$id': typeof AppGoalsIdRoute
@@ -104,6 +111,7 @@ export interface FileRoutesByTo {
   '/': typeof AppIndexRoute
   '/account': typeof AppAccountRoute
   '/inbox': typeof AppInboxRoute
+  '/preferences': typeof AppPreferencesRoute
   '/sign-in': typeof AuthSignInRoute
   '/sign-up': typeof AuthSignUpRoute
   '/goals/$id': typeof AppGoalsIdRoute
@@ -119,6 +127,7 @@ export interface FileRoutesById {
   '/_auth': typeof AuthRouteWithChildren
   '/_app/account': typeof AppAccountRoute
   '/_app/inbox': typeof AppInboxRoute
+  '/_app/preferences': typeof AppPreferencesRoute
   '/_auth/sign-in': typeof AuthSignInRoute
   '/_auth/sign-up': typeof AuthSignUpRoute
   '/_app/': typeof AppIndexRoute
@@ -135,6 +144,7 @@ export interface FileRouteTypes {
     | '/'
     | '/account'
     | '/inbox'
+    | '/preferences'
     | '/sign-in'
     | '/sign-up'
     | '/goals/$id'
@@ -148,6 +158,7 @@ export interface FileRouteTypes {
     | '/'
     | '/account'
     | '/inbox'
+    | '/preferences'
     | '/sign-in'
     | '/sign-up'
     | '/goals/$id'
@@ -162,6 +173,7 @@ export interface FileRouteTypes {
     | '/_auth'
     | '/_app/account'
     | '/_app/inbox'
+    | '/_app/preferences'
     | '/_auth/sign-in'
     | '/_auth/sign-up'
     | '/_app/'
@@ -213,6 +225,13 @@ declare module '@tanstack/react-router' {
       path: '/inbox'
       fullPath: '/inbox'
       preLoaderRoute: typeof AppInboxRouteImport
+      parentRoute: typeof AppRoute
+    }
+    '/_app/preferences': {
+      id: '/_app/preferences'
+      path: '/preferences'
+      fullPath: '/preferences'
+      preLoaderRoute: typeof AppPreferencesRouteImport
       parentRoute: typeof AppRoute
     }
     '/_auth/sign-in': {
@@ -277,6 +296,7 @@ declare module '@tanstack/react-router' {
 interface AppRouteChildren {
   AppAccountRoute: typeof AppAccountRoute
   AppInboxRoute: typeof AppInboxRoute
+  AppPreferencesRoute: typeof AppPreferencesRoute
   AppIndexRoute: typeof AppIndexRoute
   AppGoalsIdRoute: typeof AppGoalsIdRoute
   AppPipelineIdRoute: typeof AppPipelineIdRoute
@@ -289,6 +309,7 @@ interface AppRouteChildren {
 const AppRouteChildren: AppRouteChildren = {
   AppAccountRoute: AppAccountRoute,
   AppInboxRoute: AppInboxRoute,
+  AppPreferencesRoute: AppPreferencesRoute,
   AppIndexRoute: AppIndexRoute,
   AppGoalsIdRoute: AppGoalsIdRoute,
   AppPipelineIdRoute: AppPipelineIdRoute,

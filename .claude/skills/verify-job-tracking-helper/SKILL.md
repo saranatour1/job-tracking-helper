@@ -5,7 +5,7 @@ description: Launch and drive the Job Tracking Helper web app (TanStack Start on
 
 # Verify Job Tracking Helper
 
-The app is a web UI. Users sign in (username and password, guest, or Google/GitHub when configured), then land on a dashboard with a collapsible sidebar and an Applications table with an add form. The backend is a Convex **cloud dev deployment** named in `.env.local` (`CONVEX_DEPLOYMENT`). There is no other surface to drive.
+The app is a web UI. Users sign in (username and password, guest, or Google/GitHub when configured), then land on a dashboard with a collapsible sidebar and an Applications table with an add form. A brand-new account lands on Preferences first; `Skip for now` or saving there sends later visits to Applications. The backend is a Convex **cloud dev deployment** named in `.env.local` (`CONVEX_DEPLOYMENT`). There is no other surface to drive.
 
 Driving uses the Claude Browser tools (`mcp__Claude_Browser__*`). The pane has its own cookies and storage, so signing in there never touches the user's own browser session.
 
@@ -78,7 +78,7 @@ dir=$(.claude/skills/verify-job-tracking-helper/scripts/evidence.sh new <feature
 .claude/skills/verify-job-tracking-helper/scripts/evidence.sh table "$dir" users after
 ```
 
-`new` prints a fresh directory under `.verify-evidence/`, which is gitignored. `table` saves a Convex table (`users` or `applications`) as JSON lines and prints the row count. A proof directory holds four kinds of file:
+`new` prints a fresh directory under `.verify-evidence/`, which is gitignored. `table` saves a Convex table (`users`, `applications`, `preferences`, `preferenceTags` or `profileEntries`) as JSON lines and prints the row count. A proof directory holds four kinds of file:
 
 - `steps.md`, which you write: each user action, the tool call that did it, and what the page showed after.
 - One `get_page_text` or `read_page` dump per meaningful state, saved with Write, named like `02-after-sign-in.txt`, plus a screenshot copied in for each key state.

@@ -12,7 +12,7 @@ The dashboard home lists the signed-in user's job applications in a table, with 
 
 ## How to get to it (user POV)
 
-- Sign in. The dashboard opens on Applications.
+- Sign in. A brand-new account opens on Preferences first; click `Skip for now`. After that the dashboard opens on Applications.
 - From anywhere in the app, choose `Applications` in the sidebar.
 
 ## Driving it with Claude Browser

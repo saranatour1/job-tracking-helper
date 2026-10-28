@@ -44,4 +44,5 @@ Each feature file starts with an H1 title and one paragraph describing the user-
 - [OAuth buttons](./oauth-buttons.md) covers the Google and GitHub buttons, and why the round trip is user-only.
 - [Sidebar](./sidebar.md) covers toggling by button and keyboard, the Applications link, and the user menu with `Account` and `Sign out`.
 - [Applications](./applications.md) covers the table, the add form, and its validation.
+- [Preferences](./preferences.md) covers the first-run redirect, saving answers, filling them from an assistant's reply, and the one-file resume upload.
 - [Account](./account.md) covers editing the profile, the custom username, the profile image, and deleting the account.

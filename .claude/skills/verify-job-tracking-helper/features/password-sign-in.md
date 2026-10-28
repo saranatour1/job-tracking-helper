@@ -27,7 +27,7 @@ Preconditions:
 - **Snapshot before.** Run `evidence.sh table "$dir" users before`.
 - **Switch to sign-up.** `find` `"Need an account? Sign up"`, a link to `/sign-up`, and click it. The URL is `/sign-up`, the heading reads `Create an account`, and the submit button reads `Sign up`.
 - **Too-short password.** Fill `Username` with the fresh username and `Password` with `abc`, then click `Sign up`. The alert reads `Password is too short.` and the heading is unchanged.
-- **Sign up.** Fill `Password` with the fresh password and click `Sign up`. The `Applications` heading appears. Save it as `01-signed-up.txt`.
+- **Sign up.** Fill `Password` with the fresh password and click `Sign up`. The `Preferences` heading appears, because a new account starts there. Save it as `01-signed-up.txt`, then click `Skip for now`.
 - **Side effect.** Run `evidence.sh table "$dir" users after-sign-up`. The count is the before count plus one.
 - **Sign out.** Open `Account menu` and choose the `Sign out` menu item. The `Sign in` heading returns.
 - **Wrong password.** Fill the fresh username and a different password, then click `Sign in`. The alert reads `Wrong username or password.`

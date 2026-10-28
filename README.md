@@ -2,6 +2,8 @@
 
 Track job applications: company, role and status, saved per user.
 
+New accounts start on Preferences, which asks what someone wants from their next job in their own words, one section at a time, and saves it to Convex. Its Overview tab lists every answer, and clicking one opens its section. Its Prefilled tab keeps the fields application forms ask for, in sections you can add, rename and remove, suggested from those words and ready to copy. A copy-paste prompt lets them fill it with their own AI assistant. A resume upload is optional, kept only to attach to applications, and never read.
+
 The Inbox, Pipeline, Goals and Views pages are a preview built on sample data from `src/features/tracker/data.ts`. They don't read from or save to Convex yet. Edits there last until you reload, and the create buttons do nothing.
 
 ## How to run
@@ -55,6 +57,7 @@ src/
     _app.tsx, _auth.tsx                layouts: signed-in pages, and /sign-in + /sign-up
   features/<feature>/                  the feature's components
   features/tracker/                    Inbox, Pipeline, Goals and Views, on sample data for now
+  features/preferences/                Preferences: the form, the assistant prompt and the profile blocks
   components/ui/                       shadcn/coss components, managed by the shadcn CLI
 scripts/                               dev and secrets scripts
 docs/database-design.md                planned tables, status flow and build order

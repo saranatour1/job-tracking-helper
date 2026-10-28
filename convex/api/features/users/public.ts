@@ -3,6 +3,7 @@ import { ConvexError, v } from "convex/values"
 import { components } from "../../../_generated/api"
 import { arkId } from "../../../lib/ark"
 import { arkMutation, authedMutation, authedQuery } from "../../../lib/functions"
+import { deletePreferences } from "../preferences/public"
 import { maxImageBytes, Profile } from "./validators"
 
 const me = authedQuery({
@@ -12,6 +13,7 @@ const me = authedQuery({
     email: v.string(),
     userName: v.string(),
     imageUrl: v.union(v.string(), v.null()),
+    onboarded: v.boolean(),
   }),
   handler: async (ctx) => {
     const user = await ctx.db.get("users", ctx.userId)
@@ -20,6 +22,7 @@ const me = authedQuery({
       email: user?.email ?? "",
       userName: user?.userName ?? "",
       imageUrl: user?.imageId ? await ctx.storage.getUrl(user.imageId) : null,
+      onboarded: user?.onboardedAt !== undefined,
     }
   },
 })
@@ -44,7 +47,7 @@ const updateProfile = arkMutation({
   },
 })
 
-const generateImageUploadUrl = authedMutation({
+const generateUploadUrl = authedMutation({
   args: {},
   returns: v.string(),
   handler: (ctx) => ctx.storage.generateUploadUrl(),
@@ -86,10 +89,17 @@ const deleteAccount = authedMutation({
     }
     const user = await ctx.db.get("users", ctx.userId)
     if (user?.imageId) await ctx.storage.delete(user.imageId)
+    await deletePreferences(ctx, ctx.userId)
     await ctx.runMutation(components.authUsername.public.deleteUsername, { userId: ctx.userId })
     await ctx.db.replace("users", ctx.userId, {})
     return null
   },
 })
 
-export const publicApi = { me, updateProfile, generateImageUploadUrl, setImage, deleteAccount }
+export const publicApi = {
+  me,
+  updateProfile,
+  generateUploadUrl,
+  setImage,
+  deleteAccount,
+}
