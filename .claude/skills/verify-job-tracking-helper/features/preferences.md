@@ -1,6 +1,6 @@
 # Preferences
 
-`/preferences` asks people what they want from their next job in their own words: interests, things to avoid, growth, places and work mode, companies, red flags, who they are, six common application questions, and an optional resume. Answers are stored on the `users` row as `preferences`. A copy-paste prompt lets them fill the form with their own AI assistant.
+`/preferences` asks people what they want from their next job in their own words: interests, things to avoid, growth, places and work mode, companies, red flags, who they are, six common application questions, and an optional resume. Answers are stored in the `preferences` table, one row per user, and `users.onboardedAt` records that first run is done. A copy-paste prompt lets them fill the form with their own AI assistant.
 
 ## Sub-features
 
@@ -26,7 +26,7 @@ Steps:
 
 - **First run.** Continue as guest. The URL is `/preferences` and `Skip for now` shows next to `Save preferences`.
 - **Prefill.** `find` `"textbox"` and fill the one whose placeholder starts with `Paste the reply` with a JSON object such as `{"interests":["climate"],"workMode":"remote","answers":{"pay":"60k EUR"},"extra":1}`. Click `Fill the form`. A status reads `Filled 3 answers`, and the Interests field shows a `climate` chip.
-- **Save.** Click `Save preferences`. A status reads `Saved.` and `Skip for now` is gone. Run `evidence.sh table "$dir" users after-save`: the row has `preferences`.
+- **Save.** Click `Save preferences`. A status reads `Saved.` and `Skip for now` is gone. Run `evidence.sh table "$dir" preferences after-save`: there is one row for this user.
 - **Persist.** Navigate to `/`: the URL stays `/`. Navigate back to `/preferences`: the answers are still filled.
 - **Resume.** `form_input` can't set files. Use `javascript_tool` to put a `File` into `#resume` through a `DataTransfer` and dispatch `change`. A `.png` shows `Upload a PDF, Word or plain text file.`; a `.pdf` shows its name as a link with `Remove`.
 

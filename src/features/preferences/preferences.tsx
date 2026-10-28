@@ -7,7 +7,7 @@ import {
   PreferencesDraft,
   resumeTypes,
   workModes,
-} from "@convex/api/features/users/validators"
+} from "@convex/api/features/preferences/validators"
 import { Cancel01Icon, Copy01Icon, SparklesIcon } from "@hugeicons/core-free-icons"
 import { HugeiconsIcon } from "@hugeicons/react"
 import { useForm, useStore } from "@tanstack/react-form"
@@ -227,7 +227,7 @@ const Prefill = ({ onDraft }: { onDraft: (draft: Draft) => number }) => {
 
 const Resume = ({ resume }: { resume: { name: string; url: string | null } | null }) => {
   const generateUploadUrl = useMutation(api.users.generateUploadUrl)
-  const setResume = useMutation(api.users.setResume)
+  const setResume = useMutation(api.preferences.setResume)
   const [error, setError] = useState<string>()
 
   const upload = async (file: File) => {
@@ -303,8 +303,8 @@ const PreferencesForm = ({
   resume: { name: string; url: string | null } | null
   onboarded: boolean
 }) => {
-  const savePreferences = useMutation(api.users.savePreferences)
-  const skipPreferences = useMutation(api.users.skipPreferences)
+  const savePreferences = useMutation(api.preferences.save)
+  const skipPreferences = useMutation(api.preferences.skip)
   const navigate = useNavigate()
   const [status, setStatus] = useState<string>()
   const form = useForm({
@@ -528,7 +528,7 @@ const PreferencesForm = ({
 }
 
 export const Preferences = () => {
-  const data = useQuery(api.users.preferences)
+  const data = useQuery(api.preferences.get)
   const me = useQuery(api.users.me)
   return (
     <div className="flex h-svh flex-col md:h-[calc(100svh-1rem)]">

@@ -20,26 +20,26 @@ Signs there are too many tables:
 - A table that stores a number you could compute from other tables.
 - Two tables recording the same event.
 
-Applying that to the first draft removed four of its ten tables, and kept a fifth from being added:
+Applying that to the first draft removed three of its ten tables and kept a fourth from being added. `preferences` would also fold into `users` by these rules, but it stays a table on purpose: `users` holds only account details.
 
 | First draft        | Fails because                                              | Now                                         |
 | ------------------ | ---------------------------------------------------------- | ------------------------------------------- |
-| `preferences`      | always one row per user                                    | `users.preferences` object                  |
+| `preferences`      | always one row per user                                    | kept as a table so `users` stays basic      |
 | `companyLocations` | a few offices per company, only read with the company      | `companies.locations` array, capped at 200  |
 | `statusEvents`     | a handful per application, only read with it               | `applications.history` array, capped at 100 |
 | `reports`          | stores numbers computed from `applications.history`        | computed on demand                          |
 | `interviews`       | never added, since rounds and dates fit in `history` notes | revisit if interviews need reminders        |
 
-Six tables are left, counting `users`, which exists today. Phase 1 needs four of them.
+Six tables are left, counting `users`. `users` and `preferences` exist today, and phase 1 needs three more.
 
-| Table          | Passes rule | Phase |
-| -------------- | ----------- | ----- |
-| `users`        | exists      | now   |
-| `applications` | 1, 4        | 1     |
-| `companies`    | 2, 3        | 1     |
-| `auditLogs`    | 1, 4        | 1     |
-| `resumes`      | 2           | 2     |
-| `emails`       | 1, 4        | 3     |
+| Table          | Passes rule                    | Phase |
+| -------------- | ------------------------------ | ----- |
+| `users`        | exists                         | now   |
+| `applications` | 1, 4                           | 1     |
+| `companies`    | 2, 3                           | 1     |
+| `auditLogs`    | 1, 4                           | 1     |
+| `preferences`  | exception: keeps `users` basic | now   |
+| `emails`       | 1, 4                           | 3     |
 
 ## Where each wish list item lives
 
@@ -51,10 +51,10 @@ Six tables are left, counting `users`, which exists today. Phase 1 needs four of
 | status                                    | `applications.status`, with every change appended to `applications.history`   |
 | method of application                     | `applications.method`                                                         |
 | previous runs, snapshots from the past    | `applications.history`, which gives any application's status on any past date |
-| resumes                                   | `resumes` table, file in Convex storage, linked from `applications`           |
-| user preferences, locations, custom roles | `users.preferences`                                                           |
-| auto fill, prefilled applications         | `users.preferences.autofill`                                                  |
-| rate limits / monthly                     | `users.preferences.monthlyTarget`, count from `applications.appliedAt`        |
+| resumes                                   | one file on `preferences`, kept to attach to applications and never read      |
+| user preferences, locations, custom roles | `preferences` table, one row per user                                         |
+| auto fill, prefilled applications         | `preferences.answers`, which an AI assistant's reply can fill                 |
+| rate limits / monthly                     | a monthly target on `preferences` later, count from `applications.appliedAt`  |
 | emails / method of tracking               | `emails` table in phase 3, which needs a Gmail connection                     |
 | acceptance rate, interview rate           | computed from `applications.history`                                          |
 | recent reports                            | computed for any month on demand                                              |
@@ -67,10 +67,9 @@ Six tables are left, counting `users`, which exists today. Phase 1 needs four of
 erDiagram
     users |o--o{ companies : "added"
     users ||--o{ applications : tracks
-    users ||--o{ resumes : uploads
+    users ||--o| preferences : "has one"
     users ||--o{ auditLogs : "made changes"
     companies ||--o{ applications : "applied to"
-    resumes |o--o{ applications : "sent with"
     applications |o--o{ emails : "matched to"
 
     users {
@@ -78,7 +77,7 @@ erDiagram
         string email
         string userName
         id imageId "_storage"
-        object preferences "roles, locations, workMode, monthlyTarget, autofill"
+        number onboardedAt "optional, set when Preferences is saved or skipped"
     }
     companies {
         string name
@@ -99,14 +98,17 @@ erDiagram
         object location "optional, copied from the company"
         string postingUrl
         number appliedAt
-        id resumeId "optional"
         object[] links "label + url"
         string notes
     }
-    resumes {
-        id userId
-        string name
-        id fileId "_storage"
+    preferences {
+        id userId "unique"
+        string[] interests "also avoid, skillsToBuild, locations, companies, redFlagCompanies"
+        enum workMode "any | remote | hybrid | onsite"
+        string identity "also growthGoal, companyTraits, redFlags"
+        object answers "offer, leave, goodWeek, pay, visa, start"
+        id resumeId "optional, _storage"
+        string resumeName "optional"
     }
     emails {
         id userId
@@ -138,8 +140,7 @@ Convex stores references as typed ids (`v.id("companies")`) but does not enforce
 | `companies`    | `users`        | many to one | `createdBy`, optional            | delete the company if it is private and unused, otherwise clear `createdBy` |
 | `applications` | `users`        | many to one | `userId`                         | delete the application                                                      |
 | `applications` | `companies`    | many to one | `companyId`, required            | refuse while any user's application points at the company                   |
-| `applications` | `resumes`      | many to one | `resumeId`, optional             | clear `resumeId` and keep the application                                   |
-| `resumes`      | `users`        | many to one | `userId`                         | delete the resume and its stored file                                       |
+| `preferences`  | `users`        | one to one  | `userId`, unique                 | delete the row and its resume file                                          |
 | `emails`       | `applications` | many to one | `applicationId`, optional        | clear `applicationId` and keep the email                                    |
 | `emails`       | `users`        | many to one | `userId`                         | delete the email                                                            |
 | `auditLogs`    | `users`        | many to one | `userId`, optional               | delete the audit row                                                        |
@@ -157,7 +158,7 @@ An application copies its location (`{ city, region, country }`) instead of poin
 | `applications` | `by_userId_and_status`                     | board columns, replacing `by_userId`             |
 | `applications` | `by_userId_and_appliedAt`                  | "this month" count, recent list                  |
 | `applications` | `by_companyId`                             | company page, per-company rates, delete check    |
-| `resumes`      | `by_userId`                                | resume picker                                    |
+| `preferences`  | `by_userId`, `by_resumeId`                 | load mine, check who owns an uploaded file       |
 | `emails`       | `by_userId_and_receivedAt`, `by_messageId` | inbox view, skip already-synced mail             |
 | `auditLogs`    | `by_userId`                                | my activity, newest first                        |
 | `auditLogs`    | `by_docId`                                 | history of one record                            |
@@ -202,7 +203,7 @@ A company with no website, such as a local shop or a stealth startup, stays `pri
 
 `companies.locations` is an array of offices. Each office has a city, an optional region and an ISO country code from a fixed list, plus a normalized `key` like `us|ca|san francisco`. Adding a location whose key already exists reuses the existing entry. Anyone can add a location to a company they can see. Remote isn't a location, so it goes in `applications.workMode`.
 
-`users.preferences.locations` uses the same `{ city, region, country }` shape, so "jobs in my preferred cities" is a key comparison. Geocoding, which would turn "SF" into "San Francisco", can come with the scrape phase.
+`preferences.locations` is free-text tags for now, such as "Berlin" or "anywhere in the EU". Matching them to company offices needs geocoding, which can come with the scrape phase.
 
 ## Adding records that depend on each other
 
@@ -239,7 +240,7 @@ Rules for every "pick existing or create new" field:
 - Check that the user may use a passed id, meaning the company is verified or theirs.
 - Schedule follow-up work, such as verification and later the scraper, from inside the mutation with `ctx.scheduler.runAfter`. It then runs only if the add succeeded.
 
-Files are the one exception. The browser uploads a resume to storage before the mutation that links it runs, so an abandoned form can leave an unused file. A daily cron deletes storage files that no `resumes` row has pointed at for a day.
+Files are the one exception. The browser uploads a resume to storage before the mutation that links it runs, so an abandoned form can leave an unused file. A daily cron deletes storage files that no `preferences` row has pointed at for a day.
 
 In the form, the company field is a combobox. It searches verified companies plus your own, and its last option is "Add "what you typed"", which opens name and website fields in place. The location field works the same way and lists the chosen company's offices. The form saves nothing until you submit it.
 
@@ -264,7 +265,7 @@ How rows get written:
 Rules:
 
 - Store only the fields that changed, not whole documents.
-- For `users.preferences.autofill` and profile fields, log the field names but not the values, since those include phone, salary and work authorization. The log should never be a second copy of private data.
+- For `preferences` answers and profile fields, log the field names but not the values, since those include phone, salary and work authorization. The log should never be a second copy of private data.
 - Deleting an account deletes that user's audit rows too, like everything else they own.
 - Keep rows for one year. A monthly cron deletes older rows in batches.
 
@@ -293,14 +294,14 @@ The rates come from the history:
 
 - The interview rate is the number of applications whose history reaches `interviewing`, divided by the number that reach `applied`.
 - The acceptance rate is the number that reach `offer`, divided by the number that reach `applied`.
-- Grouping either rate by `companyId`, `method` or `resumeId` shows which resume or method works best.
+- Grouping either rate by `companyId` or `method` shows which kind of application works best.
 
 ## Where the numbers come from
 
 ```mermaid
 flowchart LR
     A[applications + history] --> Q[queries]
-    P[users.preferences] --> Q
+    P[preferences] --> Q
     Q --> D[dashboard: rates, this month vs target]
     Q --> R[recommendations: follow up after 14 days quiet, under target, best method]
     Q --> RP[report for any past month]
@@ -322,9 +323,8 @@ flowchart TD
         S4[method, postingUrl, workMode, appliedAt, links, notes]
     end
     subgraph P2[Phase 2: about me]
-        S5[resumes + file upload]
-        S6[users.preferences: roles, locations, monthly target]
-        S7[autofill answers]
+        S5[preferences table: answers, AI prefill, one resume file - built]
+        S6[monthly target]
         S8[dashboard + recommendations]
     end
     subgraph P3[Phase 3: automation]
