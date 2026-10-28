@@ -1,11 +1,29 @@
+import type { WorkMode } from "../preferences/validators"
 import type { Criteria } from "./fit"
 
-// How Jev decides whether a role fits someone. Jev answers typed questions about the
-// person and the role; the rules for what counts as a fit stay here in code.
+// How Jev decides whether a role fits someone. Jev answers one typed question per thing
+// the person asked for, from their loop and Preferences; the rules for what counts as a
+// fit stay here in code.
 
 export const jevModel = "typesafe/jev-1.14"
 
-export type Profile = Criteria & { prompt?: string }
+// Everything Jev judges a role against, already narrowed to what this loop uses.
+export type Profile = {
+  prompt?: string
+  interests: string[]
+  skills: string[]
+  stretch: boolean
+  // Where they want to work, in words, when it matters.
+  place?: string
+  avoid: string[]
+  redFlagCompanies: string[]
+  pay?: string
+  visa?: string
+  // Roles they said "more like this" or "not like this" to, as "Title at Company".
+  liked: string[]
+  disliked: string[]
+}
+
 export type JudgedJob = {
   title: string
   company: string
@@ -13,6 +31,42 @@ export type JudgedJob = {
   remote: boolean
   text: string
 }
+
+const listed = (items: string[]) => items.slice(0, 6).join(", ")
+
+// A loop's "where" answer wins over the work mode in Preferences.
+export const placeOf = (c: Criteria, workMode: WorkMode) => {
+  const near = c.places.length ? ` in or near ${listed(c.places)}` : ""
+  if (c.remoteOnly || workMode === "remote") return "Remote"
+  if (c.nearMe && near) return `In or near ${listed(c.places)}`
+  if (workMode === "hybrid") return `Hybrid${near}`
+  if (workMode === "onsite") return `On-site${near}`
+  return near ? `Remote, or${near}` : undefined
+}
+
+export const profileOf = (
+  c: Criteria,
+  more: {
+    prompt?: string
+    workMode: WorkMode
+    pay?: string
+    visa?: string
+    liked: string[]
+    disliked: string[]
+  }
+): Profile => ({
+  ...(more.prompt && { prompt: more.prompt }),
+  interests: c.usePreferences ? c.interests : [],
+  skills: c.stretch ? c.skills : [],
+  stretch: c.stretch,
+  ...(placeOf(c, more.workMode) && { place: placeOf(c, more.workMode) }),
+  avoid: c.skipRedFlags ? c.avoid : [],
+  redFlagCompanies: c.skipRedFlags ? c.redFlagCompanies : [],
+  ...(more.pay && { pay: more.pay }),
+  ...(more.visa && { visa: more.visa }),
+  liked: more.liked,
+  disliked: more.disliked,
+})
 
 // The match levels Jev picks between, worst first. Its answer is a weighted position on
 // this scale, 0 to 3.
@@ -34,14 +88,76 @@ const matchReasons = [
 // A role is a fit from this match upward (2 is "a reasonable match").
 export const fitFrom = 1.8
 
+// One thing the person asked for. `want`s raise a role when they hold and are left out
+// when they don't; `need`s and `avoid`s rule a role out when they fail. `must` means the
+// posting has to show it, not just leave it open.
+type Spec = { kind: "want" | "need" | "avoid"; label: string; ask: string; must?: boolean }
+
+export const specsOf = (p: Profile): Spec[] => [
+  ...(p.place
+    ? [
+        {
+          kind: "need" as const,
+          label: p.place,
+          must: true,
+          ask: "Could `person` work `job` the way `person.wantsToWork` says? A remote role counts when it's open to people living where they are.",
+        },
+      ]
+    : []),
+  ...p.interests.slice(0, 4).map((i) => ({
+    kind: "want" as const,
+    label: i,
+    ask: `Is \`job\` about, or in the field of, "${i}"?`,
+  })),
+  ...p.skills.slice(0, 2).map((s) => ({
+    kind: "want" as const,
+    label: `Uses ${s}`,
+    ask: `Does \`job\` use or build the skill "${s}"?`,
+  })),
+  ...p.avoid.slice(0, 4).map((a) => ({
+    kind: "avoid" as const,
+    label: a,
+    ask: `Does \`job\` involve "${a}", or come from a company known for it?`,
+  })),
+  ...(p.pay
+    ? [
+        {
+          kind: "need" as const,
+          label: "Pays what you need",
+          ask: "Does the pay for `job` meet what `person.pay` says they need?",
+        },
+      ]
+    : []),
+  ...(p.visa
+    ? [
+        {
+          kind: "need" as const,
+          label: "Works with your visa situation",
+          ask: "Given `person.visa`, could they take `job`? It holds when the role offers sponsorship, or when none is needed where the job is.",
+        },
+      ]
+    : []),
+]
+
+const outcomes = {
+  holds: "The posting shows this clearly holds",
+  fails: "The posting shows this doesn't hold",
+  unclear: "The posting doesn't say, or it only partly holds",
+}
+export type Outcome = keyof typeof outcomes
+
 export const stateOf = (p: Profile, job: JudgedJob) => ({
   person: {
     ...(p.prompt && { wants: p.prompt }),
-    drawnTo: p.usePreferences ? p.interests : [],
+    drawnTo: p.interests,
     skills: p.skills,
     ...(p.stretch && { openToOneLevelUp: true }),
-    places: p.places,
+    ...(p.place && { wantsToWork: p.place }),
     avoid: p.avoid,
+    ...(p.pay && { pay: p.pay }),
+    ...(p.visa && { visa: p.visa }),
+    ...(p.liked.length > 0 && { likedRoles: p.liked }),
+    ...(p.disliked.length > 0 && { dislikedRoles: p.disliked }),
   },
   job: {
     title: job.title,
@@ -52,56 +168,91 @@ export const stateOf = (p: Profile, job: JudgedJob) => ({
   },
 })
 
-// One request per role, with the questions this loop needs asked together.
+// One request per role: the overall match, then one question per spec, `c0`, `c1`, …
 export const questionsOf = (p: Profile) => ({
   match: {
     type: "score" as const,
     instructions:
-      "How well does `job` match the work `person` is looking for? `person.wants` is their own description of it, when present; `person.drawnTo` lists fields and kinds of work they want; `person.skills` are skills they have or are building. When `person.openToOneLevelUp` is true, a role one level more senior than their skills suggest still matches.",
+      "How well does `job` match the work `person` is looking for? `person.wants` is their own description of it, when present; `person.drawnTo` lists fields and kinds of work they want; `person.skills` are skills they have or are building. When `person.openToOneLevelUp` is true, a role one level more senior than their skills suggest still matches. `person.likedRoles` and `person.dislikedRoles` are roles they rated before: a role like the liked ones matches better, and one like the disliked ones matches worse.",
     criteria: [...matchLevels],
   },
-  ...(p.skipRedFlags &&
-    p.avoid.length > 0 && {
-      avoids: {
-        type: "boolean" as const,
-        instructions:
-          "Does `job` involve, or come from a company known for, anything listed in `person.avoid`?",
-      },
-    }),
-  ...(p.nearMe &&
-    p.places.length > 0 && {
-      inPlace: {
-        type: "boolean" as const,
-        instructions:
-          "Could `person` do `job` from one of `person.places`? Count it as yes when the role is in or near one of them, or remote and open to people living there.",
-      },
-    }),
+  ...Object.fromEntries(
+    specsOf(p).map((s, i) => [
+      `c${i}`,
+      { type: "choice" as const, instructions: s.ask, criteria: outcomes },
+    ])
+  ),
 })
 
-// What a run saves for each judged role: a verdict, the reasons in words, and Jev's raw
-// answers, so a person can read why and an agent can filter on the numbers.
-export type Answers = { match: number; avoids?: number; inPlace?: number }
+// One line of the breakdown a person sees: fits, could fit, or doesn't fit.
+export type Check = {
+  kind: "want" | "need" | "avoid"
+  label: string
+  result: "fits" | "maybe" | "notFit"
+  confidence: number
+  must?: boolean
+}
+
+export const checksOf = (
+  p: Profile,
+  job: Pick<JudgedJob, "company">,
+  answers: { outcome: Outcome; confidence: number }[]
+): Check[] => {
+  const checks = specsOf(p).flatMap((s, i): Check[] => {
+    const a = answers[i]
+    if (!a) return []
+    const { confidence } = a
+    const must = s.must ? { must: true } : {}
+    if (s.kind === "avoid") {
+      if (a.outcome === "holds")
+        return [{ kind: s.kind, label: `Involves ${s.label}`, result: "notFit", confidence }]
+      if (a.outcome === "fails")
+        return [{ kind: s.kind, label: `No ${s.label}`, result: "fits", confidence }]
+      return [{ kind: s.kind, label: `Might involve ${s.label}`, result: "maybe", confidence }]
+    }
+    // A want that doesn't hold isn't held against the role: a dev tools job isn't
+    // "not climate tech", it's just about something else they like.
+    if (s.kind === "want" && a.outcome === "fails") return []
+    const result = a.outcome === "holds" ? "fits" : a.outcome === "fails" ? "notFit" : "maybe"
+    return [{ kind: s.kind, label: s.label, result, confidence, ...must }]
+  })
+  const company = job.company.toLowerCase()
+  const flagged = p.redFlagCompanies.find((c) => company.includes(c.toLowerCase()))
+  if (flagged)
+    checks.push({
+      kind: "avoid",
+      label: `At ${job.company}, on your red-flag list`,
+      result: "notFit",
+      confidence: 1,
+    })
+  return checks
+}
+
+// What a run saves for each judged role: a verdict, the reasons in words, the breakdown,
+// and Jev's raw match, so a person can read why and an agent can filter on the numbers.
 export type Verdict = {
   verdict: "fit" | "notFit"
   fit: number
   reasons: string[]
-  judgment: Answers & { level: string; model: string }
+  checks: Check[]
+  judgment: { match: number; level: string; model: string }
 }
 
-export const verdictOf = (a: Answers, job: Pick<JudgedJob, "remote">, model: string): Verdict => {
-  const nearest = Math.round(Math.min(Math.max(a.match, 0), 3))
-  const level = matchLevels[nearest]
+// A role is a fit, and can be shown, only when it matches well, nothing they need or
+// avoid fails, and every must-have is confirmed by the posting.
+export const verdictOf = (match: number, checks: Check[], model: string): Verdict => {
+  const nearest = Math.round(Math.min(Math.max(match, 0), 3))
   const reasons = [matchReasons[nearest]]
-  const avoided = a.avoids !== undefined && a.avoids >= 0.5
-  const away = a.inPlace !== undefined && a.inPlace < 0.5
-  if (avoided) reasons.push("It touches something you said you'd avoid.")
-  if (away) reasons.push("It isn't in or near your places.")
-  if (a.inPlace !== undefined && !away) reasons.push("You can do it from one of your places.")
-  if (job.remote) reasons.push("It's remote.")
+  const misses = checks.filter((c) => c.kind !== "want" && c.result === "notFit")
+  const unconfirmed = checks.filter((c) => c.must && c.result === "maybe")
+  if (misses.length) reasons.push(`It misses: ${misses.map((c) => c.label).join(", ")}.`)
+  if (unconfirmed.length)
+    reasons.push(`The posting doesn't confirm: ${unconfirmed.map((c) => c.label).join(", ")}.`)
   return {
-    verdict: a.match >= fitFrom && !avoided && !away ? "fit" : "notFit",
-    fit: Math.round((a.match / 3) * 100),
+    verdict: match >= fitFrom && !misses.length && !unconfirmed.length ? "fit" : "notFit",
+    fit: Math.round((match / 3) * 100),
     reasons,
-    judgment: { ...a, level, model },
+    checks,
+    judgment: { match, level: matchLevels[nearest], model },
   }
 }

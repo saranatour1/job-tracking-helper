@@ -9,7 +9,7 @@ import { apiKeyOf, monthlyCredits } from "../workflows/sources"
 import { maxLoops, switchAt } from "./catalog"
 import { startRun, stopRunNow } from "./internal"
 import { isTimeZone, nextRunAt } from "./schedule"
-import { leadStatuses, NewLoop, providerIds } from "./validators"
+import { NewLoop, providerIds } from "./validators"
 
 const ownLoop = async (ctx: MutationCtx, userId: Id<"users">, loopId: Id<"loops">) => {
   const loop = await ctx.db.get("loops", loopId)
@@ -126,50 +126,100 @@ const runs = authedQuery({
       .paginate(paginationOpts),
 })
 
-const vLeadStatus = v.union(...leadStatuses.map((s) => v.literal(s)))
-
-const leads = authedQuery({
-  args: { status: vLeadStatus, paginationOpts: paginationOptsValidator },
-  returns: paginationResultValidator(schema.doc("jobLeads")),
-  handler: (ctx, { status, paginationOpts }) =>
-    ctx.db
-      .query("jobLeads")
-      .withIndex("by_userId_and_status", (q) => q.eq("userId", ctx.userId).eq("status", status))
-      .order("desc")
-      .paginate(paginationOpts),
+// The person's shortlist ("new": what their loops picked for them, best first) or the
+// jobs they kept: saved for later or added to the tracker, most recent first. Small by
+// design: a loop only adds as many as its size allows.
+const shortlist = authedQuery({
+  args: { status: v.union(v.literal("new"), v.literal("saved")) },
+  returns: v.array(schema.doc("jobLeads")),
+  handler: async (ctx, { status }) => {
+    const of = (s: "new" | "saved" | "applied") =>
+      ctx.db
+        .query("jobLeads")
+        .withIndex("by_userId_and_status", (q) => q.eq("userId", ctx.userId).eq("status", s))
+        .order("desc")
+        .take(60)
+    if (status === "new") return (await of("new")).sort((a, b) => b.fit - a.fit)
+    return [...(await of("saved")), ...(await of("applied"))].sort(
+      (a, b) => b._creationTime - a._creationTime
+    )
+  },
 })
 
-// Saving, dismissing or applying to a lead. Applying adds it to Applications, and the
-// run's counts follow so the Runs tab shows what came of each morning.
-const setLeadStatus = authedMutation({
+// One job with its whole description, for the job sheet.
+const lead = authedQuery({
+  args: { leadId: v.id("jobLeads") },
+  returns: v.union(
+    v.null(),
+    v.object({ lead: schema.doc("jobLeads"), text: v.string(), loopName: v.optional(v.string()) })
+  ),
+  handler: async (ctx, { leadId }) => {
+    const lead = await ctx.db.get("jobLeads", leadId)
+    if (!lead || lead.userId !== ctx.userId) return null
+    const job = lead.jobId && (await ctx.db.get("jobs", lead.jobId))
+    const loop = lead.loopId && (await ctx.db.get("loops", lead.loopId))
+    return { lead, text: lead.text ?? job?.text ?? lead.snippet, loopName: loop?.name }
+  },
+})
+
+const ownLead = async (ctx: MutationCtx, userId: Id<"users">, leadId: Id<"jobLeads">) => {
+  const lead = await ctx.db.get("jobLeads", leadId)
+  if (!lead || lead.userId !== userId) throw new ConvexError("That job doesn't exist.")
+  return lead
+}
+
+// Keeps the run's counts in step as people act, so the Runs tab shows what came of
+// each morning.
+const countOnRun = async (
+  ctx: MutationCtx,
+  runId: Id<"loopRuns"> | undefined,
+  field: "saved" | "applied"
+) => {
+  const run = runId && (await ctx.db.get("loopRuns", runId))
+  if (run) await ctx.db.patch("loopRuns", run._id, { [field]: run[field] + 1 })
+}
+
+// The morning decisions. Save keeps it for later. Favorite keeps it too and tells
+// tomorrow's runs "more like this"; Dismiss drops it and tells them "not like this".
+const respond = authedMutation({
   args: {
     leadId: v.id("jobLeads"),
-    status: v.union(v.literal("saved"), v.literal("dismissed"), v.literal("applied")),
+    action: v.union(v.literal("save"), v.literal("favorite"), v.literal("dismiss")),
   },
   returns: v.null(),
-  handler: async (ctx, { leadId, status }) => {
-    const lead = await ctx.db.get("jobLeads", leadId)
-    if (!lead || lead.userId !== ctx.userId) throw new ConvexError("That job doesn't exist.")
-    if (lead.status === status) return null
-    const applicationId =
-      status === "applied" && !lead.applicationId
-        ? await ctx.db.insert("applications", {
-            userId: ctx.userId,
-            company: lead.company,
-            role: lead.title,
-            status: "applied",
-          })
-        : lead.applicationId
-    await ctx.db.patch("jobLeads", leadId, { status, applicationId })
-    const run = await ctx.db.get("loopRuns", lead.runId)
-    if (run) {
-      const isSaved = (s: string) => s === "saved" || s === "applied"
-      await ctx.db.patch("loopRuns", run._id, {
-        saved: run.saved + Number(isSaved(status)) - Number(isSaved(lead.status)),
-        applied: run.applied + Number(status === "applied") - Number(lead.status === "applied"),
-      })
+  handler: async (ctx, { leadId, action }) => {
+    const lead = await ownLead(ctx, ctx.userId, leadId)
+    if (action === "dismiss") {
+      await ctx.db.patch("jobLeads", leadId, { status: "dismissed", feedback: "less" })
+      return null
     }
+    if (lead.status !== "saved" && lead.status !== "applied")
+      await countOnRun(ctx, lead.runId, "saved")
+    await ctx.db.patch("jobLeads", leadId, {
+      status: lead.status === "applied" ? "applied" : "saved",
+      ...(action === "favorite" && { feedback: "more" as const }),
+    })
     return null
+  },
+})
+
+// Adds the job to Applications as saved, with its link, ready to apply.
+const track = authedMutation({
+  args: { leadId: v.id("jobLeads") },
+  returns: v.id("applications"),
+  handler: async (ctx, { leadId }) => {
+    const lead = await ownLead(ctx, ctx.userId, leadId)
+    if (lead.applicationId) return lead.applicationId
+    const applicationId = await ctx.db.insert("applications", {
+      userId: ctx.userId,
+      company: lead.company,
+      role: lead.title,
+      status: "saved",
+      url: lead.url,
+    })
+    await ctx.db.patch("jobLeads", leadId, { status: "applied", applicationId })
+    await countOnRun(ctx, lead.runId, "applied")
+    return applicationId
   },
 })
 
@@ -219,7 +269,9 @@ export const publicApi = {
   runNow,
   stopRun,
   runs,
-  leads,
-  setLeadStatus,
+  shortlist,
+  lead,
+  respond,
+  track,
   sourceStatus,
 }

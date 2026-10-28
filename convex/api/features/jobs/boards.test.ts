@@ -15,6 +15,10 @@ describe("boardOf", () => {
       kind: "ashby",
       slug: "linear",
     })
+    expect(boardOf("https://cloover.jobs.personio.de/job/2317211?language=en")).toEqual({
+      kind: "personio",
+      slug: "cloover",
+    })
     expect(boardOf("https://careers.stripe.com/x")).toBeNull()
     expect(boardOf("not a url")).toBeNull()
   })
@@ -80,6 +84,25 @@ describe("parseFeed", () => {
     )
     expect(ashby.map((j) => j.title)).toEqual(["Eng"])
     expect(ashby[0]).toMatchObject({ remote: false, postedAt: now })
+  })
+
+  it("reads Personio's XML, with every office and the description sections", () => {
+    const xml = `<?xml version="1.0"?><workzag-jobs><position>
+      <id>42</id><office>Munich</office><additionalOffices><office>Berlin</office></additionalOffices>
+      <name>Frontend Engineer &amp; Designer</name>
+      <jobDescriptions><jobDescription><name>About</name><value><![CDATA[<p>Build <b>tools</b>.</p>]]></value></jobDescription></jobDescriptions>
+      <createdAt>2026-10-01T10:00:00+00:00</createdAt></position></workzag-jobs>`
+    expect(parseFeed("personio", "acme-labs", xml, now)).toEqual([
+      {
+        url: "https://acme-labs.jobs.personio.de/job/42",
+        title: "Frontend Engineer & Designer",
+        company: "Acme Labs",
+        location: "Munich, Berlin",
+        remote: false,
+        postedAt: Date.parse("2026-10-01T10:00:00+00:00"),
+        text: "Frontend Engineer & Designer\nAcme Labs · Munich, Berlin\n\nBuild tools .",
+      },
+    ])
   })
 
   it("survives a feed in an unexpected shape", () => {

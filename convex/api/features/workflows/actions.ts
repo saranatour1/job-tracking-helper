@@ -7,7 +7,17 @@ import { experimental_decide as decide } from "ai"
 import { internal } from "../../../_generated/api"
 import { previewOf } from "../jobs/boards"
 import { isPostingUrl, jobBoards, type Posting, urlKey } from "./fit"
-import { jevModel, questionsOf, stateOf, verdictOf } from "./judge"
+import {
+  checksOf,
+  jevModel,
+  type JudgedJob,
+  type Outcome,
+  type Profile,
+  questionsOf,
+  specsOf,
+  stateOf,
+  verdictOf,
+} from "./judge"
 import { limits } from "./manager"
 import { apiKeyOf, sources } from "./sources"
 import { OutOfCredits } from "./sources/source"
@@ -75,37 +85,51 @@ const search = internalAction({
   },
 })
 
-// Asks Jev whether one catalog role fits the person, through the Convex AI gateway. The
-// batch worker runs these for every run and retries a failed call twice.
+// Asks Jev about one role through the Convex AI gateway: the overall match and one
+// question per thing the person asked for, all in one request.
+export const judge = async (profile: Profile, job: JudgedJob) => {
+  const result = await decide({
+    model: convexGateway.evaluationModel(jevModel),
+    state: stateOf(profile, job),
+    questions: questionsOf(profile),
+  })
+  const answers = result.answers as Record<
+    string,
+    { score?: number; choice?: string; probabilities?: Record<string, number> }
+  >
+  const checks = checksOf(
+    profile,
+    job,
+    specsOf(profile).map((_, i) => {
+      const a = answers[`c${i}`]
+      const outcome = (a?.choice ?? "unclear") as Outcome
+      return { outcome, confidence: a?.probabilities?.[outcome] ?? 0 }
+    })
+  )
+  return {
+    cost: Number(result.providerMetadata?.convexGateway?.cost ?? 0),
+    ...verdictOf(answers.match?.score ?? 0, checks, result.response.modelId ?? jevModel),
+  }
+}
+
+// Judges one catalog role for a run. The batch worker runs these and retries a failed
+// call twice.
 const judgeOne = internalAction({
   args: { jobId: v.id("jobs"), profile: vProfile },
   returns: vJudgeResult,
   handler: async (ctx, { jobId, profile }): Promise<Infer<typeof vJudgeResult>> => {
     const job: Doc<"jobs"> | null = await ctx.runQuery(internal.jobs.get, { jobId })
     if (!job) return { cost: 0, judged: null }
-    const result = await decide({
-      model: convexGateway.evaluationModel(jevModel),
-      state: stateOf(profile, job),
-      questions: questionsOf(profile),
-    })
-    const answers = result.answers as Record<string, { score?: number; probability?: number }>
-    const verdict = verdictOf(
-      {
-        match: answers.match?.score ?? 0,
-        ...(answers.avoids && { avoids: answers.avoids.probability }),
-        ...(answers.inPlace && { inPlace: answers.inPlace.probability }),
-      },
-      job,
-      result.response.modelId ?? jevModel
-    )
+    const { cost, ...verdict } = await judge(profile, job)
     return {
-      cost: Number(result.providerMetadata?.convexGateway?.cost ?? 0),
+      cost,
       judged: {
         jobId,
         url: job.url,
         urlKey: job.urlKey,
         title: job.title,
         company: job.company,
+        location: job.location,
         snippet: previewOf(job.text, 300),
         ...verdict,
       },

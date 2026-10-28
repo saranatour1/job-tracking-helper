@@ -29,7 +29,7 @@ describe("queriesOf", () => {
     ])
   })
 
-  it("searches near the first place for on-site roles", () => {
+  it("searches near each place for on-site roles", () => {
     expect(queriesOf(criteriaOf(template("close-to-home"), tags))[0]).toBe("developer tools Berlin")
   })
 
@@ -46,6 +46,16 @@ describe("urlKey", () => {
   it("treats tracking parameters, www and trailing slashes as the same posting", () => {
     expect(urlKey("https://www.Example.com/jobs/12/?utm_source=x&gh_jid=4&ref=feed")).toBe(
       urlKey("https://example.com/jobs/12?gh_jid=4")
+    )
+  })
+
+  it("treats a board's language, apply page and older host as the same posting", () => {
+    expect(urlKey("https://acme.jobs.personio.de/job/12?language=en")).toBe(
+      "acme.jobs.personio.de/job/12"
+    )
+    expect(urlKey("https://jobs.lever.co/acme/abc/apply")).toBe("jobs.lever.co/acme/abc")
+    expect(urlKey("https://boards.greenhouse.io/acme/jobs/1")).toBe(
+      "job-boards.greenhouse.io/acme/jobs/1"
     )
   })
 })

@@ -21,6 +21,11 @@ export type LoopAnswers = Record<LoopQuestion, boolean>
 // How many catalog roles Jev checks each morning, and when the run starts in the
 // person's time zone. Only the fits among them reach New jobs.
 export const dailySizes = [25, 50, 100] as const
+
+// How many fits a loop puts on the shortlist at a time, so it never piles up. A run
+// only adds as many as the person has room for; the rest wait for later.
+export const showSizes = [3, 5, 10] as const
+export const defaultShow = 5
 export const runTimes = ["07:00", "08:00", "09:00"] as const
 
 // The search sources that find new job boards, in the order a run tries them.

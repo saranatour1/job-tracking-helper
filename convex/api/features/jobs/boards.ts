@@ -1,7 +1,8 @@
 // Job boards with a free public feed of every open role at a company. The catalog is
-// built from these feeds; paid search is only used to find more boards.
+// built from these feeds; paid search is only used to find more boards. Personio is
+// how many German companies hire, so it covers cities like Berlin, Munich and Hamburg.
 
-export const boardKinds = ["greenhouse", "lever", "ashby"] as const
+export const boardKinds = ["greenhouse", "lever", "ashby", "personio"] as const
 export type BoardKind = (typeof boardKinds)[number]
 
 // A role as the catalog keeps it. `text` is what search and Jev read: the title line,
@@ -23,7 +24,9 @@ export const feedUrl = (kind: BoardKind, slug: string) =>
     ? `https://boards-api.greenhouse.io/v1/boards/${slug}/jobs?content=true`
     : kind === "lever"
       ? `https://api.lever.co/v0/postings/${slug}?mode=json`
-      : `https://api.ashbyhq.com/posting-api/job-board/${slug}`
+      : kind === "ashby"
+        ? `https://api.ashbyhq.com/posting-api/job-board/${slug}`
+        : `https://${slug}.jobs.personio.de/xml?language=en`
 
 // Boards to start from, so the catalog has a few thousand roles before anyone's search
 // has found a board. Checked by hand in October 2026.
@@ -48,6 +51,7 @@ export const starterBoards: { kind: BoardKind; slug: string }[] = [
     kind: "ashby" as const,
     slug,
   })),
+  ...["cloover", "xitaso", "stark"].map((slug) => ({ kind: "personio" as const, slug })),
 ]
 
 // The board a posting URL belongs to, so a search result can add its whole board.
@@ -55,6 +59,8 @@ export const boardOf = (url: string): { kind: BoardKind; slug: string } | null =
   if (!URL.canParse(url)) return null
   const u = new URL(url)
   const host = u.hostname.toLowerCase()
+  const personio = /^([a-z0-9-]+)\.jobs\.personio\.(de|com)$/.exec(host)
+  if (personio?.[1]) return { kind: "personio", slug: personio[1] }
   const slug = u.pathname.split("/").filter(Boolean)[0]?.toLowerCase()
   if (!slug) return null
   if (host === "boards.greenhouse.io" || host === "job-boards.greenhouse.io")
@@ -131,6 +137,7 @@ export const parseFeed = (kind: BoardKind, slug: string, json: unknown, now: num
         text: textOf(str(j.text), fallbackCompany, location, str(j.descriptionPlain)),
       }
     })
+  if (kind === "personio") return parsePersonio(slug, str(json), now)
   return list(body.jobs)
     .filter((j) => j.isListed !== false)
     .map((j) => {
@@ -146,6 +153,37 @@ export const parseFeed = (kind: BoardKind, slug: string, json: unknown, now: num
       }
     })
 }
+
+// Personio sends XML: one <position> per role, its text in CDATA sections.
+const tag = (xml: string, name: string) =>
+  new RegExp(`<${name}>([\\s\\S]*?)</${name}>`).exec(xml)?.[1]?.trim() ?? ""
+const cdata = (s: string) => s.replace(/<!\[CDATA\[([\s\S]*?)\]\]>/g, "$1")
+
+const parsePersonio = (slug: string, xml: string, now: number): FeedJob[] =>
+  xml
+    .split("<position>")
+    .slice(1)
+    .map((p) => {
+      const title = plainText(tag(p, "name"))
+      const company = companyOf(slug)
+      const offices = [...p.matchAll(/<office>([\s\S]*?)<\/office>/g)].map((m) =>
+        plainText(m[1] ?? "")
+      )
+      const location = [...new Set(offices)].join(", ")
+      const description = [...p.matchAll(/<value>([\s\S]*?)<\/value>/g)]
+        .map((m) => plainText(cdata(m[1] ?? "")))
+        .join("\n")
+      return {
+        url: `https://${slug}.jobs.personio.de/job/${tag(p, "id")}`,
+        title,
+        company,
+        location,
+        remote: isRemote(location, title),
+        postedAt: timeOf(tag(p, "createdAt"), now),
+        text: textOf(title, company, location, description),
+      }
+    })
+    .filter((j) => /\/job\/\d+$/.test(j.url))
 
 // The description alone, for a short preview under a role's title.
 export const previewOf = (text: string, length = 240) =>

@@ -1,5 +1,5 @@
 import { type } from "arktype"
-import { blankTemplate, dailySizes, loopTemplates, runTimes } from "./catalog"
+import { blankTemplate, dailySizes, loopTemplates, runTimes, showSizes } from "./catalog"
 
 const trimmed = type("string.trim")
 
@@ -16,7 +16,7 @@ export const LoopAnswers = type({
 
 export const providerIds = ["firecrawl", "contextDev"] as const
 export const runStatuses = ["queued", "running", "done", "failed", "skipped", "stopped"] as const
-export const leadStatuses = ["new", "saved", "dismissed", "applied", "unfit"] as const
+export const leadStatuses = ["new", "waiting", "saved", "dismissed", "applied", "unfit"] as const
 export const verdicts = ["fit", "notFit"] as const
 
 // What the setup screen sends to start a loop. Only the catalog's choices pass.
@@ -26,6 +26,7 @@ export const NewLoop = type({
   answers: LoopAnswers,
   prompt: trimmed.to(type("string <= 500").describe("at most 500 characters")),
   daily: type.enumerated(...dailySizes),
+  show: type.enumerated(...showSizes),
   at: type.enumerated(...runTimes),
   timeZone: "0 < string <= 64",
   // Runs by itself every morning; when no, it runs only when the person presses Run now.

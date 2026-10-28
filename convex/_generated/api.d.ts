@@ -27,6 +27,7 @@ import type * as api_features_jobs_validators from "../api/features/jobs/validat
 import type * as api_features_loops_catalog from "../api/features/loops/catalog.js";
 import type * as api_features_loops_index from "../api/features/loops/index.js";
 import type * as api_features_loops_internal from "../api/features/loops/internal.js";
+import type * as api_features_loops_link from "../api/features/loops/link.js";
 import type * as api_features_loops_models_index from "../api/features/loops/models/index.js";
 import type * as api_features_loops_models_leads from "../api/features/loops/models/leads.js";
 import type * as api_features_loops_models_loops from "../api/features/loops/models/loops.js";
@@ -96,6 +97,7 @@ declare const fullApi: ApiFromModules<{
   "api/features/loops/catalog": typeof api_features_loops_catalog;
   "api/features/loops/index": typeof api_features_loops_index;
   "api/features/loops/internal": typeof api_features_loops_internal;
+  "api/features/loops/link": typeof api_features_loops_link;
   "api/features/loops/models/index": typeof api_features_loops_models_index;
   "api/features/loops/models/leads": typeof api_features_loops_models_leads;
   "api/features/loops/models/loops": typeof api_features_loops_models_loops;

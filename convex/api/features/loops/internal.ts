@@ -3,14 +3,20 @@ import { vOnCompleteArgs, type WorkId } from "@convex-dev/workpool"
 import { v } from "convex/values"
 import { internal } from "../../../_generated/api"
 import type { Doc, Id } from "../../../_generated/dataModel"
-import { internalMutation, type MutationCtx } from "../../../_generated/server"
+import {
+  internalMutation,
+  internalQuery,
+  type MutationCtx,
+  type QueryCtx,
+} from "../../../_generated/server"
 import { workLog } from "../../../lib/log"
 import { rowLimits } from "../preferences/rows"
-import { criteriaOf, queriesOf } from "../workflows/fit"
+import { criteriaOf, descriptionsOf, queriesOf } from "../workflows/fit"
+import { profileOf } from "../workflows/judge"
 import { readPool, workflow } from "../workflows/manager"
 import { apiKeyOf, monthlyCredits, monthOf } from "../workflows/sources"
-import { vJudgeResult, vProfile, vProvider, vSpent } from "../workflows/validators"
-import { type Provider, switchAt } from "./catalog"
+import { vJudgeResult, vPasted, vProfile, vProvider, vSpent } from "../workflows/validators"
+import { blankTemplate, defaultShow, type LoopAnswers, type Provider, switchAt } from "./catalog"
 import { nextRunAt } from "./schedule"
 import { providerIds } from "./validators"
 
@@ -63,6 +69,56 @@ const usageOf = (ctx: MutationCtx, provider: Provider, month: string) =>
     .withIndex("by_provider_and_month", (q) => q.eq("provider", provider).eq("month", month))
     .unique()
 
+// What Jev judges roles against for this person: the loop's answers and words, their
+// Preferences, and the last roles they rated. Pasted links use it with the defaults.
+const profileFor = async (
+  ctx: QueryCtx,
+  userId: Id<"users">,
+  answers: LoopAnswers,
+  prompt?: string
+) => {
+  const tags = await ctx.db
+    .query("preferenceTags")
+    .withIndex("by_userId_and_kind_and_order", (q) => q.eq("userId", userId))
+    .take(rowLimits.tags)
+  const settings = await ctx.db
+    .query("preferences")
+    .withIndex("by_userId", (q) => q.eq("userId", userId))
+    .unique()
+  const written = await ctx.db
+    .query("profileEntries")
+    .withIndex("by_userId_and_kind_and_order", (q) => q.eq("userId", userId).eq("kind", "answer"))
+    .take(rowLimits.answer)
+  const answer = (key: string) => written.find((e) => e.key === key)?.value.trim()
+  const rated = async (feedback: "more" | "less") =>
+    (
+      await ctx.db
+        .query("jobLeads")
+        .withIndex("by_userId_and_feedback", (q) => q.eq("userId", userId).eq("feedback", feedback))
+        .order("desc")
+        .take(8)
+    ).map((l) => `${l.title} at ${l.company}`)
+  const criteria = criteriaOf(answers, tags)
+  return {
+    criteria,
+    profile: profileOf(criteria, {
+      prompt,
+      workMode: settings?.workMode ?? "any",
+      pay: answer("pay"),
+      visa: answer("visa"),
+      liked: await rated("more"),
+      disliked: await rated("less"),
+    }),
+  }
+}
+
+export const profileForLink = internalQuery({
+  args: { userId: v.id("users") },
+  returns: vProfile,
+  handler: async (ctx, { userId }) =>
+    (await profileFor(ctx, userId, blankTemplate.answers)).profile,
+})
+
 // Plans a run from its loop and the person's Preferences, and picks the sources that
 // still have credits this month, in order, for finding new boards.
 const beginRun = internalMutation({
@@ -77,19 +133,16 @@ const beginRun = internalMutation({
       daily: v.number(),
       postedToday: v.boolean(),
       since: v.optional(v.number()),
+      remoteOnly: v.boolean(),
       companies: v.array(v.string()),
       sources: v.array(vProvider),
     })
   ),
   handler: async (ctx, { runId }) => {
     const run = await ctx.db.get("loopRuns", runId)
-    const loop = run && (await ctx.db.get("loops", run.loopId))
+    const loop = run?.loopId && (await ctx.db.get("loops", run.loopId))
     if (!run || !loop) return null
-    const tags = await ctx.db
-      .query("preferenceTags")
-      .withIndex("by_userId_and_kind_and_order", (q) => q.eq("userId", loop.userId))
-      .take(rowLimits.tags)
-    const criteria = criteriaOf(loop.answers, tags)
+    const { criteria, profile } = await profileFor(ctx, loop.userId, loop.answers, loop.prompt)
     const month = monthOf(Date.now())
     const sources: Provider[] = []
     for (const provider of providerIds.filter((p) => apiKeyOf(p))) {
@@ -100,14 +153,21 @@ const beginRun = internalMutation({
     await ctx.db.patch("loopRuns", runId, { status: "running" })
     return {
       userId: loop.userId,
-      profile: { ...criteria, ...(loop.prompt && { prompt: loop.prompt }) },
-      // The person's own words search the catalog too.
-      queries: [...queriesOf(criteria), ...(loop.prompt ? [loop.prompt] : [])],
-      perQuery: 10,
+      profile,
+      // Each kind of role they described, in each of their places, and the roles they
+      // asked for more of.
+      queries: [
+        ...queriesOf(criteria, descriptionsOf(loop.prompt)),
+        ...profile.liked.slice(0, 2).map((l) => l.split(" at ")[0]),
+      ],
+      perQuery: 5,
       daily: loop.daily,
       postedToday: loop.answers.postedToday,
       // "Posted since yesterday", with some room for boards that post late.
       ...(loop.answers.postedToday && { since: Date.now() - 36 * 60 * 60 * 1000 }),
+      // Remote in Preferences narrows the pick too, so Jev isn't asked about roles that
+      // can't pass.
+      remoteOnly: criteria.remoteOnly || profile.place === "Remote",
       companies: criteria.listedCompanies ? criteria.companies : [],
       sources,
     }
@@ -133,6 +193,29 @@ const addUsage = async (
       ...(exhaustedAt && { exhaustedAt }),
     })
 }
+
+// A lead the person already has for this posting, so checking a link twice opens it.
+const leadByUrlKey = internalQuery({
+  args: { userId: v.id("users"), urlKey: v.string() },
+  returns: v.union(v.null(), v.id("jobLeads")),
+  handler: async (ctx, { userId, urlKey }) =>
+    (
+      await ctx.db
+        .query("jobLeads")
+        .withIndex("by_userId_and_urlKey", (q) => q.eq("userId", userId).eq("urlKey", urlKey))
+        .first()
+    )?._id ?? null,
+})
+
+// Saves a pasted link's verdict on the shortlist, fit or not: they asked about it.
+const savePasted = internalMutation({
+  args: { userId: v.id("users"), lead: vPasted, credits: v.number() },
+  returns: v.id("jobLeads"),
+  handler: async (ctx, { userId, lead, credits }) => {
+    if (credits) await addUsage(ctx, "firecrawl", credits, false)
+    return ctx.db.insert("jobLeads", { ...lead, userId, status: "new" })
+  },
+})
 
 // Hands a run's roles to the batch worker as one batch for Jev to judge. Each
 // judgment reports to judged.
@@ -197,10 +280,8 @@ const finishRun = internalMutation({
     const run = await ctx.db.get("loopRuns", args.runId)
     if (!run || run.status === "stopped") return null
     const { provider, spent, exhausted } = args
-    // Weakest first: New jobs lists the newest leads first, so the best fit ends up on top.
-    const judgedRoles = [...(run.candidates ?? [])].sort((a, b) => a.fit - b.fit)
-    let saved = 0
-    for (const lead of judgedRoles) {
+    let fits = 0
+    for (const lead of run.candidates ?? []) {
       const seen = await ctx.db
         .query("jobLeads")
         .withIndex("by_userId_and_urlKey", (q) =>
@@ -208,16 +289,17 @@ const finishRun = internalMutation({
         )
         .first()
       if (seen) continue
-      const fits = lead.verdict === "fit"
+      const fit = lead.verdict === "fit"
       await ctx.db.insert("jobLeads", {
         ...lead,
         userId: run.userId,
         loopId: run.loopId,
         runId: run._id,
-        status: fits ? "new" : "unfit",
+        status: fit ? "waiting" : "unfit",
       })
-      saved += Number(fits)
+      fits += Number(fit)
     }
+    const shown = await fillShortlist(ctx, run.userId, run.loopId)
     for (const p of providerIds) {
       const credits = spent.filter((s) => s.provider === p).reduce((n, s) => n + s.credits, 0)
       if (credits || exhausted.includes(p)) await addUsage(ctx, p, credits, exhausted.includes(p))
@@ -225,7 +307,7 @@ const finishRun = internalMutation({
     const failures = run.readFailures ?? 0
     const note =
       args.note ??
-      (!judgedRoles.length
+      (!run.candidates?.length
         ? "No new roles in the catalog matched this loop's searches."
         : failures
           ? `Jev couldn't judge ${failures} roles.`
@@ -234,7 +316,7 @@ const finishRun = internalMutation({
     await ctx.db.patch("loopRuns", run._id, {
       status: "done",
       provider,
-      kept: saved,
+      kept: fits,
       credits,
       finishedAt: Date.now(),
       note,
@@ -248,7 +330,8 @@ const finishRun = internalMutation({
       outcome: "done",
       provider,
       judged: run.scanned,
-      fits: saved,
+      fits,
+      shown,
       failures,
       credits,
       costUsd: run.cost ?? 0,
@@ -261,6 +344,25 @@ const finishRun = internalMutation({
     return null
   },
 })
+
+// Puts a loop's best waiting fits on the shortlist, as many as the person has room for:
+// the loop's size, less the roles from it still on their shortlist. Returns how many.
+// ponytail: a waiting role can close on its board before it's shown; the sheet still
+// opens it, and the link says so.
+const fillShortlist = async (ctx: MutationCtx, userId: Id<"users">, loopId: Id<"loops">) => {
+  const loop = await ctx.db.get("loops", loopId)
+  const of = async (status: "new" | "waiting") =>
+    (
+      await ctx.db
+        .query("jobLeads")
+        .withIndex("by_userId_and_status", (q) => q.eq("userId", userId).eq("status", status))
+        .take(300)
+    ).filter((l) => l.loopId === loopId)
+  const room = Math.max(0, (loop?.show ?? defaultShow) - (await of("new")).length)
+  const best = (await of("waiting")).sort((a, b) => b.fit - a.fit).slice(0, room)
+  for (const lead of best) await ctx.db.patch("jobLeads", lead._id, { status: "new" })
+  return best.length
+}
 
 // Called when a run's workflow ends. A run that finished normally already saved its
 // results; this records the ones that failed or were canceled.
@@ -320,4 +422,14 @@ export const deleteLoops = async (ctx: MutationCtx, userId: Id<"users">) => {
     await ctx.db.delete("jobLeads", lead._id)
 }
 
-export const internalApi = { startDue, beginRun, queueJudging, judged, finishRun, runEnded }
+export const internalApi = {
+  startDue,
+  beginRun,
+  queueJudging,
+  judged,
+  finishRun,
+  runEnded,
+  profileForLink,
+  leadByUrlKey,
+  savePasted,
+}

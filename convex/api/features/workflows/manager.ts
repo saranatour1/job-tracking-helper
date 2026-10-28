@@ -10,11 +10,13 @@ export const workflow = new WorkflowManager(components.workflow, {
 })
 
 // Calls to each source, shared by every run, and how often a person can run a loop by
-// hand. context.dev's free plan allows 2 requests at once, hence its small burst.
+// hand or check a pasted link. context.dev's free plan allows 2 requests at once, hence
+// its small burst.
 export const limits = new RateLimiter(components.rateLimiter, {
   firecrawl: { kind: "token bucket", rate: 60, period: MINUTE, capacity: 5 },
   contextDev: { kind: "token bucket", rate: 60, period: MINUTE, capacity: 2 },
   runNow: { kind: "fixed window", rate: 3, period: DAY },
+  checkLink: { kind: "fixed window", rate: 10, period: DAY },
 })
 
 // The batch worker: it fetches job boards for the catalog, and every run hands it the

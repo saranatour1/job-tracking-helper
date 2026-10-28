@@ -9,6 +9,7 @@ const tags = tag.array().atMostLength(40)
 const text = trimmed.to(type("string <= 2000").describe("at most 2000 characters"))
 
 export const workModes = ["any", "remote", "hybrid", "onsite"] as const
+export type WorkMode = (typeof workModes)[number]
 
 export const Answers = type({
   offer: text,

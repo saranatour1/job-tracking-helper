@@ -14,6 +14,8 @@ export const Loop = type({
   // The person's own words for the job they want; Jev judges each role against it.
   "prompt?": "string",
   daily: "number",
+  // How many fits it puts on the shortlist at a time; loops from before it show 5.
+  "show?": "number",
   at: "string",
   timeZone: "string",
   active: "boolean",

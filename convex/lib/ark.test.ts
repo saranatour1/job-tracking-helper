@@ -61,14 +61,16 @@ describe("applications table", () => {
           v.literal("applied"),
           v.literal("interviewing"),
           v.literal("offer"),
-          v.literal("rejected")
+          v.literal("rejected"),
+          v.literal("saved")
         ),
+        url: v.optional(v.string()),
         userId: v.id("users"),
       })
     )
     expectTypeOf<Doc<"applications">["userId"]>().toEqualTypeOf<Id<"users">>()
     expectTypeOf<Doc<"applications">["status"]>().toEqualTypeOf<
-      "applied" | "interviewing" | "offer" | "rejected"
+      "saved" | "applied" | "interviewing" | "offer" | "rejected"
     >()
   })
 })

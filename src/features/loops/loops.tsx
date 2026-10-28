@@ -4,6 +4,7 @@ import {
   blankTemplate,
   creditsPerRun,
   dailySizes,
+  defaultShow,
   jevCostPerRun,
   type LoopAnswers,
   type LoopTemplate,
@@ -12,6 +13,7 @@ import {
   type Provider,
   providers,
   runTimes,
+  showSizes,
   switchAt,
   templateById,
 } from "@convex/api/features/loops/catalog"
@@ -31,7 +33,6 @@ import { HugeiconsIcon } from "@hugeicons/react"
 import { useForm, useStore } from "@tanstack/react-form"
 import { Link, useNavigate, useSearch } from "@tanstack/react-router"
 import { useMutation, usePaginatedQuery, useQuery } from "convex/react"
-import { ConvexError } from "convex/values"
 import { startTransition, useActionState, useId } from "react"
 
 import { Badge } from "@/components/ui/badge"
@@ -43,15 +44,17 @@ import { Tabs, TabsList, TabsPanel, TabsTab } from "@/components/ui/tabs"
 import { Switch } from "@/components/ui/switch"
 import { Textarea } from "@/components/ui/textarea"
 import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group"
-import { Tooltip, TooltipPopup, TooltipTrigger } from "@/components/ui/tooltip"
 import { chip, PageIntro, pageBody, Tile, tileGrid } from "@/features/shell/page-body"
 import { PageHeader } from "@/features/shell/page-header"
 import { cn } from "@/lib/utils"
 
+import { IconAction, messageOf, Status } from "./parts"
+import { JobSheet, PasteLink, Shortlist, type ShortlistView } from "./shortlist"
+
 type Loop = Doc<"loops">
 type Run = Doc<"loopRuns">
-type Lead = Doc<"jobLeads">
 type DailySize = (typeof dailySizes)[number]
+type ShowSize = (typeof showSizes)[number]
 type RunTime = (typeof runTimes)[number]
 
 const loopsTabs = ["loops", "runs", "sources"] as const
@@ -60,20 +63,18 @@ export type LoopsTab = (typeof loopsTabs)[number]
 // Reads `?tab=` and `?template=` for the route, dropping anything it doesn't know.
 export const loopsSearch = (
   search: Record<string, unknown>
-): { tab?: LoopsTab; template?: string } => ({
+): { tab?: LoopsTab; template?: string; job?: Id<"jobLeads">; list?: "saved" } => ({
   tab: loopsTabs.find((t) => t === search.tab),
   template:
     typeof search.template === "string" && templateById(search.template)
       ? search.template
       : undefined,
+  // The job sheet's lead; the server checks it belongs to the person.
+  job: typeof search.job === "string" && search.job ? (search.job as Id<"jobLeads">) : undefined,
+  list: search.list === "saved" ? "saved" : undefined,
 })
 
 type Prefs = ReturnType<typeof formOf>
-
-const messageOf = (error: unknown) =>
-  error instanceof ConvexError && typeof error.data === "string"
-    ? error.data
-    : "Something went wrong. Try again."
 
 const list = (items: string[], max = 3) =>
   items.length > max
@@ -147,13 +148,6 @@ const Checklist = ({ lines }: { lines: string[] }) => (
   </ul>
 )
 
-const Status = ({ text }: { text: string | undefined }) =>
-  text ? (
-    <p role="status" className="text-muted-foreground px-1 text-xs">
-      {text}
-    </p>
-  ) : null
-
 // How many jobs each recent run kept, oldest on the left.
 const KeptBars = ({ runs }: { runs: Run[] }) => {
   if (!runs.length) return null
@@ -180,20 +174,6 @@ const KeptBars = ({ runs }: { runs: Run[] }) => {
 }
 
 // An icon button with its name in a tooltip and for screen readers.
-const IconAction = ({
-  label,
-  icon,
-  ...props
-}: { label: string; icon: typeof PlayIcon } & React.ComponentProps<typeof Button>) => (
-  <Tooltip>
-    <TooltipTrigger
-      render={<Button variant="ghost" size="icon-sm" aria-label={label} {...props} />}
-    >
-      <HugeiconsIcon icon={icon} />
-    </TooltipTrigger>
-    <TooltipPopup>{label}</TooltipPopup>
-  </Tooltip>
-)
 
 const LoopTile = ({ loop, runs, prefs }: { loop: Loop; runs: Run[]; prefs: Prefs | undefined }) => {
   const setActive = useMutation(api.loops.setActive)
@@ -240,7 +220,7 @@ const LoopTile = ({ loop, runs, prefs }: { loop: Loop; runs: Run[]; prefs: Prefs
       <Rows>
         <Row label="Runs">
           {loop.active ? `Each morning at ${loop.at}` : "When you press Run now"} · checks{" "}
-          {loop.daily} roles
+          {loop.daily}, shows up to {loop.show ?? defaultShow}
         </Row>
         {loop.prompt && (
           <Row label="Wants">
@@ -304,89 +284,15 @@ const LoopTile = ({ loop, runs, prefs }: { loop: Loop; runs: Run[]; prefs: Prefs
   )
 }
 
-// Roles Jev called a fit that nobody has acted on yet.
-const NewJobs = ({ leads, more }: { leads: Lead[]; more?: () => void }) => {
-  const setLeadStatus = useMutation(api.loops.setLeadStatus)
-  const [status, act] = useActionState(
-    async (
-      _: string | undefined,
-      { leadId, to }: { leadId: Id<"jobLeads">; to: "saved" | "dismissed" | "applied" }
-    ) => {
-      try {
-        await setLeadStatus({ leadId, status: to })
-        return to === "applied" ? "Added to Applications." : undefined
-      } catch (error) {
-        return messageOf(error)
-      }
-    },
-    undefined
-  )
-  return (
-    <Tile title={`New jobs · ${leads.length}${more ? "+" : ""}`} className="gap-0 p-1.5">
-      {leads.length === 0 && (
-        <p className="text-muted-foreground px-2.5 py-2 text-[13px]">
-          Nothing new yet. Roles Jev calls a fit show up here each morning.
-        </p>
-      )}
-      {leads.map((lead) => (
-        <div
-          key={lead._id}
-          className="hover:bg-accent/30 flex flex-col gap-1 rounded-md px-2.5 py-2 text-[13px] sm:flex-row sm:items-start sm:gap-3"
-        >
-          <div className="flex min-w-0 flex-1 flex-col gap-0.5">
-            <a
-              href={lead.url}
-              target="_blank"
-              rel="noreferrer"
-              className="truncate font-medium hover:underline"
-            >
-              {lead.title}
-            </a>
-            <span className="text-muted-foreground text-xs">
-              {lead.company} · {lead.fit}% match · {lead.reasons.join(" ")}
-            </span>
-          </div>
-          <div className="flex shrink-0 gap-1">
-            {(
-              [
-                ["saved", "Save"],
-                ["applied", "Applied"],
-                ["dismissed", "Dismiss"],
-              ] as const
-            ).map(([to, label]) => (
-              <Button
-                key={to}
-                size="xs"
-                variant={to === "dismissed" ? "ghost" : "outline"}
-                onClick={() => startTransition(() => act({ leadId: lead._id, to }))}
-              >
-                {label}
-              </Button>
-            ))}
-          </div>
-        </div>
-      ))}
-      {more && (
-        <Button size="xs" variant="ghost" className="m-1 self-start" onClick={more}>
-          Show more
-        </Button>
-      )}
-      <Status text={status} />
-    </Tile>
-  )
-}
-
 const LoopsOverview = ({
   loops,
   runs,
-  leads,
-  moreLeads,
+  list,
   prefs,
 }: {
   loops: Loop[]
   runs: Run[]
-  leads: Lead[]
-  moreLeads?: () => void
+  list: ShortlistView
   prefs: Prefs | undefined
 }) => (
   <>
@@ -410,9 +316,14 @@ const LoopsOverview = ({
             />
           ))}
         </div>
-        <NewJobs leads={leads} more={moreLeads} />
       </>
     )}
+    <Heading
+      title="Jobs for you"
+      description="A few at a time, each checked by Jev against your Preferences. Save one for later, favorite it for more like it, dismiss it for less, or add it to your tracker."
+    />
+    <PasteLink />
+    <Shortlist view={list} />
     <Heading
       title="Start from a template"
       description="Each one is filled in from your Preferences. Open it to change any answer."
@@ -529,6 +440,7 @@ const Setup = ({
       prompt: "",
       answers: template.answers,
       daily: template.daily as DailySize,
+      show: defaultShow as ShowSize,
       at: template.at as RunTime,
       auto: true,
     },
@@ -541,8 +453,18 @@ const Setup = ({
     form.setFieldValue("answers", { ...form.state.values.answers, ...patch })
   const [status, start] = useActionState(async () => {
     try {
-      const { name, prompt, answers, daily, at, auto } = form.state.values
-      await create({ name, template: template.id, prompt, answers, daily, at, auto, timeZone })
+      const { name, prompt, answers, daily, show, at, auto } = form.state.values
+      await create({
+        name,
+        template: template.id,
+        prompt,
+        answers,
+        daily,
+        show,
+        at,
+        auto,
+        timeZone,
+      })
       await navigate({ to: "/loops", search: { tab: "loops" } })
       return undefined
     } catch (error) {
@@ -634,7 +556,7 @@ const Setup = ({
           title="The job you want, in your words"
           does={
             values.prompt.trim()
-              ? "Jev reads this next to each role and rates how well the role matches it. The words also search the catalog."
+              ? "Jev reads this next to each role and rates how well the role matches it. Each line is its own search, in each of your places."
               : "Optional. Without it, Jev judges each role against your Preferences alone."
           }
         >
@@ -642,7 +564,9 @@ const Setup = ({
             {(f) => (
               <Textarea
                 aria-label="The job you want"
-                placeholder="For example: senior frontend or full-stack roles building developer tools, at a small product company"
+                placeholder={
+                  "One kind of role per line, for example:\nSenior frontend engineer at a product company\nDesign engineer building developer tools"
+                }
                 maxLength={500}
                 value={f.state.value}
                 onChange={(e) => f.handleChange(e.target.value)}
@@ -703,7 +627,7 @@ const Setup = ({
               <ToggleGroupItem value="anywhere">Anywhere</ToggleGroupItem>
               <ToggleGroupItem value="remote">Remote only</ToggleGroupItem>
               <ToggleGroupItem value="near" disabled={!criteria.places.length}>
-                {criteria.places[0] ? `Near ${criteria.places[0]}` : "Near you"}
+                {criteria.places.length ? `In ${list(criteria.places, 2)}` : "Near you"}
               </ToggleGroupItem>
             </ToggleGroup>
           </div>
@@ -721,8 +645,8 @@ const Setup = ({
         </Step>
         <Step
           n={4}
-          title="How many roles Jev checks"
-          does={`Jev checks up to ${values.daily} catalog roles you haven't been shown, 8 at a time alongside every other loop, for ${dollars(jevCostPerRun(values.daily))} a run through the Convex AI gateway.`}
+          title="How many it checks, and how many you see"
+          does={`Jev checks up to ${values.daily} catalog roles you haven't been shown, for ${dollars(jevCostPerRun(values.daily))} a run through the Convex AI gateway. You see at most ${values.show} from this loop at a time: it only adds more as you save, favorite or dismiss the ones you have, and keeps the other fits for later.`}
         >
           <div className="flex items-center gap-4 px-1 py-1.5">
             <span className="flex-1 text-[13px] font-medium">Roles to check each morning</span>
@@ -734,6 +658,22 @@ const Setup = ({
               onValueChange={(v) => v[0] && form.setFieldValue("daily", Number(v[0]) as DailySize)}
             >
               {dailySizes.map((n) => (
+                <ToggleGroupItem key={n} value={String(n)}>
+                  {n}
+                </ToggleGroupItem>
+              ))}
+            </ToggleGroup>
+          </div>
+          <div className="flex items-center gap-4 px-1 py-1.5">
+            <span className="flex-1 text-[13px] font-medium">Jobs to show you at a time</span>
+            <ToggleGroup
+              variant="outline"
+              size="sm"
+              aria-label="Jobs to show you at a time"
+              value={[String(values.show)]}
+              onValueChange={(v) => v[0] && form.setFieldValue("show", Number(v[0]) as ShowSize)}
+            >
+              {showSizes.map((n) => (
                 <ToggleGroupItem key={n} value={String(n)}>
                   {n}
                 </ToggleGroupItem>
@@ -831,11 +771,7 @@ const RunsTab = ({ runs, more }: { runs: Run[]; more?: () => void }) => {
           value={String(sum("saved"))}
           note={`${percent(sum("saved"), sum("kept"))}% of fits`}
         />
-        <Stat
-          label="Applied"
-          value={String(sum("applied"))}
-          note={`${percent(sum("applied"), sum("saved"))}% of saved`}
-        />
+        <Stat label="Tracked" value={String(sum("applied"))} note="Added to Applications" />
       </div>
       <div className={tileGrid}>
         {(Object.keys(providers) as Provider[]).map((p) => {
@@ -1033,7 +969,6 @@ export const Loops = () => {
   const template = templateById(search.template)
   const loops = useQuery(api.loops.list) ?? []
   const runs = usePaginatedQuery(api.loops.runs, {}, { initialNumItems: 30 })
-  const leads = usePaginatedQuery(api.loops.leads, { status: "new" }, { initialNumItems: 20 })
   const sources = useQuery(api.loops.sourceStatus, {
     month: new Date().toISOString().slice(0, 7),
   })
@@ -1087,8 +1022,7 @@ export const Loops = () => {
                 <LoopsOverview
                   loops={loops}
                   runs={runs.results}
-                  leads={leads.results}
-                  moreLeads={leads.status === "CanLoadMore" ? () => leads.loadMore(20) : undefined}
+                  list={search.list === "saved" ? "saved" : "today"}
                   prefs={prefs}
                 />
               ),
@@ -1118,6 +1052,16 @@ export const Loops = () => {
           </TabsPanel>
         ))}
       </Tabs>
+      <JobSheet
+        leadId={search.job}
+        onClose={() =>
+          void navigate({
+            from: "/loops",
+            to: "/loops",
+            search: (prev) => ({ ...prev, job: undefined }),
+          })
+        }
+      />
     </div>
   )
 }

@@ -1,4 +1,3 @@
-import { NonRetryableError } from "@convex-dev/workpool"
 import { v } from "convex/values"
 import { internal } from "../../../_generated/api"
 import { internalAction } from "../../../_generated/server"
@@ -6,7 +5,7 @@ import { workLog } from "../../../lib/log"
 import { feedUrl, parseFeed } from "./boards"
 
 // Fetches one board's feed and saves every role on it. The batch worker runs these and
-// retries a failed fetch; a board that's gone (404) isn't retried.
+// retries a failed fetch; a board without a feed (404 and the like) isn't retried.
 const fetchBoard = internalAction({
   args: { boardId: v.id("jobBoards") },
   returns: v.null(),
@@ -20,12 +19,20 @@ const fetchBoard = internalAction({
       if (!res.ok) {
         const error = `The feed answered ${res.status}`
         await ctx.runMutation(internal.jobs.boardFetched, { boardId, startedAt, jobs: 0, error })
-        if (res.status >= 400 && res.status < 500) throw new NonRetryableError(error)
+        // A board that's gone or never published a feed (some Personio companies don't)
+        // won't change on a retry, so it's noted on the board and the fetch ends here.
+        if (res.status >= 400 && res.status < 500) {
+          log.set({ error })
+          return null
+        }
         throw new Error(error)
       }
-      const jobs = parseFeed(board.kind, board.slug, await res.json(), startedAt).filter(
-        (j) => j.url.startsWith("https://") && j.title
-      )
+      const jobs = parseFeed(
+        board.kind,
+        board.slug,
+        board.kind === "personio" ? await res.text() : await res.json(),
+        startedAt
+      ).filter((j) => j.url.startsWith("https://") && j.title)
       for (let i = 0; i < jobs.length; i += 100)
         await ctx.runMutation(internal.jobs.saveJobs, {
           boardId,

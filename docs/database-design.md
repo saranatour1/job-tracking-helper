@@ -341,7 +341,9 @@ Reports and rates read all of one user's applications. That works up to a few th
 
 A loop is a saved search that brings back jobs that fit, either by itself each morning (auto) or when the person presses Run now (manual). People set one up by going through the run's steps: they describe the job in their own words, answer yes or no, and pick from a few fixed sizes and start times, so the cost of every loop is known before it runs. The questions, templates, sizes, start times, source order and cost estimates are a catalog in code (`convex/api/features/loops/catalog.ts`) that the page and the backend share.
 
-Roles come from one shared catalog, not from each person's own search. Greenhouse, Lever and Ashby each publish a free feed of every open role on a company's board, with the full description, so fetching a board costs nothing. The catalog starts from about 20 boards and refreshes each one daily; paid search (Firecrawl, then context.dev) is only used to find boards the catalog doesn't have yet. Each run then picks roles from the catalog and has [Jev](https://docs.typesafe.ai/introduction) judge each one for the person, through the Convex AI gateway (`typesafe/jev-1.14`). A 100-role morning costs about half a cent.
+Roles come from one shared catalog, not from each person's own search. Greenhouse, Lever, Ashby and Personio each publish a free feed of every open role on a company's board, with the full description, so fetching a board costs nothing. The catalog starts from about 20 boards and refreshes each one daily; paid search (Firecrawl, then context.dev) is only used to find boards the catalog doesn't have yet, Google-style: each kind of role the person wants, in each of their places, filtered with `site:` to the boards (`site:jobs.personio.de` and the like). One loop covers several cities and several kinds of role at once. Each run then picks roles from the catalog and has [Jev](https://docs.typesafe.ai/introduction) judge each one for the person, through the Convex AI gateway (`typesafe/jev-1.14`). A 100-role morning costs about half a cent.
+
+The person never sees everything a run judged. Each loop has a size (3, 5 or 10, their choice), and a run only puts on their shortlist as many fits as they have room for: the size, less what's still unread from that loop. The other fits wait (`status: "waiting"`) for the next run. Each morning they decide on each job: save it for later, favorite it ("more like this"), dismiss it ("nothing like this"), or add it to their tracker. Favorites and dismissals go into the next morning's runs, as roles Jev should rate higher or lower and as extra search words. They can also paste a link to any job; Jev checks it the same way and it opens with the same breakdown.
 
 What a fitting job looks like isn't copied onto the loop. Each run reads the person's Preferences, so changing an interest today changes tomorrow's run.
 
@@ -363,6 +365,7 @@ erDiagram
         string prompt "optional: the job they want, in their words"
         object answers "7 yes/no, keys from the catalog"
         number daily "roles Jev checks: 25 | 50 | 100"
+        number show "shortlist size: 3 | 5 | 10, optional"
         string at "07:00 | 08:00 | 09:00"
         string timeZone
         boolean active "auto; false means manual"
@@ -382,7 +385,7 @@ erDiagram
     }
     jobLeads {
         id userId
-        id runId "also loopId"
+        id runId "also loopId; both unset for a pasted link"
         id jobId "the catalog role"
         string url
         string urlKey "normalized, for dedupe"
@@ -390,8 +393,10 @@ erDiagram
         enum verdict "fit | notFit"
         number fit "0 to 100"
         string[] reasons "why, in sentences"
-        object judgment "Jev's raw answers and model"
-        enum status "new | saved | dismissed | applied | unfit"
+        object[] checks "per criterion: label, fits | maybe | notFit, confidence"
+        object judgment "Jev's overall match and model"
+        enum feedback "more | less, optional"
+        enum status "new | waiting | saved | dismissed | applied | unfit"
         id applicationId "optional"
     }
     jobs {
@@ -404,7 +409,7 @@ erDiagram
         string text "title line + description, searched"
     }
     jobBoards {
-        enum kind "greenhouse | lever | ashby"
+        enum kind "greenhouse | lever | ashby | personio"
         string slug
         string company
         number fetchedAt "optional until the first fetch"
@@ -423,12 +428,12 @@ erDiagram
 | ------------- | --------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------- |
 | `loops`       | 4: the cron finds due loops across all users                    | `by_userId`, `by_active_and_nextRunAt`                                                                |
 | `loopRuns`    | 1: one per loop per morning, kept for the Runs tab              | `by_loopId_and_startedAt`, `by_userId_and_startedAt`                                                  |
-| `jobLeads`    | 1 and 4: grows every morning, and "shown this role?" spans runs | `by_userId_and_urlKey`, `by_runId`, `by_userId_and_status`                                            |
+| `jobLeads`    | 1 and 4: grows every morning, and "shown this role?" spans runs | `by_userId_and_urlKey`, `by_runId`, `by_userId_and_status`, `by_userId_and_feedback`                  |
 | `jobs`        | 3 and 4: shared by everyone, searched by every run              | `by_urlKey`, `by_boardId_and_seenAt`, `by_postedAt`, `by_remote_and_postedAt`, search index on `text` |
 | `jobBoards`   | 3: shared by everyone; the refresh finds the ones due           | `by_kind_and_slug`, `by_fetchedAt`                                                                    |
 | `sourceUsage` | 3: shared by everyone, one row per source per month             | `by_provider_and_month`                                                                               |
 
-A judged role is saved for a person whether or not it fits, so it never comes back. `verdict` is Jev's call and never changes; `status` is what the person did, and roles that aren't a fit start as `unfit` so they stay out of New jobs. `reasons` are sentences a person can read ("A strong match for what you want. It's remote."), and `judgment` keeps Jev's raw answers (`match` from 0 to 3, the probability it touches something to avoid or is in their places, the model) so an agent or a later check can filter on numbers. Leads saved before Jev have no verdict.
+A judged role is saved for a person whether or not it fits, so it never comes back. Jev answers one question per thing they asked for: where they want to work (their places and work mode, or the loop's "where"), each interest, the skills they're building, each thing to avoid, the pay they need and their visa situation. Each answer is "the posting shows it holds", "shows it doesn't" or "doesn't say", which becomes a `checks` line under fits, doesn't fit or could fit. Red-flag companies are checked in code. A role is a fit only when it matches well overall, nothing they need or avoid fails, and the posting confirms where they'd work. `verdict` is Jev's call and never changes; `status` is where it stands for the person. `reasons` are sentences a person can read; `checks` and `judgment` keep the per-question answers with their confidence and the model, so an agent or a later check can filter on them. Older leads have no checks or no verdict.
 
 Not tables: the questions and templates are a list in code, like the built-in Preferences questions, and a loop's answers are one object with the catalog's keys. Deleting an account deletes its loops, runs and leads; `jobs`, `jobBoards` and `sourceUsage` have no owner.
 
@@ -455,8 +460,9 @@ flowchart LR
     P --> S[search for new boards, rate limited, first source with credits]
     S --> B[add jobBoards, fetch new ones]
     B --> Q[pick catalog roles: search index, hard rules, skip shown urlKeys]
-    Q --> R[readPool batch: Jev judges each role, 8 at a time across all runs]
-    R --> V[save every verdict as jobLeads, add credits to sourceUsage]
+    Q --> R[readPool batch: Jev judges each role, one question per criterion, 8 at a time]
+    R --> V[save every verdict: fits wait, the rest are unfit; add credits to sourceUsage]
+    V --> L[fill the shortlist up to the loop's size, best first]
     V --> O[onComplete: mark failed runs, log each run with evlog]
     H[cron, hourly] --> F[readPool: fetch boards due, save jobs, drop closed roles]
 ```
@@ -474,16 +480,17 @@ convex/api/features/loops/          tables and the functions the page calls
   catalog.ts                         questions, templates, sizes, estimates
   models/                            loops.ts, runs.ts, leads.ts, usage.ts, index.ts
   validators.ts, schedule.ts         input checks; the next morning in a time zone
-  public.ts, internal.ts             what the page calls; the cron, plan, judging tally and finish
+  public.ts, internal.ts             what the page calls; the cron, plan, judging tally, finish and shortlist
+  link.ts                            checking a pasted link
 convex/api/features/jobs/           the shared catalog
-  boards.ts                          feed URLs, feed parsing, starter boards
+  boards.ts                          feed URLs, feed parsing (JSON and Personio's XML), starter boards
   models/                            jobs.ts, boards.ts, index.ts
   public.ts, internal.ts, actions.ts search for the Jobs page; refresh, save, pick; fetchBoard
 convex/api/features/workflows/      what runs a loop
   manager.ts                         WorkflowManager, readPool and the rate limits
   findJobs.ts                        the run, step by step
   actions.ts                         search (one batch) and judgeOne (one role, on readPool)
-  judge.ts                           Jev's questions and the verdict rules
+  judge.ts                           the profile, Jev's questions, the breakdown and the verdict rules
   fit.ts                             search words, URL dedupe
   sources/                           firecrawl.ts, contextDev.ts, index.ts (keys and credits)
 convex/crons.ts                      every 15 minutes: start due loops; hourly: refresh boards

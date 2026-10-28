@@ -35,10 +35,11 @@ const findJobs = workflow.define({
       const boards = await step.runMutation(internal.jobs.addBoards, {
         urls: found.postings.map((p) => p.url),
       })
-      // New boards are fetched now, so this run can already pick from them.
+      // New boards are fetched now, so this run can already pick from them. One that
+      // keeps failing is left for the hourly refresh rather than failing the run.
       await Promise.all(
         boards.map((boardId) =>
-          step.runAction(internal.jobs.fetchBoard, { boardId }, { retry: true })
+          step.runAction(internal.jobs.fetchBoard, { boardId }, { retry: true }).catch(() => null)
         )
       )
       break
@@ -46,7 +47,7 @@ const findJobs = workflow.define({
     const jobIds = await step.runQuery(internal.jobs.candidates, {
       userId: plan.userId,
       queries: plan.queries,
-      remoteOnly: plan.profile.remoteOnly,
+      remoteOnly: plan.remoteOnly,
       companies: plan.companies,
       since: plan.since,
       limit: plan.daily,

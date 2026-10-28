@@ -4,7 +4,7 @@ import type { Id } from "../../../_generated/dataModel"
 import { internalMutation, internalQuery } from "../../../_generated/server"
 import { urlKey } from "../workflows/fit"
 import { readPool } from "../workflows/manager"
-import { boardOf, companyOf, starterBoards } from "./boards"
+import { boardKinds, boardOf, companyOf, starterBoards } from "./boards"
 import { vFeedJob } from "./validators"
 
 // Boards are fetched about once a day; the hourly cron queues those due.
@@ -167,9 +167,44 @@ const candidates = internalQuery({
   },
 })
 
+const byUrlKey = internalQuery({
+  args: { urlKey: v.string() },
+  handler: (ctx, { urlKey }) =>
+    ctx.db
+      .query("jobs")
+      .withIndex("by_urlKey", (q) => q.eq("urlKey", urlKey))
+      .first(),
+})
+
+// The board behind a pasted link, added if the catalog doesn't have it yet.
+const ensureBoard = internalMutation({
+  args: { kind: v.union(...boardKinds.map((k) => v.literal(k))), slug: v.string() },
+  returns: v.id("jobBoards"),
+  handler: async (ctx, b) => {
+    const known = await ctx.db
+      .query("jobBoards")
+      .withIndex("by_kind_and_slug", (q) => q.eq("kind", b.kind).eq("slug", b.slug))
+      .first()
+    return (
+      known?._id ??
+      ctx.db.insert("jobBoards", { ...b, company: companyOf(b.slug), addedAt: Date.now(), jobs: 0 })
+    )
+  },
+})
+
 const get = internalQuery({
   args: { jobId: v.id("jobs") },
   handler: (ctx, { jobId }) => ctx.db.get("jobs", jobId),
 })
 
-export const internalApi = { refreshDue, board, addBoards, saveJobs, boardFetched, candidates, get }
+export const internalApi = {
+  refreshDue,
+  board,
+  addBoards,
+  ensureBoard,
+  saveJobs,
+  boardFetched,
+  candidates,
+  byUrlKey,
+  get,
+}

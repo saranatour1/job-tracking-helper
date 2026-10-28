@@ -2,7 +2,7 @@ import { defineTable } from "convex/server"
 import { type } from "arktype"
 import { arkId, arkOutputToConvex } from "../../../../lib/ark"
 import { providerIds, runStatuses, verdicts } from "../validators"
-import { Judgment } from "./leads"
+import { Check, Judgment } from "./leads"
 
 // A role Jev judged, waiting for the run to save it.
 export const Candidate = type({
@@ -11,10 +11,12 @@ export const Candidate = type({
   urlKey: "string",
   title: "string",
   company: "string",
+  location: "string",
   snippet: "string",
   verdict: type.enumerated(...verdicts),
   fit: "number",
   reasons: "string[]",
+  checks: Check.array(),
   judgment: Judgment,
 })
 

@@ -1,61 +1,121 @@
 import { describe, expect, it } from "vite-plus/test"
 
 import { loopTemplates } from "../loops/catalog"
-import { criteriaOf } from "./fit"
-import { questionsOf, stateOf, verdictOf } from "./judge"
+import { criteriaOf, descriptionsOf, queriesOf } from "./fit"
+import { checksOf, placeOf, profileOf, questionsOf, specsOf, stateOf, verdictOf } from "./judge"
 
 const tags = [
   { kind: "interest" as const, value: "developer tools" },
   { kind: "location" as const, value: "Berlin" },
+  { kind: "location" as const, value: "Munich" },
   { kind: "avoid" as const, value: "ad tech" },
+  { kind: "redFlagCompany" as const, value: "Acme" },
 ]
-const profileOf = (id: string, prompt?: string) => ({
-  ...criteriaOf(loopTemplates.find((t) => t.id === id)!.answers, tags),
-  ...(prompt && { prompt }),
-})
-const job = { title: "Engineer", company: "Acme", location: "Remote", remote: true, text: "…" }
-
-describe("questionsOf", () => {
-  it("asks only what the loop needs", () => {
-    expect(Object.keys(questionsOf(profileOf("remote-fit")))).toEqual(["match", "avoids"])
-    expect(Object.keys(questionsOf(profileOf("close-to-home")))).toEqual([
-      "match",
-      "avoids",
-      "inPlace",
-    ])
-    expect(Object.keys(questionsOf(profileOf("dream-companies")))).toEqual(["match"])
+const answersOf = (id: string) => loopTemplates.find((t) => t.id === id)!.answers
+const profile = (id: string, more: Partial<Parameters<typeof profileOf>[1]> = {}) =>
+  profileOf(criteriaOf(answersOf(id), tags), {
+    workMode: "any",
+    liked: [],
+    disliked: [],
+    ...more,
   })
-})
+const job = { title: "Engineer", company: "Initech", location: "Berlin", remote: false, text: "…" }
 
-describe("stateOf", () => {
-  it("passes the person's own words only when they wrote some", () => {
-    expect(stateOf(profileOf("remote-fit", "staff infra roles"), job).person.wants).toBe(
-      "staff infra roles"
+describe("placeOf", () => {
+  it("covers every place at once, and lets the loop's answer win over Preferences", () => {
+    const c = criteriaOf(answersOf("close-to-home"), tags)
+    expect(placeOf(c, "any")).toBe("In or near Berlin, Munich")
+    expect(placeOf(criteriaOf(answersOf("stretch"), tags), "hybrid")).toBe(
+      "Hybrid in or near Berlin, Munich"
     )
-    expect("wants" in stateOf(profileOf("remote-fit"), job).person).toBe(false)
+    expect(placeOf(criteriaOf(answersOf("remote-fit"), tags), "onsite")).toBe("Remote")
+    expect(placeOf(criteriaOf(answersOf("stretch"), []), "any")).toBeUndefined()
   })
 })
 
-describe("verdictOf", () => {
-  it("calls a reasonable match a fit and says why in words", () => {
-    const v = verdictOf({ match: 2.4, avoids: 0.1 }, job, "jev-1.14.0")
-    expect(v.verdict).toBe("fit")
-    expect(v.fit).toBe(80)
-    expect(v.reasons).toEqual(["A reasonable match for what you want.", "It's remote."])
-    expect(v.judgment).toEqual({
-      match: 2.4,
-      avoids: 0.1,
-      level: "A reasonable match: the kind of work they want, with some gaps",
-      model: "jev-1.14.0",
+describe("queriesOf", () => {
+  it("searches each kind of role in each place, and each line of their own words", () => {
+    const c = criteriaOf(answersOf("close-to-home"), tags)
+    expect(queriesOf(c, descriptionsOf("Frontend engineer\nDesign engineer"))).toEqual([
+      "Frontend engineer Berlin",
+      "Frontend engineer Munich",
+      "Design engineer Berlin",
+      "Design engineer Munich",
+      "developer tools Berlin",
+      "developer tools Munich",
+    ])
+  })
+})
+
+describe("questions", () => {
+  it("asks one question per thing the loop cares about", () => {
+    const p = profile("close-to-home", { pay: "60k EUR", visa: "No" })
+    expect(specsOf(p).map((s) => s.label)).toEqual([
+      "In or near Berlin, Munich",
+      "developer tools",
+      "ad tech",
+      "Pays what you need",
+      "Works with your visa situation",
+    ])
+    expect(Object.keys(questionsOf(p))).toEqual(["match", "c0", "c1", "c2", "c3", "c4"])
+  })
+
+  it("passes their own words and rated roles only when there are some", () => {
+    const p = profile("remote-fit", { prompt: "staff infra roles", liked: ["DevX at Reddit"] })
+    expect(stateOf(p, job).person).toMatchObject({
+      wants: "staff infra roles",
+      likedRoles: ["DevX at Reddit"],
     })
+    expect("dislikedRoles" in stateOf(p, job).person).toBe(false)
+  })
+})
+
+describe("checksOf and verdictOf", () => {
+  const p = profile("close-to-home")
+  const answer = (...outcomes: ("holds" | "fails" | "unclear")[]) =>
+    outcomes.map((outcome) => ({ outcome, confidence: 0.9 }))
+
+  it("sorts each answer into fits, could fit and doesn't fit", () => {
+    expect(checksOf(p, job, answer("holds", "unclear", "fails"))).toEqual([
+      {
+        kind: "need",
+        label: "In or near Berlin, Munich",
+        result: "fits",
+        confidence: 0.9,
+        must: true,
+      },
+      { kind: "want", label: "developer tools", result: "maybe", confidence: 0.9 },
+      { kind: "avoid", label: "No ad tech", result: "fits", confidence: 0.9 },
+    ])
   })
 
-  it("rules out a strong match that touches something to avoid or is too far", () => {
-    expect(verdictOf({ match: 3, avoids: 0.8 }, job, "m").verdict).toBe("notFit")
-    expect(verdictOf({ match: 3, inPlace: 0.2 }, { remote: false }, "m").verdict).toBe("notFit")
+  it("leaves out a want that doesn't hold, and flags red-flag companies in code", () => {
+    const checks = checksOf(p, { company: "Acme GmbH" }, answer("holds", "fails", "fails"))
+    expect(checks.map((c) => c.label)).toEqual([
+      "In or near Berlin, Munich",
+      "No ad tech",
+      "At Acme GmbH, on your red-flag list",
+    ])
   })
 
-  it("leaves out a weak match", () => {
-    expect(verdictOf({ match: 1.2 }, job, "m").verdict).toBe("notFit")
+  it("shows a role only when it matches and every must-have is confirmed", () => {
+    const fits = checksOf(p, job, answer("holds", "holds", "fails"))
+    expect(verdictOf(2.4, fits, "m").verdict).toBe("fit")
+    expect(verdictOf(1.2, fits, "m").verdict).toBe("notFit")
+    const unclearPlace = checksOf(p, job, answer("unclear", "holds", "fails"))
+    expect(verdictOf(2.8, unclearPlace, "m")).toMatchObject({
+      verdict: "notFit",
+      reasons: [
+        "A strong match for what you want.",
+        "The posting doesn't confirm: In or near Berlin, Munich.",
+      ],
+    })
+    const avoided = checksOf(p, job, answer("holds", "holds", "holds"))
+    expect(verdictOf(2.8, avoided, "m").reasons).toContain("It misses: Involves ad tech.")
+    const away = checksOf(p, job, answer("fails", "holds", "fails"))
+    expect(verdictOf(2.8, away, "m").reasons).toEqual([
+      "A strong match for what you want.",
+      "It misses: In or near Berlin, Munich.",
+    ])
   })
 })
