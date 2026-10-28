@@ -11,6 +11,7 @@ import { useState } from "react"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
+import { PageIntro, pageBody, Tile, tileGrid } from "@/features/shell/page-body"
 import { PageHeader } from "@/features/shell/page-header"
 
 const fields = [
@@ -30,6 +31,8 @@ const ProfileForm = ({ profile }: { profile: typeof Profile.inferIn }) => {
   const form = useForm({
     defaultValues: profile,
     validators: { onSubmit: Profile },
+    // Re-check on every save; otherwise one failed save blocks the next even once fixed.
+    canSubmitWhenInvalid: true,
     onSubmit: async ({ value }) => {
       setStatus(undefined)
       await updateProfile(value).then(
@@ -42,7 +45,7 @@ const ProfileForm = ({ profile }: { profile: typeof Profile.inferIn }) => {
   return (
     <form
       noValidate
-      className="grid max-w-sm gap-4"
+      className="grid gap-4"
       onSubmit={(e) => {
         e.preventDefault()
         void form.handleSubmit()
@@ -143,8 +146,7 @@ const DeleteAccount = () => {
   const { signOut } = useAuthActions()
 
   return (
-    <section className="grid max-w-sm gap-2">
-      <h2 className="font-heading font-medium">Delete account</h2>
+    <Tile title="Delete account" className="gap-3">
       <p className="text-muted-foreground text-sm">
         Deletes your applications, profile and image, frees your sign-in username, and signs you
         out.
@@ -161,18 +163,22 @@ const DeleteAccount = () => {
       >
         Delete account
       </Button>
-    </section>
+    </Tile>
   )
 }
 
 const AccountBody = ({ me }: { me: FunctionReturnType<typeof api.users.me> }) => {
   const { imageUrl, ...profile } = me
   return (
-    <>
-      <ProfileImage imageUrl={imageUrl} />
-      <ProfileForm profile={profile} />
+    <div className={tileGrid}>
+      <Tile title="Profile" className="gap-3 md:row-span-2">
+        <ProfileForm profile={profile} />
+      </Tile>
+      <Tile title="Profile image" className="gap-3">
+        <ProfileImage imageUrl={imageUrl} />
+      </Tile>
       <DeleteAccount />
-    </>
+    </div>
   )
 }
 
@@ -181,7 +187,10 @@ export const Account = () => {
   return (
     <>
       <PageHeader crumbs={[{ label: "Account" }]} />
-      <main className="flex flex-col gap-8 p-6">{me && <AccountBody me={me} />}</main>
+      <main className={pageBody}>
+        <PageIntro title="Account" description="Your profile, sign-in username and image." />
+        {me && <AccountBody me={me} />}
+      </main>
     </>
   )
 }

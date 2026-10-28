@@ -32,12 +32,21 @@ import { ScrollArea } from "@/components/ui/scroll-area"
 import { Tabs, TabsList, TabsPanel, TabsTab } from "@/components/ui/tabs"
 import { Textarea } from "@/components/ui/textarea"
 import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group"
+import {
+  addChip,
+  addTile,
+  chip,
+  PageIntro,
+  pageBody,
+  Tile,
+  tileGrid,
+} from "@/features/shell/page-body"
 import { PageHeader } from "@/features/shell/page-header"
 import { cn } from "@/lib/utils"
 
 import { IdentityBlocks } from "./identity-blocks"
 import { assistantPrompt, parseReply } from "./prompt"
-import { fillEmpty, type Section, suggestedSections } from "./prefilled"
+import { fillEmpty, type Section as FieldSection, suggestedSections } from "./prefilled"
 
 type Values = typeof PreferencesType.inferIn
 type Draft = typeof PreferencesDraft.infer
@@ -134,13 +143,10 @@ const Section = ({
   description: string
   children: React.ReactNode
 }) => (
-  <section className="flex flex-col gap-5">
-    <div className="flex flex-col gap-1">
-      <h2 className="font-heading text-lg font-semibold">{title}</h2>
-      <p className="text-muted-foreground text-sm leading-relaxed">{description}</p>
-    </div>
-    <div className="flex flex-col gap-4">{children}</div>
-  </section>
+  <div className="flex flex-col gap-6">
+    <PageIntro title={title} description={description} />
+    <Tile className="gap-4 p-4">{children}</Tile>
+  </div>
 )
 
 // Copy the prompt, run it in your own assistant, paste the JSON reply back.
@@ -149,26 +155,18 @@ const Prefill = ({ onDraft }: { onDraft: (draft: Draft) => number }) => {
   const [status, setStatus] = useState<{ ok: boolean; text: string }>()
   const [copied, setCopied] = useState(false)
   return (
-    <section className="bg-muted/40 flex flex-col gap-4 rounded-xl border p-5">
-      <div className="flex items-start gap-3">
-        <span className="bg-background flex size-8 shrink-0 items-center justify-center rounded-md border">
-          <HugeiconsIcon icon={SparklesIcon} className="size-4" />
-        </span>
-        <div className="flex flex-col gap-1">
-          <h2 className="text-sm font-medium">Fill this in with your own AI assistant</h2>
-          <p className="text-muted-foreground text-xs leading-relaxed">
-            This prompt is for you to paste into ChatGPT, Claude or any assistant you already use.
-            It interviews you and writes your answers in a format this form can read. Nothing leaves
-            this page until you paste the reply below, and you can edit every answer before saving.
-          </p>
-        </div>
-      </div>
-      <ol className="text-muted-foreground grid gap-1 ps-11 text-xs">
+    <Tile title="Fill this in with your own AI assistant" className="gap-4 p-4">
+      <p className="text-muted-foreground text-xs leading-relaxed">
+        This prompt is for you to paste into ChatGPT, Claude or any assistant you already use. It
+        interviews you and writes your answers in a format this form can read. Nothing leaves this
+        page until you paste the reply below, and you can edit every answer before saving.
+      </p>
+      <ol className="text-muted-foreground grid gap-1 text-xs">
         <li>1. Copy the prompt and paste it into your assistant.</li>
         <li>2. Answer its questions. Paste in notes or a LinkedIn summary if that's quicker.</li>
         <li>3. Paste its final reply here and fill the form.</li>
       </ol>
-      <div className="flex flex-wrap gap-2 ps-11">
+      <div className="flex flex-wrap gap-2">
         <Button
           type="button"
           size="sm"
@@ -191,7 +189,7 @@ const Prefill = ({ onDraft }: { onDraft: (draft: Draft) => number }) => {
           </pre>
         </details>
       </div>
-      <div className="flex flex-col gap-2 ps-11">
+      <div className="flex flex-col gap-2">
         <Label htmlFor="assistant-reply" className="text-xs">
           Your assistant's reply
         </Label>
@@ -232,7 +230,7 @@ const Prefill = ({ onDraft }: { onDraft: (draft: Draft) => number }) => {
           )}
         </div>
       </div>
-    </section>
+    </Tile>
   )
 }
 
@@ -331,7 +329,13 @@ const firstError = (
 
 // Fields application forms ask for, in sections, with what to put in each, ready to copy.
 // Saved on its own, so it never overwrites the answers in the other tabs.
-const Prefilled = ({ saved, suggestions }: { saved: Section[] | null; suggestions: Section[] }) => {
+const Prefilled = ({
+  saved,
+  suggestions,
+}: {
+  saved: FieldSection[] | null
+  suggestions: FieldSection[]
+}) => {
   const savePrefilled = useMutation(api.preferences.savePrefilled)
   const [status, setStatus] = useState<string>()
   const [copied, setCopied] = useState<string>()
@@ -357,53 +361,44 @@ const Prefilled = ({ saved, suggestions }: { saved: Section[] | null; suggestion
   return (
     <div className="flex min-w-0 flex-1 flex-col">
       <ScrollArea className="min-h-0 flex-1">
-        <div className="animate-in fade-in mx-auto flex max-w-5xl flex-col gap-6 px-6 py-10 duration-300 motion-reduce:animate-none">
-          <div className="flex flex-col gap-1">
-            <div className="flex flex-wrap items-center justify-between gap-2">
-              <h2 className="font-heading text-2xl font-semibold">Prefilled</h2>
-              <Button
-                type="button"
-                variant="ghost"
-                size="sm"
-                onClick={() => {
-                  const result = fillEmpty(form.state.values.sections, suggestions)
-                  form.setFieldValue("sections", result.sections)
-                  setStatus(
-                    result.filled
-                      ? `Filled ${result.filled} from your answers. Check them, then save.`
-                      : "Nothing new to fill from your answers."
-                  )
-                }}
-              >
-                <HugeiconsIcon icon={SparklesIcon} /> Fill empty ones from your answers
-              </Button>
-            </div>
-            <p className="text-muted-foreground text-sm leading-relaxed">
-              What to put in the fields application forms ask for, ready to copy. Rename, add or
-              remove any field or section. Nothing gets filled in anywhere without you.
-            </p>
-            {!saved && (
-              <p className="text-muted-foreground text-xs">
-                Suggested from your account and answers. Check them, then save.
-              </p>
-            )}
-          </div>
+        <div className={cn(pageBody, "animate-in fade-in duration-300 motion-reduce:animate-none")}>
+          <PageIntro
+            title="Prefilled"
+            description={
+              <>
+                What to put in the fields application forms ask for, ready to copy. Rename, add or
+                remove any field or section. Nothing gets filled in anywhere without you.
+                {!saved && " Suggested from your account and answers until you save."}
+              </>
+            }
+          >
+            <Button
+              type="button"
+              variant="ghost"
+              size="sm"
+              onClick={() => {
+                const result = fillEmpty(form.state.values.sections, suggestions)
+                form.setFieldValue("sections", result.sections)
+                setStatus(
+                  result.filled
+                    ? `Filled ${result.filled} from your answers. Check them, then save.`
+                    : "Nothing new to fill from your answers."
+                )
+              }}
+            >
+              <HugeiconsIcon icon={SparklesIcon} /> Fill empty ones from your answers
+            </Button>
+          </PageIntro>
           <form.Field name="sections" mode="array">
             {(sections) => (
               <>
                 {/* Bento: every section on one screen; big ones take a full row. */}
-                <div className="grid grid-flow-dense gap-3 md:grid-cols-2">
+                <div className={tileGrid}>
                   {live.map((section, si) => (
-                    <section
+                    <Tile
                       key={si}
-                      className={cn(
-                        "flex flex-col gap-2 rounded-xl border border-dashed p-3",
-                        (section.fields.length > 6 ||
-                          section.fields.some((f) => f.value.length > 120)) &&
-                          "md:col-span-2"
-                      )}
-                    >
-                      <div className="flex items-start gap-1">
+                      className={cn(isWide(section.fields) && "md:col-span-2")}
+                      title={
                         <form.Field name={`sections[${si}].title`}>
                           {(f) => (
                             <div className="me-auto grid min-w-0 gap-1">
@@ -416,34 +411,42 @@ const Prefilled = ({ saved, suggestions }: { saved: Section[] | null; suggestion
                                 value={f.state.value}
                                 onChange={(e) => f.handleChange(e.target.value)}
                                 aria-invalid={f.state.meta.errors.length > 0}
-                                className="bg-muted/40 has-focus-visible:ring-ring/40 has-aria-invalid:border-destructive/60 max-w-full rounded-lg border text-[13px] font-medium has-focus-visible:ring-1 [&_input]:min-w-24 [&_input]:[field-sizing:content]"
+                                className={cn(
+                                  chip,
+                                  "has-focus-visible:ring-ring/40 has-aria-invalid:border-destructive/60 max-w-full p-0 has-focus-visible:ring-1 [&_input]:min-w-24 [&_input]:[field-sizing:content]"
+                                )}
                               />
                               {errors(f.state.meta.errors)}
                             </div>
                           )}
                         </form.Field>
-                        <form.Field name={`sections[${si}].fields`} mode="array">
-                          {(fields) => (
-                            <button
-                              type="button"
-                              disabled={fields.state.value.length >= 50}
-                              onClick={() => fields.pushValue({ label: "", value: "" })}
-                              className="text-muted-foreground hover:bg-accent/30 hover:text-foreground flex h-7 shrink-0 items-center gap-1 rounded-lg border border-dashed px-2 text-xs transition-colors disabled:opacity-50"
-                            >
-                              <HugeiconsIcon icon={PlusSignIcon} className="size-3.5" /> Field
-                            </button>
-                          )}
-                        </form.Field>
-                        <Button
-                          type="button"
-                          size="icon-sm"
-                          variant="ghost"
-                          aria-label={`Remove the ${section.title.trim() || "untitled"} section`}
-                          onClick={() => sections.removeValue(si)}
-                        >
-                          <HugeiconsIcon icon={Cancel01Icon} />
-                        </Button>
-                      </div>
+                      }
+                      actions={
+                        <>
+                          <form.Field name={`sections[${si}].fields`} mode="array">
+                            {(fields) => (
+                              <button
+                                type="button"
+                                disabled={fields.state.value.length >= 50}
+                                onClick={() => fields.pushValue({ label: "", value: "" })}
+                                className={addChip}
+                              >
+                                <HugeiconsIcon icon={PlusSignIcon} className="size-3.5" /> Field
+                              </button>
+                            )}
+                          </form.Field>
+                          <Button
+                            type="button"
+                            size="icon-sm"
+                            variant="ghost"
+                            aria-label={`Remove the ${section.title.trim() || "untitled"} section`}
+                            onClick={() => sections.removeValue(si)}
+                          >
+                            <HugeiconsIcon icon={Cancel01Icon} />
+                          </Button>
+                        </>
+                      }
+                    >
                       <form.Field name={`sections[${si}].fields`} mode="array">
                         {(fields) => (
                           <>
@@ -529,7 +532,7 @@ const Prefilled = ({ saved, suggestions }: { saved: Section[] | null; suggestion
                           </>
                         )}
                       </form.Field>
-                    </section>
+                    </Tile>
                   ))}
                   <button
                     type="button"
@@ -537,7 +540,7 @@ const Prefilled = ({ saved, suggestions }: { saved: Section[] | null; suggestion
                     onClick={() =>
                       sections.pushValue({ title: "", fields: [{ label: "", value: "" }] })
                     }
-                    className="text-muted-foreground hover:bg-accent/30 hover:text-foreground flex min-h-24 items-center justify-center gap-2 rounded-xl border border-dashed text-sm transition-colors disabled:opacity-50"
+                    className={addTile}
                   >
                     <HugeiconsIcon icon={PlusSignIcon} className="size-4" /> Add section
                   </button>
@@ -662,6 +665,10 @@ const rowsOf = (id: StepId, v: Values, resume: Resume): { label: string; value: 
   }
 }
 
+// Big groups take a full row of the tile grid.
+const isWide = (rows: { value: string }[]) =>
+  rows.length > 5 || rows.some((r) => r.value.length > 120)
+
 // All sections on one page, so changing one answer doesn't mean stepping through the rest.
 const Overview = ({
   values,
@@ -673,62 +680,50 @@ const Overview = ({
   onEdit: (step: StepId) => void
 }) => (
   <ScrollArea className="min-h-0 flex-1">
-    <div className="animate-in fade-in mx-auto flex max-w-3xl flex-col gap-10 px-6 py-12 duration-300 motion-reduce:animate-none">
-      <div className="flex flex-col gap-1">
-        <h2 className="font-heading text-2xl font-semibold">Overview</h2>
-        <p className="text-muted-foreground text-sm">
-          Everything you've told us. Click a row to change it.
-        </p>
-      </div>
-      {steps
-        .filter((s) => s.id !== "start")
-        .map((s) => {
-          const rows = rowsOf(s.id, values, resume)
-          return (
-            <section key={s.id} className="flex flex-col gap-3">
-              <h3 className="px-1 text-[15px] font-medium">{s.title}</h3>
-              <div className="bg-muted/40 flex flex-col divide-y rounded-xl border px-1">
+    <div className={cn(pageBody, "animate-in fade-in duration-300 motion-reduce:animate-none")}>
+      <PageIntro
+        title="Overview"
+        description="Everything you've told us. Click a row to change it."
+      />
+      <div className={tileGrid}>
+        {steps
+          .filter((s) => s.id !== "start")
+          .map((s) => {
+            const rows = rowsOf(s.id, values, resume)
+            return (
+              <Tile key={s.id} title={s.title} className={cn(isWide(rows) && "md:col-span-2")}>
                 {(rows.length ? rows : [{ label: "Nothing here yet", value: "" }]).map((r, i) => {
                   const value = r.value.trim()
-                  // Short answers sit on the right like a setting's value; long ones go below.
-                  const short = value.length <= 40 && !value.includes("\n")
                   return (
                     <button
                       key={i}
                       type="button"
                       onClick={() => onEdit(s.id)}
-                      className="hover:bg-accent/40 flex items-center gap-4 rounded-lg px-3 py-3.5 text-start transition-colors"
+                      className="hover:bg-accent/40 grid grid-cols-[minmax(0,2fr)_minmax(0,3fr)_auto] items-start gap-1 rounded-md px-2.5 py-1 text-start text-sm transition-colors"
                     >
-                      <span className="flex min-w-0 flex-1 flex-col gap-0.5">
+                      <span className="font-medium">
                         <span className="sr-only">Edit </span>
-                        <span className="text-[13px] font-medium">{r.label}</span>
-                        {value && !short && (
-                          <span className="text-muted-foreground line-clamp-3 text-xs whitespace-pre-wrap">
-                            {value}
-                          </span>
-                        )}
+                        {r.label}
                       </span>
-                      {(short || !value) && (
-                        <span
-                          className={cn(
-                            "line-clamp-2 max-w-[50%] text-end text-[13px]",
-                            !value && "text-muted-foreground/70 text-xs"
-                          )}
-                        >
-                          {value || "Not answered"}
-                        </span>
-                      )}
+                      <span
+                        className={cn(
+                          "line-clamp-3 whitespace-pre-wrap",
+                          !value && "text-muted-foreground"
+                        )}
+                      >
+                        {value || "Not filled in"}
+                      </span>
                       <HugeiconsIcon
                         icon={ArrowRight01Icon}
-                        className="text-muted-foreground size-3.5 shrink-0"
+                        className="text-muted-foreground mt-1 size-3.5"
                       />
                     </button>
                   )
                 })}
-              </div>
-            </section>
-          )
-        })}
+              </Tile>
+            )
+          })}
+      </div>
     </div>
   </ScrollArea>
 )
@@ -740,7 +735,7 @@ const PreferencesForm = ({
   me,
 }: {
   saved: Values
-  prefilled: Section[] | null
+  prefilled: FieldSection[] | null
   resume: Resume
   me: { name: string; email: string; onboarded: boolean }
 }) => {
@@ -870,15 +865,10 @@ const PreferencesForm = ({
   const content: Record<StepId, React.ReactNode> = {
     start: (
       <div className="flex flex-col gap-6">
-        <div className="flex flex-col gap-2">
-          <h2 className="font-heading text-xl font-semibold">
-            Tell us what you're after, in your own words
-          </h2>
-          <p className="text-muted-foreground text-sm leading-relaxed">
-            No resume parsing and no keyword scores. One short section at a time; every part is
-            optional, and you can change it any time.
-          </p>
-        </div>
+        <PageIntro
+          title="Tell us what you're after, in your own words"
+          description="No resume parsing and no keyword scores. One short section at a time; every part is optional, and you can change it any time."
+        />
         <Prefill onDraft={applyDraft} />
       </div>
     ),
@@ -1105,7 +1095,8 @@ const PreferencesForm = ({
               </div>
               <div
                 className={cn(
-                  "animate-in fade-in mx-auto flex max-w-xl flex-col gap-2 px-6 py-10 duration-300 motion-reduce:animate-none",
+                  pageBody,
+                  "animate-in fade-in max-w-2xl gap-2 duration-300 motion-reduce:animate-none",
                   forward ? "slide-in-from-bottom-4" : "slide-in-from-top-4"
                 )}
               >

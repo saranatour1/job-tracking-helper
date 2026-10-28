@@ -56,6 +56,7 @@ src/
   routes/                              pages (TanStack Router); they only import a feature
     _app.tsx, _auth.tsx                layouts: signed-in pages, and /sign-in + /sign-up
   features/<feature>/                  the feature's components
+  features/shell/                      sidebar, page header and the shared page style (page-body.tsx)
   features/tracker/                    Inbox, Pipeline, Goals and Views, on sample data for now
   features/preferences/                Preferences: the form, the assistant prompt and the profile blocks
   components/ui/                       shadcn/coss components, managed by the shadcn CLI
