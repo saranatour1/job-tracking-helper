@@ -4,7 +4,13 @@ import type { MutationCtx, QueryCtx } from "../../../_generated/server"
 import type { Id } from "../../../_generated/dataModel"
 import { arkId, arkOutputToConvex } from "../../../lib/ark"
 import { arkMutation, authedMutation, authedQuery } from "../../../lib/functions"
-import { emptyPreferences, maxResumeBytes, Preferences, resumeTypes } from "./validators"
+import {
+  emptyPreferences,
+  maxResumeBytes,
+  Preferences,
+  PrefilledSections,
+  resumeTypes,
+} from "./validators"
 
 export const rowOf = (ctx: QueryCtx, userId: Id<"users">) =>
   ctx.db
@@ -16,7 +22,11 @@ export const rowOf = (ctx: QueryCtx, userId: Id<"users">) =>
 const upsert = async (
   ctx: MutationCtx,
   userId: Id<"users">,
-  patch: Partial<typeof Preferences.infer> & { resumeId?: Id<"_storage">; resumeName?: string }
+  patch: Partial<typeof Preferences.infer> & {
+    resumeId?: Id<"_storage">
+    resumeName?: string
+    prefilled?: typeof PrefilledSections.infer
+  }
 ) => {
   const row = await rowOf(ctx, userId)
   if (row) await ctx.db.patch("preferences", row._id, patch)
@@ -32,14 +42,25 @@ const get = authedQuery({
   args: {},
   returns: v.object({
     preferences: v.union(arkOutputToConvex(Preferences), v.null()),
+    // null until the Prefilled tab is saved once, so the page can suggest values instead.
+    prefilled: v.union(arkOutputToConvex(PrefilledSections), v.null()),
     resume: v.union(v.object({ name: v.string(), url: v.union(v.string(), v.null()) }), v.null()),
   }),
   handler: async (ctx) => {
     const row = await rowOf(ctx, ctx.userId)
-    if (!row) return { preferences: null, resume: null }
-    const { _id, _creationTime, userId: _userId, resumeId, resumeName, ...preferences } = row
+    if (!row) return { preferences: null, prefilled: null, resume: null }
+    const {
+      _id,
+      _creationTime,
+      userId: _userId,
+      resumeId,
+      resumeName,
+      prefilled,
+      ...preferences
+    } = row
     return {
       preferences,
+      prefilled: prefilled ?? null,
       resume: resumeId
         ? { name: resumeName ?? "Resume", url: await ctx.storage.getUrl(resumeId) }
         : null,
@@ -60,6 +81,15 @@ const save = arkMutation({
   handler: async (ctx, preferences) => {
     await upsert(ctx, ctx.userId, preferences)
     await markOnboarded(ctx, ctx.userId)
+    return null
+  },
+})
+
+const savePrefilled = arkMutation({
+  args: type({ sections: PrefilledSections }),
+  returns: v.null(),
+  handler: async (ctx, { sections }) => {
+    await upsert(ctx, ctx.userId, { prefilled: sections })
     return null
   },
 })
@@ -98,4 +128,4 @@ const setResume = arkMutation({
   },
 })
 
-export const publicApi = { get, save, skip, setResume }
+export const publicApi = { get, save, savePrefilled, skip, setResume }

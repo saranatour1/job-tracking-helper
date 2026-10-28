@@ -2,7 +2,13 @@ import { type } from "arktype"
 import { describe, expect, it } from "vite-plus/test"
 
 import { arkOutputToConvex, arkToConvex } from "../../../lib/ark"
-import { emptyPreferences, Preferences, PreferencesDraft } from "./validators"
+import {
+  emptyPreferences,
+  Preferences,
+  PreferencesDraft,
+  PrefilledFields,
+  PrefilledSections,
+} from "./validators"
 
 describe("Preferences", () => {
   it("converts to Convex validators for args and storage", () => {
@@ -43,5 +49,46 @@ describe("PreferencesDraft, an assistant's reply", () => {
 
   it("reports a field with the wrong shape", () => {
     expect(PreferencesDraft({ workMode: "sometimes" })).toBeInstanceOf(type.errors)
+  })
+})
+
+describe("PrefilledSections", () => {
+  const section = (title: string, ...labels: string[]) => ({
+    title,
+    fields: labels.map((label) => ({ label, value: "" })),
+  })
+
+  it("converts to Convex validators, leaving the repeat checks to arktype", () => {
+    expect(arkToConvex(PrefilledSections).kind).toBe("array")
+    expect(() => arkOutputToConvex(PrefilledSections)).not.toThrow()
+  })
+
+  it("trims titles, labels and values", () => {
+    expect(
+      PrefilledSections([
+        { title: " Contact ", fields: [{ label: " LinkedIn ", value: " in/s " }] },
+      ])
+    ).toEqual([{ title: "Contact", fields: [{ label: "LinkedIn", value: "in/s" }] }])
+  })
+
+  it("allows the same label in different sections", () => {
+    expect(PrefilledSections.allows([section("You", "Name"), section("Reference", "Name")])).toBe(
+      true
+    )
+  })
+
+  it("rejects a label used twice in one section, ignoring case and spaces", () => {
+    const result = PrefilledSections([section("Contact", "Email", " email")])
+    expect((result as type.errors).summary).toContain('"email" is listed twice')
+  })
+
+  it("rejects two sections with the same title", () => {
+    const result = PrefilledSections([section("Contact"), section("contact ")])
+    expect((result as type.errors).summary).toContain('There are two "contact" sections')
+  })
+
+  it("rejects an empty title or label", () => {
+    expect(PrefilledSections([section(" ")])).toBeInstanceOf(type.errors)
+    expect(PrefilledFields([{ label: " ", value: "x" }])).toBeInstanceOf(type.errors)
   })
 })

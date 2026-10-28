@@ -25,6 +25,42 @@ export const CustomAnswer = type({
   answer: text,
 })
 
+// The first name used twice in a list, ignoring case and spaces.
+const repeatOf = (names: string[]) => {
+  const keys = names.map((n) => n.trim().toLowerCase())
+  return names.find((_, i) => keys.indexOf(keys[i]!) !== i)?.trim()
+}
+
+// A form field and what to put in it, such as "LinkedIn" and a profile link.
+export const PrefilledField = type({
+  label: trimmed.to(type("0 < string <= 80").describe("1 to 80 characters")),
+  value: text,
+})
+
+// Repeat checks run before trimming, so the stored shapes keep their JSON Schema.
+// Labels are used once per section, so a form field never has two answers.
+export const PrefilledFields = type({ label: "string", value: "string" })
+  .array()
+  .narrow((fields, ctx) => {
+    const repeat = repeatOf(fields.map((f) => f.label))
+    return repeat === undefined || ctx.reject({ message: `"${repeat}" is listed twice` })
+  })
+  .pipe(PrefilledField.array().atMostLength(50))
+
+// A titled group of fields, such as "Contact" or "References".
+export const PrefilledSection = type({
+  title: trimmed.to(type("0 < string <= 60").describe("1 to 60 characters")),
+  fields: PrefilledFields,
+})
+
+export const PrefilledSections = type({ title: "string", fields: PrefilledFields.in })
+  .array()
+  .narrow((sections, ctx) => {
+    const repeat = repeatOf(sections.map((s) => s.title))
+    return repeat === undefined || ctx.reject({ message: `There are two "${repeat}" sections` })
+  })
+  .pipe(PrefilledSection.array().atMostLength(20))
+
 export const Preferences = type({
   interests: tags,
   avoid: tags,

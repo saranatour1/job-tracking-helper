@@ -1,6 +1,6 @@
 # Preferences
 
-`/preferences` asks people what they want from their next job in their own words, one section at a time: interests, things to avoid, growth, places and work mode, companies, red flags, who they are, six common application questions, their own question and answer pairs, and an optional resume. A side panel shows the profile blocks and a one-line summary per section. Returning users open on an `Overview` tab that lists every answer by section as settings-style rows; clicking a row (named `Edit <label> <value>`) opens that step. Another tab, `Ready answers`, lists common application-form questions answered from those words, each with `Copy`. Answers are stored in the `preferences` table, one row per user, and `users.onboardedAt` records that first run is done. A copy-paste prompt lets them fill the form with their own AI assistant.
+`/preferences` asks people what they want from their next job in their own words, one section at a time: interests, things to avoid, growth, places and work mode, companies, red flags, who they are, six common application questions, their own question and answer pairs, and an optional resume. A side panel shows the profile blocks and a one-line summary per section. Returning users open on an `Overview` tab that lists every answer by section as settings-style rows; clicking a row (named `Edit <label> <value>`) opens that step. Another tab, `Prefilled`, shows form fields as label and value rows in dashed section tiles, laid out as a grid: Contact, Work, About you and the person's own questions to start, suggested from the account and answers until first saved. Sections and fields can be added, renamed and removed, and `Save prefilled` stores them in `preferences.prefilled` on its own. Answers are stored in the `preferences` table, one row per user, and `users.onboardedAt` records that first run is done. A copy-paste prompt lets them fill the form with their own AI assistant.
 
 ## Sub-features
 
@@ -12,7 +12,7 @@
 - `prefs-blocks` shows one coloured block per filled part; its `role="img"` label reads `Your profile: N of 9 parts filled in`.
 - `prefs-steps` moves between sections with `Back`/`Next`, the side panel's section buttons, the mouse wheel past the end of a section, or a vertical drag of more than 80px away from fields and buttons.
 - `prefs-own` adds, edits and removes your own question and answer pairs under `Your own questions`.
-- `prefs-ready` lists common questions with answers built from the form, `Copy` for answered ones and `Answer it` for the rest, which opens the right section.
+- `prefs-prefilled` saves sections of label and value rows, refuses a label used twice in a section or a section title used twice, and keeps the other answers untouched.
 
 ## How to get to it (user POV)
 
@@ -29,7 +29,7 @@ Steps:
 
 - **First run.** Continue as guest. The URL is `/preferences` and `Skip for now` shows next to `Save preferences`.
 - **Prefill.** On step 1, `find` `"Paste the reply"` and fill it with a sentence followed by a JSON object, such as `Here you go: {"interests":["climate"],"workMode":"remote","answers":{"pay":"60k EUR"},"extra":1}`. Click `Fill the form`. A status reads `Filled 3 answers`, and the side panel's `What you're drawn to` line reads `climate`.
-- **Ready answers.** Open the `Ready answers` tab. `What are your salary expectations?` reads `60k EUR` with a `Copy` button; unanswered questions show `Answer it`.
+- **Prefilled.** Open the `Prefilled` tab. `Salary expectation` reads `60k EUR`. Rename `Contact label 3` to `email` and click `Save prefilled`: the status reads `"email" is listed twice`. Rename it back, click `Add section`, title it `References`, fill `References label 1` and its value, and save: the status reads `Saved.` and `evidence.sh table "$dir" preferences` shows the section under `prefilled`. Rows' copy and remove buttons appear on hover.
 - **Save.** Click `Save preferences`. A status reads `Saved.` and `Skip for now` is gone. Run `evidence.sh table "$dir" preferences after-save`: there is one row for this user.
 - **Persist.** Navigate to `/`: the URL stays `/`. Navigate back to `/preferences`: it opens on `Overview`, and the answers are still there.
 - **Overview.** `find` `"When could you start"` and click it: the `Edit` tab opens on `Step 8 of 10`. Then add a company on step 5. Add a company, go back to `Overview`: it shows there before saving.

@@ -53,7 +53,7 @@ Six tables are left, counting `users`. `users` and `preferences` exist today, an
 | previous runs, snapshots from the past    | `applications.history`, which gives any application's status on any past date |
 | resumes                                   | one file on `preferences`, kept to attach to applications and never read      |
 | user preferences, locations, custom roles | `preferences` table, one row per user                                         |
-| auto fill, prefilled applications         | `preferences.answers`, which an AI assistant's reply can fill                 |
+| auto fill, prefilled applications         | `preferences.prefilled`: sections of form fields, suggested from the answers  |
 | rate limits / monthly                     | a monthly target on `preferences` later, count from `applications.appliedAt`  |
 | emails / method of tracking               | `emails` table in phase 3, which needs a Gmail connection                     |
 | acceptance rate, interview rate           | computed from `applications.history`                                          |
@@ -107,6 +107,7 @@ erDiagram
         enum workMode "any | remote | hybrid | onsite"
         string identity "also growthGoal, companyTraits, redFlags"
         object answers "offer, leave, goodWeek, pay, visa, start"
+        object[] prefilled "optional; sections of label + value form fields"
         id resumeId "optional, _storage"
         string resumeName "optional"
     }

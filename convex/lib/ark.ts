@@ -4,7 +4,10 @@ import { v } from "convex/values"
 
 // arktype versions of convex-helpers' zid, zodToConvex and zodOutputToConvex.
 // They read arktype's JSON Schema, so rules Convex can't express (trim, min
-// length) are dropped: run the arktype type itself to enforce them.
+// length, `.narrow` checks) are dropped: run the arktype type itself to enforce them.
+
+// A `.narrow` check has no JSON Schema form, so keep the shape it narrows.
+const jsonSchemaOptions = { fallback: { predicate: (ctx: { base: unknown }) => ctx.base } }
 
 type JsonSchema = {
   type?: string
@@ -77,8 +80,16 @@ export const arkId = <TableName extends string>(table: TableName) =>
 
 /** Convex validator for what callers send: args. */
 export const arkToConvex = <T extends Type>(schema: T) =>
-  toConvex(schema.in.toJsonSchema() as JsonSchema) as Validator<T["inferIn"], "required", string>
+  toConvex(schema.in.toJsonSchema(jsonSchemaOptions as never) as JsonSchema) as Validator<
+    T["inferIn"],
+    "required",
+    string
+  >
 
 /** Convex validator for what gets stored: tables and return values. */
 export const arkOutputToConvex = <T extends Type>(schema: T) =>
-  toConvex(schema.out.toJsonSchema() as JsonSchema) as Validator<T["infer"], "required", string>
+  toConvex(schema.out.toJsonSchema(jsonSchemaOptions as never) as JsonSchema) as Validator<
+    T["infer"],
+    "required",
+    string
+  >
