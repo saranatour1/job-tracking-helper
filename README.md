@@ -2,7 +2,7 @@
 
 Track job applications: company, role and status, saved per user.
 
-New accounts start on Preferences, which asks what someone wants from their next job in their own words and saves it to Convex. A copy-paste prompt lets them fill it with their own AI assistant. A resume upload is optional, kept only to attach to applications, and never read.
+New accounts start on Preferences, which asks what someone wants from their next job in their own words, one section at a time, and saves it to Convex. Its Ready answers tab turns those words into answers for common application-form questions. A copy-paste prompt lets them fill it with their own AI assistant. A resume upload is optional, kept only to attach to applications, and never read.
 
 The Inbox, Pipeline, Goals and Views pages are a preview built on sample data from `src/features/tracker/data.ts`. They don't read from or save to Convex yet. Edits there last until you reload, and the create buttons do nothing.
 

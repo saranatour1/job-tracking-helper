@@ -35,6 +35,12 @@ describe("PreferencesDraft, an assistant's reply", () => {
     ).toEqual({ interests: ["developer tools"], workMode: "remote", answers: { pay: "60k EUR" } })
   })
 
+  it("keeps your own question and answer pairs", () => {
+    expect(
+      PreferencesDraft({ custom: [{ question: " Portfolio? ", answer: "sara.dev", extra: 1 }] })
+    ).toEqual({ custom: [{ question: "Portfolio?", answer: "sara.dev" }] })
+  })
+
   it("reports a field with the wrong shape", () => {
     expect(PreferencesDraft({ workMode: "sometimes" })).toBeInstanceOf(type.errors)
   })

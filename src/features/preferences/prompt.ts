@@ -8,7 +8,8 @@ export const assistantPrompt = `You're helping me fill in my job-search preferen
 How to work:
 1. Ask one short question at a time, 12 at most. If I've pasted notes, a LinkedIn summary or old cover letters, use them and only ask about what's missing.
 2. Keep my own words. Tags are 1 to 4 words each.
-3. When we're done, reply with only a JSON object in exactly this shape and no other text. Use "" or [] for anything I didn't answer.
+3. If something important doesn't fit a field, add it to "custom" as a question and my answer, up to 5 of them.
+4. When we're done, reply with only a JSON object in exactly this shape and no other text. Use "" or [] for anything I didn't answer.
 
 {
   "interests": ["work, topics or problems I want more of"],
@@ -29,7 +30,8 @@ How to work:
     "pay": "the lowest pay I'd accept, with the currency",
     "visa": "whether I need a visa or work permit, and where",
     "start": "when I could start"
-  }
+  },
+  "custom": [{ "question": "a question that matters to me", "answer": "my answer" }]
 }`
 
 // Reads an assistant's reply: finds the JSON object (assistants often wrap it in a

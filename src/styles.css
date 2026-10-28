@@ -158,3 +158,35 @@
     @apply font-sans;
   }
 }
+
+/* Preferences progress bar, pure CSS. It fills by step (--step of --steps), and within a
+   long section it keeps filling as you scroll, through a scroll-driven animation. Browsers
+   without animation-timeline show the step progress only. */
+@property --section-scroll {
+  syntax: "<number>";
+  inherits: true;
+  initial-value: 0;
+}
+
+@keyframes section-scroll {
+  to {
+    --section-scroll: 1;
+  }
+}
+
+.section-progress {
+  animation: section-scroll linear both;
+  animation-timeline: scroll(nearest block);
+}
+
+.section-progress > span {
+  transform: scaleX(min(1, calc((var(--step) + var(--section-scroll)) / (var(--steps) - 1))));
+  transform-origin: left;
+  transition: transform 0.3s ease-out;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .section-progress > span {
+    transition: none;
+  }
+}

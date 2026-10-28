@@ -19,6 +19,12 @@ export const Answers = type({
   start: text,
 })
 
+// A question someone thinks matters, with their answer: "Do you have a portfolio?" "Yes, at ..."
+export const CustomAnswer = type({
+  question: trimmed.to(type("0 < string <= 200").describe("1 to 200 characters")),
+  answer: text,
+})
+
 export const Preferences = type({
   interests: tags,
   avoid: tags,
@@ -32,6 +38,8 @@ export const Preferences = type({
   redFlags: text,
   identity: text,
   answers: Answers,
+  // Optional so rows saved before this field existed stay valid.
+  "custom?": CustomAnswer.array().atMostLength(20),
 })
 export type Preferences = typeof Preferences.infer
 
@@ -54,6 +62,7 @@ export const emptyPreferences: typeof Preferences.inferIn = {
   redFlags: "",
   identity: "",
   answers: { offer: "", leave: "", goodWeek: "", pay: "", visa: "", start: "" },
+  custom: [],
 }
 
 // A resume is kept only to attach where a form asks for one; nothing reads it.
