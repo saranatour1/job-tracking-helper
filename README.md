@@ -54,6 +54,7 @@ src/
   features/<feature>/                  the feature's components
   components/ui/                       shadcn/coss components, managed by the shadcn CLI
 scripts/                               dev and secrets scripts
+docs/database-design.md                planned tables, status flow and build order
 .claude/skills/verify-job-tracking-helper/   how an agent launches, drives and checks the app
 .claude/skills/write-pr/             how an agent writes commits and PRs
 ```
