@@ -446,6 +446,7 @@ export const Pipeline = ({
                   <TabsTab
                     key={v.id}
                     value={v.id}
+                    nativeButton={false}
                     render={<Link to="/pipeline" search={{ view: v.id }} />}
                   >
                     {v.name}

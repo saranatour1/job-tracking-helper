@@ -5,7 +5,7 @@ description: Launch and drive the Job Tracking Helper web app (TanStack Start on
 
 # Verify Job Tracking Helper
 
-The app is a web UI. Users sign in (username and password, guest, or Google/GitHub when configured), then land on a dashboard with a collapsible sidebar and an Applications table with an add form. The backend is a Convex **cloud dev deployment** named in `.env.local` (`CONVEX_DEPLOYMENT`). There is no other surface to drive.
+The app is a web UI. Users sign in (username and password, guest, or Google/GitHub when configured), then land on a dashboard with a collapsible sidebar and an Applications table with an add form. A brand-new account lands on Preferences first; `Skip for now` or saving there sends later visits to Applications. The backend is a Convex **cloud dev deployment** named in `.env.local` (`CONVEX_DEPLOYMENT`). There is no other surface to drive.
 
 Driving uses the Claude Browser tools (`mcp__Claude_Browser__*`). The pane has its own cookies and storage, so signing in there never touches the user's own browser session.
 

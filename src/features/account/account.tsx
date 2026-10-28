@@ -84,7 +84,7 @@ const ProfileForm = ({ profile }: { profile: typeof Profile.inferIn }) => {
 }
 
 const ProfileImage = ({ imageUrl }: { imageUrl: string | null }) => {
-  const generateUploadUrl = useMutation(api.users.generateImageUploadUrl)
+  const generateUploadUrl = useMutation(api.users.generateUploadUrl)
   const setImage = useMutation(api.users.setImage)
   const [error, setError] = useState<string>()
 

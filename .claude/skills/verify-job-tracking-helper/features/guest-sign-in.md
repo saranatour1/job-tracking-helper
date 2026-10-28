@@ -19,10 +19,10 @@ Preconditions:
 - Baseline preconditions hold, and the `Sign in` heading is visible.
 
 - **Snapshot before.** Run `evidence.sh table "$dir" users before`. Note the count.
-- **Start as guest.** Run `find` with `"Continue as guest"`, then `left_click` the ref. The `Applications` heading and the `Toggle Sidebar` button appear, and the `Sign in` heading is gone.
+- **Start as guest.** Run `find` with `"Continue as guest"`, then `left_click` the ref. The `Preferences` heading and the `Toggle Sidebar` button appear, because a new account starts there, and the `Sign in` heading is gone. Click `Skip for now`: the `Applications` heading appears.
 - **Save state.** Run `get_page_text` and save it as `01-dashboard.txt`. It contains the `Applications` heading and the `Company`, `Role`, and `Status` column headers.
 - **Side effect.** Run `evidence.sh table "$dir" users after`. The count is the before count plus one.
-- **Reload.** Run `navigate` to `http://localhost:3000/`. The `Applications` heading shows again with no sign-in form, which proves `guest-persist`.
+- **Reload.** Run `navigate` to `http://localhost:3000/`. The `Applications` heading shows again with no sign-in form and no redirect to Preferences, which proves `guest-persist`.
 - **Sign out.** `find` `"Account menu"` and click it, then `find` `"menuitem"` and click `Sign out`. The `Sign in` heading returns. Save it as `02-signed-out.txt`.
 
 ## Gotchas
