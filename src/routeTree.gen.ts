@@ -13,8 +13,14 @@ import { Route as AppRouteImport } from './routes/_app'
 import { Route as AuthRouteImport } from './routes/_auth'
 import { Route as AppIndexRouteImport } from './routes/_app/index'
 import { Route as AppAccountRouteImport } from './routes/_app/account'
+import { Route as AppInboxRouteImport } from './routes/_app/inbox'
+import { Route as AppViewsRouteImport } from './routes/_app/views'
 import { Route as AuthSignInRouteImport } from './routes/_auth/sign-in'
 import { Route as AuthSignUpRouteImport } from './routes/_auth/sign-up'
+import { Route as AppGoalsIndexRouteImport } from './routes/_app/goals/index'
+import { Route as AppGoalsIdRouteImport } from './routes/_app/goals/$id'
+import { Route as AppPipelineIndexRouteImport } from './routes/_app/pipeline/index'
+import { Route as AppPipelineIdRouteImport } from './routes/_app/pipeline/$id'
 
 const AppRoute = AppRouteImport.update({
   id: '/_app',
@@ -34,6 +40,16 @@ const AppAccountRoute = AppAccountRouteImport.update({
   path: '/account',
   getParentRoute: () => AppRoute,
 } as any)
+const AppInboxRoute = AppInboxRouteImport.update({
+  id: '/inbox',
+  path: '/inbox',
+  getParentRoute: () => AppRoute,
+} as any)
+const AppViewsRoute = AppViewsRouteImport.update({
+  id: '/views',
+  path: '/views',
+  getParentRoute: () => AppRoute,
+} as any)
 const AuthSignInRoute = AuthSignInRouteImport.update({
   id: '/sign-in',
   path: '/sign-in',
@@ -44,41 +60,105 @@ const AuthSignUpRoute = AuthSignUpRouteImport.update({
   path: '/sign-up',
   getParentRoute: () => AuthRoute,
 } as any)
+const AppGoalsIndexRoute = AppGoalsIndexRouteImport.update({
+  id: '/goals/',
+  path: '/goals/',
+  getParentRoute: () => AppRoute,
+} as any)
+const AppGoalsIdRoute = AppGoalsIdRouteImport.update({
+  id: '/goals/$id',
+  path: '/goals/$id',
+  getParentRoute: () => AppRoute,
+} as any)
+const AppPipelineIndexRoute = AppPipelineIndexRouteImport.update({
+  id: '/pipeline/',
+  path: '/pipeline/',
+  getParentRoute: () => AppRoute,
+} as any)
+const AppPipelineIdRoute = AppPipelineIdRouteImport.update({
+  id: '/pipeline/$id',
+  path: '/pipeline/$id',
+  getParentRoute: () => AppRoute,
+} as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof AppIndexRoute
   '/account': typeof AppAccountRoute
+  '/inbox': typeof AppInboxRoute
+  '/views': typeof AppViewsRoute
   '/sign-in': typeof AuthSignInRoute
   '/sign-up': typeof AuthSignUpRoute
+  '/goals/$id': typeof AppGoalsIdRoute
+  '/pipeline/$id': typeof AppPipelineIdRoute
+  '/goals/': typeof AppGoalsIndexRoute
+  '/pipeline/': typeof AppPipelineIndexRoute
 }
 export interface FileRoutesByTo {
   '/': typeof AppIndexRoute
   '/account': typeof AppAccountRoute
+  '/inbox': typeof AppInboxRoute
+  '/views': typeof AppViewsRoute
   '/sign-in': typeof AuthSignInRoute
   '/sign-up': typeof AuthSignUpRoute
+  '/goals/$id': typeof AppGoalsIdRoute
+  '/pipeline/$id': typeof AppPipelineIdRoute
+  '/goals': typeof AppGoalsIndexRoute
+  '/pipeline': typeof AppPipelineIndexRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/_app': typeof AppRouteWithChildren
   '/_auth': typeof AuthRouteWithChildren
   '/_app/account': typeof AppAccountRoute
+  '/_app/inbox': typeof AppInboxRoute
+  '/_app/views': typeof AppViewsRoute
   '/_auth/sign-in': typeof AuthSignInRoute
   '/_auth/sign-up': typeof AuthSignUpRoute
   '/_app/': typeof AppIndexRoute
+  '/_app/goals/$id': typeof AppGoalsIdRoute
+  '/_app/pipeline/$id': typeof AppPipelineIdRoute
+  '/_app/goals/': typeof AppGoalsIndexRoute
+  '/_app/pipeline/': typeof AppPipelineIndexRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
-  fullPaths: '/' | '/account' | '/sign-in' | '/sign-up'
+  fullPaths:
+    | '/'
+    | '/account'
+    | '/inbox'
+    | '/views'
+    | '/sign-in'
+    | '/sign-up'
+    | '/goals/$id'
+    | '/pipeline/$id'
+    | '/goals/'
+    | '/pipeline/'
   fileRoutesByTo: FileRoutesByTo
-  to: '/' | '/account' | '/sign-in' | '/sign-up'
+  to:
+    | '/'
+    | '/account'
+    | '/inbox'
+    | '/views'
+    | '/sign-in'
+    | '/sign-up'
+    | '/goals/$id'
+    | '/pipeline/$id'
+    | '/goals'
+    | '/pipeline'
   id:
     | '__root__'
     | '/_app'
     | '/_auth'
     | '/_app/account'
+    | '/_app/inbox'
+    | '/_app/views'
     | '/_auth/sign-in'
     | '/_auth/sign-up'
     | '/_app/'
+    | '/_app/goals/$id'
+    | '/_app/pipeline/$id'
+    | '/_app/goals/'
+    | '/_app/pipeline/'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
@@ -116,6 +196,20 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AppAccountRouteImport
       parentRoute: typeof AppRoute
     }
+    '/_app/inbox': {
+      id: '/_app/inbox'
+      path: '/inbox'
+      fullPath: '/inbox'
+      preLoaderRoute: typeof AppInboxRouteImport
+      parentRoute: typeof AppRoute
+    }
+    '/_app/views': {
+      id: '/_app/views'
+      path: '/views'
+      fullPath: '/views'
+      preLoaderRoute: typeof AppViewsRouteImport
+      parentRoute: typeof AppRoute
+    }
     '/_auth/sign-in': {
       id: '/_auth/sign-in'
       path: '/sign-in'
@@ -130,17 +224,57 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthSignUpRouteImport
       parentRoute: typeof AuthRoute
     }
+    '/_app/goals/': {
+      id: '/_app/goals/'
+      path: '/goals'
+      fullPath: '/goals/'
+      preLoaderRoute: typeof AppGoalsIndexRouteImport
+      parentRoute: typeof AppRoute
+    }
+    '/_app/goals/$id': {
+      id: '/_app/goals/$id'
+      path: '/goals/$id'
+      fullPath: '/goals/$id'
+      preLoaderRoute: typeof AppGoalsIdRouteImport
+      parentRoute: typeof AppRoute
+    }
+    '/_app/pipeline/': {
+      id: '/_app/pipeline/'
+      path: '/pipeline'
+      fullPath: '/pipeline/'
+      preLoaderRoute: typeof AppPipelineIndexRouteImport
+      parentRoute: typeof AppRoute
+    }
+    '/_app/pipeline/$id': {
+      id: '/_app/pipeline/$id'
+      path: '/pipeline/$id'
+      fullPath: '/pipeline/$id'
+      preLoaderRoute: typeof AppPipelineIdRouteImport
+      parentRoute: typeof AppRoute
+    }
   }
 }
 
 interface AppRouteChildren {
   AppAccountRoute: typeof AppAccountRoute
+  AppInboxRoute: typeof AppInboxRoute
+  AppViewsRoute: typeof AppViewsRoute
   AppIndexRoute: typeof AppIndexRoute
+  AppGoalsIdRoute: typeof AppGoalsIdRoute
+  AppPipelineIdRoute: typeof AppPipelineIdRoute
+  AppGoalsIndexRoute: typeof AppGoalsIndexRoute
+  AppPipelineIndexRoute: typeof AppPipelineIndexRoute
 }
 
 const AppRouteChildren: AppRouteChildren = {
   AppAccountRoute: AppAccountRoute,
+  AppInboxRoute: AppInboxRoute,
+  AppViewsRoute: AppViewsRoute,
   AppIndexRoute: AppIndexRoute,
+  AppGoalsIdRoute: AppGoalsIdRoute,
+  AppPipelineIdRoute: AppPipelineIdRoute,
+  AppGoalsIndexRoute: AppGoalsIndexRoute,
+  AppPipelineIndexRoute: AppPipelineIndexRoute,
 }
 
 const AppRouteWithChildren = AppRoute._addFileChildren(AppRouteChildren)

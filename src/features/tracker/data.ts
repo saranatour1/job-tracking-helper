@@ -1,0 +1,460 @@
+// shortcut: hard-coded sample data while the tracker UI has no backend; replace
+// with Convex queries once the schema in docs/database-design.md exists.
+
+export const statuses = [
+  "saved",
+  "applied",
+  "interviewing",
+  "offer",
+  "rejected",
+  "withdrawn",
+] as const
+export type Status = (typeof statuses)[number]
+
+export const statusLabels: Record<Status, string> = {
+  saved: "Saved",
+  applied: "Applied",
+  interviewing: "Interviewing",
+  offer: "Offer",
+  rejected: "Rejected",
+  withdrawn: "Withdrawn",
+}
+
+export const priorities = ["urgent", "high", "medium", "low", "none"] as const
+export type Priority = (typeof priorities)[number]
+
+export const priorityLabels: Record<Priority, string> = {
+  urgent: "Urgent",
+  high: "High",
+  medium: "Medium",
+  low: "Low",
+  none: "No priority",
+}
+
+export const labels = ["Remote", "Referral", "Dream company", "Startup", "Contract"] as const
+export type Label = (typeof labels)[number]
+
+export const methods = ["Company site", "LinkedIn", "Referral", "Recruiter", "Email"] as const
+export type Method = (typeof methods)[number]
+
+export type Event = { status: Status; at: string; note?: string }
+
+export type Application = {
+  id: string
+  role: string
+  company: string
+  status: Status
+  priority: Priority
+  labels: Label[]
+  method: Method
+  location: string
+  goalId?: string
+  createdAt: string
+  description: string
+  history: Event[]
+  tasks?: Task[]
+  notes?: Note[]
+}
+
+export type Task = { title: string; done: boolean }
+export type Note = { text: string; at: string }
+
+export type Milestone = { name: string; done: boolean; target?: string }
+
+export type Goal = {
+  id: string
+  name: string
+  summary: string
+  priority: Priority
+  target: string
+  milestones: Milestone[]
+}
+
+// Filters are "field is one of values". A view is a saved set of filters.
+export const filterFields = ["status", "priority", "label", "goal", "company", "method"] as const
+export type FilterField = (typeof filterFields)[number]
+export type Filters = Partial<Record<FilterField, string[]>>
+
+export type View = { id: string; name: string; description: string; filters: Filters }
+
+export type Notification = {
+  id: string
+  applicationId: string
+  message: string
+  at: string
+  unread: boolean
+}
+
+// Sample dates are relative to this fixed day, so the server and the browser render the same text.
+export const today = "2026-10-28"
+
+export const goals: Goal[] = [
+  {
+    id: "frontend-role",
+    name: "Land a frontend role",
+    summary: "A full-time frontend or full-stack role before the end of Q1.",
+    priority: "high",
+    target: "2027-03-31",
+    milestones: [
+      { name: "Polish resume and portfolio", done: true, target: "2026-09-30" },
+      { name: "Apply to 30 companies", done: false, target: "2026-11-30" },
+      { name: "Reach 5 interviews", done: false, target: "2027-01-15" },
+      { name: "Get one offer", done: false, target: "2027-03-31" },
+    ],
+  },
+  {
+    id: "weekly-habit",
+    name: "Apply every week",
+    summary: "Five good applications a week, tracked here.",
+    priority: "medium",
+    target: "2026-12-31",
+    milestones: [
+      { name: "First 10 applications", done: true },
+      { name: "4 weeks in a row", done: true },
+      { name: "8 weeks in a row", done: false },
+    ],
+  },
+  {
+    id: "contract-work",
+    name: "Contract work on the side",
+    summary: "Short contracts to keep income steady while searching.",
+    priority: "low",
+    target: "2026-12-15",
+    milestones: [
+      { name: "Update freelance profiles", done: false },
+      { name: "Land one contract", done: false },
+    ],
+  },
+]
+
+const app = (a: Omit<Application, "history"> & { history?: Event[] }): Application => ({
+  ...a,
+  history: a.history ?? [{ status: a.status, at: a.createdAt }],
+})
+
+export const applications: Application[] = [
+  app({
+    id: "APP-21",
+    role: "Senior Frontend Engineer",
+    company: "Linear",
+    status: "interviewing",
+    priority: "urgent",
+    labels: ["Remote", "Dream company"],
+    method: "Referral",
+    location: "Remote, EU",
+    goalId: "frontend-role",
+    createdAt: "2026-10-02",
+    description: "Referred by a former teammate. Second round is a take-home on their editor.",
+    tasks: [
+      { title: "Read the take-home brief", done: true },
+      { title: "Finish the editor take-home", done: false },
+      { title: "Prepare questions for the team", done: false },
+    ],
+    notes: [{ text: "Hiring manager cares a lot about performance work.", at: "2026-10-16" }],
+    history: [
+      { status: "saved", at: "2026-10-02" },
+      { status: "applied", at: "2026-10-04", note: "Referral submitted" },
+      { status: "interviewing", at: "2026-10-15", note: "Recruiter screen passed" },
+    ],
+  }),
+  app({
+    id: "APP-20",
+    role: "Product Engineer",
+    company: "Convex",
+    status: "applied",
+    priority: "high",
+    labels: ["Remote", "Startup"],
+    method: "Company site",
+    location: "Remote, US",
+    goalId: "frontend-role",
+    createdAt: "2026-10-20",
+    description: "Full-stack role on the dashboard team.",
+    history: [
+      { status: "saved", at: "2026-10-18" },
+      { status: "applied", at: "2026-10-20" },
+    ],
+  }),
+  app({
+    id: "APP-19",
+    role: "Frontend Developer",
+    company: "Vercel",
+    status: "rejected",
+    priority: "medium",
+    labels: ["Remote"],
+    method: "LinkedIn",
+    location: "Remote",
+    goalId: "frontend-role",
+    createdAt: "2026-09-12",
+    description: "Applied through LinkedIn Easy Apply.",
+    history: [
+      { status: "applied", at: "2026-09-12" },
+      { status: "rejected", at: "2026-10-01", note: "Position filled internally" },
+    ],
+  }),
+  app({
+    id: "APP-18",
+    role: "UI Engineer",
+    company: "Figma",
+    status: "saved",
+    priority: "high",
+    labels: ["Dream company"],
+    method: "Company site",
+    location: "San Francisco, CA",
+    goalId: "frontend-role",
+    createdAt: "2026-10-25",
+    description: "Posting closes mid-November. Tailor the resume around design systems work.",
+  }),
+  app({
+    id: "APP-17",
+    role: "Web Developer (contract)",
+    company: "Acme Studio",
+    status: "offer",
+    priority: "medium",
+    labels: ["Contract", "Remote"],
+    method: "Recruiter",
+    location: "Remote",
+    goalId: "contract-work",
+    createdAt: "2026-09-28",
+    description: "Three-month contract, 20 hours a week.",
+    history: [
+      { status: "applied", at: "2026-09-28" },
+      { status: "interviewing", at: "2026-10-06" },
+      { status: "offer", at: "2026-10-22", note: "Offer letter received" },
+    ],
+  }),
+  app({
+    id: "APP-16",
+    role: "Frontend Engineer",
+    company: "Raycast",
+    status: "applied",
+    priority: "medium",
+    labels: ["Remote", "Startup"],
+    method: "Email",
+    location: "Remote, EU",
+    goalId: "weekly-habit",
+    createdAt: "2026-10-14",
+    description: "Sent a short email with the portfolio link.",
+    history: [{ status: "applied", at: "2026-10-14" }],
+  }),
+  app({
+    id: "APP-15",
+    role: "Software Engineer, Growth",
+    company: "Notion",
+    status: "interviewing",
+    priority: "high",
+    labels: ["Referral"],
+    method: "Referral",
+    location: "New York, NY",
+    goalId: "frontend-role",
+    createdAt: "2026-09-30",
+    description: "Onsite loop scheduled for early November.",
+    tasks: [
+      { title: "Review Notion's growth experiments blog", done: false },
+      { title: "Practice two system design questions", done: false },
+    ],
+    history: [
+      { status: "applied", at: "2026-09-30" },
+      { status: "interviewing", at: "2026-10-12", note: "Hiring manager call" },
+    ],
+  }),
+  app({
+    id: "APP-14",
+    role: "React Developer",
+    company: "Shopify",
+    status: "withdrawn",
+    priority: "low",
+    labels: ["Remote"],
+    method: "LinkedIn",
+    location: "Remote, Canada",
+    goalId: "weekly-habit",
+    createdAt: "2026-09-08",
+    description: "Withdrew after the salary range came back too low.",
+    history: [
+      { status: "applied", at: "2026-09-08" },
+      { status: "withdrawn", at: "2026-09-25", note: "Salary mismatch" },
+    ],
+  }),
+  app({
+    id: "APP-13",
+    role: "Design Engineer",
+    company: "Arc",
+    status: "saved",
+    priority: "none",
+    labels: ["Startup"],
+    method: "Company site",
+    location: "New York, NY",
+    createdAt: "2026-10-26",
+    description: "Need a stronger motion design sample before applying.",
+  }),
+  app({
+    id: "APP-12",
+    role: "Frontend Engineer",
+    company: "Stripe",
+    status: "applied",
+    priority: "high",
+    labels: ["Dream company"],
+    method: "Company site",
+    location: "Dublin, Ireland",
+    goalId: "frontend-role",
+    createdAt: "2026-10-09",
+    description: "No reply yet. Follow up if nothing by early November.",
+    tasks: [{ title: "Send a follow-up email to the recruiter", done: false }],
+    history: [{ status: "applied", at: "2026-10-09" }],
+  }),
+  app({
+    id: "APP-11",
+    role: "Full-stack Developer",
+    company: "Supabase",
+    status: "rejected",
+    priority: "low",
+    labels: ["Remote", "Startup"],
+    method: "Company site",
+    location: "Remote",
+    goalId: "weekly-habit",
+    createdAt: "2026-09-02",
+    description: "Rejected after the take-home.",
+    history: [
+      { status: "applied", at: "2026-09-02" },
+      { status: "interviewing", at: "2026-09-10" },
+      { status: "rejected", at: "2026-09-24", note: "Take-home feedback: good, not senior enough" },
+    ],
+  }),
+]
+
+export const views: View[] = [
+  {
+    id: "remote",
+    name: "Remote roles",
+    description: "Everything labelled Remote.",
+    filters: { label: ["Remote"] },
+  },
+  {
+    id: "in-play",
+    name: "In play",
+    description: "Applied or interviewing, waiting on a next step.",
+    filters: { status: ["applied", "interviewing"] },
+  },
+  {
+    id: "dream",
+    name: "Dream companies",
+    description: "High-stakes applications to prepare carefully.",
+    filters: { label: ["Dream company"], priority: ["urgent", "high"] },
+  },
+  {
+    id: "frontend-goal",
+    name: "Frontend role goal",
+    description: "Applications counting toward the frontend role goal.",
+    filters: { goal: ["frontend-role"] },
+  },
+]
+
+export const notifications: Notification[] = [
+  {
+    id: "n1",
+    applicationId: "APP-21",
+    message: "Take-home assignment received, due in 5 days",
+    at: "2026-10-27",
+    unread: true,
+  },
+  {
+    id: "n2",
+    applicationId: "APP-17",
+    message: "Offer letter received, reply by Nov 4",
+    at: "2026-10-22",
+    unread: true,
+  },
+  {
+    id: "n3",
+    applicationId: "APP-12",
+    message: "No update in 19 days, consider a follow-up",
+    at: "2026-10-28",
+    unread: true,
+  },
+  {
+    id: "n4",
+    applicationId: "APP-15",
+    message: "Onsite interview scheduled for Nov 6",
+    at: "2026-10-12",
+    unread: true,
+  },
+  {
+    id: "n5",
+    applicationId: "APP-18",
+    message: "Posting closes in 2 weeks",
+    at: "2026-10-25",
+    unread: false,
+  },
+  {
+    id: "n6",
+    applicationId: "APP-19",
+    message: "Marked as rejected: position filled internally",
+    at: "2026-10-01",
+    unread: false,
+  },
+]
+
+export const goalName = (id?: string) => goals.find((g) => g.id === id)?.name ?? "No goal"
+
+export const findApplication = (id: string) => applications.find((a) => a.id === id)
+
+// Returns an application's values for one filter field, in the form filters store them.
+export const fieldValues = (a: Application, field: FilterField): string[] => {
+  switch (field) {
+    case "label":
+      return a.labels
+    case "goal":
+      return [a.goalId ?? "none"]
+    default:
+      return [a[field]]
+  }
+}
+
+export const matches = (a: Application, filters: Filters) =>
+  Object.entries(filters).every(
+    ([field, values]) =>
+      !values?.length || fieldValues(a, field as FilterField).some((v) => values.includes(v))
+  )
+
+// Every value a filter field can take, with its display label.
+export const fieldOptions = (field: FilterField): { value: string; label: string }[] => {
+  switch (field) {
+    case "status":
+      return statuses.map((s) => ({ value: s, label: statusLabels[s] }))
+    case "priority":
+      return priorities.map((p) => ({ value: p, label: priorityLabels[p] }))
+    case "label":
+      return labels.map((l) => ({ value: l, label: l }))
+    case "goal":
+      return [
+        ...goals.map((g) => ({ value: g.id, label: g.name })),
+        { value: "none", label: "No goal" },
+      ]
+    case "company":
+      return [...new Set(applications.map((a) => a.company))]
+        .sort()
+        .map((c) => ({ value: c, label: c }))
+    case "method":
+      return methods.map((m) => ({ value: m, label: m }))
+  }
+}
+
+export const optionLabel = (field: FilterField, value: string) =>
+  fieldOptions(field).find((o) => o.value === value)?.label ?? value
+
+const dateFormat = new Intl.DateTimeFormat("en-US", {
+  month: "short",
+  day: "numeric",
+  timeZone: "UTC",
+})
+export const formatDate = (iso: string) => dateFormat.format(new Date(iso))
+
+export const ago = (iso: string) => {
+  const days = Math.round((Date.parse(today) - Date.parse(iso)) / 86_400_000)
+  if (days < 1) return "today"
+  if (days < 7) return `${days}d`
+  if (days < 30) return `${Math.floor(days / 7)}w`
+  return `${Math.floor(days / 30)}mo`
+}
+
+export const goalProgress = (goal: Goal) =>
+  Math.round((goal.milestones.filter((m) => m.done).length / goal.milestones.length) * 100)
