@@ -14,6 +14,7 @@ import { Route as AuthRouteImport } from './routes/_auth'
 import { Route as AppIndexRouteImport } from './routes/_app/index'
 import { Route as AppAccountRouteImport } from './routes/_app/account'
 import { Route as AppInboxRouteImport } from './routes/_app/inbox'
+import { Route as AppJobsRouteImport } from './routes/_app/jobs'
 import { Route as AppLoopsRouteImport } from './routes/_app/loops'
 import { Route as AppPreferencesRouteImport } from './routes/_app/preferences'
 import { Route as AuthSignInRouteImport } from './routes/_auth/sign-in'
@@ -46,6 +47,11 @@ const AppAccountRoute = AppAccountRouteImport.update({
 const AppInboxRoute = AppInboxRouteImport.update({
   id: '/inbox',
   path: '/inbox',
+  getParentRoute: () => AppRoute,
+} as any)
+const AppJobsRoute = AppJobsRouteImport.update({
+  id: '/jobs',
+  path: '/jobs',
   getParentRoute: () => AppRoute,
 } as any)
 const AppLoopsRoute = AppLoopsRouteImport.update({
@@ -103,6 +109,7 @@ export interface FileRoutesByFullPath {
   '/': typeof AppIndexRoute
   '/account': typeof AppAccountRoute
   '/inbox': typeof AppInboxRoute
+  '/jobs': typeof AppJobsRoute
   '/loops': typeof AppLoopsRoute
   '/preferences': typeof AppPreferencesRoute
   '/sign-in': typeof AuthSignInRoute
@@ -118,6 +125,7 @@ export interface FileRoutesByTo {
   '/': typeof AppIndexRoute
   '/account': typeof AppAccountRoute
   '/inbox': typeof AppInboxRoute
+  '/jobs': typeof AppJobsRoute
   '/loops': typeof AppLoopsRoute
   '/preferences': typeof AppPreferencesRoute
   '/sign-in': typeof AuthSignInRoute
@@ -135,6 +143,7 @@ export interface FileRoutesById {
   '/_auth': typeof AuthRouteWithChildren
   '/_app/account': typeof AppAccountRoute
   '/_app/inbox': typeof AppInboxRoute
+  '/_app/jobs': typeof AppJobsRoute
   '/_app/loops': typeof AppLoopsRoute
   '/_app/preferences': typeof AppPreferencesRoute
   '/_auth/sign-in': typeof AuthSignInRoute
@@ -153,6 +162,7 @@ export interface FileRouteTypes {
     | '/'
     | '/account'
     | '/inbox'
+    | '/jobs'
     | '/loops'
     | '/preferences'
     | '/sign-in'
@@ -168,6 +178,7 @@ export interface FileRouteTypes {
     | '/'
     | '/account'
     | '/inbox'
+    | '/jobs'
     | '/loops'
     | '/preferences'
     | '/sign-in'
@@ -184,6 +195,7 @@ export interface FileRouteTypes {
     | '/_auth'
     | '/_app/account'
     | '/_app/inbox'
+    | '/_app/jobs'
     | '/_app/loops'
     | '/_app/preferences'
     | '/_auth/sign-in'
@@ -237,6 +249,13 @@ declare module '@tanstack/react-router' {
       path: '/inbox'
       fullPath: '/inbox'
       preLoaderRoute: typeof AppInboxRouteImport
+      parentRoute: typeof AppRoute
+    }
+    '/_app/jobs': {
+      id: '/_app/jobs'
+      path: '/jobs'
+      fullPath: '/jobs'
+      preLoaderRoute: typeof AppJobsRouteImport
       parentRoute: typeof AppRoute
     }
     '/_app/loops': {
@@ -315,6 +334,7 @@ declare module '@tanstack/react-router' {
 interface AppRouteChildren {
   AppAccountRoute: typeof AppAccountRoute
   AppInboxRoute: typeof AppInboxRoute
+  AppJobsRoute: typeof AppJobsRoute
   AppLoopsRoute: typeof AppLoopsRoute
   AppPreferencesRoute: typeof AppPreferencesRoute
   AppIndexRoute: typeof AppIndexRoute
@@ -329,6 +349,7 @@ interface AppRouteChildren {
 const AppRouteChildren: AppRouteChildren = {
   AppAccountRoute: AppAccountRoute,
   AppInboxRoute: AppInboxRoute,
+  AppJobsRoute: AppJobsRoute,
   AppLoopsRoute: AppLoopsRoute,
   AppPreferencesRoute: AppPreferencesRoute,
   AppIndexRoute: AppIndexRoute,

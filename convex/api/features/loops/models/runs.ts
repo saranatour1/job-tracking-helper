@@ -1,21 +1,26 @@
 import { defineTable } from "convex/server"
 import { type } from "arktype"
 import { arkId, arkOutputToConvex } from "../../../../lib/ark"
-import { providerIds, runStatuses } from "../validators"
+import { providerIds, runStatuses, verdicts } from "../validators"
+import { Judgment } from "./leads"
 
-// A posting a read kept, waiting for the run to pick the best few.
+// A role Jev judged, waiting for the run to save it.
 export const Candidate = type({
+  jobId: arkId("jobs"),
   url: "string",
   urlKey: "string",
   title: "string",
   company: "string",
   snippet: "string",
+  verdict: type.enumerated(...verdicts),
   fit: "number",
   reasons: "string[]",
+  judgment: Judgment,
 })
 
 // One morning's run of a loop. The workflow component keeps the steps; this keeps
-// what the Runs tab shows. `saved` and `applied` count the run's leads as people act.
+// what the Runs tab shows: `scanned` roles judged, `kept` fits saved, `credits` spent
+// finding boards. `saved` and `applied` count the run's leads as people act.
 export const LoopRun = type({
   loopId: arkId("loops"),
   userId: arkId("users"),
@@ -28,17 +33,17 @@ export const LoopRun = type({
   saved: "number",
   applied: "number",
   credits: "number",
+  // What Jev cost this run, in US dollars.
+  "cost?": "number",
   startedAt: "number",
   "finishedAt?": "number",
   "note?": "string",
-  // While reads are out on the read pool: how many are left, and what they kept so far.
+  // While Jev is judging on the batch worker: how many are left, and what it said so far.
   "readsLeft?": "number",
-  // The reads' ids on the read pool, so stopping a run can cancel the ones not started.
+  // The judgments' ids on the batch worker, so stopping a run can cancel the rest.
   "readWorkIds?": "string[]",
   "candidates?": Candidate.array(),
-  "readCredits?": "number",
   "readFailures?": "number",
-  "outOfCredits?": "boolean",
 })
 
 export const loopRunsTable = defineTable(arkOutputToConvex(LoopRun))

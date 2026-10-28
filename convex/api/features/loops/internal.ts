@@ -3,14 +3,14 @@ import { vOnCompleteArgs, type WorkId } from "@convex-dev/workpool"
 import { v } from "convex/values"
 import { internal } from "../../../_generated/api"
 import type { Doc, Id } from "../../../_generated/dataModel"
-import { internalMutation, internalQuery, type MutationCtx } from "../../../_generated/server"
+import { internalMutation, type MutationCtx } from "../../../_generated/server"
 import { workLog } from "../../../lib/log"
 import { rowLimits } from "../preferences/rows"
-import { criteriaOf, queriesOf, urlKey } from "../workflows/fit"
+import { criteriaOf, queriesOf } from "../workflows/fit"
 import { readPool, workflow } from "../workflows/manager"
 import { apiKeyOf, monthlyCredits, monthOf } from "../workflows/sources"
-import { vCriteria, vPosting, vProvider, vRead, vSpent } from "../workflows/validators"
-import { type Provider, scannedPerRun, switchAt } from "./catalog"
+import { vJudgeResult, vProfile, vProvider, vSpent } from "../workflows/validators"
+import { type Provider, switchAt } from "./catalog"
 import { nextRunAt } from "./schedule"
 import { providerIds } from "./validators"
 
@@ -64,21 +64,21 @@ const usageOf = (ctx: MutationCtx, provider: Provider, month: string) =>
     .unique()
 
 // Plans a run from its loop and the person's Preferences, and picks the sources that
-// still have credits this month, in order.
+// still have credits this month, in order, for finding new boards.
 const beginRun = internalMutation({
   args: { runId: v.id("loopRuns") },
   returns: v.union(
     v.null(),
     v.object({
       userId: v.id("users"),
-      criteria: vCriteria,
+      profile: vProfile,
       queries: v.array(v.string()),
       perQuery: v.number(),
-      scan: v.number(),
       daily: v.number(),
       postedToday: v.boolean(),
+      since: v.optional(v.number()),
+      companies: v.array(v.string()),
       sources: v.array(vProvider),
-      why: v.string(),
     })
   ),
   handler: async (ctx, { runId }) => {
@@ -91,50 +91,26 @@ const beginRun = internalMutation({
       .take(rowLimits.tags)
     const criteria = criteriaOf(loop.answers, tags)
     const month = monthOf(Date.now())
-    const configured = providerIds.filter((p) => apiKeyOf(p))
     const sources: Provider[] = []
-    for (const provider of configured) {
+    for (const provider of providerIds.filter((p) => apiKeyOf(p))) {
       const usage = await usageOf(ctx, provider, month)
       if (!usage?.exhaustedAt && (usage?.used ?? 0) < monthlyCredits(provider) * switchAt)
         sources.push(provider)
     }
     await ctx.db.patch("loopRuns", runId, { status: "running" })
-    const queries = queriesOf(criteria)
-    const scan = scannedPerRun(loop.daily)
     return {
       userId: loop.userId,
-      criteria,
-      queries,
-      // A few extra results per search, since some will be postings already seen.
-      perQuery: Math.min(20, Math.ceil(scan / queries.length) + 5),
-      scan,
+      profile: { ...criteria, ...(loop.prompt && { prompt: loop.prompt }) },
+      // The person's own words search the catalog too.
+      queries: [...queriesOf(criteria), ...(loop.prompt ? [loop.prompt] : [])],
+      perQuery: 10,
       daily: loop.daily,
       postedToday: loop.answers.postedToday,
+      // "Posted since yesterday", with some room for boards that post late.
+      ...(loop.answers.postedToday && { since: Date.now() - 36 * 60 * 60 * 1000 }),
+      companies: criteria.listedCompanies ? criteria.companies : [],
       sources,
-      why: configured.length
-        ? "Every source is out of credits this month."
-        : "No source is set up yet. Add FIRECRAWL_API_KEY or CONTEXT_DEV_API_KEY to the Convex env.",
     }
-  },
-})
-
-// Drops postings the person has already seen, keeping up to `limit`.
-const unseen = internalQuery({
-  args: { userId: v.id("users"), postings: v.array(vPosting), limit: v.number() },
-  returns: v.array(vPosting),
-  handler: async (ctx, { userId, postings, limit }) => {
-    const fresh = []
-    for (const posting of postings) {
-      if (fresh.length >= limit) break
-      const seen = await ctx.db
-        .query("jobLeads")
-        .withIndex("by_userId_and_urlKey", (q) =>
-          q.eq("userId", userId).eq("urlKey", urlKey(posting.url))
-        )
-        .first()
-      if (!seen) fresh.push(posting)
-    }
-    return fresh
   },
 })
 
@@ -158,84 +134,72 @@ const addUsage = async (
     })
 }
 
-// Hands a run's postings to the read pool as one batch. Each read reports to readDone.
-const queueReads = internalMutation({
-  args: {
-    runId: v.id("loopRuns"),
-    provider: vProvider,
-    postings: v.array(vPosting),
-    criteria: vCriteria,
-  },
+// Hands a run's roles to the batch worker as one batch for Jev to judge. Each
+// judgment reports to judged.
+const queueJudging = internalMutation({
+  args: { runId: v.id("loopRuns"), jobIds: v.array(v.id("jobs")), profile: vProfile },
   returns: v.null(),
-  handler: async (ctx, { runId, provider, postings, criteria }) => {
+  handler: async (ctx, { runId, jobIds, profile }) => {
     const readWorkIds = await readPool.enqueueActionBatch(
       ctx,
-      internal.workflows.readOne,
-      postings.map((posting) => ({ provider, posting, criteria })),
-      { onComplete: internal.loops.readDone, context: { runId } }
+      internal.workflows.judgeOne,
+      jobIds.map((jobId) => ({ jobId, profile })),
+      { onComplete: internal.loops.judged, context: { runId } }
     )
     await ctx.db.patch("loopRuns", runId, {
-      provider,
-      readsLeft: postings.length,
+      readsLeft: jobIds.length,
       readWorkIds,
       candidates: [],
-      readCredits: 0,
+      cost: 0,
       readFailures: 0,
-      outOfCredits: false,
     })
     return null
   },
 })
 
-// Adds one finished read to its run's tally, and wakes the run after the last one.
-const readDone = internalMutation({
-  args: vOnCompleteArgs(v.object({ runId: v.id("loopRuns") }), vRead),
+// Adds one judgment to its run's tally, and wakes the run after the last one.
+const judged = internalMutation({
+  args: vOnCompleteArgs(v.object({ runId: v.id("loopRuns") }), vJudgeResult),
   returns: v.null(),
   handler: async (ctx, { context, result }) => {
     const run = await ctx.db.get("loopRuns", context.runId)
     if (!run?.readsLeft) return null
-    const read = result.kind === "success" ? result.returnValue : undefined
+    const done = result.kind === "success" ? result.returnValue : undefined
     const readsLeft = run.readsLeft - 1
     await ctx.db.patch("loopRuns", run._id, {
       readsLeft,
-      scanned: run.scanned + Number(Boolean(read && !read.outOfCredits)),
-      readCredits: (run.readCredits ?? 0) + (read?.credits ?? 0),
-      readFailures: (run.readFailures ?? 0) + Number(!read),
-      outOfCredits: Boolean(run.outOfCredits || read?.outOfCredits),
-      candidates: read?.kept ? [...(run.candidates ?? []), read.kept] : run.candidates,
+      scanned: run.scanned + Number(Boolean(done?.judged)),
+      cost: (run.cost ?? 0) + (done?.cost ?? 0),
+      readFailures: (run.readFailures ?? 0) + Number(!done),
+      candidates: done?.judged ? [...(run.candidates ?? []), done.judged] : run.candidates,
     })
     if (readsLeft === 0 && run.workflowId)
       await workflow.sendEvent(ctx, {
         workflowId: run.workflowId as WorkflowId,
-        name: "readsDone",
+        name: "judged",
       })
     return null
   },
 })
 
-// Saves the best of what a run kept, records each source's credits, and logs the run
-// as one wide event.
+// Saves every role Jev judged with its verdict, fits first, records each source's
+// credits, and logs the run as one wide event.
 const finishRun = internalMutation({
   args: {
     runId: v.id("loopRuns"),
     provider: v.optional(vProvider),
     spent: v.array(vSpent),
     exhausted: v.array(vProvider),
-    keep: v.number(),
     note: v.optional(v.string()),
   },
   returns: v.null(),
   handler: async (ctx, args) => {
     const run = await ctx.db.get("loopRuns", args.runId)
     if (!run || run.status === "stopped") return null
-    const { provider, keep } = args
-    const spent = provider
-      ? [...args.spent, { provider, credits: run.readCredits ?? 0 }]
-      : args.spent
-    const exhausted = provider && run.outOfCredits ? [...args.exhausted, provider] : args.exhausted
-    const best = [...(run.candidates ?? [])].sort((a, b) => b.fit - a.fit).slice(0, keep)
+    const { provider, spent, exhausted } = args
+    const judgedRoles = [...(run.candidates ?? [])].sort((a, b) => b.fit - a.fit)
     let saved = 0
-    for (const lead of best) {
+    for (const lead of judgedRoles) {
       const seen = await ctx.db
         .query("jobLeads")
         .withIndex("by_userId_and_urlKey", (q) =>
@@ -243,14 +207,15 @@ const finishRun = internalMutation({
         )
         .first()
       if (seen) continue
+      const fits = lead.verdict === "fit"
       await ctx.db.insert("jobLeads", {
         ...lead,
         userId: run.userId,
         loopId: run.loopId,
         runId: run._id,
-        status: "new",
+        status: fits ? "new" : "unfit",
       })
-      saved++
+      saved += Number(fits)
     }
     for (const p of providerIds) {
       const credits = spent.filter((s) => s.provider === p).reduce((n, s) => n + s.credits, 0)
@@ -259,15 +224,14 @@ const finishRun = internalMutation({
     const failures = run.readFailures ?? 0
     const note =
       args.note ??
-      (run.outOfCredits
-        ? `Ran out of credits after ${run.scanned} postings; kept what it had.`
+      (!judgedRoles.length
+        ? "No new roles in the catalog matched this loop's searches."
         : failures
-          ? `Couldn't read ${failures} postings.`
+          ? `Jev couldn't judge ${failures} roles.`
           : undefined)
     const credits = spent.reduce((n, s) => n + s.credits, 0)
-    const status = provider ? "done" : "skipped"
     await ctx.db.patch("loopRuns", run._id, {
-      status,
+      status: "done",
       provider,
       kept: saved,
       credits,
@@ -276,25 +240,22 @@ const finishRun = internalMutation({
       readsLeft: undefined,
       readWorkIds: undefined,
       candidates: undefined,
-      readCredits: undefined,
       readFailures: undefined,
-      outOfCredits: undefined,
     })
     const log = workLog("loop.run", { runId: run._id, loopId: run.loopId, userId: run.userId })
     log.set({
-      outcome: status,
+      outcome: "done",
       provider,
-      scanned: run.scanned,
-      kept: saved,
-      candidates: run.candidates?.length ?? 0,
+      judged: run.scanned,
+      fits: saved,
       failures,
       credits,
+      costUsd: run.cost ?? 0,
       spent,
       exhausted,
       note,
       durationMs: Date.now() - run.startedAt,
     })
-    if (status === "skipped") log.setLevel("warn")
     log.emit()
     return null
   },
@@ -322,25 +283,20 @@ const runEnded = internalMutation({
   },
 })
 
-// Stops a run in progress: cancels its workflow and the reads not started yet, and
-// counts the credits its reads already spent. ponytail: the search's credits live in
-// the canceled workflow, so a stopped run under-counts by those few.
+// Stops a run in progress: cancels its workflow and the judgments not started yet.
+// ponytail: the search's credits live in the canceled workflow, so a stopped run
+// under-counts by those few.
 export const stopRunNow = async (ctx: MutationCtx, run: Doc<"loopRuns">) => {
   if (run.workflowId) await workflow.cancel(ctx, run.workflowId as WorkflowId)
   for (const id of run.readWorkIds ?? []) await readPool.cancel(ctx, id as WorkId)
-  if (run.provider && run.readCredits)
-    await addUsage(ctx, run.provider, run.readCredits, Boolean(run.outOfCredits))
   await ctx.db.patch("loopRuns", run._id, {
     status: "stopped",
-    credits: run.readCredits ?? 0,
     finishedAt: Date.now(),
-    note: `Stopped after reading ${run.scanned} postings. Nothing was saved.`,
+    note: `Stopped after Jev judged ${run.scanned} roles. Nothing was saved.`,
     readsLeft: undefined,
     readWorkIds: undefined,
     candidates: undefined,
-    readCredits: undefined,
     readFailures: undefined,
-    outOfCredits: undefined,
   })
   const log = workLog("loop.run", { runId: run._id, loopId: run.loopId, userId: run.userId })
   log.set({ outcome: "stopped", scanned: run.scanned, durationMs: Date.now() - run.startedAt })
@@ -363,4 +319,4 @@ export const deleteLoops = async (ctx: MutationCtx, userId: Id<"users">) => {
     await ctx.db.delete("jobLeads", lead._id)
 }
 
-export const internalApi = { startDue, beginRun, unseen, queueReads, readDone, finishRun, runEnded }
+export const internalApi = { startDue, beginRun, queueJudging, judged, finishRun, runEnded }

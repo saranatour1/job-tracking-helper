@@ -15,6 +15,15 @@ import type * as api_features_applications_validators from "../api/features/appl
 import type * as api_features_auth_index from "../api/features/auth/index.js";
 import type * as api_features_auth_internal from "../api/features/auth/internal.js";
 import type * as api_features_auth_public from "../api/features/auth/public.js";
+import type * as api_features_jobs_actions from "../api/features/jobs/actions.js";
+import type * as api_features_jobs_boards from "../api/features/jobs/boards.js";
+import type * as api_features_jobs_index from "../api/features/jobs/index.js";
+import type * as api_features_jobs_internal from "../api/features/jobs/internal.js";
+import type * as api_features_jobs_models_boards from "../api/features/jobs/models/boards.js";
+import type * as api_features_jobs_models_index from "../api/features/jobs/models/index.js";
+import type * as api_features_jobs_models_jobs from "../api/features/jobs/models/jobs.js";
+import type * as api_features_jobs_public from "../api/features/jobs/public.js";
+import type * as api_features_jobs_validators from "../api/features/jobs/validators.js";
 import type * as api_features_loops_catalog from "../api/features/loops/catalog.js";
 import type * as api_features_loops_index from "../api/features/loops/index.js";
 import type * as api_features_loops_internal from "../api/features/loops/internal.js";
@@ -42,6 +51,7 @@ import type * as api_features_workflows_actions from "../api/features/workflows/
 import type * as api_features_workflows_findJobs from "../api/features/workflows/findJobs.js";
 import type * as api_features_workflows_fit from "../api/features/workflows/fit.js";
 import type * as api_features_workflows_index from "../api/features/workflows/index.js";
+import type * as api_features_workflows_judge from "../api/features/workflows/judge.js";
 import type * as api_features_workflows_manager from "../api/features/workflows/manager.js";
 import type * as api_features_workflows_sources_contextDev from "../api/features/workflows/sources/contextDev.js";
 import type * as api_features_workflows_sources_firecrawl from "../api/features/workflows/sources/firecrawl.js";
@@ -51,6 +61,7 @@ import type * as api_features_workflows_validators from "../api/features/workflo
 import type * as applications from "../applications.js";
 import type * as auth from "../auth.js";
 import type * as crons from "../crons.js";
+import type * as jobs from "../jobs.js";
 import type * as lib_ark from "../lib/ark.js";
 import type * as lib_functions from "../lib/functions.js";
 import type * as lib_log from "../lib/log.js";
@@ -73,6 +84,15 @@ declare const fullApi: ApiFromModules<{
   "api/features/auth/index": typeof api_features_auth_index;
   "api/features/auth/internal": typeof api_features_auth_internal;
   "api/features/auth/public": typeof api_features_auth_public;
+  "api/features/jobs/actions": typeof api_features_jobs_actions;
+  "api/features/jobs/boards": typeof api_features_jobs_boards;
+  "api/features/jobs/index": typeof api_features_jobs_index;
+  "api/features/jobs/internal": typeof api_features_jobs_internal;
+  "api/features/jobs/models/boards": typeof api_features_jobs_models_boards;
+  "api/features/jobs/models/index": typeof api_features_jobs_models_index;
+  "api/features/jobs/models/jobs": typeof api_features_jobs_models_jobs;
+  "api/features/jobs/public": typeof api_features_jobs_public;
+  "api/features/jobs/validators": typeof api_features_jobs_validators;
   "api/features/loops/catalog": typeof api_features_loops_catalog;
   "api/features/loops/index": typeof api_features_loops_index;
   "api/features/loops/internal": typeof api_features_loops_internal;
@@ -100,6 +120,7 @@ declare const fullApi: ApiFromModules<{
   "api/features/workflows/findJobs": typeof api_features_workflows_findJobs;
   "api/features/workflows/fit": typeof api_features_workflows_fit;
   "api/features/workflows/index": typeof api_features_workflows_index;
+  "api/features/workflows/judge": typeof api_features_workflows_judge;
   "api/features/workflows/manager": typeof api_features_workflows_manager;
   "api/features/workflows/sources/contextDev": typeof api_features_workflows_sources_contextDev;
   "api/features/workflows/sources/firecrawl": typeof api_features_workflows_sources_firecrawl;
@@ -109,6 +130,7 @@ declare const fullApi: ApiFromModules<{
   applications: typeof applications;
   auth: typeof auth;
   crons: typeof crons;
+  jobs: typeof jobs;
   "lib/ark": typeof lib_ark;
   "lib/functions": typeof lib_functions;
   "lib/log": typeof lib_log;

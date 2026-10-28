@@ -4,7 +4,6 @@ import type { Id } from "../../../_generated/dataModel"
 import type { MutationCtx } from "../../../_generated/server"
 import schema from "../../../schema"
 import { arkMutation, authedMutation, authedQuery } from "../../../lib/functions"
-import { companyFromUrl } from "../workflows/fit"
 import { limits } from "../workflows/manager"
 import { apiKeyOf, monthlyCredits } from "../workflows/sources"
 import { maxLoops, switchAt } from "./catalog"
@@ -43,9 +42,10 @@ const create = arkMutation({
     if (loop.answers.remoteOnly && loop.answers.nearMe)
       throw new ConvexError("Pick remote only or on-site near you, not both.")
     if (!isTimeZone(loop.timeZone)) throw new ConvexError("That time zone isn't one we know.")
-    const { auto, ...fields } = loop
+    const { auto, prompt, ...fields } = loop
     return ctx.db.insert("loops", {
       ...fields,
+      ...(prompt && { prompt }),
       userId: ctx.userId,
       active: auto,
       nextRunAt: nextRunAt(Date.now(), loop.at, loop.timeZone),
@@ -155,7 +155,7 @@ const setLeadStatus = authedMutation({
       status === "applied" && !lead.applicationId
         ? await ctx.db.insert("applications", {
             userId: ctx.userId,
-            company: lead.company || companyFromUrl(lead.url),
+            company: lead.company,
             role: lead.title,
             status: "applied",
           })

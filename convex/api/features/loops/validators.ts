@@ -16,13 +16,15 @@ export const LoopAnswers = type({
 
 export const providerIds = ["firecrawl", "contextDev"] as const
 export const runStatuses = ["queued", "running", "done", "failed", "skipped", "stopped"] as const
-export const leadStatuses = ["new", "saved", "dismissed", "applied"] as const
+export const leadStatuses = ["new", "saved", "dismissed", "applied", "unfit"] as const
+export const verdicts = ["fit", "notFit"] as const
 
 // What the setup screen sends to start a loop. Only the catalog's choices pass.
 export const NewLoop = type({
   name: trimmed.to(type("0 < string <= 60").describe("1 to 60 characters")),
   template: type.enumerated(blankTemplate.id, ...loopTemplates.map((t) => t.id)),
   answers: LoopAnswers,
+  prompt: trimmed.to(type("string <= 500").describe("at most 500 characters")),
   daily: type.enumerated(...dailySizes),
   at: type.enumerated(...runTimes),
   timeZone: "0 < string <= 64",

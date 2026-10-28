@@ -1,19 +1,17 @@
-import { v } from "convex/values"
+import { type Infer, v } from "convex/values"
+import type { Doc } from "../../../_generated/dataModel"
 import { internalAction } from "../../../_generated/server"
 import { workLog } from "../../../lib/log"
-import {
-  companyFromUrl,
-  isPostingUrl,
-  jobBoards,
-  keepFrom,
-  type Posting,
-  score,
-  urlKey,
-} from "./fit"
+import { convexGateway } from "@convex-dev/ai-sdk-provider"
+import { experimental_decide as decide } from "ai"
+import { internal } from "../../../_generated/api"
+import { previewOf } from "../jobs/boards"
+import { isPostingUrl, jobBoards, type Posting, urlKey } from "./fit"
+import { jevModel, questionsOf, stateOf, verdictOf } from "./judge"
 import { limits } from "./manager"
 import { apiKeyOf, sources } from "./sources"
 import { OutOfCredits } from "./sources/source"
-import { vCriteria, vPosting, vProvider, vRead } from "./validators"
+import { vJudgeResult, vPosting, vProfile, vProvider } from "./validators"
 
 const sleep = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms))
 
@@ -77,40 +75,42 @@ const search = internalAction({
   },
 })
 
-// Reads and scores one posting. The read pool runs these, at most 2 at a time across
-// every run, and retries a failed read twice; running out of credits isn't retried.
-const readOne = internalAction({
-  args: { provider: vProvider, posting: vPosting, criteria: vCriteria },
-  returns: vRead,
-  handler: async (ctx, { provider, posting, criteria }) => {
-    const apiKey = apiKeyOf(provider)
-    if (!apiKey) return { credits: 0, outOfCredits: true, kept: null }
-    try {
-      await turn(ctx, provider)
-      const page = await sources[provider].read(apiKey, posting.url)
-      const fit = score(criteria, { ...posting, text: page.text })
-      if ("rejected" in fit)
-        return { credits: page.credits, outOfCredits: false, kept: null, rejected: fit.rejected }
-      return {
-        credits: page.credits,
-        outOfCredits: false,
-        kept:
-          fit.fit >= keepFrom
-            ? {
-                url: posting.url,
-                urlKey: urlKey(posting.url),
-                title: posting.title || "Untitled role",
-                company: companyFromUrl(posting.url),
-                snippet: posting.snippet.slice(0, 300),
-                ...fit,
-              }
-            : null,
-      }
-    } catch (error) {
-      if (error instanceof OutOfCredits) return { credits: 0, outOfCredits: true, kept: null }
-      throw error
+// Asks Jev whether one catalog role fits the person, through the Convex AI gateway. The
+// batch worker runs these for every run and retries a failed call twice.
+const judgeOne = internalAction({
+  args: { jobId: v.id("jobs"), profile: vProfile },
+  returns: vJudgeResult,
+  handler: async (ctx, { jobId, profile }): Promise<Infer<typeof vJudgeResult>> => {
+    const job: Doc<"jobs"> | null = await ctx.runQuery(internal.jobs.get, { jobId })
+    if (!job) return { cost: 0, judged: null }
+    const result = await decide({
+      model: convexGateway.evaluationModel(jevModel),
+      state: stateOf(profile, job),
+      questions: questionsOf(profile),
+    })
+    const answers = result.answers as Record<string, { score?: number; probability?: number }>
+    const verdict = verdictOf(
+      {
+        match: answers.match?.score ?? 0,
+        ...(answers.avoids && { avoids: answers.avoids.probability }),
+        ...(answers.inPlace && { inPlace: answers.inPlace.probability }),
+      },
+      job,
+      result.response.modelId ?? jevModel
+    )
+    return {
+      cost: Number(result.providerMetadata?.convexGateway?.cost ?? 0),
+      judged: {
+        jobId,
+        url: job.url,
+        urlKey: job.urlKey,
+        title: job.title,
+        company: job.company,
+        snippet: previewOf(job.text, 300),
+        ...verdict,
+      },
     }
   },
 })
 
-export const actionsApi = { search, readOne }
+export const actionsApi = { search, judgeOne }

@@ -2,6 +2,7 @@ import { Link, useRouterState } from "@tanstack/react-router"
 import {
   Briefcase01Icon,
   InboxIcon,
+  JobSearchIcon,
   Layers01Icon,
   PencilEdit02Icon,
   RepeatIcon,
@@ -67,6 +68,7 @@ export const AppSidebar = (props: React.ComponentProps<typeof Sidebar>) => {
     { title: "Inbox", to: "/inbox", icon: InboxIcon, badge: useUnreadCount() },
     { title: "Applications", to: "/", icon: Briefcase01Icon },
     { title: "Preferences", to: "/preferences", icon: UserCircleIcon },
+    { title: "Jobs", to: "/jobs", icon: JobSearchIcon },
     { title: "Loops", to: "/loops", icon: RepeatIcon },
   ]
   return (

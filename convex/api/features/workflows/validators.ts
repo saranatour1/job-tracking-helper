@@ -21,23 +21,34 @@ export const vCriteria = v.object({
 
 export const vPosting = v.object({ url: v.string(), title: v.string(), snippet: v.string() })
 
-// A posting a run kept, ready to save as a lead.
-export const vKept = v.object({
+export const vProfile = v.object({ ...vCriteria.fields, prompt: v.optional(v.string()) })
+
+// Jev's answers for one role, kept with the verdict so they can be checked later.
+export const vJudgment = v.object({
+  match: v.number(),
+  avoids: v.optional(v.number()),
+  inPlace: v.optional(v.number()),
+  level: v.string(),
+  model: v.string(),
+})
+
+export const vVerdict = v.union(v.literal("fit"), v.literal("notFit"))
+
+// A role Jev judged, ready to save for the person.
+export const vJudged = v.object({
+  jobId: v.id("jobs"),
   url: v.string(),
   urlKey: v.string(),
   title: v.string(),
   company: v.string(),
   snippet: v.string(),
+  verdict: vVerdict,
   fit: v.number(),
   reasons: v.array(v.string()),
+  judgment: vJudgment,
 })
 
-// What one read sends back to the run.
-export const vRead = v.object({
-  credits: v.number(),
-  outOfCredits: v.boolean(),
-  kept: v.union(v.null(), vKept),
-  rejected: v.optional(v.string()),
-})
+// What judging one role sends back to the run. `judged` is null when the role closed.
+export const vJudgeResult = v.object({ cost: v.number(), judged: v.union(v.null(), vJudged) })
 
 export const vSpent = v.object({ provider: vProvider, credits: v.number() })

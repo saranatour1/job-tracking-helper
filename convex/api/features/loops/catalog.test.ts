@@ -2,7 +2,7 @@ import { describe, expect, it } from "vite-plus/test"
 
 import {
   blankTemplate,
-  creditsPerRun,
+  jevCostPerRun,
   dailySizes,
   loopQuestions,
   loopTemplates,
@@ -26,8 +26,8 @@ describe("loop catalog", () => {
     expect(templateById("nope")).toBeUndefined()
   })
 
-  it("estimates a 10-job morning at 33 credits", () => {
-    expect(creditsPerRun(10)).toBe(33)
+  it("prices a 100-role morning on Jev at under a cent", () => {
+    expect(jevCostPerRun(100)).toBeLessThan(0.01)
   })
 })
 

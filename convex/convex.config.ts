@@ -54,8 +54,9 @@ app.use(authGithub, {
 })
 
 // Loops: the workflow component runs each morning's search step by step, `readPool`
-// reads postings for every run under one shared limit, and the rate limiter keeps calls
-// to each source under its per-minute limit.
+// (the batch worker) fetches job boards and runs Jev's judgments under one shared
+// limit, and the rate limiter keeps calls to each source under its per-minute limit.
+// Jev is called through the Convex AI gateway, so it needs no key here.
 app.use(workflow)
 app.use(workpool, { name: "readPool" })
 app.use(rateLimiter)

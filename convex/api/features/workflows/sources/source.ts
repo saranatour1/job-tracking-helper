@@ -5,7 +5,6 @@ import type { Posting } from "../fit"
 // third one is a new file here and a line in the catalog.
 
 export type Found = { postings: Posting[]; credits: number }
-export type Read = { text: string; credits: number }
 
 export type Source = {
   search: (
@@ -15,15 +14,10 @@ export type Source = {
     postedToday: boolean,
     domains: string[]
   ) => Promise<Found>
-  read: (apiKey: string, url: string) => Promise<Read>
 }
 
 // Thrown when a source says its credits are used up, so the run moves to the next one.
 export class OutOfCredits extends Error {}
-
-// A posting's text is cut to this many characters before scoring; the start of a
-// posting says what the job is.
-export const maxText = 6000
 
 export const post = async (
   url: string,
@@ -38,8 +32,8 @@ export const post = async (
   })
   const json: unknown = await res.json().catch(() => null)
   if (outOfCredits(res.status, json)) throw new OutOfCredits(`${url} is out of credits`)
-  // A site refusing a page (403, 404 and the like) won't change on a retry; rate limits
-  // and server errors might.
+  // A refused request (403, 404 and the like) won't change on a retry; rate limits and
+  // server errors might.
   if (res.status >= 400 && res.status < 500 && res.status !== 408 && res.status !== 429)
     throw new NonRetryableError(`${url} answered ${res.status}`)
   if (!res.ok) throw new Error(`${url} answered ${res.status}`)

@@ -51,10 +51,10 @@ export default defineConfig({
           "@convex-dev/no-process-env": "error",
         },
       },
-      // Preferences and Loops keep state in the form, the URL or an action's result, and
-      // read inputs through refs, so they don't need useState either.
+      // Preferences, Loops and Jobs keep state in the form, the URL or an action's result,
+      // and read inputs through refs, so they don't need useState either.
       {
-        files: ["src/features/preferences/**", "src/features/loops/**"],
+        files: ["src/features/preferences/**", "src/features/loops/**", "src/features/jobs/**"],
         rules: {
           "no-restricted-imports": [
             "error",

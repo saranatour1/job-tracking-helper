@@ -4,7 +4,7 @@ import { Workpool } from "@convex-dev/workpool"
 import { components } from "../../../_generated/api"
 
 // Runs each loop's steps on the workflow component's own workpool. Steps are batches
-// (one search, one read of every posting), so 10 at a time is plenty across all runs.
+// (one search, one handoff of every role to Jev), so 10 at a time is plenty.
 export const workflow = new WorkflowManager(components.workflow, {
   workpoolOptions: { maxParallelism: 10 },
 })
@@ -17,11 +17,11 @@ export const limits = new RateLimiter(components.rateLimiter, {
   runNow: { kind: "fixed window", rate: 3, period: DAY },
 })
 
-// The batch worker: every run hands its postings to this pool in one batch, and the
-// pool reads at most 2 at a time across all runs, since context.dev's free plan allows
-// 2 requests at once. Each read retries twice before it counts as failed.
+// The batch worker: it fetches job boards for the catalog, and every run hands it the
+// roles for Jev to judge in one batch. 8 at a time across everything; each job
+// retries twice before it counts as failed.
 export const readPool = new Workpool(components.readPool, {
-  maxParallelism: 2,
+  maxParallelism: 8,
   retryActionsByDefault: true,
   defaultRetryBehavior: { maxAttempts: 3, initialBackoffMs: 1000, base: 2 },
 })

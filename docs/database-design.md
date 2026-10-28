@@ -339,7 +339,9 @@ Reports and rates read all of one user's applications. That works up to a few th
 
 ## Loops: finding jobs every morning
 
-A loop is a saved search that brings back jobs that fit, either by itself each morning (auto) or when the person presses Run now (manual). People set one up by going through the run's steps and answering yes or no, with a few fixed sizes and start times, so the cost of every loop is known before it runs. The questions, templates, sizes, start times, source order and credit estimate are a catalog in code (`convex/api/features/loops/catalog.ts`) that the page and the backend share. Built: the tables, the cron, the workflow, both sources and the page (`src/features/loops/`).
+A loop is a saved search that brings back jobs that fit, either by itself each morning (auto) or when the person presses Run now (manual). People set one up by going through the run's steps: they describe the job in their own words, answer yes or no, and pick from a few fixed sizes and start times, so the cost of every loop is known before it runs. The questions, templates, sizes, start times, source order and cost estimates are a catalog in code (`convex/api/features/loops/catalog.ts`) that the page and the backend share.
+
+Roles come from one shared catalog, not from each person's own search. Greenhouse, Lever and Ashby each publish a free feed of every open role on a company's board, with the full description, so fetching a board costs nothing. The catalog starts from about 20 boards and refreshes each one daily; paid search (Firecrawl, then context.dev) is only used to find boards the catalog doesn't have yet. Each run then picks roles from the catalog and has [Jev](https://docs.typesafe.ai/introduction) judge each one for the person, through the Convex AI gateway (`typesafe/jev-1.14`). A 100-role morning costs about half a cent.
 
 What a fitting job looks like isn't copied onto the loop. Each run reads the person's Preferences, so changing an interest today changes tomorrow's run.
 
@@ -349,15 +351,18 @@ What a fitting job looks like isn't copied onto the loop. Each run reads the per
 erDiagram
     users ||--o{ loops : "sets up, at most 3"
     loops ||--o{ loopRuns : "ran"
-    loopRuns ||--o{ jobLeads : "found"
+    loopRuns ||--o{ jobLeads : "judged"
+    jobBoards ||--o{ jobs : "lists"
+    jobs |o--o{ jobLeads : "judged for each person"
     jobLeads |o--o| applications : "saved as"
 
     loops {
         id userId
         string name
         string template "catalog id"
+        string prompt "optional: the job they want, in their words"
         object answers "7 yes/no, keys from the catalog"
-        number daily "5 | 10 | 20"
+        number daily "roles Jev checks: 25 | 50 | 100"
         string at "07:00 | 08:00 | 09:00"
         string timeZone
         boolean active "auto; false means manual"
@@ -367,9 +372,10 @@ erDiagram
         id loopId
         id userId
         string workflowId "from the workflow component"
-        enum status "queued | running | done | failed | skipped"
-        enum provider "firecrawl | contextDev, optional"
-        number scanned "also kept, saved, credits"
+        enum status "queued | running | done | failed | stopped"
+        enum provider "the source that found boards, optional"
+        number scanned "roles judged; also kept (fits), saved, credits"
+        number cost "Jev, in US dollars"
         number startedAt
         number finishedAt "optional"
         string note "optional"
@@ -377,13 +383,33 @@ erDiagram
     jobLeads {
         id userId
         id runId "also loopId"
+        id jobId "the catalog role"
         string url
         string urlKey "normalized, for dedupe"
-        string title "also company, location"
+        string title "also company, snippet"
+        enum verdict "fit | notFit"
         number fit "0 to 100"
-        string[] reasons "up to 5"
-        enum status "new | saved | dismissed | applied"
+        string[] reasons "why, in sentences"
+        object judgment "Jev's raw answers and model"
+        enum status "new | saved | dismissed | applied | unfit"
         id applicationId "optional"
+    }
+    jobs {
+        id boardId
+        string urlKey
+        string title "also company, location, url"
+        boolean remote
+        number postedAt
+        number seenAt "last fetch that listed it"
+        string text "title line + description, searched"
+    }
+    jobBoards {
+        enum kind "greenhouse | lever | ashby"
+        string slug
+        string company
+        number fetchedAt "optional until the first fetch"
+        number jobs
+        string error "optional"
     }
     sourceUsage {
         enum provider "firecrawl | contextDev"
@@ -393,69 +419,79 @@ erDiagram
     }
 ```
 
-| Table         | Passes rule                                                   | Indexes                                                    |
-| ------------- | ------------------------------------------------------------- | ---------------------------------------------------------- |
-| `loops`       | 4: the cron finds due loops across all users                  | `by_userId`, `by_active_and_nextRunAt`                     |
-| `loopRuns`    | 1: one per loop per morning, kept for the Runs tab            | `by_loopId_and_startedAt`, `by_userId_and_startedAt`       |
-| `jobLeads`    | 1 and 4: grows every morning, and "seen this URL?" spans runs | `by_userId_and_urlKey`, `by_runId`, `by_userId_and_status` |
-| `sourceUsage` | 3: shared by everyone, one row per source per month           | `by_provider_and_month`                                    |
+| Table         | Passes rule                                                     | Indexes                                                                                               |
+| ------------- | --------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------- |
+| `loops`       | 4: the cron finds due loops across all users                    | `by_userId`, `by_active_and_nextRunAt`                                                                |
+| `loopRuns`    | 1: one per loop per morning, kept for the Runs tab              | `by_loopId_and_startedAt`, `by_userId_and_startedAt`                                                  |
+| `jobLeads`    | 1 and 4: grows every morning, and "shown this role?" spans runs | `by_userId_and_urlKey`, `by_runId`, `by_userId_and_status`                                            |
+| `jobs`        | 3 and 4: shared by everyone, searched by every run              | `by_urlKey`, `by_boardId_and_seenAt`, `by_postedAt`, `by_remote_and_postedAt`, search index on `text` |
+| `jobBoards`   | 3: shared by everyone; the refresh finds the ones due           | `by_kind_and_slug`, `by_fetchedAt`                                                                    |
+| `sourceUsage` | 3: shared by everyone, one row per source per month             | `by_provider_and_month`                                                                               |
 
-Not tables: the questions and templates are a list in code, like the built-in Preferences questions, and a loop's answers are one object with the catalog's eight keys. Deleting an account deletes its loops, runs and leads; `sourceUsage` has no owner.
+A judged role is saved for a person whether or not it fits, so it never comes back. `verdict` is Jev's call and never changes; `status` is what the person did, and roles that aren't a fit start as `unfit` so they stay out of New jobs. `reasons` are sentences a person can read ("A strong match for what you want. It's remote."), and `judgment` keeps Jev's raw answers (`match` from 0 to 3, the probability it touches something to avoid or is in their places, the model) so an agent or a later check can filter on numbers. Leads saved before Jev have no verdict.
+
+Not tables: the questions and templates are a list in code, like the built-in Preferences questions, and a loop's answers are one object with the catalog's keys. Deleting an account deletes its loops, runs and leads; `jobs`, `jobBoards` and `sourceUsage` have no owner.
 
 ### What the components keep
 
 The workflow, workpool and rate limiter components bring their own tables. The app never reads them directly; it keeps an id or calls the component.
 
-| Component                  | Keeps                                                                             | The app keeps                      |
-| -------------------------- | --------------------------------------------------------------------------------- | ---------------------------------- |
-| `@convex-dev/workflow`     | each run's steps, retries and results                                             | `loopRuns.workflowId`              |
-| `@convex-dev/workpool`     | `readPool`: every page read for every run, with its batch worker                  | the run's read tally on `loopRuns` |
-| `@convex-dev/rate-limiter` | per-source call buckets shared by everyone, and 3 runs by hand per person per day | nothing                            |
+| Component                  | Keeps                                                                             | The app keeps                         |
+| -------------------------- | --------------------------------------------------------------------------------- | ------------------------------------- |
+| `@convex-dev/workflow`     | each run's steps, retries and results                                             | `loopRuns.workflowId`                 |
+| `@convex-dev/workpool`     | `readPool`: every board fetch and every Jev judgment, with its batch worker       | the run's judging tally on `loopRuns` |
+| `@convex-dev/rate-limiter` | per-source call buckets shared by everyone, and 3 runs by hand per person per day | nothing                               |
 
-`readPool` is the batch worker. A run hands all its postings to it in one `enqueueActionBatch` call, and the pool reads at most 2 at a time across every run, since the context.dev free plan allows 2 requests at once. Each read retries twice. Its `onComplete` adds the result to the run's tally on `loopRuns` (`readsLeft`, `candidates`, credits, failures), and the last one sends the workflow a `readsDone` event, which it waits for with `step.awaitEvent` before saving the best candidates.
+`readPool` is the batch worker. The hourly refresh hands it the boards that are due, and a run hands it all its roles in one `enqueueActionBatch` call. It runs 8 at a time across everything, and each job retries twice. A judgment's `onComplete` adds the verdict to the run's tally on `loopRuns` (`readsLeft`, `candidates`, cost, failures), and the last one sends the workflow a `judged` event, which it waits for with `step.awaitEvent` before saving every verdict.
 
-Each source's monthly credits come from the Convex env (`FIRECRAWL_MONTHLY_CREDITS`, `CONTEXT_DEV_MONTHLY_CREDITS`) and default to the free plans: 500 for Firecrawl and 1,000 for context.dev.
+Jev needs no key: `@convex-dev/ai-sdk-provider` signs gateway calls with the deployment's own token, and the gateway bills the Convex team. Search sources' monthly credits come from the Convex env (`FIRECRAWL_MONTHLY_CREDITS`, `CONTEXT_DEV_MONTHLY_CREDITS`) and default to the free plans: 500 for Firecrawl and 1,000 for context.dev.
 
 ### One run
 
 ```mermaid
 flowchart LR
     C[cron, every 15 min] --> D[start due loops: insert loopRuns, workflow.start, set nextRunAt]
-    D --> P[plan: loop + Preferences to search words]
-    P --> S[pick source from sourceUsage]
-    S --> Q[search, rate limited]
-    Q --> R[readPool batch: read and score each posting, 2 at a time across all runs]
-    R --> K[score and keep, skip red flags]
-    K --> V[save jobLeads, skip seen urlKeys, add credits to sourceUsage]
+    D --> P[plan: loop, prompt and Preferences to search words]
+    P --> S[search for new boards, rate limited, first source with credits]
+    S --> B[add jobBoards, fetch new ones]
+    B --> Q[pick catalog roles: search index, hard rules, skip shown urlKeys]
+    Q --> R[readPool batch: Jev judges each role, 8 at a time across all runs]
+    R --> V[save every verdict as jobLeads, add credits to sourceUsage]
     V --> O[onComplete: mark failed runs, log each run with evlog]
+    H[cron, hourly] --> F[readPool: fetch boards due, save jobs, drop closed roles]
 ```
 
-A run uses Firecrawl, then context.dev. It moves on once a source has used 90% of its monthly credits (`switchAt` in the catalog), or as soon as the source says it's out: Firecrawl answers 402 and context.dev answers 401 `USAGE_EXCEEDED`. That sets `exhaustedAt` until the month resets. If every source is out, the run is saved as `skipped` with a note, and the Runs tab shows it.
+A run looks for boards with Firecrawl, then context.dev. It moves on once a source has used 90% of its monthly credits (`switchAt` in the catalog), or as soon as the source says it's out: Firecrawl answers 402 and context.dev answers 401 `USAGE_EXCEEDED`. That sets `exhaustedAt` until the month resets. With every source out, the run still judges roles from the boards the catalog already has.
 
-Every run is logged as one wide event with [evlog](https://www.evlog.dev/): which sources it used and spent, what it read and kept, how long it took and why it stopped. The search and read actions log one event each too. They print as JSON, so the Convex dashboard's logs can be searched by field (`convex/lib/log.ts`).
+Every run is logged as one wide event with [evlog](https://www.evlog.dev/): which sources it used and spent, how many roles Jev judged and how many fit, what Jev cost, how long it took and why it stopped. Board fetches and searches log one event each too. They print as JSON, so the Convex dashboard's logs can be searched by field (`convex/lib/log.ts`).
 
 ### Folders
 
-The workflow machinery is its own feature; everything else follows the usual feature layout.
+The workflow machinery and the shared catalog are their own features; everything else follows the usual feature layout.
 
 ```text
 convex/api/features/loops/          tables and the functions the page calls
-  catalog.ts                         questions, templates, sizes, estimate
+  catalog.ts                         questions, templates, sizes, estimates
   models/                            loops.ts, runs.ts, leads.ts, usage.ts, index.ts
   validators.ts, schedule.ts         input checks; the next morning in a time zone
-  public.ts, internal.ts             what the page calls; the cron, plan and finish steps
+  public.ts, internal.ts             what the page calls; the cron, plan, judging tally and finish
+convex/api/features/jobs/           the shared catalog
+  boards.ts                          feed URLs, feed parsing, starter boards
+  models/                            jobs.ts, boards.ts, index.ts
+  public.ts, internal.ts, actions.ts search for the Jobs page; refresh, save, pick; fetchBoard
 convex/api/features/workflows/      what runs a loop
   manager.ts                         WorkflowManager, readPool and the rate limits
   findJobs.ts                        the run, step by step
-  actions.ts                         search (one batch) and readOne (one posting, run on readPool)
-  fit.ts                             search words, scoring, URL dedupe
+  actions.ts                         search (one batch) and judgeOne (one role, on readPool)
+  judge.ts                           Jev's questions and the verdict rules
+  fit.ts                             search words, URL dedupe
   sources/                           firecrawl.ts, contextDev.ts, index.ts (keys and credits)
-convex/crons.ts                      every 15 minutes: start due loops
+convex/crons.ts                      every 15 minutes: start due loops; hourly: refresh boards
 convex/convex.config.ts              app.use(workflow), app.use(workpool, { name: "readPool" }), app.use(rateLimiter)
 convex/lib/log.ts                    evlog wide events
 ```
 
-The API keys, `FIRECRAWL_API_KEY` and `CONTEXT_DEV_API_KEY`, go in the Convex env, declared in `convex.config.ts` like the auth keys. A source without a key is skipped.
+The search keys, `FIRECRAWL_API_KEY` and `CONTEXT_DEV_API_KEY`, go in the Convex env, declared in `convex.config.ts` like the auth keys. A source without a key is skipped.
 
 ## Build order
 
@@ -488,7 +524,7 @@ Phase 1 needs a migration, because `applications.company` is a string today. For
 
 - **Scoring loops.** Runs judge fit with rules only for now: interests, places, skills and red flags matched against each posting. Should an LLM also read each posting? That costs per posting, on top of the source credits.
 - **Loop summaries.** The setup no longer offers an Inbox summary, since the Inbox runs on sample data. It comes back once there's a `notifications` table.
-- **Plans.** Which Firecrawl and context.dev plans will this run on? Their monthly credits become `sourceUsage.limit`.
+- **Plans.** Which Firecrawl and context.dev plans will this run on? Their monthly credits become `sourceUsage.limit`. Search now only finds boards, so the free plans go a long way.
 
 - **Interviews.** Are notes in `history` enough, or do you want dates, rounds and calendar reminders? Reminders would make interviews pass rule 4 and need their own table.
 - **Autofill.** Is this for a browser extension that fills forms, or answers you copy from the app? An extension needs the answers in a different shape.

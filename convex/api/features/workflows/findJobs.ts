@@ -3,9 +3,10 @@ import { internal } from "../../../_generated/api"
 import type { Provider } from "../loops/catalog"
 import { workflow } from "./manager"
 
-// One morning's run of a loop: plan, search, drop postings the person has seen, hand
-// the rest to the read pool as one batch and wait for it, then save the best. It tries
-// each source in turn, so when one is out of credits the run carries on with the next.
+// One morning's run of a loop. It searches for job boards the catalog doesn't have yet
+// and fetches them, trying each source in turn so one out of credits doesn't stop it.
+// Then it picks catalog roles the person hasn't been shown, has Jev judge them on the
+// batch worker, waits for every verdict, and saves them all.
 const findJobs = workflow.define({
   args: { runId: v.id("loopRuns") },
   handler: async (step, { runId }): Promise<void> => {
@@ -13,53 +14,53 @@ const findJobs = workflow.define({
     if (!plan) return
     const spent: { provider: Provider; credits: number }[] = []
     const exhausted: Provider[] = []
-    for (const provider of plan.sources) {
+    let provider: Provider | undefined
+    for (const source of plan.sources) {
       const found = await step.runAction(
         internal.workflows.search,
         {
-          provider,
+          provider: source,
           queries: plan.queries,
           perQuery: plan.perQuery,
           postedToday: plan.postedToday,
         },
         { retry: { maxAttempts: 2, initialBackoffMs: 2000, base: 2 } }
       )
-      spent.push({ provider, credits: found.credits })
+      spent.push({ provider: source, credits: found.credits })
       if (found.outOfCredits) {
-        exhausted.push(provider)
+        exhausted.push(source)
         continue
       }
-      const fresh = await step.runQuery(internal.loops.unseen, {
-        userId: plan.userId,
-        postings: found.postings,
-        limit: plan.scan,
+      provider = source
+      const boards = await step.runMutation(internal.jobs.addBoards, {
+        urls: found.postings.map((p) => p.url),
       })
-      if (fresh.length) {
-        await step.runMutation(internal.loops.queueReads, {
-          runId,
-          provider,
-          postings: fresh,
-          criteria: plan.criteria,
-        })
-        // readDone sends this once the pool has finished every read in the batch.
-        await step.awaitEvent({ name: "readsDone" })
-      }
-      await step.runMutation(internal.loops.finishRun, {
-        runId,
-        provider,
-        spent,
-        exhausted,
-        keep: plan.daily,
-      })
-      return
+      // New boards are fetched now, so this run can already pick from them.
+      await Promise.all(
+        boards.map((boardId) =>
+          step.runAction(internal.jobs.fetchBoard, { boardId }, { retry: true })
+        )
+      )
+      break
     }
-    await step.runMutation(internal.loops.finishRun, {
-      runId,
-      spent,
-      exhausted,
-      keep: 0,
-      note: plan.sources.length ? "Every source ran out of credits during this run." : plan.why,
+    const jobIds = await step.runQuery(internal.jobs.candidates, {
+      userId: plan.userId,
+      queries: plan.queries,
+      remoteOnly: plan.profile.remoteOnly,
+      companies: plan.companies,
+      since: plan.since,
+      limit: plan.daily,
     })
+    if (jobIds.length) {
+      await step.runMutation(internal.loops.queueJudging, {
+        runId,
+        jobIds,
+        profile: plan.profile,
+      })
+      // `judged` sends this once the batch worker has finished every judgment.
+      await step.awaitEvent({ name: "judged" })
+    }
+    await step.runMutation(internal.loops.finishRun, { runId, provider, spent, exhausted })
   },
 })
 

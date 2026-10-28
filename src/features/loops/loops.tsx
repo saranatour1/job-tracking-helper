@@ -4,6 +4,7 @@ import {
   blankTemplate,
   creditsPerRun,
   dailySizes,
+  jevCostPerRun,
   type LoopAnswers,
   type LoopTemplate,
   loopTemplates,
@@ -11,13 +12,12 @@ import {
   type Provider,
   providers,
   runTimes,
-  scannedPerRun,
   switchAt,
   templateById,
 } from "@convex/api/features/loops/catalog"
 import { nextRunAt } from "@convex/api/features/loops/schedule"
 import { formOf, rowLimits, type TagKind } from "@convex/api/features/preferences/rows"
-import { criteriaOf, keepFrom, queriesOf } from "@convex/api/features/workflows/fit"
+import { criteriaOf, queriesOf } from "@convex/api/features/workflows/fit"
 import {
   CheckmarkCircle02Icon,
   Delete02Icon,
@@ -41,6 +41,7 @@ import { Meter, MeterIndicator, MeterTrack } from "@/components/ui/meter"
 import { ScrollArea } from "@/components/ui/scroll-area"
 import { Tabs, TabsList, TabsPanel, TabsTab } from "@/components/ui/tabs"
 import { Switch } from "@/components/ui/switch"
+import { Textarea } from "@/components/ui/textarea"
 import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group"
 import { Tooltip, TooltipPopup, TooltipTrigger } from "@/components/ui/tooltip"
 import { chip, PageIntro, pageBody, Tile, tileGrid } from "@/features/shell/page-body"
@@ -108,6 +109,7 @@ const day = (ms: number) =>
 const when = (ms: number) =>
   new Date(ms).toLocaleString("en", { weekday: "short", hour: "2-digit", minute: "2-digit" })
 const percent = (part: number, whole: number) => (whole ? Math.round((part / whole) * 100) : 0)
+const dollars = (usd: number) => (usd < 0.01 ? "under 1¢" : `$${usd.toFixed(2)}`)
 
 const Heading = ({ title, description }: { title: string; description?: string }) => (
   <div className="flex flex-col gap-0.5 px-1">
@@ -237,9 +239,16 @@ const LoopTile = ({ loop, runs, prefs }: { loop: Loop; runs: Run[]; prefs: Prefs
     >
       <Rows>
         <Row label="Runs">
-          {loop.active ? `Each morning at ${loop.at}` : "When you press Run now"} · up to{" "}
-          {loop.daily} jobs
+          {loop.active ? `Each morning at ${loop.at}` : "When you press Run now"} · checks{" "}
+          {loop.daily} roles
         </Row>
+        {loop.prompt && (
+          <Row label="Wants">
+            <span className="line-clamp-2" title={loop.prompt}>
+              {loop.prompt}
+            </span>
+          </Row>
+        )}
         <Row label="Looks for">
           <span className="line-clamp-2" title={lookFor(loop.answers, prefs).join(" · ")}>
             {lookFor(loop.answers, prefs).join(" · ")}
@@ -250,9 +259,9 @@ const LoopTile = ({ loop, runs, prefs }: { loop: Loop; runs: Run[]; prefs: Prefs
           {!last
             ? "Not run yet"
             : running
-              ? `Running now${last.scanned ? `, read ${last.scanned} so far` : ""}`
+              ? `Running now${last.scanned ? `, judged ${last.scanned} so far` : ""}`
               : last.status === "done"
-                ? `${day(last.startedAt)}: read ${last.scanned}, kept ${last.kept}`
+                ? `${day(last.startedAt)}: judged ${last.scanned}, ${last.kept} fit`
                 : `${day(last.startedAt)}: ${last.status}`}
         </Row>
       </Rows>
@@ -295,7 +304,7 @@ const LoopTile = ({ loop, runs, prefs }: { loop: Loop; runs: Run[]; prefs: Prefs
   )
 }
 
-// Jobs the runs kept and nobody has acted on yet.
+// Roles Jev called a fit that nobody has acted on yet.
 const NewJobs = ({ leads }: { leads: Lead[] }) => {
   const setLeadStatus = useMutation(api.loops.setLeadStatus)
   const [status, act] = useActionState(
@@ -316,7 +325,7 @@ const NewJobs = ({ leads }: { leads: Lead[] }) => {
     <Tile title={`New jobs · ${leads.length}`} className="gap-0 p-1.5">
       {leads.length === 0 && (
         <p className="text-muted-foreground px-2.5 py-2 text-[13px]">
-          Nothing new yet. Jobs your loops keep show up here each morning.
+          Nothing new yet. Roles Jev calls a fit show up here each morning.
         </p>
       )}
       {leads.map((lead) => (
@@ -333,8 +342,8 @@ const NewJobs = ({ leads }: { leads: Lead[] }) => {
             >
               {lead.title}
             </a>
-            <span className="text-muted-foreground truncate text-xs">
-              {lead.company} · fit {lead.fit} · {lead.reasons.join(", ") || "no strong matches"}
+            <span className="text-muted-foreground text-xs">
+              {lead.company} · {lead.fit}% match · {lead.reasons.join(" ")}
             </span>
           </div>
           <div className="flex shrink-0 gap-1">
@@ -376,7 +385,7 @@ const LoopsOverview = ({
   <>
     <PageIntro
       title="Loops"
-      description="Searches that run each morning and bring back jobs that fit you. Pick a template, answer a few yes-or-no questions, and it runs on its own."
+      description="Each morning a loop picks roles from the shared catalog and Jev judges whether each one fits you. Pick a template, say what you want, answer a few yes-or-no questions, and it runs on its own."
     />
     {loops.length > 0 && (
       <>
@@ -420,7 +429,7 @@ const LoopsOverview = ({
           <p className="text-muted-foreground px-1 text-[13px]">{t.pitch}</p>
           <Checklist lines={lookFor(t.answers, prefs)} />
           <p className="text-muted-foreground px-1 text-xs">
-            {t.at} each morning · up to {t.daily} jobs · about {creditsPerRun(t.daily)} credits
+            {t.at} each morning · Jev checks {t.daily} roles · {dollars(jevCostPerRun(t.daily))}
           </p>
         </Tile>
       ))}
@@ -510,6 +519,7 @@ const Setup = ({
   const form = useForm({
     defaultValues: {
       name: template.name,
+      prompt: "",
       answers: template.answers,
       daily: template.daily as DailySize,
       at: template.at as RunTime,
@@ -519,14 +529,13 @@ const Setup = ({
   const values = useStore(form.store, (s) => s.values)
   const answers = values.answers
   const criteria = criteriaOf(answers, tags)
-  const credits = creditsPerRun(values.daily)
   const where: Where = answers.remoteOnly ? "remote" : answers.nearMe ? "near" : "anywhere"
   const set = (patch: Partial<LoopAnswers>) =>
     form.setFieldValue("answers", { ...form.state.values.answers, ...patch })
   const [status, start] = useActionState(async () => {
     try {
-      const { name, answers, daily, at, auto } = form.state.values
-      await create({ name, template: template.id, answers, daily, at, auto, timeZone })
+      const { name, prompt, answers, daily, at, auto } = form.state.values
+      await create({ name, template: template.id, prompt, answers, daily, at, auto, timeZone })
       await navigate({ to: "/loops", search: { tab: "loops" } })
       return undefined
     } catch (error) {
@@ -535,21 +544,25 @@ const Setup = ({
   }, undefined)
 
   const drops = [
-    answers.remoteOnly && "Postings that don't say they're remote",
+    answers.remoteOnly && "Roles that aren't remote",
     answers.listedCompanies &&
       (criteria.companies.length
         ? `Companies other than ${list(criteria.companies)}`
         : "Every company, until you list some in Preferences"),
     answers.skipRedFlags &&
       criteria.avoid.length &&
-      `Anything that mentions ${list(criteria.avoid, 4)}`,
-    answers.postedToday && "Anything posted before yesterday",
+      `Roles Jev says touch ${list(criteria.avoid, 4)}`,
+    answers.nearMe &&
+      criteria.places.length &&
+      `Roles Jev says you can't do from ${list(criteria.places)}`,
+    answers.postedToday && "Roles posted before yesterday",
   ].filter((d): d is string => Boolean(d))
-  const boosts = [
+  const weighs = [
+    values.prompt.trim() && "what you wrote",
     answers.usePreferences && criteria.interests.length && list(criteria.interests),
-    answers.nearMe && criteria.places.length && list(criteria.places),
-    answers.stretch && criteria.skills.length && list(criteria.skills),
+    criteria.skills.length && `your skills (${list(criteria.skills)})`,
   ].filter((b): b is string => Boolean(b))
+  const searches = [...queriesOf(criteria), ...(values.prompt.trim() ? [values.prompt.trim()] : [])]
 
   return (
     <>
@@ -611,12 +624,36 @@ const Setup = ({
         </Step>
         <Step
           n={2}
+          title="The job you want, in your words"
+          does={
+            values.prompt.trim()
+              ? "Jev reads this next to each role and rates how well the role matches it. The words also search the catalog."
+              : "Optional. Without it, Jev judges each role against your Preferences alone."
+          }
+        >
+          <form.Field name="prompt">
+            {(f) => (
+              <Textarea
+                aria-label="The job you want"
+                placeholder="For example: senior frontend or full-stack roles building developer tools, at a small product company"
+                maxLength={500}
+                value={f.state.value}
+                onChange={(e) => f.handleChange(e.target.value)}
+              />
+            )}
+          </form.Field>
+        </Step>
+        <Step
+          n={3}
           title="What it searches for"
           does={
             <>
-              <span>Searches Firecrawl, or context.dev once Firecrawl runs low, for:</span>
+              <span>
+                Searches the shared catalog for these, and finds new job boards for it with
+                Firecrawl, or context.dev once Firecrawl runs low (about {creditsPerRun} credits):
+              </span>
               <span className="flex flex-wrap gap-1.5">
-                {queriesOf(criteria).map((q) => (
+                {searches.map((q) => (
                   <span key={q} className={cn(chip, "font-normal")}>
                     {q}
                   </span>
@@ -676,16 +713,16 @@ const Setup = ({
           />
         </Step>
         <Step
-          n={3}
-          title="How much it reads"
-          does={`Reads up to ${scannedPerRun(values.daily)} postings you haven't seen, 2 at a time alongside every other loop. About ${credits} credits a run; context.dev's 1,000 free credits cover ${Math.floor(1000 / credits)} runs.`}
+          n={4}
+          title="How many roles Jev checks"
+          does={`Jev checks up to ${values.daily} catalog roles you haven't been shown, 8 at a time alongside every other loop, for ${dollars(jevCostPerRun(values.daily))} a run through the Convex AI gateway.`}
         >
           <div className="flex items-center gap-4 px-1 py-1.5">
-            <span className="flex-1 text-[13px] font-medium">Jobs to keep at most</span>
+            <span className="flex-1 text-[13px] font-medium">Roles to check each morning</span>
             <ToggleGroup
               variant="outline"
               size="sm"
-              aria-label="Jobs to keep at most"
+              aria-label="Roles to check each morning"
               value={[String(values.daily)]}
               onValueChange={(v) => v[0] && form.setFieldValue("daily", Number(v[0]) as DailySize)}
             >
@@ -698,7 +735,7 @@ const Setup = ({
           </div>
         </Step>
         <Step
-          n={4}
+          n={5}
           title="What it leaves out"
           does={
             drops.length ? (
@@ -708,7 +745,7 @@ const Setup = ({
                 ))}
               </ul>
             ) : (
-              "Nothing. Every posting it reads gets a score."
+              "Nothing beyond what Jev doesn't call a fit."
             )
           }
         >
@@ -724,16 +761,16 @@ const Setup = ({
           />
           <Choice
             label="Only jobs posted since yesterday"
-            detail="Fewer, fresher jobs. Some sites don't date their postings."
+            detail="Fewer, fresher roles, dated by when the board first listed them."
             checked={answers.postedToday}
             onChange={(on) => set({ postedToday: on })}
           />
         </Step>
         <Step
-          n={5}
+          n={6}
           last
           title="What you get"
-          does={`${boosts.length ? `Scores each posting higher when it mentions ${boosts.join("; ")}. ` : ""}Keeps up to ${values.daily} that score ${keepFrom} or more, best first, under New jobs with why each one fits. You save, apply or dismiss each one.`}
+          does={`Jev rates each role from unrelated to a strong match${weighs.length ? `, weighing ${weighs.join(" and ")}` : ""}. Fits go to New jobs with the reasons in plain words. The rest are saved as not a fit, so they never come back. You save, apply or dismiss each one.`}
         />
       </ol>
       <div className="flex items-center justify-end gap-3">
@@ -767,25 +804,25 @@ const statusBadge = {
 } as const
 
 const RunsTab = ({ runs, more }: { runs: Run[]; more?: () => void }) => {
-  const sum = (key: "scanned" | "kept" | "saved" | "applied" | "credits", from = runs) =>
-    from.reduce((n, r) => n + r[key], 0)
+  const sum = (key: "scanned" | "kept" | "saved" | "applied" | "credits" | "cost", from = runs) =>
+    from.reduce((n, r) => n + (r[key] ?? 0), 0)
   return (
     <>
       <PageIntro
         title="Runs"
-        description="Each morning's run: what it read, what it kept and what came of it."
+        description="Each morning's run: how many roles Jev judged, how many fit, and what came of them."
       />
       <div className="grid grid-cols-2 gap-3 md:grid-cols-4">
         <Stat label="Runs" value={String(runs.length)} note="Loaded below" />
         <Stat
-          label="Kept"
+          label="Fit"
           value={String(sum("kept"))}
-          note={`${percent(sum("kept"), sum("scanned"))}% of ${sum("scanned")} read`}
+          note={`${percent(sum("kept"), sum("scanned"))}% of ${sum("scanned")} judged · ${dollars(sum("cost"))}`}
         />
         <Stat
           label="Saved"
           value={String(sum("saved"))}
-          note={`${percent(sum("saved"), sum("kept"))}% of kept`}
+          note={`${percent(sum("saved"), sum("kept"))}% of fits`}
         />
         <Stat
           label="Applied"
@@ -800,14 +837,10 @@ const RunsTab = ({ runs, more }: { runs: Run[]; more?: () => void }) => {
             <Tile key={p} title={providers[p].name}>
               <Rows>
                 <Row label="Runs">{used.length}</Row>
-                <Row label="Kept">
-                  {percent(sum("kept", used), sum("scanned", used))}% of what it read
+                <Row label="Fit">
+                  {percent(sum("kept", used), sum("scanned", used))}% of what Jev judged
                 </Row>
-                <Row label="Per kept job">
-                  {sum("kept", used)
-                    ? `${(sum("credits", used) / sum("kept", used)).toFixed(1)} credits`
-                    : "—"}
-                </Row>
+                <Row label="Credits">{sum("credits", used)} spent finding boards</Row>
               </Rows>
             </Tile>
           )
@@ -824,7 +857,7 @@ const RunsTab = ({ runs, more }: { runs: Run[]; more?: () => void }) => {
             <span>Day</span>
             <span>Loop</span>
             <span>Source</span>
-            <span>Read → kept → saved</span>
+            <span>Judged → fit → saved</span>
             <span>Credits</span>
             <span>Status</span>
           </div>
@@ -870,23 +903,27 @@ const runSteps = [
   ["Wake up", "A cron every 15 minutes starts the loops that are due, a few at a time.", "cron"],
   [
     "Plan the search",
-    "Turns the loop's answers and your Preferences into search words.",
+    "Turns the loop's answers, your words and your Preferences into search words.",
     "workflow step",
   ],
   [
-    "Search",
-    "Asks Firecrawl for recent postings, or context.dev once Firecrawl runs low.",
+    "Find new boards",
+    "Asks Firecrawl, or context.dev once Firecrawl runs low, for job boards the catalog doesn't have, and fetches their roles for free.",
     "rate limiter",
   ],
   [
-    "Read postings",
-    "Reads about three postings for each job it keeps, two at a time, in one batch.",
-    "batch action",
+    "Pick roles",
+    "Searches the shared catalog and skips roles you've already been shown.",
+    "search index",
   ],
-  ["Score and keep", "Checks each posting against the loop and skips red flags.", "rules"],
+  [
+    "Judge each role",
+    "Jev rates how well each role matches you and checks your red flags and places, 8 at a time, in one batch.",
+    "batch worker · Jev",
+  ],
   [
     "Save and log",
-    "Saves new jobs, skips ones you've already seen, and logs the run as one event.",
+    "Saves every verdict with its reasons, fits to New jobs, and logs the run as one event.",
     "evlog",
   ],
 ] as const
@@ -906,7 +943,7 @@ const SourcesTab = ({ rows }: { rows: SourceRow[] }) => {
     <>
       <PageIntro
         title="Sources"
-        description={`Where jobs come from. A run uses ${rows.map((r) => providers[r.provider].name).join(", then ")}, moving on once a source has used ${switchAt * 100}% of its monthly credits or says it's out. If every source is out, the run is skipped and says so in Runs.`}
+        description={`Roles come from the free feeds of company job boards, shared by everyone. Search finds new boards: a run uses ${rows.map((r) => providers[r.provider].name).join(", then ")}, moving on once a source has used ${switchAt * 100}% of its monthly credits. With every source out, runs still judge roles from the boards already known.`}
       />
       <div className={tileGrid}>
         {rows.map(({ provider, configured, used, limit, exhausted }) => (
@@ -970,9 +1007,11 @@ const SourcesTab = ({ rows }: { rows: SourceRow[] }) => {
       <Tile title="Limits that keep runs cheap">
         <Rows>
           <Row label="Loops">{maxLoops} per person</Row>
-          <Row label="Jobs a morning">{dailySizes.join(", ")}, picked per loop</Row>
+          <Row label="Roles a morning">{dailySizes.join(", ")} judged by Jev, picked per loop</Row>
           <Row label="Runs">Once a morning per loop, plus 3 by hand a day</Row>
-          <Row label="Calls">Each source has a per-minute limit shared by everyone</Row>
+          <Row label="Calls">
+            Each source has a per-minute limit; Jev runs 8 at a time for everyone
+          </Row>
           <Row label="Questions">Yes or no only, so every answer has a known cost</Row>
         </Rows>
       </Tile>
