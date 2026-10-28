@@ -116,12 +116,19 @@ const Heading = ({ title, description }: { title: string; description?: string }
   </div>
 )
 
-// A label and its value, the row every tile on this page uses.
+// Label and value pairs as one grid: the label column is as wide as the longest label,
+// so every value starts on the same line.
+const Rows = ({ children }: { children: React.ReactNode }) => (
+  <dl className="grid grid-cols-[max-content_minmax(0,1fr)] gap-x-5 gap-y-1.5 px-1 text-[13px]">
+    {children}
+  </dl>
+)
+
 const Row = ({ label, children }: { label: string; children: React.ReactNode }) => (
-  <div className="grid grid-cols-[7.5rem_minmax(0,1fr)] gap-3 px-1 text-[13px]">
+  <>
     <dt className="text-muted-foreground">{label}</dt>
-    <dd>{children}</dd>
-  </div>
+    <dd className="min-w-0">{children}</dd>
+  </>
 )
 
 const Checklist = ({ lines }: { lines: string[] }) => (
@@ -228,12 +235,16 @@ const LoopTile = ({ loop, runs, prefs }: { loop: Loop; runs: Run[]; prefs: Prefs
         </Badge>
       }
     >
-      <dl className="flex flex-col gap-1.5">
+      <Rows>
         <Row label="Runs">
           {loop.active ? `Each morning at ${loop.at}` : "When you press Run now"} · up to{" "}
           {loop.daily} jobs
         </Row>
-        <Row label="Looks for">{lookFor(loop.answers, prefs).join(" · ")}</Row>
+        <Row label="Looks for">
+          <span className="line-clamp-2" title={lookFor(loop.answers, prefs).join(" · ")}>
+            {lookFor(loop.answers, prefs).join(" · ")}
+          </span>
+        </Row>
         <Row label="Next run">{loop.active ? when(loop.nextRunAt) : "When you press Run now"}</Row>
         <Row label="Last run">
           {!last
@@ -244,9 +255,9 @@ const LoopTile = ({ loop, runs, prefs }: { loop: Loop; runs: Run[]; prefs: Prefs
                 ? `${day(last.startedAt)}: read ${last.scanned}, kept ${last.kept}`
                 : `${day(last.startedAt)}: ${last.status}`}
         </Row>
-      </dl>
+      </Rows>
       <KeptBars runs={runs.slice(0, 7).reverse()} />
-      <div className="flex items-center gap-0.5 px-1">
+      <div className="mt-auto flex items-center gap-0.5 px-1">
         <IconAction
           label="Run now"
           icon={PlayIcon}
@@ -787,7 +798,7 @@ const RunsTab = ({ runs, more }: { runs: Run[]; more?: () => void }) => {
           const used = runs.filter((r) => r.provider === p)
           return (
             <Tile key={p} title={providers[p].name}>
-              <dl className="flex flex-col gap-1.5">
+              <Rows>
                 <Row label="Runs">{used.length}</Row>
                 <Row label="Kept">
                   {percent(sum("kept", used), sum("scanned", used))}% of what it read
@@ -797,7 +808,7 @@ const RunsTab = ({ runs, more }: { runs: Run[]; more?: () => void }) => {
                     ? `${(sum("credits", used) / sum("kept", used)).toFixed(1)} credits`
                     : "—"}
                 </Row>
-              </dl>
+              </Rows>
             </Tile>
           )
         })}
@@ -923,7 +934,7 @@ const SourcesTab = ({ rows }: { rows: SourceRow[] }) => {
                 <MeterIndicator className="rounded-full" />
               </MeterTrack>
             </Meter>
-            <dl className="flex flex-col gap-1.5">
+            <Rows>
               <Row label="This month">
                 {used.toLocaleString("en")} of {limit.toLocaleString("en")} credits
               </Row>
@@ -936,7 +947,7 @@ const SourcesTab = ({ rows }: { rows: SourceRow[] }) => {
                   the Convex env
                 </Row>
               )}
-            </dl>
+            </Rows>
           </Tile>
         ))}
       </div>
@@ -957,13 +968,13 @@ const SourcesTab = ({ rows }: { rows: SourceRow[] }) => {
         </ol>
       </Tile>
       <Tile title="Limits that keep runs cheap">
-        <dl className="flex flex-col gap-1.5">
+        <Rows>
           <Row label="Loops">{maxLoops} per person</Row>
           <Row label="Jobs a morning">{dailySizes.join(", ")}, picked per loop</Row>
           <Row label="Runs">Once a morning per loop, plus 3 by hand a day</Row>
           <Row label="Calls">Each source has a per-minute limit shared by everyone</Row>
           <Row label="Questions">Yes or no only, so every answer has a known cost</Row>
-        </dl>
+        </Rows>
       </Tile>
     </>
   )
