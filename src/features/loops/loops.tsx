@@ -305,7 +305,7 @@ const LoopTile = ({ loop, runs, prefs }: { loop: Loop; runs: Run[]; prefs: Prefs
 }
 
 // Roles Jev called a fit that nobody has acted on yet.
-const NewJobs = ({ leads }: { leads: Lead[] }) => {
+const NewJobs = ({ leads, more }: { leads: Lead[]; more?: () => void }) => {
   const setLeadStatus = useMutation(api.loops.setLeadStatus)
   const [status, act] = useActionState(
     async (
@@ -322,7 +322,7 @@ const NewJobs = ({ leads }: { leads: Lead[] }) => {
     undefined
   )
   return (
-    <Tile title={`New jobs · ${leads.length}`} className="gap-0 p-1.5">
+    <Tile title={`New jobs · ${leads.length}${more ? "+" : ""}`} className="gap-0 p-1.5">
       {leads.length === 0 && (
         <p className="text-muted-foreground px-2.5 py-2 text-[13px]">
           Nothing new yet. Roles Jev calls a fit show up here each morning.
@@ -366,6 +366,11 @@ const NewJobs = ({ leads }: { leads: Lead[] }) => {
           </div>
         </div>
       ))}
+      {more && (
+        <Button size="xs" variant="ghost" className="m-1 self-start" onClick={more}>
+          Show more
+        </Button>
+      )}
       <Status text={status} />
     </Tile>
   )
@@ -375,11 +380,13 @@ const LoopsOverview = ({
   loops,
   runs,
   leads,
+  moreLeads,
   prefs,
 }: {
   loops: Loop[]
   runs: Run[]
   leads: Lead[]
+  moreLeads?: () => void
   prefs: Prefs | undefined
 }) => (
   <>
@@ -403,7 +410,7 @@ const LoopsOverview = ({
             />
           ))}
         </div>
-        <NewJobs leads={leads} />
+        <NewJobs leads={leads} more={moreLeads} />
       </>
     )}
     <Heading
@@ -1081,6 +1088,7 @@ export const Loops = () => {
                   loops={loops}
                   runs={runs.results}
                   leads={leads.results}
+                  moreLeads={leads.status === "CanLoadMore" ? () => leads.loadMore(20) : undefined}
                   prefs={prefs}
                 />
               ),

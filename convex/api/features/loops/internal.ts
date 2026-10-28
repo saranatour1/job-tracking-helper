@@ -182,7 +182,7 @@ const judged = internalMutation({
   },
 })
 
-// Saves every role Jev judged with its verdict, fits first, records each source's
+// Saves every role Jev judged with its verdict, records each source's
 // credits, and logs the run as one wide event.
 const finishRun = internalMutation({
   args: {
@@ -197,7 +197,8 @@ const finishRun = internalMutation({
     const run = await ctx.db.get("loopRuns", args.runId)
     if (!run || run.status === "stopped") return null
     const { provider, spent, exhausted } = args
-    const judgedRoles = [...(run.candidates ?? [])].sort((a, b) => b.fit - a.fit)
+    // Weakest first: New jobs lists the newest leads first, so the best fit ends up on top.
+    const judgedRoles = [...(run.candidates ?? [])].sort((a, b) => a.fit - b.fit)
     let saved = 0
     for (const lead of judgedRoles) {
       const seen = await ctx.db
@@ -254,7 +255,7 @@ const finishRun = internalMutation({
       spent,
       exhausted,
       note,
-      durationMs: Date.now() - run.startedAt,
+      runMs: Date.now() - run.startedAt,
     })
     log.emit()
     return null
@@ -276,7 +277,7 @@ const runEnded = internalMutation({
     const note = result.kind === "failed" ? `Failed: ${result.error}` : "Canceled."
     await ctx.db.patch("loopRuns", run._id, { status: "failed", finishedAt: Date.now(), note })
     const log = workLog("loop.run", { runId: run._id, loopId: run.loopId, userId: run.userId })
-    log.set({ outcome: "failed", workflowId, note, durationMs: Date.now() - run.startedAt })
+    log.set({ outcome: "failed", workflowId, note, runMs: Date.now() - run.startedAt })
     log.setLevel("error")
     log.emit()
     return null
@@ -299,7 +300,7 @@ export const stopRunNow = async (ctx: MutationCtx, run: Doc<"loopRuns">) => {
     readFailures: undefined,
   })
   const log = workLog("loop.run", { runId: run._id, loopId: run.loopId, userId: run.userId })
-  log.set({ outcome: "stopped", scanned: run.scanned, durationMs: Date.now() - run.startedAt })
+  log.set({ outcome: "stopped", scanned: run.scanned, runMs: Date.now() - run.startedAt })
   log.emit()
 }
 
