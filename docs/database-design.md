@@ -339,7 +339,7 @@ Reports and rates read all of one user's applications. That works up to a few th
 
 ## Loops: finding jobs every morning
 
-A loop is a saved search that runs once each morning for one person and brings back jobs that fit. People set one up by answering yes or no and picking from a few sizes and start times, so the cost of every loop is known before it runs. The page is built on sample data (`src/features/loops/`), and so is the catalog it reads (`convex/api/features/loops/catalog.ts`): the questions, the templates, the sizes and times, the order of sources and the credit estimate. Nothing below is built yet.
+A loop is a saved search that runs once each morning for one person and brings back jobs that fit. People set one up by answering yes or no and picking from a few sizes and start times, so the cost of every loop is known before it runs. The questions, templates, sizes, start times, source order and credit estimate are a catalog in code (`convex/api/features/loops/catalog.ts`) that the page and the backend share. Built: the tables, the cron, the workflow, both sources and the page (`src/features/loops/`).
 
 What a fitting job looks like isn't copied onto the loop. Each run reads the person's Preferences, so changing an interest today changes tomorrow's run.
 
@@ -382,14 +382,13 @@ erDiagram
         string title "also company, location"
         number fit "0 to 100"
         string[] reasons "up to 5"
-        enum status "new | saved | dismissed"
+        enum status "new | saved | dismissed | applied"
         id applicationId "optional"
     }
     sourceUsage {
         enum provider "firecrawl | contextDev"
         string month "2026-10"
         number used
-        number limit
         number exhaustedAt "optional"
     }
 ```
@@ -405,15 +404,16 @@ Not tables: the questions and templates are a list in code, like the built-in Pr
 
 ### What the components keep
 
-The workflow, workpool and rate limiter components bring their own tables. The app never reads them directly; it keeps an id or calls the component.
+The workflow and rate limiter components bring their own tables. The app never reads them directly; it keeps an id or calls the component.
 
-| Component                  | Keeps                                                                                   | The app keeps                                      |
-| -------------------------- | --------------------------------------------------------------------------------------- | -------------------------------------------------- |
-| `@convex-dev/workflow`     | each run's steps, retries and results                                                   | `loopRuns.workflowId`, read with `workflow.status` |
-| `@convex-dev/workpool`     | the queue workflow steps run on, plus a `scrapePool` capped at the sources' concurrency | nothing                                            |
-| `@convex-dev/rate-limiter` | per-source call buckets shared by everyone, and a per-user limit on starting runs       | nothing                                            |
+| Component                  | Keeps                                                                             | The app keeps         |
+| -------------------------- | --------------------------------------------------------------------------------- | --------------------- |
+| `@convex-dev/workflow`     | each run's steps, retries and results, on its own workpool                        | `loopRuns.workflowId` |
+| `@convex-dev/rate-limiter` | per-source call buckets shared by everyone, and 3 runs by hand per person per day | nothing               |
 
-`scrapePool` is the batch worker: reading postings fans out in parallel, but the context.dev free plan allows 2 requests at once, so every run's reads share one pool with `maxParallelism` set to match.
+No separate workpool: the workflow component already runs every step on one, with `maxParallelism` set in `manager.ts`. Following the workflow docs, each step is a batch instead of one step per posting: one action runs every search for a run, and one reads every posting, two at a time, because the context.dev free plan allows 2 requests at once.
+
+Each source's monthly credits come from the Convex env (`FIRECRAWL_MONTHLY_CREDITS`, `CONTEXT_DEV_MONTHLY_CREDITS`) and default to the free plans: 500 for Firecrawl and 1,000 for context.dev.
 
 ### One run
 
@@ -423,13 +423,15 @@ flowchart LR
     D --> P[plan: loop + Preferences to search words]
     P --> S[pick source from sourceUsage]
     S --> Q[search, rate limited]
-    Q --> R[read postings on scrapePool]
+    Q --> R[read postings, one batch action]
     R --> K[score and keep, skip red flags]
     K --> V[save jobLeads, skip seen urlKeys, add credits to sourceUsage]
-    V --> O[onComplete: finish loopRuns, Inbox summary if asked]
+    V --> O[onComplete: mark failed runs, log each run with evlog]
 ```
 
 A run uses Firecrawl, then context.dev. It moves on once a source has used 90% of its monthly credits (`switchAt` in the catalog), or as soon as the source says it's out: Firecrawl answers 402 and context.dev answers 401 `USAGE_EXCEEDED`. That sets `exhaustedAt` until the month resets. If every source is out, the run is saved as `skipped` with a note, and the Runs tab shows it.
+
+Every run is logged as one wide event with [evlog](https://www.evlog.dev/): which sources it used and spent, what it read and kept, how long it took and why it stopped. The search and read actions log one event each too. They print as JSON, so the Convex dashboard's logs can be searched by field (`convex/lib/log.ts`).
 
 ### Folders
 
@@ -437,19 +439,22 @@ The workflow machinery is its own feature; everything else follows the usual fea
 
 ```text
 convex/api/features/loops/          tables and the functions the page calls
-  catalog.ts                         questions, templates, sizes, estimate (built)
+  catalog.ts                         questions, templates, sizes, estimate
   models/                            loops.ts, runs.ts, leads.ts, usage.ts, index.ts
-  validators.ts, public.ts, internal.ts
+  validators.ts, schedule.ts         input checks; the next morning in a time zone
+  public.ts, internal.ts             what the page calls; the cron, plan and finish steps
 convex/api/features/workflows/      what runs a loop
-  manager.ts                         WorkflowManager on components.workflow
+  manager.ts                         WorkflowManager and the rate limits
   findJobs.ts                        the run, step by step
-  sources/                           firecrawl.ts, contextDev.ts
-  limits.ts                          rate limiter buckets and scrapePool
+  actions.ts                         search and read, one batch each
+  fit.ts                             search words, scoring, URL dedupe
+  sources/                           firecrawl.ts, contextDev.ts, index.ts (keys and credits)
 convex/crons.ts                      every 15 minutes: start due loops
-convex/convex.config.ts              app.use(workflow), app.use(workpool, { name: "scrapePool" }), app.use(rateLimiter)
+convex/convex.config.ts              app.use(workflow), app.use(rateLimiter)
+convex/lib/log.ts                    evlog wide events
 ```
 
-The API keys, `FIRECRAWL_API_KEY` and `CONTEXT_DEV_API_KEY`, go in `convex.config.ts` env like the auth keys.
+The API keys, `FIRECRAWL_API_KEY` and `CONTEXT_DEV_API_KEY`, go in the Convex env, declared in `convex.config.ts` like the auth keys. A source without a key is skipped.
 
 ## Build order
 
@@ -467,7 +472,7 @@ flowchart TD
         S5[preferences, preferenceTags, profileEntries: answers, AI prefill, one resume file - built]
         S6[monthly target]
         S8[dashboard + recommendations]
-        S10[loops: tables, workflow, sources - page built on sample data]
+        S10[loops: tables, workflow, sources, page - built]
     end
     subgraph P3[Phase 3: automation]
         S9[emails via Gmail]
@@ -480,7 +485,7 @@ Phase 1 needs a migration, because `applications.company` is a string today. For
 
 ## Open questions
 
-- **Scoring loops.** Should a run judge fit with rules only (interests, places, red flags), or also ask an LLM about each posting? An LLM pass costs per posting, on top of the source credits.
+- **Scoring loops.** Runs judge fit with rules only for now: interests, places, skills and red flags matched against each posting. Should an LLM also read each posting? That costs per posting, on top of the source credits.
 - **Loop summaries.** The Inbox runs on sample data today, so an Inbox summary needs a `notifications` table first.
 - **Plans.** Which Firecrawl and context.dev plans will this run on? Their monthly credits become `sourceUsage.limit`.
 

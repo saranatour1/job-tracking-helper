@@ -6,6 +6,8 @@ import authUsername from "@convex-dev/auth/components/username/convex.config.js"
 import authGoogle from "@convex-dev/auth/components/google/convex.config.js"
 import authGithub from "@convex-dev/auth/components/github/convex.config.js"
 import authAnonymous from "@convex-dev/auth/components/anonymous/convex.config.js"
+import rateLimiter from "@convex-dev/rate-limiter/convex.config.js"
+import workflow from "@convex-dev/workflow/convex.config.js"
 
 const app = defineApp({
   env: {
@@ -16,6 +18,12 @@ const app = defineApp({
     AUTH_GOOGLE_CLIENT_SECRET: v.string(),
     AUTH_GITHUB_CLIENT_ID: v.string(),
     AUTH_GITHUB_CLIENT_SECRET: v.string(),
+    // Loops' job sources. A source without a key is skipped; the credits are each
+    // plan's monthly allowance, defaulting to the free plans.
+    FIRECRAWL_API_KEY: v.optional(v.string()),
+    CONTEXT_DEV_API_KEY: v.optional(v.string()),
+    FIRECRAWL_MONTHLY_CREDITS: v.optional(v.string()),
+    CONTEXT_DEV_MONTHLY_CREDITS: v.optional(v.string()),
   },
 })
 
@@ -43,5 +51,10 @@ app.use(authGithub, {
     CLIENT_SECRET: app.env.AUTH_GITHUB_CLIENT_SECRET,
   },
 })
+
+// Loops: the workflow component runs each morning's search step by step, on its own
+// workpool, and the rate limiter keeps calls to each source under its limit.
+app.use(workflow)
+app.use(rateLimiter)
 
 export default app

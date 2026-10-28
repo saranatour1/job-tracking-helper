@@ -30,3 +30,15 @@ describe("loop catalog", () => {
     expect(creditsPerRun(10)).toBe(33)
   })
 })
+
+describe("loop answers", () => {
+  it("validates exactly the catalog's questions", async () => {
+    const { LoopAnswers } = await import("./validators")
+    expect(Object.keys(LoopAnswers.json as { required: unknown[] }).length).toBeGreaterThan(0)
+    const all = Object.fromEntries(Object.keys(loopQuestions).map((q) => [q, true]))
+    expect(LoopAnswers.allows(all)).toBe(true)
+    expect(LoopAnswers.allows({ ...all, usePreferences: "yes" })).toBe(false)
+    const { usePreferences: _, ...missingOne } = all
+    expect(LoopAnswers.allows(missingOne)).toBe(false)
+  })
+})

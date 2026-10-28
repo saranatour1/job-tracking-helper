@@ -1,4 +1,5 @@
 import { api } from "@convex/_generated/api"
+import type { Doc, Id } from "@convex/_generated/dataModel"
 import {
   blankTemplate,
   creditsPerRun,
@@ -21,7 +22,8 @@ import { CheckmarkCircle02Icon, PlusSignIcon } from "@hugeicons/core-free-icons"
 import { HugeiconsIcon } from "@hugeicons/react"
 import { useForm, useStore } from "@tanstack/react-form"
 import { Link, useNavigate, useSearch } from "@tanstack/react-router"
-import { usePaginatedQuery, useQuery } from "convex/react"
+import { useMutation, usePaginatedQuery, useQuery } from "convex/react"
+import { ConvexError } from "convex/values"
 import { startTransition, useActionState } from "react"
 
 import { Badge } from "@/components/ui/badge"
@@ -35,7 +37,11 @@ import { chip, PageIntro, pageBody, Tile, tileGrid } from "@/features/shell/page
 import { PageHeader } from "@/features/shell/page-header"
 import { cn } from "@/lib/utils"
 
-import { providerUsage, type Run, sampleLoops, sampleRuns } from "./data"
+type Loop = Doc<"loops">
+type Run = Doc<"loopRuns">
+type Lead = Doc<"jobLeads">
+type DailySize = (typeof dailySizes)[number]
+type RunTime = (typeof runTimes)[number]
 
 const loopsTabs = ["loops", "runs", "sources"] as const
 export type LoopsTab = (typeof loopsTabs)[number]
@@ -52,6 +58,11 @@ export const loopsSearch = (
 })
 
 type Prefs = ReturnType<typeof formOf>
+
+const messageOf = (error: unknown) =>
+  error instanceof ConvexError && typeof error.data === "string"
+    ? error.data
+    : "Something went wrong. Try again."
 
 const list = (items: string[], max = 3) =>
   items.length > max
@@ -82,8 +93,10 @@ const lookFor = (a: LoopAnswers, p: Prefs | undefined): string[] => {
   return lines.length ? lines : ["Anything new, with no filters"]
 }
 
-const day = (iso: string) =>
-  new Date(`${iso}T12:00:00`).toLocaleDateString("en", { month: "short", day: "numeric" })
+const day = (ms: number) =>
+  new Date(ms).toLocaleDateString("en", { month: "short", day: "numeric" })
+const when = (ms: number) =>
+  new Date(ms).toLocaleString("en", { weekday: "short", hour: "2-digit", minute: "2-digit" })
 const percent = (part: number, whole: number) => (whole ? Math.round((part / whole) * 100) : 0)
 
 const Heading = ({ title, description }: { title: string; description?: string }) => (
@@ -115,8 +128,16 @@ const Checklist = ({ lines }: { lines: string[] }) => (
   </ul>
 )
 
+const Status = ({ text }: { text: string | undefined }) =>
+  text ? (
+    <p role="status" className="text-muted-foreground px-1 text-xs">
+      {text}
+    </p>
+  ) : null
+
 // How many jobs each recent run kept, oldest on the left.
 const KeptBars = ({ runs }: { runs: Run[] }) => {
+  if (!runs.length) return null
   const most = Math.max(1, ...runs.map((r) => r.kept))
   return (
     <div
@@ -126,8 +147,8 @@ const KeptBars = ({ runs }: { runs: Run[] }) => {
     >
       {runs.map((r) => (
         <span
-          key={r.id}
-          title={`${day(r.day)}: ${r.kept} kept`}
+          key={r._id}
+          title={`${day(r.startedAt)}: ${r.kept} kept`}
           style={{ height: `${Math.max(8, (r.kept / most) * 100)}%` }}
           className={cn(
             "w-3 rounded-sm",
@@ -139,46 +160,182 @@ const KeptBars = ({ runs }: { runs: Run[] }) => {
   )
 }
 
-const LoopsOverview = ({ prefs }: { prefs: Prefs | undefined }) => (
+const LoopTile = ({ loop, runs, prefs }: { loop: Loop; runs: Run[]; prefs: Prefs | undefined }) => {
+  const setActive = useMutation(api.loops.setActive)
+  const runNow = useMutation(api.loops.runNow)
+  const remove = useMutation(api.loops.remove)
+  const [status, act] = useActionState(
+    async (_: string | undefined, action: "pause" | "resume" | "run" | "remove") => {
+      try {
+        if (action === "run") {
+          await runNow({ loopId: loop._id })
+          return "Started. It shows up under Runs in a minute or two."
+        }
+        if (action === "remove") {
+          if (!window.confirm(`Remove "${loop.name}"? Its runs and jobs stay.`)) return undefined
+          await remove({ loopId: loop._id })
+          return undefined
+        }
+        await setActive({ loopId: loop._id, active: action === "resume" })
+        return undefined
+      } catch (error) {
+        return messageOf(error)
+      }
+    },
+    undefined
+  )
+  const last = runs[0]
+  return (
+    <Tile
+      title={loop.name}
+      actions={
+        <Badge variant={loop.active ? "success" : "outline"} className="font-normal">
+          {loop.active ? "Active" : "Paused"}
+        </Badge>
+      }
+    >
+      <dl className="flex flex-col gap-1.5">
+        <Row label="Each morning">
+          {loop.at} · up to {loop.daily} jobs
+        </Row>
+        <Row label="Looks for">{lookFor(loop.answers, prefs).join(" · ")}</Row>
+        <Row label="Next run">{loop.active ? when(loop.nextRunAt) : "Paused"}</Row>
+        <Row label="Last run">
+          {last
+            ? last.status === "done"
+              ? `${day(last.startedAt)}: read ${last.scanned}, kept ${last.kept}`
+              : `${day(last.startedAt)}: ${last.status}`
+            : "Not run yet"}
+        </Row>
+      </dl>
+      <KeptBars runs={runs.slice(0, 7).reverse()} />
+      <div className="flex flex-wrap gap-1.5 px-1">
+        <Button size="xs" variant="outline" onClick={() => startTransition(() => act("run"))}>
+          Run now
+        </Button>
+        <Button
+          size="xs"
+          variant="ghost"
+          onClick={() => startTransition(() => act(loop.active ? "pause" : "resume"))}
+        >
+          {loop.active ? "Pause" : "Resume"}
+        </Button>
+        <Button
+          size="xs"
+          variant="ghost"
+          className="ms-auto"
+          onClick={() => startTransition(() => act("remove"))}
+        >
+          Remove
+        </Button>
+      </div>
+      <Status text={status} />
+    </Tile>
+  )
+}
+
+// Jobs the runs kept and nobody has acted on yet.
+const NewJobs = ({ leads }: { leads: Lead[] }) => {
+  const setLeadStatus = useMutation(api.loops.setLeadStatus)
+  const [status, act] = useActionState(
+    async (
+      _: string | undefined,
+      { leadId, to }: { leadId: Id<"jobLeads">; to: "saved" | "dismissed" | "applied" }
+    ) => {
+      try {
+        await setLeadStatus({ leadId, status: to })
+        return to === "applied" ? "Added to Applications." : undefined
+      } catch (error) {
+        return messageOf(error)
+      }
+    },
+    undefined
+  )
+  return (
+    <Tile title={`New jobs · ${leads.length}`} className="gap-0 p-1.5">
+      {leads.length === 0 && (
+        <p className="text-muted-foreground px-2.5 py-2 text-[13px]">
+          Nothing new yet. Jobs your loops keep show up here each morning.
+        </p>
+      )}
+      {leads.map((lead) => (
+        <div
+          key={lead._id}
+          className="hover:bg-accent/30 flex flex-col gap-1 rounded-md px-2.5 py-2 text-[13px] sm:flex-row sm:items-start sm:gap-3"
+        >
+          <div className="flex min-w-0 flex-1 flex-col gap-0.5">
+            <a
+              href={lead.url}
+              target="_blank"
+              rel="noreferrer"
+              className="truncate font-medium hover:underline"
+            >
+              {lead.title}
+            </a>
+            <span className="text-muted-foreground truncate text-xs">
+              {lead.company} · fit {lead.fit} · {lead.reasons.join(", ") || "no strong matches"}
+            </span>
+          </div>
+          <div className="flex shrink-0 gap-1">
+            {(
+              [
+                ["saved", "Save"],
+                ["applied", "Applied"],
+                ["dismissed", "Dismiss"],
+              ] as const
+            ).map(([to, label]) => (
+              <Button
+                key={to}
+                size="xs"
+                variant={to === "dismissed" ? "ghost" : "outline"}
+                onClick={() => startTransition(() => act({ leadId: lead._id, to }))}
+              >
+                {label}
+              </Button>
+            ))}
+          </div>
+        </div>
+      ))}
+      <Status text={status} />
+    </Tile>
+  )
+}
+
+const LoopsOverview = ({
+  loops,
+  runs,
+  leads,
+  prefs,
+}: {
+  loops: Loop[]
+  runs: Run[]
+  leads: Lead[]
+  prefs: Prefs | undefined
+}) => (
   <>
     <PageIntro
       title="Loops"
       description="Searches that run each morning and bring back jobs that fit you. Pick a template, answer a few yes-or-no questions, and it runs on its own."
     />
-    <Heading
-      title={`Your loops · ${sampleLoops.length} of ${maxLoops}`}
-      description="Each one runs once a morning. Pause one to stop it without losing its history."
-    />
-    <div className={tileGrid}>
-      {sampleLoops.map((loop) => {
-        const runs = sampleRuns.filter((r) => r.loopId === loop.id)
-        const last = runs[0]
-        return (
-          <Tile
-            key={loop.id}
-            title={loop.name}
-            actions={
-              <Badge variant={loop.active ? "success" : "outline"} className="font-normal">
-                {loop.active ? "Active" : "Paused"}
-              </Badge>
-            }
-          >
-            <dl className="flex flex-col gap-1.5">
-              <Row label="Each morning">
-                {loop.at} · up to {loop.daily} jobs
-              </Row>
-              <Row label="Looks for">
-                {lookFor(templateById(loop.template)!.answers, prefs).join(" · ")}
-              </Row>
-              <Row label="Last run">
-                {last ? `${day(last.day)}: read ${last.scanned}, kept ${last.kept}` : "Not run yet"}
-              </Row>
-            </dl>
-            <KeptBars runs={runs.slice(0, 7).reverse()} />
-          </Tile>
-        )
-      })}
-    </div>
+    {loops.length > 0 && (
+      <>
+        <Heading
+          title={`Your loops · ${loops.length} of ${maxLoops}`}
+          description="Each one runs once a morning. Pause one to stop it without losing its history."
+        />
+        <div className={tileGrid}>
+          {loops.map((loop) => (
+            <LoopTile
+              key={loop._id}
+              loop={loop}
+              runs={runs.filter((r) => r.loopId === loop._id)}
+              prefs={prefs}
+            />
+          ))}
+        </div>
+        <NewJobs leads={leads} />
+      </>
+    )}
     <Heading
       title="Start from a template"
       description="Each one is filled in from your Preferences. Open it to change any answer."
@@ -192,7 +349,7 @@ const LoopsOverview = ({ prefs }: { prefs: Prefs | undefined }) => (
             <Button
               size="xs"
               variant="outline"
-              disabled={sampleLoops.length >= maxLoops}
+              disabled={loops.length >= maxLoops}
               render={<Link to="/loops" search={{ tab: "loops", template: t.id }} />}
             >
               Use this
@@ -248,26 +405,39 @@ const opposite: Partial<Record<LoopQuestion, LoopQuestion>> = {
 
 // Picking from a few fixed answers keeps every loop's cost known before it runs.
 const Setup = ({ template, prefs }: { template: LoopTemplate; prefs: Prefs | undefined }) => {
+  const create = useMutation(api.loops.create)
+  const navigate = useNavigate()
   const form = useForm({
     defaultValues: {
       name: template.name,
       answers: template.answers,
-      daily: template.daily as number,
-      at: template.at as string,
+      daily: template.daily as DailySize,
+      at: template.at as RunTime,
     },
   })
   const values = useStore(form.store, (s) => s.values)
   const credits = creditsPerRun(values.daily)
-  const [status, start] = useActionState(
-    async () =>
-      `Preview only: "${values.name.trim() || template.name}" will start saving once the loops tables are in.`,
-    undefined
-  )
+  const [status, start] = useActionState(async () => {
+    try {
+      await create({
+        name: values.name,
+        template: template.id,
+        answers: values.answers,
+        daily: values.daily,
+        at: values.at,
+        timeZone: Intl.DateTimeFormat().resolvedOptions().timeZone,
+      })
+      await navigate({ to: "/loops", search: { tab: "loops" } })
+      return undefined
+    } catch (error) {
+      return messageOf(error)
+    }
+  }, undefined)
   return (
     <>
       <PageIntro
         title={template.name}
-        description="Answer yes or no. You can change any answer later, and nothing runs until you start it."
+        description="Answer yes or no. It first runs at the time you pick, and you can pause or remove it any time."
       >
         <Button variant="ghost" size="sm" render={<Link to="/loops" search={{ tab: "loops" }} />}>
           Back to loops
@@ -314,7 +484,7 @@ const Setup = ({ template, prefs }: { template: LoopTemplate; prefs: Prefs | und
                     size="sm"
                     aria-label="Jobs each morning"
                     value={[String(f.state.value)]}
-                    onValueChange={(v) => v[0] && f.handleChange(Number(v[0]))}
+                    onValueChange={(v) => v[0] && f.handleChange(Number(v[0]) as DailySize)}
                   >
                     {dailySizes.map((n) => (
                       <ToggleGroupItem key={n} value={String(n)}>
@@ -333,7 +503,7 @@ const Setup = ({ template, prefs }: { template: LoopTemplate; prefs: Prefs | und
                     size="sm"
                     aria-label="Start time"
                     value={[f.state.value]}
-                    onValueChange={(v) => v[0] && f.handleChange(v[0])}
+                    onValueChange={(v) => v[0] && f.handleChange(v[0] as RunTime)}
                   >
                     {runTimes.map((t) => (
                       <ToggleGroupItem key={t} value={t}>
@@ -361,7 +531,7 @@ const Setup = ({ template, prefs }: { template: LoopTemplate; prefs: Prefs | und
       </div>
       <div className="flex items-center justify-end gap-3">
         {status && (
-          <p role="status" className="text-muted-foreground text-sm">
+          <p role="alert" className="text-destructive text-sm">
             {status}
           </p>
         )}
@@ -380,12 +550,17 @@ const Stat = ({ label, value, note }: { label: string; value: string; note?: str
   </Tile>
 )
 
-const statusBadge = { done: "success", failed: "error", skipped: "outline" } as const
+const statusBadge = {
+  queued: "info",
+  running: "info",
+  done: "success",
+  failed: "error",
+  skipped: "outline",
+} as const
 
-const RunsTab = () => {
-  const sum = (key: "scanned" | "kept" | "saved" | "applied" | "credits", runs = sampleRuns) =>
-    runs.reduce((n, r) => n + r[key], 0)
-  const names = Object.fromEntries(sampleLoops.map((l) => [l.id, l.name]))
+const RunsTab = ({ runs, more }: { runs: Run[]; more?: () => void }) => {
+  const sum = (key: "scanned" | "kept" | "saved" | "applied" | "credits", from = runs) =>
+    from.reduce((n, r) => n + r[key], 0)
   return (
     <>
       <PageIntro
@@ -393,7 +568,7 @@ const RunsTab = () => {
         description="Each morning's run: what it read, what it kept and what came of it."
       />
       <div className="grid grid-cols-2 gap-3 md:grid-cols-4">
-        <Stat label="Runs" value={String(sampleRuns.length)} note="Last 7 days" />
+        <Stat label="Runs" value={String(runs.length)} note="Loaded below" />
         <Stat
           label="Kept"
           value={String(sum("kept"))}
@@ -412,17 +587,17 @@ const RunsTab = () => {
       </div>
       <div className={tileGrid}>
         {(Object.keys(providers) as Provider[]).map((p) => {
-          const runs = sampleRuns.filter((r) => r.provider === p)
+          const used = runs.filter((r) => r.provider === p)
           return (
             <Tile key={p} title={providers[p].name}>
               <dl className="flex flex-col gap-1.5">
-                <Row label="Runs">{runs.length}</Row>
+                <Row label="Runs">{used.length}</Row>
                 <Row label="Kept">
-                  {percent(sum("kept", runs), sum("scanned", runs))}% of what it read
+                  {percent(sum("kept", used), sum("scanned", used))}% of what it read
                 </Row>
                 <Row label="Per kept job">
-                  {sum("kept", runs)
-                    ? `${(sum("credits", runs) / sum("kept", runs)).toFixed(1)} credits`
+                  {sum("kept", used)
+                    ? `${(sum("credits", used) / sum("kept", used)).toFixed(1)} credits`
                     : "—"}
                 </Row>
               </dl>
@@ -431,21 +606,28 @@ const RunsTab = () => {
         })}
       </div>
       <Tile title="Every run" className="gap-0 p-1.5">
-        <div className="text-muted-foreground hidden grid-cols-[4.5rem_minmax(0,1fr)_6rem_9rem_4.5rem_4.5rem] gap-3 px-2.5 py-1.5 text-xs md:grid">
-          <span>Day</span>
-          <span>Loop</span>
-          <span>Source</span>
-          <span>Read → kept → saved</span>
-          <span>Credits</span>
-          <span>Status</span>
-        </div>
-        {sampleRuns.map((r) => (
+        {runs.length === 0 && (
+          <p className="text-muted-foreground px-2.5 py-2 text-[13px]">
+            No runs yet. Loops run each morning, or press Run now on one.
+          </p>
+        )}
+        {runs.length > 0 && (
+          <div className="text-muted-foreground hidden grid-cols-[4.5rem_minmax(0,1fr)_6rem_9rem_4.5rem_4.5rem] gap-3 px-2.5 py-1.5 text-xs md:grid">
+            <span>Day</span>
+            <span>Loop</span>
+            <span>Source</span>
+            <span>Read → kept → saved</span>
+            <span>Credits</span>
+            <span>Status</span>
+          </div>
+        )}
+        {runs.map((r) => (
           <div
-            key={r.id}
+            key={r._id}
             className="hover:bg-accent/30 grid grid-cols-[4.5rem_minmax(0,1fr)_4.5rem] items-start gap-x-3 gap-y-0.5 rounded-md px-2.5 py-2 text-[13px] md:grid-cols-[4.5rem_minmax(0,1fr)_6rem_9rem_4.5rem_4.5rem]"
           >
-            <span className="text-muted-foreground">{day(r.day)}</span>
-            <span className="truncate">{names[r.loopId]}</span>
+            <span className="text-muted-foreground">{day(r.startedAt)}</span>
+            <span className="truncate">{r.loopName}</span>
             <span className="text-muted-foreground hidden md:block">
               {r.provider ? providers[r.provider].name : "—"}
             </span>
@@ -465,12 +647,17 @@ const RunsTab = () => {
             )}
           </div>
         ))}
+        {more && (
+          <Button size="xs" variant="ghost" className="m-1 self-start" onClick={more}>
+            Show older runs
+          </Button>
+        )}
       </Tile>
     </>
   )
 }
 
-// The steps of one run, and the Convex piece that carries each.
+// The steps of one run, and the piece that carries each.
 const runSteps = [
   ["Wake up", "A cron every 15 minutes starts the loops that are due, a few at a time.", "cron"],
   [
@@ -485,60 +672,76 @@ const runSteps = [
   ],
   [
     "Read postings",
-    "Reads about three postings for each job it keeps, several at once.",
-    "workpool",
+    "Reads about three postings for each job it keeps, two at a time, in one batch.",
+    "batch action",
   ],
-  ["Score and keep", "Checks each posting against the loop and skips red flags.", "workflow step"],
+  ["Score and keep", "Checks each posting against the loop and skips red flags.", "rules"],
   [
-    "Save and tell you",
-    "Saves new jobs, skips ones you've already seen, and posts a summary to Inbox.",
-    "workflow onComplete",
+    "Save and log",
+    "Saves new jobs, skips ones you've already seen, and logs the run as one event.",
+    "evlog",
   ],
 ] as const
 
-const SourcesTab = () => {
-  const order = Object.keys(providers) as Provider[]
-  const inUse = order.find((p) => providerUsage[p].used < providerUsage[p].limit * switchAt)
+type SourceRow = {
+  provider: Provider
+  configured: boolean
+  used: number
+  limit: number
+  exhausted: boolean
+  usable: boolean
+}
+
+const SourcesTab = ({ rows }: { rows: SourceRow[] }) => {
+  const inUse = rows.find((r) => r.usable)?.provider
   return (
     <>
       <PageIntro
         title="Sources"
-        description={`Where jobs come from. A run uses ${order.map((p) => providers[p].name).join(", then ")}, moving on once a source has used ${switchAt * 100}% of its monthly credits. If every source is low, the run waits and says so in Runs.`}
+        description={`Where jobs come from. A run uses ${rows.map((r) => providers[r.provider].name).join(", then ")}, moving on once a source has used ${switchAt * 100}% of its monthly credits or says it's out. If every source is out, the run is skipped and says so in Runs.`}
       />
       <div className={tileGrid}>
-        {order.map((p) => {
-          const { used, limit, resets } = providerUsage[p]
-          return (
-            <Tile
-              key={p}
-              title={providers[p].name}
-              actions={
-                <Badge variant={p === inUse ? "info" : "outline"} className="font-normal">
-                  {p === inUse ? "In use" : used >= limit * switchAt ? "Low" : "Next up"}
-                </Badge>
-              }
+        {rows.map(({ provider, configured, used, limit, exhausted }) => (
+          <Tile
+            key={provider}
+            title={providers[provider].name}
+            actions={
+              <Badge variant={provider === inUse ? "info" : "outline"} className="font-normal">
+                {!configured
+                  ? "Not set up"
+                  : provider === inUse
+                    ? "In use"
+                    : exhausted || used >= limit * switchAt
+                      ? "Out for this month"
+                      : "Next up"}
+              </Badge>
+            }
+          >
+            <Meter
+              value={percent(used, limit)}
+              aria-label={`${providers[provider].name} credits used`}
+              className="px-1"
             >
-              <Meter
-                value={percent(used, limit)}
-                aria-label={`${providers[p].name} credits used`}
-                className="px-1"
-              >
-                <MeterTrack className="h-1.5 rounded-full">
-                  <MeterIndicator className="rounded-full" />
-                </MeterTrack>
-              </Meter>
-              <dl className="flex flex-col gap-1.5">
-                <Row label="This month">
-                  {used.toLocaleString("en")} of {limit.toLocaleString("en")} credits
+              <MeterTrack className="h-1.5 rounded-full">
+                <MeterIndicator className="rounded-full" />
+              </MeterTrack>
+            </Meter>
+            <dl className="flex flex-col gap-1.5">
+              <Row label="This month">
+                {used.toLocaleString("en")} of {limit.toLocaleString("en")} credits
+              </Row>
+              <Row label="Moves on at">
+                {Math.round(limit * switchAt).toLocaleString("en")} credits
+              </Row>
+              {!configured && (
+                <Row label="To set up">
+                  Add {provider === "firecrawl" ? "FIRECRAWL_API_KEY" : "CONTEXT_DEV_API_KEY"} to
+                  the Convex env
                 </Row>
-                <Row label="Moves on at">
-                  {Math.round(limit * switchAt).toLocaleString("en")} credits
-                </Row>
-                <Row label="Resets">{resets}</Row>
-              </dl>
-            </Tile>
-          )
-        })}
+              )}
+            </dl>
+          </Tile>
+        ))}
       </div>
       <Tile title="How a run works" className="gap-0 p-1.5">
         <ol>
@@ -560,7 +763,7 @@ const SourcesTab = () => {
         <dl className="flex flex-col gap-1.5">
           <Row label="Loops">{maxLoops} per person</Row>
           <Row label="Jobs a morning">{dailySizes.join(", ")}, picked per loop</Row>
-          <Row label="Runs">Once a day per loop, at {runTimes.join(", ")}</Row>
+          <Row label="Runs">Once a morning per loop, plus 3 by hand a day</Row>
           <Row label="Calls">Each source has a per-minute limit shared by everyone</Row>
           <Row label="Questions">Yes or no only, so every answer has a known cost</Row>
         </dl>
@@ -574,6 +777,12 @@ export const Loops = () => {
   const navigate = useNavigate()
   const tab = search.tab ?? "loops"
   const template = templateById(search.template)
+  const loops = useQuery(api.loops.list) ?? []
+  const runs = usePaginatedQuery(api.loops.runs, {}, { initialNumItems: 30 })
+  const leads = usePaginatedQuery(api.loops.leads, { status: "new" }, { initialNumItems: 20 })
+  const sources = useQuery(api.loops.sourceStatus, {
+    month: new Date().toISOString().slice(0, 7),
+  })
   // Templates are filled in from the person's Preferences tags.
   const settings = useQuery(api.preferences.get)
   const tags = usePaginatedQuery(api.preferences.tags, {}, { initialNumItems: rowLimits.tags })
@@ -589,7 +798,7 @@ export const Loops = () => {
           <Button
             variant="ghost"
             size="sm"
-            disabled={sampleLoops.length >= maxLoops}
+            disabled={loops.length >= maxLoops}
             render={<Link to="/loops" search={{ tab: "loops", template: blankTemplate.id }} />}
           >
             <HugeiconsIcon icon={PlusSignIcon} /> New loop
@@ -621,11 +830,23 @@ export const Loops = () => {
               template ? (
                 <Setup key={template.id} template={template} prefs={prefs} />
               ) : (
-                <LoopsOverview prefs={prefs} />
+                <LoopsOverview
+                  loops={loops}
+                  runs={runs.results}
+                  leads={leads.results}
+                  prefs={prefs}
+                />
               ),
             ],
-            ["runs", <RunsTab key="runs" />],
-            ["sources", <SourcesTab key="sources" />],
+            [
+              "runs",
+              <RunsTab
+                key="runs"
+                runs={runs.results}
+                more={runs.status === "CanLoadMore" ? () => runs.loadMore(30) : undefined}
+              />,
+            ],
+            ["sources", <SourcesTab key="sources" rows={sources ?? []} />],
           ] as const
         ).map(([value, content]) => (
           <TabsPanel key={value} value={value} className="flex min-h-0">
