@@ -33,6 +33,8 @@ export const LoopRun = type({
   "note?": "string",
   // While reads are out on the read pool: how many are left, and what they kept so far.
   "readsLeft?": "number",
+  // The reads' ids on the read pool, so stopping a run can cancel the ones not started.
+  "readWorkIds?": "string[]",
   "candidates?": Candidate.array(),
   "readCredits?": "number",
   "readFailures?": "number",

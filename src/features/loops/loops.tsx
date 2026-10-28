@@ -18,7 +18,15 @@ import {
 import { nextRunAt } from "@convex/api/features/loops/schedule"
 import { formOf, rowLimits, type TagKind } from "@convex/api/features/preferences/rows"
 import { criteriaOf, keepFrom, queriesOf } from "@convex/api/features/workflows/fit"
-import { CheckmarkCircle02Icon, PlusSignIcon } from "@hugeicons/core-free-icons"
+import {
+  CheckmarkCircle02Icon,
+  Delete02Icon,
+  PauseIcon,
+  PlayIcon,
+  PlusSignIcon,
+  RepeatIcon,
+  StopIcon,
+} from "@hugeicons/core-free-icons"
 import { HugeiconsIcon } from "@hugeicons/react"
 import { useForm, useStore } from "@tanstack/react-form"
 import { Link, useNavigate, useSearch } from "@tanstack/react-router"
@@ -34,6 +42,7 @@ import { ScrollArea } from "@/components/ui/scroll-area"
 import { Tabs, TabsList, TabsPanel, TabsTab } from "@/components/ui/tabs"
 import { Switch } from "@/components/ui/switch"
 import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group"
+import { Tooltip, TooltipPopup, TooltipTrigger } from "@/components/ui/tooltip"
 import { chip, PageIntro, pageBody, Tile, tileGrid } from "@/features/shell/page-body"
 import { PageHeader } from "@/features/shell/page-header"
 import { cn } from "@/lib/utils"
@@ -161,16 +170,37 @@ const KeptBars = ({ runs }: { runs: Run[] }) => {
   )
 }
 
+// An icon button with its name in a tooltip and for screen readers.
+const IconAction = ({
+  label,
+  icon,
+  ...props
+}: { label: string; icon: typeof PlayIcon } & React.ComponentProps<typeof Button>) => (
+  <Tooltip>
+    <TooltipTrigger
+      render={<Button variant="ghost" size="icon-sm" aria-label={label} {...props} />}
+    >
+      <HugeiconsIcon icon={icon} />
+    </TooltipTrigger>
+    <TooltipPopup>{label}</TooltipPopup>
+  </Tooltip>
+)
+
 const LoopTile = ({ loop, runs, prefs }: { loop: Loop; runs: Run[]; prefs: Prefs | undefined }) => {
   const setActive = useMutation(api.loops.setActive)
   const runNow = useMutation(api.loops.runNow)
+  const stopRun = useMutation(api.loops.stopRun)
   const remove = useMutation(api.loops.remove)
   const [status, act] = useActionState(
-    async (_: string | undefined, action: "pause" | "resume" | "run" | "remove") => {
+    async (_: string | undefined, action: "run" | "stop" | "pause" | "resume" | "remove") => {
       try {
         if (action === "run") {
           await runNow({ loopId: loop._id })
           return "Started. It shows up under Runs in a minute or two."
+        }
+        if (action === "stop") {
+          await stopRun({ loopId: loop._id })
+          return "Stopped. Nothing from this run was saved."
         }
         if (action === "remove") {
           if (!window.confirm(`Remove "${loop.name}"? Its runs and jobs stay.`)) return undefined
@@ -178,7 +208,9 @@ const LoopTile = ({ loop, runs, prefs }: { loop: Loop; runs: Run[]; prefs: Prefs
           return undefined
         }
         await setActive({ loopId: loop._id, active: action === "resume" })
-        return undefined
+        return action === "pause"
+          ? "Paused. It won't run each morning until you resume it."
+          : "Resumed. It runs each morning again."
       } catch (error) {
         return messageOf(error)
       }
@@ -186,12 +218,13 @@ const LoopTile = ({ loop, runs, prefs }: { loop: Loop; runs: Run[]; prefs: Prefs
     undefined
   )
   const last = runs[0]
+  const running = last?.status === "queued" || last?.status === "running"
   return (
     <Tile
       title={loop.name}
       actions={
         <Badge variant={loop.active ? "success" : "outline"} className="font-normal">
-          {loop.active ? "Auto" : "Manual"}
+          {running ? "Running" : loop.active ? "Auto" : "Paused"}
         </Badge>
       }
     >
@@ -203,33 +236,48 @@ const LoopTile = ({ loop, runs, prefs }: { loop: Loop; runs: Run[]; prefs: Prefs
         <Row label="Looks for">{lookFor(loop.answers, prefs).join(" · ")}</Row>
         <Row label="Next run">{loop.active ? when(loop.nextRunAt) : "When you press Run now"}</Row>
         <Row label="Last run">
-          {last
-            ? last.status === "done"
-              ? `${day(last.startedAt)}: read ${last.scanned}, kept ${last.kept}`
-              : `${day(last.startedAt)}: ${last.status}`
-            : "Not run yet"}
+          {!last
+            ? "Not run yet"
+            : running
+              ? `Running now${last.scanned ? `, read ${last.scanned} so far` : ""}`
+              : last.status === "done"
+                ? `${day(last.startedAt)}: read ${last.scanned}, kept ${last.kept}`
+                : `${day(last.startedAt)}: ${last.status}`}
         </Row>
       </dl>
       <KeptBars runs={runs.slice(0, 7).reverse()} />
-      <div className="flex flex-wrap gap-1.5 px-1">
-        <Button size="xs" variant="outline" onClick={() => startTransition(() => act("run"))}>
-          Run now
-        </Button>
-        <Button
-          size="xs"
-          variant="ghost"
-          onClick={() => startTransition(() => act(loop.active ? "pause" : "resume"))}
-        >
-          {loop.active ? "Turn auto off" : "Turn auto on"}
-        </Button>
-        <Button
-          size="xs"
-          variant="ghost"
+      <div className="flex items-center gap-0.5 px-1">
+        <IconAction
+          label="Run now"
+          icon={PlayIcon}
+          disabled={running}
+          onClick={() => startTransition(() => act("run"))}
+        />
+        <IconAction
+          label="Stop this run"
+          icon={StopIcon}
+          disabled={!running}
+          onClick={() => startTransition(() => act("stop"))}
+        />
+        {loop.active ? (
+          <IconAction
+            label="Pause daily runs"
+            icon={PauseIcon}
+            onClick={() => startTransition(() => act("pause"))}
+          />
+        ) : (
+          <IconAction
+            label="Resume daily runs"
+            icon={RepeatIcon}
+            onClick={() => startTransition(() => act("resume"))}
+          />
+        )}
+        <IconAction
+          label="Remove loop"
+          icon={Delete02Icon}
           className="ms-auto"
           onClick={() => startTransition(() => act("remove"))}
-        >
-          Remove
-        </Button>
+        />
       </div>
       <Status text={status} />
     </Tile>
@@ -323,7 +371,7 @@ const LoopsOverview = ({
       <>
         <Heading
           title={`Your loops · ${loops.length} of ${maxLoops}`}
-          description="Auto loops run by themselves each morning; manual ones wait for Run now."
+          description="Loops run by themselves each morning. Pause one to run it only when you press Run now."
         />
         <div className={tileGrid}>
           {loops.map((loop) => (
@@ -704,6 +752,7 @@ const statusBadge = {
   done: "success",
   failed: "error",
   skipped: "outline",
+  stopped: "outline",
 } as const
 
 const RunsTab = ({ runs, more }: { runs: Run[]; more?: () => void }) => {

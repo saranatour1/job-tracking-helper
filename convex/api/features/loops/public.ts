@@ -8,7 +8,7 @@ import { companyFromUrl } from "../workflows/fit"
 import { limits } from "../workflows/manager"
 import { apiKeyOf, monthlyCredits } from "../workflows/sources"
 import { maxLoops, switchAt } from "./catalog"
-import { startRun } from "./internal"
+import { startRun, stopRunNow } from "./internal"
 import { isTimeZone, nextRunAt } from "./schedule"
 import { leadStatuses, NewLoop, providerIds } from "./validators"
 
@@ -84,17 +84,34 @@ const runNow = authedMutation({
   returns: v.id("loopRuns"),
   handler: async (ctx, { loopId }) => {
     const loop = await ownLoop(ctx, ctx.userId, loopId)
-    const last = await ctx.db
-      .query("loopRuns")
-      .withIndex("by_loopId_and_startedAt", (q) => q.eq("loopId", loopId))
-      .order("desc")
-      .first()
+    const last = await lastRunOf(ctx, loopId)
     if (last && (last.status === "queued" || last.status === "running"))
       throw new ConvexError("This loop is already running.")
     const { ok } = await limits.limit(ctx, "runNow", { key: ctx.userId })
     if (!ok)
       throw new ConvexError("You've run loops by hand 3 times today. They'll run tomorrow morning.")
     return startRun(ctx, loop)
+  },
+})
+
+const lastRunOf = (ctx: MutationCtx, loopId: Id<"loops">) =>
+  ctx.db
+    .query("loopRuns")
+    .withIndex("by_loopId_and_startedAt", (q) => q.eq("loopId", loopId))
+    .order("desc")
+    .first()
+
+// Stops the loop's run in progress, if there is one.
+const stopRun = authedMutation({
+  args: { loopId: v.id("loops") },
+  returns: v.null(),
+  handler: async (ctx, { loopId }) => {
+    await ownLoop(ctx, ctx.userId, loopId)
+    const run = await lastRunOf(ctx, loopId)
+    if (!run || (run.status !== "queued" && run.status !== "running"))
+      throw new ConvexError("This loop isn't running.")
+    await stopRunNow(ctx, run)
+    return null
   },
 })
 
@@ -200,6 +217,7 @@ export const publicApi = {
   setActive,
   remove,
   runNow,
+  stopRun,
   runs,
   leads,
   setLeadStatus,

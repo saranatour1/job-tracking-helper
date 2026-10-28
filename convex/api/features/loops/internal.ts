@@ -1,5 +1,5 @@
 import { vResultValidator, vWorkflowId, type WorkflowId } from "@convex-dev/workflow"
-import { vOnCompleteArgs } from "@convex-dev/workpool"
+import { vOnCompleteArgs, type WorkId } from "@convex-dev/workpool"
 import { v } from "convex/values"
 import { internal } from "../../../_generated/api"
 import type { Doc, Id } from "../../../_generated/dataModel"
@@ -168,19 +168,21 @@ const queueReads = internalMutation({
   },
   returns: v.null(),
   handler: async (ctx, { runId, provider, postings, criteria }) => {
-    await ctx.db.patch("loopRuns", runId, {
-      readsLeft: postings.length,
-      candidates: [],
-      readCredits: 0,
-      readFailures: 0,
-      outOfCredits: false,
-    })
-    await readPool.enqueueActionBatch(
+    const readWorkIds = await readPool.enqueueActionBatch(
       ctx,
       internal.workflows.readOne,
       postings.map((posting) => ({ provider, posting, criteria })),
       { onComplete: internal.loops.readDone, context: { runId } }
     )
+    await ctx.db.patch("loopRuns", runId, {
+      provider,
+      readsLeft: postings.length,
+      readWorkIds,
+      candidates: [],
+      readCredits: 0,
+      readFailures: 0,
+      outOfCredits: false,
+    })
     return null
   },
 })
@@ -225,7 +227,7 @@ const finishRun = internalMutation({
   returns: v.null(),
   handler: async (ctx, args) => {
     const run = await ctx.db.get("loopRuns", args.runId)
-    if (!run) return null
+    if (!run || run.status === "stopped") return null
     const { provider, keep } = args
     const spent = provider
       ? [...args.spent, { provider, credits: run.readCredits ?? 0 }]
@@ -272,6 +274,7 @@ const finishRun = internalMutation({
       finishedAt: Date.now(),
       note,
       readsLeft: undefined,
+      readWorkIds: undefined,
       candidates: undefined,
       readCredits: undefined,
       readFailures: undefined,
@@ -308,7 +311,7 @@ const runEnded = internalMutation({
   returns: v.null(),
   handler: async (ctx, { workflowId, result, context }) => {
     const run = await ctx.db.get("loopRuns", context.runId)
-    if (!run || result.kind === "success") return null
+    if (!run || result.kind === "success" || run.status === "stopped") return null
     const note = result.kind === "failed" ? `Failed: ${result.error}` : "Canceled."
     await ctx.db.patch("loopRuns", run._id, { status: "failed", finishedAt: Date.now(), note })
     const log = workLog("loop.run", { runId: run._id, loopId: run.loopId, userId: run.userId })
@@ -318,6 +321,31 @@ const runEnded = internalMutation({
     return null
   },
 })
+
+// Stops a run in progress: cancels its workflow and the reads not started yet, and
+// counts the credits its reads already spent. ponytail: the search's credits live in
+// the canceled workflow, so a stopped run under-counts by those few.
+export const stopRunNow = async (ctx: MutationCtx, run: Doc<"loopRuns">) => {
+  if (run.workflowId) await workflow.cancel(ctx, run.workflowId as WorkflowId)
+  for (const id of run.readWorkIds ?? []) await readPool.cancel(ctx, id as WorkId)
+  if (run.provider && run.readCredits)
+    await addUsage(ctx, run.provider, run.readCredits, Boolean(run.outOfCredits))
+  await ctx.db.patch("loopRuns", run._id, {
+    status: "stopped",
+    credits: run.readCredits ?? 0,
+    finishedAt: Date.now(),
+    note: `Stopped after reading ${run.scanned} postings. Nothing was saved.`,
+    readsLeft: undefined,
+    readWorkIds: undefined,
+    candidates: undefined,
+    readCredits: undefined,
+    readFailures: undefined,
+    outOfCredits: undefined,
+  })
+  const log = workLog("loop.run", { runId: run._id, loopId: run.loopId, userId: run.userId })
+  log.set({ outcome: "stopped", scanned: run.scanned, durationMs: Date.now() - run.startedAt })
+  log.emit()
+}
 
 // Everything Loops stored for a user, for deleting an account. Usage is shared, so it stays.
 export const deleteLoops = async (ctx: MutationCtx, userId: Id<"users">) => {

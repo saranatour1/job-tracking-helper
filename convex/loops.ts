@@ -7,6 +7,7 @@ export const {
   setActive,
   remove,
   runNow,
+  stopRun,
   runs,
   leads,
   setLeadStatus,

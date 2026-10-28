@@ -15,7 +15,7 @@ export const LoopAnswers = type({
 })
 
 export const providerIds = ["firecrawl", "contextDev"] as const
-export const runStatuses = ["queued", "running", "done", "failed", "skipped"] as const
+export const runStatuses = ["queued", "running", "done", "failed", "skipped", "stopped"] as const
 export const leadStatuses = ["new", "saved", "dismissed", "applied"] as const
 
 // What the setup screen sends to start a loop. Only the catalog's choices pass.
