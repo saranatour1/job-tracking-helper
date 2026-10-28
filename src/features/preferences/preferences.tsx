@@ -407,6 +407,111 @@ const summaryOf = (id: StepId, v: Values, resume: Resume): string => {
   }
 }
 
+// Every answer as a label and its value, for the overview.
+const rowsOf = (id: StepId, v: Values, resume: Resume): { label: string; value: string }[] => {
+  switch (id) {
+    case "start":
+      return []
+    case "drawn":
+      return [
+        { label: "Interests", value: list(v.interests) },
+        { label: "Not interested in", value: list(v.avoid) },
+      ]
+    case "grow":
+      return [
+        { label: "Where you want to be", value: v.growthGoal },
+        { label: "Skills to build", value: list(v.skillsToBuild) },
+      ]
+    case "where":
+      return [
+        { label: "Places", value: list(v.locations) },
+        { label: "How you'd like to work", value: workModeLabels[v.workMode] },
+      ]
+    case "companies":
+      return [
+        { label: "Companies", value: list(v.companies) },
+        { label: "What draws you", value: v.companyTraits },
+      ]
+    case "flags":
+      return [
+        { label: "Companies to avoid", value: list(v.redFlagCompanies) },
+        { label: "Red flags", value: v.redFlags },
+      ]
+    case "identity":
+      return [{ label: "About you", value: v.identity }]
+    case "questions":
+      return questions.map((q) => ({ label: q.label, value: v.answers[q.key] }))
+    case "own":
+      return (v.custom ?? [])
+        .filter((c) => c.question.trim())
+        .map((c) => ({ label: c.question, value: c.answer }))
+    case "resume":
+      return [{ label: "File", value: resume?.name ?? "" }]
+  }
+}
+
+// All sections on one page, so changing one answer doesn't mean stepping through the rest.
+const Overview = ({
+  values,
+  resume,
+  onEdit,
+}: {
+  values: Values
+  resume: Resume
+  onEdit: (step: StepId) => void
+}) => (
+  <ScrollArea className="min-h-0 flex-1">
+    <div className="animate-in fade-in mx-auto flex max-w-2xl flex-col gap-5 px-6 py-10 duration-300 motion-reduce:animate-none">
+      <div className="flex flex-col gap-1">
+        <h2 className="font-heading text-lg font-semibold">Overview</h2>
+        <p className="text-muted-foreground text-sm leading-relaxed">
+          Everything you've told us. Edit opens just that section.
+        </p>
+      </div>
+      {steps
+        .filter((s) => s.id !== "start")
+        .map((s) => {
+          const rows = rowsOf(s.id, values, resume)
+          return (
+            <section key={s.id} className="flex flex-col gap-3 rounded-lg border p-4">
+              <div className="flex items-center gap-3">
+                <h3 className="flex-1 text-[13px] font-medium">{s.title}</h3>
+                <Button
+                  type="button"
+                  size="xs"
+                  variant="outline"
+                  aria-label={`Edit ${s.title}`}
+                  onClick={() => onEdit(s.id)}
+                >
+                  Edit
+                </Button>
+              </div>
+              {rows.length ? (
+                <dl className="grid gap-x-4 gap-y-2 text-sm sm:grid-cols-[12rem_1fr]">
+                  {rows.map((r) => (
+                    <div key={r.label} className="contents">
+                      <dt className="text-muted-foreground text-xs sm:pt-0.5">{r.label}</dt>
+                      <dd
+                        className={cn(
+                          "whitespace-pre-wrap",
+                          !r.value.trim() && "text-muted-foreground text-xs sm:pt-0.5"
+                        )}
+                      >
+                        {r.value.trim() || "Not answered yet"}
+                      </dd>
+                    </div>
+                  ))}
+                </dl>
+              ) : (
+                <p className="text-muted-foreground text-xs">Not answered yet</p>
+              )}
+            </section>
+          )
+        })}
+    </div>
+  </ScrollArea>
+)
+
 const PreferencesForm = ({
   saved,
   resume,
@@ -437,7 +542,12 @@ const PreferencesForm = ({
     lastMove.current = Date.now()
     goTo(step + delta)
   }
-  const [tab, setTab] = useState<"edit" | "ready">("edit")
+  // First run walks through the steps; after that, the overview is the quicker way in.
+  const [tab, setTab] = useState<"overview" | "edit" | "ready">(onboarded ? "overview" : "edit")
+  const edit = (id: string) => {
+    setTab("edit")
+    goTo(steps.findIndex((s) => s.id === id))
+  }
   // Created once: a new object on each render would count as new defaults, and the form
   // would reset itself, dropping anything filled in but not yet saved.
   const [defaults] = useState(() => ({ ...saved, custom: saved.custom ?? [] }))
@@ -723,10 +833,14 @@ const PreferencesForm = ({
       >
         <div className="border-b px-4 py-1.5">
           <TabsList size="sm">
-            <TabsTab value="edit">Your answers</TabsTab>
+            <TabsTab value="overview">Overview</TabsTab>
+            <TabsTab value="edit">Edit</TabsTab>
             <TabsTab value="ready">Ready answers</TabsTab>
           </TabsList>
         </div>
+        <TabsPanel value="overview" className="flex min-h-0">
+          <Overview values={values} resume={resume} onEdit={edit} />
+        </TabsPanel>
         <TabsPanel value="edit" className="flex min-h-0">
           <div
             className="flex min-w-0 flex-1 flex-col"
@@ -861,13 +975,7 @@ const PreferencesForm = ({
           </aside>
         </TabsPanel>
         <TabsPanel value="ready" className="flex min-h-0">
-          <ReadyAnswersList
-            values={values}
-            onEdit={(id) => {
-              setTab("edit")
-              goTo(steps.findIndex((s) => s.id === id))
-            }}
-          />
+          <ReadyAnswersList values={values} onEdit={edit} />
         </TabsPanel>
       </Tabs>
     </form>

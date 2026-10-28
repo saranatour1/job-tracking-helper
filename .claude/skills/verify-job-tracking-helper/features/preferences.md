@@ -1,6 +1,6 @@
 # Preferences
 
-`/preferences` asks people what they want from their next job in their own words, one section at a time: interests, things to avoid, growth, places and work mode, companies, red flags, who they are, six common application questions, their own question and answer pairs, and an optional resume. A side panel shows the profile blocks and a one-line summary per section. A second tab, `Ready answers`, lists common application-form questions answered from those words, each with `Copy`. Answers are stored in the `preferences` table, one row per user, and `users.onboardedAt` records that first run is done. A copy-paste prompt lets them fill the form with their own AI assistant.
+`/preferences` asks people what they want from their next job in their own words, one section at a time: interests, things to avoid, growth, places and work mode, companies, red flags, who they are, six common application questions, their own question and answer pairs, and an optional resume. A side panel shows the profile blocks and a one-line summary per section. Returning users open on an `Overview` tab that lists every answer by section, each with `Edit` (named `Edit <section title>`) opening that step. Another tab, `Ready answers`, lists common application-form questions answered from those words, each with `Copy`. Answers are stored in the `preferences` table, one row per user, and `users.onboardedAt` records that first run is done. A copy-paste prompt lets them fill the form with their own AI assistant.
 
 ## Sub-features
 
@@ -31,7 +31,8 @@ Steps:
 - **Prefill.** On step 1, `find` `"Paste the reply"` and fill it with a sentence followed by a JSON object, such as `Here you go: {"interests":["climate"],"workMode":"remote","answers":{"pay":"60k EUR"},"extra":1}`. Click `Fill the form`. A status reads `Filled 3 answers`, and the side panel's `What you're drawn to` line reads `climate`.
 - **Ready answers.** Open the `Ready answers` tab. `What are your salary expectations?` reads `60k EUR` with a `Copy` button; unanswered questions show `Answer it`.
 - **Save.** Click `Save preferences`. A status reads `Saved.` and `Skip for now` is gone. Run `evidence.sh table "$dir" preferences after-save`: there is one row for this user.
-- **Persist.** Navigate to `/`: the URL stays `/`. Navigate back to `/preferences`: the answers are still filled.
+- **Persist.** Navigate to `/`: the URL stays `/`. Navigate back to `/preferences`: it opens on `Overview`, and the answers are still there.
+- **Overview.** Click `Edit Companies you'd like`: the `Edit` tab opens on `Step 5 of 10`. Add a company, go back to `Overview`: it shows there before saving.
 - **Resume.** `form_input` can't set files. Use `javascript_tool` to put a `File` into `#resume` through a `DataTransfer` and dispatch `change`. A `.png` shows `Upload a PDF, Word or plain text file.`; a `.pdf` shows its name as a link with `Remove`.
 
 ## Gotchas
