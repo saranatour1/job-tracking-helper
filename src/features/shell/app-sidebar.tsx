@@ -25,6 +25,7 @@ import {
   useSidebar,
 } from "@/components/ui/sidebar"
 import { NavUser } from "@/features/shell/nav-user"
+import { ThemeSwitch } from "@/features/shell/theme"
 import { useUnreadCount } from "@/features/tracker/inbox"
 import { NewApplicationDialog } from "@/features/tracker/new-application"
 
@@ -96,6 +97,7 @@ export const AppSidebar = (props: React.ComponentProps<typeof Sidebar>) => {
         </SidebarGroup>
       </SidebarContent>
       <SidebarFooter>
+        <ThemeSwitch />
         <NavUser />
       </SidebarFooter>
       <SidebarRail />
