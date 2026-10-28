@@ -4,6 +4,10 @@ Track job applications: company, role and status, saved per user.
 
 New accounts start on Preferences, which asks what someone wants from their next job in their own words, one section at a time, and saves it to Convex. Its Overview tab lists every answer, and clicking one opens its section. Its Prefilled tab keeps the fields application forms ask for, in sections you can add, rename and remove, suggested from those words and ready to copy. A copy-paste prompt lets them fill it with their own AI assistant. A resume upload is optional, kept only to attach to applications, and never read.
 
+Jobs lists every open role in a shared catalog, built from the free feeds of company job boards (Greenhouse, Lever, Ashby, Personio) and refreshed daily. Search it, keep to remote roles, switch to a compact list, or find more like any role.
+
+Loops pick roles from that catalog each morning, for every kind of role you describe in each of your places. Jev judges each one against your Preferences through the Convex AI gateway and says what fits, what could and what doesn't. Only a few fits at a time reach your shortlist; save, favorite, dismiss or add each to your tracker, and tomorrow's runs learn from it. Paste any job's link to have it checked the same way. Jev needs no key, but the gateway needs a paid Convex Cloud plan. To find new boards, a run searches Firecrawl or context.dev when `FIRECRAWL_API_KEY` or `CONTEXT_DEV_API_KEY` is in the Convex env (`pnpm exec convex env set FIRECRAWL_API_KEY ...`); without one, runs judge roles from the boards already known.
+
 The Inbox, Pipeline, Goals and Views pages are a preview built on sample data from `src/features/tracker/data.ts`. They don't read from or save to Convex yet. Edits there last until you reload, and the create buttons do nothing.
 
 ## How to run
@@ -58,6 +62,8 @@ src/
   features/<feature>/                  the feature's components
   features/tracker/                    Inbox, Pipeline, Goals and Views, on sample data for now
   features/preferences/                Preferences: the form, the assistant prompt and the profile blocks
+  features/jobs/                       Jobs: the shared catalog of open roles
+  features/loops/                      Loops: morning job searches, their runs and sources
   components/ui/                       shadcn/coss components, managed by the shadcn CLI
 scripts/                               dev and secrets scripts
 docs/database-design.md                planned tables, status flow and build order
@@ -75,6 +81,7 @@ Code rules, enforced by `vp check`: arrow functions only, no `useEffect`. Files 
 | Frontend      | React 19, TanStack Start, Router, Table and Form                |
 | UI            | Tailwind CSS v4, shadcn CLI with coss ui (Base UI), Hugeicons   |
 | Backend       | Convex, Convex Auth v2, convex-helpers                          |
+| AI            | Jev (TypeSafe) via the Convex AI gateway and the AI SDK         |
 | Validation    | arktype, shared by the form and the `applications:add` mutation |
 | Type checking | tsrs                                                            |
 | Convex lint   | `@convex-dev/eslint-plugin` recommended rules, loaded by oxlint |

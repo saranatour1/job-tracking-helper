@@ -1,5 +1,12 @@
 import { defineSchema } from "convex/server"
 import { applicationsTable } from "./api/features/applications/models"
+import { jobBoardsTable, jobsTable } from "./api/features/jobs/models"
+import {
+  jobLeadsTable,
+  loopRunsTable,
+  loopsTable,
+  sourceUsageTable,
+} from "./api/features/loops/models"
 import {
   preferencesTable,
   preferenceTagsTable,
@@ -13,4 +20,10 @@ export default defineSchema({
   preferences: preferencesTable,
   preferenceTags: preferenceTagsTable,
   profileEntries: profileEntriesTable,
+  loops: loopsTable,
+  loopRuns: loopRunsTable,
+  jobLeads: jobLeadsTable,
+  sourceUsage: sourceUsageTable,
+  jobs: jobsTable,
+  jobBoards: jobBoardsTable,
 })

@@ -1,0 +1,27 @@
+// Registers `api.loops.*` and `internal.loops.*`. Definitions live in ./api/features/loops.
+import { loopsApi } from "./api/features/loops"
+
+export const {
+  list,
+  create,
+  setActive,
+  remove,
+  runNow,
+  stopRun,
+  runs,
+  shortlist,
+  lead,
+  respond,
+  track,
+  sourceStatus,
+  startDue,
+  beginRun,
+  queueJudging,
+  judged,
+  finishRun,
+  runEnded,
+  profileForLink,
+  leadByUrlKey,
+  savePasted,
+  checkLink,
+} = loopsApi
