@@ -1,6 +1,6 @@
 # Preferences
 
-`/preferences` asks people what they want from their next job in their own words, one section at a time: interests, things to avoid, growth, places and work mode, companies, red flags, who they are, six common application questions, their own question and answer pairs, and an optional resume. A side panel shows the profile blocks and a one-line summary per section. Returning users open on an `Overview` tab that lists every answer by section, each with `Edit` (named `Edit <section title>`) opening that step. Another tab, `Ready answers`, lists common application-form questions answered from those words, each with `Copy`. Answers are stored in the `preferences` table, one row per user, and `users.onboardedAt` records that first run is done. A copy-paste prompt lets them fill the form with their own AI assistant.
+`/preferences` asks people what they want from their next job in their own words, one section at a time: interests, things to avoid, growth, places and work mode, companies, red flags, who they are, six common application questions, their own question and answer pairs, and an optional resume. A side panel shows the profile blocks and a one-line summary per section. Returning users open on an `Overview` tab that lists every answer by section as settings-style rows; clicking a row (named `Edit <label> <value>`) opens that step. Another tab, `Ready answers`, lists common application-form questions answered from those words, each with `Copy`. Answers are stored in the `preferences` table, one row per user, and `users.onboardedAt` records that first run is done. A copy-paste prompt lets them fill the form with their own AI assistant.
 
 ## Sub-features
 
@@ -32,7 +32,7 @@ Steps:
 - **Ready answers.** Open the `Ready answers` tab. `What are your salary expectations?` reads `60k EUR` with a `Copy` button; unanswered questions show `Answer it`.
 - **Save.** Click `Save preferences`. A status reads `Saved.` and `Skip for now` is gone. Run `evidence.sh table "$dir" preferences after-save`: there is one row for this user.
 - **Persist.** Navigate to `/`: the URL stays `/`. Navigate back to `/preferences`: it opens on `Overview`, and the answers are still there.
-- **Overview.** Click `Edit Companies you'd like`: the `Edit` tab opens on `Step 5 of 10`. Add a company, go back to `Overview`: it shows there before saving.
+- **Overview.** `find` `"When could you start"` and click it: the `Edit` tab opens on `Step 8 of 10`. Then add a company on step 5. Add a company, go back to `Overview`: it shows there before saving.
 - **Resume.** `form_input` can't set files. Use `javascript_tool` to put a `File` into `#resume` through a `DataTransfer` and dispatch `change`. A `.png` shows `Upload a PDF, Word or plain text file.`; a `.pdf` shows its name as a link with `Remove`.
 
 ## Gotchas

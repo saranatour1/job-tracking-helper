@@ -8,7 +8,13 @@ import {
   resumeTypes,
   workModes,
 } from "@convex/api/features/preferences/validators"
-import { Cancel01Icon, Copy01Icon, PlusSignIcon, SparklesIcon } from "@hugeicons/core-free-icons"
+import {
+  ArrowRight01Icon,
+  Cancel01Icon,
+  Copy01Icon,
+  PlusSignIcon,
+  SparklesIcon,
+} from "@hugeicons/core-free-icons"
 import { HugeiconsIcon } from "@hugeicons/react"
 import { useForm, useStore } from "@tanstack/react-form"
 import { useNavigate } from "@tanstack/react-router"
@@ -461,11 +467,11 @@ const Overview = ({
   onEdit: (step: StepId) => void
 }) => (
   <ScrollArea className="min-h-0 flex-1">
-    <div className="animate-in fade-in mx-auto flex max-w-2xl flex-col gap-5 px-6 py-10 duration-300 motion-reduce:animate-none">
+    <div className="animate-in fade-in mx-auto flex max-w-3xl flex-col gap-10 px-6 py-12 duration-300 motion-reduce:animate-none">
       <div className="flex flex-col gap-1">
-        <h2 className="font-heading text-lg font-semibold">Overview</h2>
-        <p className="text-muted-foreground text-sm leading-relaxed">
-          Everything you've told us. Edit opens just that section.
+        <h2 className="font-heading text-2xl font-semibold">Overview</h2>
+        <p className="text-muted-foreground text-sm">
+          Everything you've told us. Click a row to change it.
         </p>
       </div>
       {steps
@@ -473,38 +479,47 @@ const Overview = ({
         .map((s) => {
           const rows = rowsOf(s.id, values, resume)
           return (
-            <section key={s.id} className="flex flex-col gap-3 rounded-lg border p-4">
-              <div className="flex items-center gap-3">
-                <h3 className="flex-1 text-[13px] font-medium">{s.title}</h3>
-                <Button
-                  type="button"
-                  size="xs"
-                  variant="outline"
-                  aria-label={`Edit ${s.title}`}
-                  onClick={() => onEdit(s.id)}
-                >
-                  Edit
-                </Button>
-              </div>
-              {rows.length ? (
-                <dl className="grid gap-x-4 gap-y-2 text-sm sm:grid-cols-[12rem_1fr]">
-                  {rows.map((r) => (
-                    <div key={r.label} className="contents">
-                      <dt className="text-muted-foreground text-xs sm:pt-0.5">{r.label}</dt>
-                      <dd
-                        className={cn(
-                          "whitespace-pre-wrap",
-                          !r.value.trim() && "text-muted-foreground text-xs sm:pt-0.5"
+            <section key={s.id} className="flex flex-col gap-3">
+              <h3 className="px-1 text-[15px] font-medium">{s.title}</h3>
+              <div className="bg-muted/40 flex flex-col divide-y rounded-xl border px-1">
+                {(rows.length ? rows : [{ label: "Nothing here yet", value: "" }]).map((r, i) => {
+                  const value = r.value.trim()
+                  // Short answers sit on the right like a setting's value; long ones go below.
+                  const short = value.length <= 40 && !value.includes("\n")
+                  return (
+                    <button
+                      key={i}
+                      type="button"
+                      onClick={() => onEdit(s.id)}
+                      className="hover:bg-accent/40 flex items-center gap-4 rounded-lg px-3 py-3.5 text-start transition-colors"
+                    >
+                      <span className="flex min-w-0 flex-1 flex-col gap-0.5">
+                        <span className="sr-only">Edit </span>
+                        <span className="text-[13px] font-medium">{r.label}</span>
+                        {value && !short && (
+                          <span className="text-muted-foreground line-clamp-3 text-xs whitespace-pre-wrap">
+                            {value}
+                          </span>
                         )}
-                      >
-                        {r.value.trim() || "Not answered yet"}
-                      </dd>
-                    </div>
-                  ))}
-                </dl>
-              ) : (
-                <p className="text-muted-foreground text-xs">Not answered yet</p>
-              )}
+                      </span>
+                      {(short || !value) && (
+                        <span
+                          className={cn(
+                            "line-clamp-2 max-w-[50%] text-end text-[13px]",
+                            !value && "text-muted-foreground/70 text-xs"
+                          )}
+                        >
+                          {value || "Not answered"}
+                        </span>
+                      )}
+                      <HugeiconsIcon
+                        icon={ArrowRight01Icon}
+                        className="text-muted-foreground size-3.5 shrink-0"
+                      />
+                    </button>
+                  )
+                })}
+              </div>
             </section>
           )
         })}
