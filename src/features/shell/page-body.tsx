@@ -1,8 +1,9 @@
 import { cn } from "@/lib/utils"
 
-// The style every content page and tab shares: an intro with the page's title and
-// what it's for, then dashed tiles that group things. A solid chip names each tile,
-// and dashed chips add things. Tool pages like Pipeline keep their full-width lists.
+// The style every page and tab shares: an intro with the page's title and what it's
+// for, then dashed tiles on the card fill that group things. A raised chip names each
+// tile, and dashed chips add things. Tool pages use the tiles and chips too, inside
+// their full-width layouts.
 
 /** The centered column a content page or tab sits in. */
 export const pageBody = "mx-auto flex w-full max-w-5xl flex-col gap-6 px-6 py-10"
@@ -10,8 +11,11 @@ export const pageBody = "mx-auto flex w-full max-w-5xl flex-col gap-6 px-6 py-10
 /** Tiles side by side on wider screens; add `md:col-span-2` to a big one. */
 export const tileGrid = "grid grid-flow-dense gap-3 md:grid-cols-2"
 
-/** A tile's name. Also used on inputs, so renaming a tile looks the same. */
-export const chip = "bg-muted/40 rounded-lg border px-2 py-1 text-[13px] font-medium"
+/** A dashed group on the card fill. `Tile` uses it; links that are whole tiles use it directly. */
+export const tile = "bg-card flex flex-col gap-2 rounded-xl border border-dashed p-3"
+
+/** A tile's name, raised like a control on the card. Also used on inputs, so renaming a tile looks the same. */
+export const chip = "bg-muted rounded-lg border px-2 py-1 text-[13px] font-medium"
 
 /** A small dashed button that adds something, like a field. */
 export const addChip =
@@ -43,15 +47,18 @@ export const PageIntro = ({
 export const Tile = ({
   title,
   actions,
+  label,
   className,
   children,
 }: {
   title?: React.ReactNode
   actions?: React.ReactNode
+  /** Names the tile for screen readers when its title isn't plain text. */
+  label?: string
   className?: string
   children: React.ReactNode
 }) => (
-  <section className={cn("flex flex-col gap-2 rounded-xl border border-dashed p-3", className)}>
+  <section aria-label={label} className={cn(tile, className)}>
     {(title || actions) && (
       <div className="flex items-start gap-1">
         {typeof title === "string" ? <h3 className={cn(chip, "me-auto")}>{title}</h3> : title}

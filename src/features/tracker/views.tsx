@@ -7,7 +7,9 @@ import { HugeiconsIcon } from "@hugeicons/react"
 import { Link } from "@tanstack/react-router"
 
 import { Button } from "@/components/ui/button"
+import { addTile, chip, PageIntro, pageBody, tile, tileGrid } from "@/features/shell/page-body"
 import { PageHeader } from "@/features/shell/page-header"
+import { cn } from "@/lib/utils"
 
 import { type FilterField, applications, matches, optionLabel, useViews } from "./data"
 import { groupings } from "./display-options"
@@ -24,42 +26,60 @@ export const Views = () => (
         </Button>
       }
     />
-    <ul className="flex flex-col">
-      {useViews().map((view) => {
-        const list = view.display?.layout === "list"
-        return (
-          <li key={view.id} className="border-b">
-            <Link
-              to="/pipeline"
-              search={{ view: view.id }}
-              className="hover:bg-accent/50 flex items-center gap-3 px-4 py-2.5 transition-colors"
-            >
-              <HugeiconsIcon
-                icon={list ? LeftToRightListBulletIcon : DashboardSquare01Icon}
-                className="text-muted-foreground size-4 shrink-0"
-              />
-              <span className="flex min-w-0 flex-col">
-                <span className="text-[13px] font-medium">{view.name}</span>
-                <span className="text-muted-foreground truncate text-xs">
-                  {Object.entries(view.filters)
-                    .filter(([, values]) => values?.length)
-                    .map(
-                      ([field, values]) =>
-                        `${fieldLabels[field as FilterField]} is ${values!.map((v) => optionLabel(field as FilterField, v)).join(" or ")}`
-                    )
-                    .join(" · ") || "No filters"}
+    <main className={pageBody}>
+      <PageIntro
+        title="Views"
+        description="Saved filters and layouts. Each one opens in Pipeline."
+      />
+      <ul className={tileGrid}>
+        {useViews().map((view) => {
+          const list = view.display?.layout === "list"
+          return (
+            <li key={view.id} className="flex">
+              <Link
+                to="/pipeline"
+                search={{ view: view.id }}
+                className={cn(tile, "hover:bg-accent/30 flex-1 transition-colors")}
+              >
+                <span className="flex items-center gap-2">
+                  <span className={cn(chip, "flex min-w-0 items-center gap-1.5")}>
+                    <HugeiconsIcon
+                      icon={list ? LeftToRightListBulletIcon : DashboardSquare01Icon}
+                      className="text-muted-foreground size-3.5 shrink-0"
+                    />
+                    <span className="truncate">{view.name}</span>
+                  </span>
+                  <span className="text-muted-foreground ms-auto shrink-0 text-xs">
+                    {list ? "List" : "Board"} · {groupings[view.display?.groupBy ?? "status"]}
+                  </span>
                 </span>
-              </span>
-              <span className="text-muted-foreground ms-auto hidden shrink-0 text-xs sm:inline">
-                {list ? "List" : "Board"} · {groupings[view.display?.groupBy ?? "status"]}
-              </span>
-              <span className="text-muted-foreground w-8 shrink-0 text-end text-[13px] tabular-nums">
-                {applications.filter((a) => matches(a, view.filters)).length}
-              </span>
-            </Link>
-          </li>
-        )
-      })}
-    </ul>
+                <span className="flex flex-col gap-0.5 px-1">
+                  <span className="text-muted-foreground text-xs">
+                    {Object.entries(view.filters)
+                      .filter(([, values]) => values?.length)
+                      .map(
+                        ([field, values]) =>
+                          `${fieldLabels[field as FilterField]} is ${values!.map((v) => optionLabel(field as FilterField, v)).join(" or ")}`
+                      )
+                      .join(" · ") || "No filters"}
+                  </span>
+                  <span className="text-[13px]">
+                    <span className="font-medium tabular-nums">
+                      {applications.filter((a) => matches(a, view.filters)).length}
+                    </span>{" "}
+                    applications
+                  </span>
+                </span>
+              </Link>
+            </li>
+          )
+        })}
+        <li className="flex">
+          <Link to="/views/new" className={cn(addTile, "flex-1")}>
+            <HugeiconsIcon icon={PlusSignIcon} className="size-4" /> New view
+          </Link>
+        </li>
+      </ul>
+    </main>
   </>
 )

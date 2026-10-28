@@ -25,7 +25,9 @@ import {
   MenuTrigger,
 } from "@/components/ui/menu"
 import { ScrollArea } from "@/components/ui/scroll-area"
+import { addChip, PageIntro, pageBody, Tile } from "@/features/shell/page-body"
 import { PageHeader } from "@/features/shell/page-header"
+import { cn } from "@/lib/utils"
 
 import {
   type Application,
@@ -219,19 +221,24 @@ const Content = ({ a, properties }: { a: Application; properties?: React.ReactNo
   return (
     <>
       <div className="flex flex-col gap-2">
-        <div>
-          <h2 className="font-heading text-xl font-semibold">{a.role}</h2>
-          <p className="text-muted-foreground text-sm">{a.company}</p>
-        </div>
+        <PageIntro title={a.role} description={a.company} />
         <p className="text-foreground/90 text-[13px] leading-relaxed">{a.description}</p>
       </div>
       {properties}
-      <section aria-label="Tasks" className="flex flex-col">
-        {tasks.length > 0 && (
-          <h3 className="text-muted-foreground mb-1 text-xs font-medium">
-            Tasks · {tasks.filter((t) => t.done).length}/{tasks.length}
-          </h3>
-        )}
+      <Tile
+        label="Tasks"
+        title={
+          tasks.length ? `Tasks · ${tasks.filter((t) => t.done).length}/${tasks.length}` : "Tasks"
+        }
+        actions={
+          !adding && (
+            <button type="button" className={addChip} onClick={() => setAdding(true)}>
+              <HugeiconsIcon icon={PlusSignIcon} className="size-3.5" /> Task
+            </button>
+          )
+        }
+        className="gap-0"
+      >
         {tasks.map((task, i) => (
           <button
             key={i}
@@ -241,7 +248,7 @@ const Content = ({ a, properties }: { a: Application; properties?: React.ReactNo
             onClick={() =>
               set({ tasks: tasks.map((t, j) => (j === i ? { ...t, done: !t.done } : t)) })
             }
-            className="hover:bg-accent/50 -mx-2 flex h-8 items-center gap-2 rounded-md px-2 text-start text-[13px]"
+            className="hover:bg-accent/50 flex h-8 items-center gap-2 rounded-md px-2 text-start text-[13px]"
           >
             <HugeiconsIcon
               icon={task.done ? CheckmarkCircle02Icon : CircleIcon}
@@ -254,7 +261,7 @@ const Content = ({ a, properties }: { a: Application; properties?: React.ReactNo
         ))}
         {adding ? (
           <form
-            className="-mx-2 flex h-8 items-center gap-2 px-2"
+            className="flex h-8 items-center gap-2 px-2"
             onSubmit={(e) => {
               e.preventDefault()
               if (draft.trim()) set({ tasks: [...tasks, { title: draft.trim(), done: false }] })
@@ -274,20 +281,14 @@ const Content = ({ a, properties }: { a: Application; properties?: React.ReactNo
             />
           </form>
         ) : (
-          <Button
-            variant="ghost"
-            size="xs"
-            className="text-muted-foreground -ms-2 self-start"
-            onClick={() => setAdding(true)}
-          >
-            <HugeiconsIcon icon={PlusSignIcon} /> Add task
-          </Button>
+          tasks.length === 0 && (
+            <p className="text-muted-foreground px-2 py-1 text-xs">No tasks yet.</p>
+          )
         )}
-      </section>
+      </Tile>
 
-      <section aria-label="Activity" className="flex flex-col gap-3 border-t pt-6">
-        <h3 className="text-[13px] font-medium">Activity</h3>
-        <ol className="flex flex-col gap-3">
+      <Tile title="Activity" className="gap-3">
+        <ol className="flex flex-col gap-3 px-1">
           {activity.map((item, i) => (
             <li key={i} className="flex items-start gap-2.5 text-[13px]">
               {"status" in item ? (
@@ -336,7 +337,7 @@ const Content = ({ a, properties }: { a: Application; properties?: React.ReactNo
             </Button>
           </div>
         </form>
-      </section>
+      </Tile>
     </>
   )
 }
@@ -358,7 +359,7 @@ export const ApplicationDetail = ({ id }: { id: string }) => {
       />
       <div className="flex min-h-0 flex-1 flex-col lg:flex-row">
         <ScrollArea render={<main />} className="min-w-0 flex-1">
-          <div className="mx-auto flex max-w-3xl flex-col gap-8 px-8 py-8">
+          <div className={cn(pageBody, "max-w-3xl")}>
             <Content a={a} />
           </div>
         </ScrollArea>
@@ -366,7 +367,9 @@ export const ApplicationDetail = ({ id }: { id: string }) => {
           aria-label="Properties"
           className="border-t px-4 py-6 lg:w-72 lg:border-s lg:border-t-0"
         >
-          <Properties a={a} />
+          <Tile title="Properties">
+            <Properties a={a} />
+          </Tile>
         </aside>
       </div>
     </>
@@ -395,7 +398,15 @@ export const ApplicationPeek = ({ id, onClose }: { id: string; onClose: () => vo
       </header>
       <ScrollArea className="min-h-0 flex-1">
         <div className="flex flex-col gap-6 p-5">
-          <Content key={a.id} a={a} properties={<Properties a={a} />} />
+          <Content
+            key={a.id}
+            a={a}
+            properties={
+              <Tile title="Properties">
+                <Properties a={a} />
+              </Tile>
+            }
+          />
         </div>
       </ScrollArea>
     </div>
