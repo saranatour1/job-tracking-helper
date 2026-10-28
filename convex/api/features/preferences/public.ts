@@ -1,16 +1,27 @@
 import { type } from "arktype"
+import {
+  paginationOptsValidator,
+  paginationResultValidator,
+  type WithoutSystemFields,
+} from "convex/server"
 import { ConvexError, v } from "convex/values"
 import type { MutationCtx, QueryCtx } from "../../../_generated/server"
-import type { Id } from "../../../_generated/dataModel"
-import { arkId, arkOutputToConvex } from "../../../lib/ark"
+import type { Doc, Id } from "../../../_generated/dataModel"
+import schema from "../../../schema"
+import { arkId } from "../../../lib/ark"
 import { arkMutation, authedMutation, authedQuery } from "../../../lib/functions"
+import { answerRowsOf, entryKinds, fieldRowsOf, rowLimits, tagRowsOf } from "./rows"
 import {
-  emptyPreferences,
   maxResumeBytes,
   Preferences,
   PrefilledSections,
   resumeTypes,
+  workModes,
 } from "./validators"
+
+type Settings = Partial<
+  Pick<Doc<"preferences">, "workMode" | "resumeId" | "resumeName" | "prefilledAt">
+>
 
 export const rowOf = (ctx: QueryCtx, userId: Id<"users">) =>
   ctx.db
@@ -18,54 +29,144 @@ export const rowOf = (ctx: QueryCtx, userId: Id<"users">) =>
     .withIndex("by_userId", (q) => q.eq("userId", userId))
     .unique()
 
-// Updates the user's row, creating it from empty answers the first time.
-const upsert = async (
-  ctx: MutationCtx,
-  userId: Id<"users">,
-  patch: Partial<typeof Preferences.infer> & {
-    resumeId?: Id<"_storage">
-    resumeName?: string
-    prefilled?: typeof PrefilledSections.infer
-  }
-) => {
+// Updates the user's settings row, creating it the first time.
+const upsert = async (ctx: MutationCtx, userId: Id<"users">, patch: Settings) => {
   const row = await rowOf(ctx, userId)
   if (row) await ctx.db.patch("preferences", row._id, patch)
-  else
-    await ctx.db.insert("preferences", {
-      ...Preferences.assert(emptyPreferences),
-      ...patch,
-      userId,
-    })
+  else await ctx.db.insert("preferences", { workMode: "any", ...patch, userId })
 }
 
+const tagsOf = (ctx: QueryCtx, userId: Id<"users">) =>
+  ctx.db
+    .query("preferenceTags")
+    .withIndex("by_userId_and_kind_and_order", (q) => q.eq("userId", userId))
+    .take(rowLimits.tags)
+
+const entriesOf = (ctx: QueryCtx, userId: Id<"users">, kind: (typeof entryKinds)[number]) =>
+  ctx.db
+    .query("profileEntries")
+    .withIndex("by_userId_and_kind_and_order", (q) => q.eq("userId", userId).eq("kind", kind))
+    .take(rowLimits[kind])
+
+type Table = "preferenceTags" | "profileEntries"
+type Row<T extends Table> = Omit<Doc<T>, "_id" | "_creationTime" | "userId">
+
+const sameRow = (a: object, b: object) => {
+  const entries = (o: object) =>
+    Object.entries(o)
+      .filter(([k]) => !["_id", "_creationTime", "userId"].includes(k))
+      .sort(([x], [y]) => x.localeCompare(y))
+  return JSON.stringify(entries(a)) === JSON.stringify(entries(b))
+}
+
+// Rewrites only the slices that changed, so saving one answer touches its own rows
+// and leaves the rest alone. A slice is one tag list, one question, or one section.
+const sync = async <T extends Table>(
+  ctx: MutationCtx,
+  table: T,
+  userId: Id<"users">,
+  current: Doc<T>[],
+  next: Row<T>[],
+  sliceOf: (row: Row<T>) => string
+) => {
+  for (const slice of new Set([...current, ...next].map(sliceOf))) {
+    const before = current.filter((row) => sliceOf(row) === slice)
+    const after = next.filter((row) => sliceOf(row) === slice)
+    if (before.length === after.length && before.every((row, i) => sameRow(row, after[i]!)))
+      continue
+    for (const row of before) await ctx.db.delete(table, row._id)
+    for (const row of after)
+      // The row came from this table minus its ids, so adding userId makes it whole again.
+      await ctx.db.insert(table, { ...row, userId } as unknown as WithoutSystemFields<Doc<T>>)
+  }
+}
+
+export const writeAnswers = async (
+  ctx: MutationCtx,
+  userId: Id<"users">,
+  form: typeof Preferences.infer
+) => {
+  await upsert(ctx, userId, { workMode: form.workMode })
+  await sync(
+    ctx,
+    "preferenceTags",
+    userId,
+    await tagsOf(ctx, userId),
+    tagRowsOf(form),
+    (r) => r.kind
+  )
+  await sync(
+    ctx,
+    "profileEntries",
+    userId,
+    await entriesOf(ctx, userId, "answer"),
+    answerRowsOf(form),
+    (r) => r.key
+  )
+}
+
+export const writeFields = async (
+  ctx: MutationCtx,
+  userId: Id<"users">,
+  sections: typeof PrefilledSections.infer
+) => {
+  await upsert(ctx, userId, { prefilledAt: Date.now() })
+  await sync(
+    ctx,
+    "profileEntries",
+    userId,
+    await entriesOf(ctx, userId, "field"),
+    fieldRowsOf(sections),
+    (r) => `${Math.floor(r.order / 100)}:${r.group}`
+  )
+}
+
+// Settings and the resume. Tags and entries come from the paginated queries below.
 const get = authedQuery({
   args: {},
   returns: v.object({
-    preferences: v.union(arkOutputToConvex(Preferences), v.null()),
-    // null until the Prefilled tab is saved once, so the page can suggest values instead.
-    prefilled: v.union(arkOutputToConvex(PrefilledSections), v.null()),
+    settings: v.union(
+      v.object({
+        workMode: v.union(...workModes.map((m) => v.literal(m))),
+        prefilledAt: v.optional(v.number()),
+      }),
+      v.null()
+    ),
     resume: v.union(v.object({ name: v.string(), url: v.union(v.string(), v.null()) }), v.null()),
   }),
   handler: async (ctx) => {
     const row = await rowOf(ctx, ctx.userId)
-    if (!row) return { preferences: null, prefilled: null, resume: null }
-    const {
-      _id,
-      _creationTime,
-      userId: _userId,
-      resumeId,
-      resumeName,
-      prefilled,
-      ...preferences
-    } = row
+    if (!row) return { settings: null, resume: null }
     return {
-      preferences,
-      prefilled: prefilled ?? null,
-      resume: resumeId
-        ? { name: resumeName ?? "Resume", url: await ctx.storage.getUrl(resumeId) }
+      settings: { workMode: row.workMode, prefilledAt: row.prefilledAt },
+      resume: row.resumeId
+        ? { name: row.resumeName ?? "Resume", url: await ctx.storage.getUrl(row.resumeId) }
         : null,
     }
   },
+})
+
+const tags = authedQuery({
+  args: { paginationOpts: paginationOptsValidator },
+  returns: paginationResultValidator(schema.doc("preferenceTags")),
+  handler: (ctx, { paginationOpts }) =>
+    ctx.db
+      .query("preferenceTags")
+      .withIndex("by_userId_and_kind_and_order", (q) => q.eq("userId", ctx.userId))
+      .paginate(paginationOpts),
+})
+
+const entries = authedQuery({
+  args: {
+    kind: v.union(...entryKinds.map((k) => v.literal(k))),
+    paginationOpts: paginationOptsValidator,
+  },
+  returns: paginationResultValidator(schema.doc("profileEntries")),
+  handler: (ctx, { kind, paginationOpts }) =>
+    ctx.db
+      .query("profileEntries")
+      .withIndex("by_userId_and_kind_and_order", (q) => q.eq("userId", ctx.userId).eq("kind", kind))
+      .paginate(paginationOpts),
 })
 
 // Marks the user as past first run, so `/` stops sending them to Preferences.
@@ -78,8 +179,8 @@ const markOnboarded = async (ctx: MutationCtx, userId: Id<"users">) => {
 const save = arkMutation({
   args: Preferences,
   returns: v.null(),
-  handler: async (ctx, preferences) => {
-    await upsert(ctx, ctx.userId, preferences)
+  handler: async (ctx, form) => {
+    await writeAnswers(ctx, ctx.userId, form)
     await markOnboarded(ctx, ctx.userId)
     return null
   },
@@ -89,7 +190,7 @@ const savePrefilled = arkMutation({
   args: type({ sections: PrefilledSections }),
   returns: v.null(),
   handler: async (ctx, { sections }) => {
-    await upsert(ctx, ctx.userId, { prefilled: sections })
+    await writeFields(ctx, ctx.userId, sections)
     return null
   },
 })
@@ -128,4 +229,15 @@ const setResume = arkMutation({
   },
 })
 
-export const publicApi = { get, save, savePrefilled, skip, setResume }
+// Everything Preferences stored for the user, for deleting an account.
+export const deletePreferences = async (ctx: MutationCtx, userId: Id<"users">) => {
+  const row = await rowOf(ctx, userId)
+  if (row?.resumeId) await ctx.storage.delete(row.resumeId)
+  if (row) await ctx.db.delete("preferences", row._id)
+  for (const tag of await tagsOf(ctx, userId)) await ctx.db.delete("preferenceTags", tag._id)
+  for (const kind of entryKinds)
+    for (const entry of await entriesOf(ctx, userId, kind))
+      await ctx.db.delete("profileEntries", entry._id)
+}
+
+export const publicApi = { get, tags, entries, save, savePrefilled, skip, setResume }

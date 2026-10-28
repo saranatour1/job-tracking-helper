@@ -3,7 +3,7 @@ import { ConvexError, v } from "convex/values"
 import { components } from "../../../_generated/api"
 import { arkId } from "../../../lib/ark"
 import { arkMutation, authedMutation, authedQuery } from "../../../lib/functions"
-import { rowOf } from "../preferences/public"
+import { deletePreferences } from "../preferences/public"
 import { maxImageBytes, Profile } from "./validators"
 
 const me = authedQuery({
@@ -89,9 +89,7 @@ const deleteAccount = authedMutation({
     }
     const user = await ctx.db.get("users", ctx.userId)
     if (user?.imageId) await ctx.storage.delete(user.imageId)
-    const preferences = await rowOf(ctx, ctx.userId)
-    if (preferences?.resumeId) await ctx.storage.delete(preferences.resumeId)
-    if (preferences) await ctx.db.delete("preferences", preferences._id)
+    await deletePreferences(ctx, ctx.userId)
     await ctx.runMutation(components.authUsername.public.deleteUsername, { userId: ctx.userId })
     await ctx.db.replace("users", ctx.userId, {})
     return null

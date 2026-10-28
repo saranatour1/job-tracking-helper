@@ -80,9 +80,14 @@ export const Preferences = type({
 export type Preferences = typeof Preferences.infer
 
 // What an AI assistant's reply may contain: any subset of the fields, unknown keys dropped.
+// With every answer optional, an array would pass as an empty object, so refuse one.
+const AnswersDraft = Answers.partial().narrow(
+  (answers, ctx) => !Array.isArray(answers) || ctx.mustBe("an object")
+)
+
 export const PreferencesDraft = Preferences.omit("answers")
   .partial()
-  .and({ "answers?": Answers.partial() })
+  .and({ "answers?": AnswersDraft })
   .onDeepUndeclaredKey("delete")
 
 export const emptyPreferences: typeof Preferences.inferIn = {

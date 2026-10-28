@@ -1,7 +1,6 @@
 import { api } from "@convex/_generated/api"
 import type { Id } from "@convex/_generated/dataModel"
 import {
-  emptyPreferences,
   maxResumeBytes,
   Preferences as PreferencesType,
   PreferencesDraft,
@@ -20,7 +19,13 @@ import { HugeiconsIcon } from "@hugeicons/react"
 import { useForm, useStore } from "@tanstack/react-form"
 import { useNavigate } from "@tanstack/react-router"
 import { type } from "arktype"
-import { useMutation, useQuery } from "convex/react"
+import {
+  builtInAnswers,
+  formOf,
+  rowLimits,
+  sectionsOf,
+} from "@convex/api/features/preferences/rows"
+import { useMutation, usePaginatedQuery, useQuery } from "convex/react"
 import { ConvexError } from "convex/values"
 import { useRef, useState } from "react"
 
@@ -55,14 +60,11 @@ const workModeLabels: Record<(typeof workModes)[number], string> = {
   onsite: "On-site",
 }
 
-const questions: { key: keyof Values["answers"]; label: string }[] = [
-  { key: "offer", label: "What would make you say yes to an offer on the spot?" },
-  { key: "leave", label: "What would make you leave a job in the first six months?" },
-  { key: "goodWeek", label: "What does a good week at work look like?" },
-  { key: "pay", label: "What's the lowest pay you'd accept, and in which currency?" },
-  { key: "visa", label: "Do you need a visa or work permit anywhere?" },
-  { key: "start", label: "When could you start?" },
-]
+// The six application questions, worded once in the shared list of built-in questions.
+const questions = (["offer", "leave", "goodWeek", "pay", "visa", "start"] as const).map((key) => ({
+  key,
+  label: builtInAnswers[key].label,
+}))
 
 // Short words, added with Enter or a comma, removed with × or Backspace.
 const TagInput = ({
@@ -878,7 +880,7 @@ const PreferencesForm = ({
         title="Where you want to grow"
         description="Where you see yourself, and the skills you think you're missing."
       >
-        {text("growthGoal", "Where do you want to be, and what's in the way?")}
+        {text("growthGoal", builtInAnswers.growthGoal.label)}
         {tags("skillsToBuild", "Skills you'd like to build", "e.g. system design, public speaking")}
       </Section>
     ),
@@ -915,7 +917,7 @@ const PreferencesForm = ({
         {tags("companies", "Companies you'd love to work for", "e.g. Linear, Stripe")}
         {text(
           "companyTraits",
-          "What draws you to a company?",
+          builtInAnswers.companyTraits.label,
           "e.g. small teams that ship weekly, published salary bands"
         )}
       </Section>
@@ -926,7 +928,7 @@ const PreferencesForm = ({
         description="Companies to avoid, and what makes you walk away from a company or a post."
       >
         {tags("redFlagCompanies", "Companies you'd avoid", "Names")}
-        {text("redFlags", "What's a red flag for you?", "e.g. unpaid take-homes, no salary range")}
+        {text("redFlags", builtInAnswers.redFlags.label, "e.g. unpaid take-homes, no salary range")}
       </Section>
     ),
     identity: (
@@ -936,7 +938,7 @@ const PreferencesForm = ({
       >
         {text(
           "identity",
-          "Describe yourself",
+          builtInAnswers.identity.label,
           "What you care about, how you like to work, what people come to you for"
         )}
       </Section>
@@ -1185,16 +1187,41 @@ const PreferencesForm = ({
   )
 }
 
+// The rows of a paginated query once its first page is in. The page size is the most
+// rows a person can have, so the first page is all of them.
+const firstPage = <T,>(page: { results: T[]; status: string }) =>
+  page.status === "LoadingFirstPage" ? undefined : page.results
+
+// Settings come from one query and tags, answers and Prefilled fields from paginated
+// ones; the form opens once all of them are in.
 export const Preferences = () => {
   const data = useQuery(api.preferences.get)
   const me = useQuery(api.users.me)
+  const tags = firstPage(
+    usePaginatedQuery(api.preferences.tags, {}, { initialNumItems: rowLimits.tags })
+  )
+  const answers = firstPage(
+    usePaginatedQuery(
+      api.preferences.entries,
+      { kind: "answer" },
+      { initialNumItems: rowLimits.answer }
+    )
+  )
+  const fields = firstPage(
+    usePaginatedQuery(
+      api.preferences.entries,
+      { kind: "field" },
+      { initialNumItems: rowLimits.field }
+    )
+  )
+  const ready = data && me && tags && answers && fields
   return (
     <div className="soft-theme bg-background text-foreground flex h-svh flex-col rounded-[inherit] md:h-[calc(100svh-1rem)]">
       <PageHeader crumbs={[{ label: "Preferences" }]} />
-      {data && me && (
+      {ready && (
         <PreferencesForm
-          saved={data.preferences ?? emptyPreferences}
-          prefilled={data.prefilled}
+          saved={formOf(data.settings?.workMode ?? "any", tags, answers)}
+          prefilled={data.settings?.prefilledAt === undefined ? null : sectionsOf(fields)}
           resume={data.resume}
           me={me}
         />

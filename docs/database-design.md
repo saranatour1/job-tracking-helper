@@ -22,6 +22,8 @@ Signs there are too many tables:
 
 Applying that to the first draft removed three of its ten tables and kept a fourth from being added. `preferences` would also fold into `users` by these rules, but it stays a table on purpose: `users` holds only account details.
 
+`preferences` started as one wide row holding every answer, tag list and Prefilled field. Each new question meant a schema change, every save rewrote the whole row, and its lists only grew. It is now three tables. `preferences` keeps the one-value settings. `preferenceTags` holds one row per tag and `profileEntries` one row per answer or form field, so both pass rule 1. Built-in questions are a list in code (`rows.ts`), keyed so a label can change without touching stored answers.
+
 | First draft        | Fails because                                              | Now                                         |
 | ------------------ | ---------------------------------------------------------- | ------------------------------------------- |
 | `preferences`      | always one row per user                                    | kept as a table so `users` stays basic      |
@@ -30,36 +32,38 @@ Applying that to the first draft removed three of its ten tables and kept a four
 | `reports`          | stores numbers computed from `applications.history`        | computed on demand                          |
 | `interviews`       | never added, since rounds and dates fit in `history` notes | revisit if interviews need reminders        |
 
-Six tables are left, counting `users`. `users` and `preferences` exist today, and phase 1 needs three more.
+Eight tables are left, counting `users`. `users` and the three preferences tables exist today, and phase 1 needs three more.
 
-| Table          | Passes rule                    | Phase |
-| -------------- | ------------------------------ | ----- |
-| `users`        | exists                         | now   |
-| `applications` | 1, 4                           | 1     |
-| `companies`    | 2, 3                           | 1     |
-| `auditLogs`    | 1, 4                           | 1     |
-| `preferences`  | exception: keeps `users` basic | now   |
-| `emails`       | 1, 4                           | 3     |
+| Table            | Passes rule                    | Phase |
+| ---------------- | ------------------------------ | ----- |
+| `users`          | exists                         | now   |
+| `applications`   | 1, 4                           | 1     |
+| `companies`      | 2, 3                           | 1     |
+| `auditLogs`      | 1, 4                           | 1     |
+| `preferences`    | exception: keeps `users` basic | now   |
+| `preferenceTags` | 1                              | now   |
+| `profileEntries` | 1                              | now   |
+| `emails`         | 1, 4                           | 3     |
 
 ## Where each wish list item lives
 
-| Wish list item                            | Where it lives                                                                |
-| ----------------------------------------- | ----------------------------------------------------------------------------- |
-| company                                   | `companies`, a catalog shared by all users once verified                      |
-| company locations                         | `companies.locations`, and each application copies the one it is for          |
-| role / job posting, custom links          | `applications.role`, `postingUrl`, `links`                                    |
-| status                                    | `applications.status`, with every change appended to `applications.history`   |
-| method of application                     | `applications.method`                                                         |
-| previous runs, snapshots from the past    | `applications.history`, which gives any application's status on any past date |
-| resumes                                   | one file on `preferences`, kept to attach to applications and never read      |
-| user preferences, locations, custom roles | `preferences` table, one row per user                                         |
-| auto fill, prefilled applications         | `preferences.prefilled`: sections of form fields, suggested from the answers  |
-| rate limits / monthly                     | a monthly target on `preferences` later, count from `applications.appliedAt`  |
-| emails / method of tracking               | `emails` table in phase 3, which needs a Gmail connection                     |
-| acceptance rate, interview rate           | computed from `applications.history`                                          |
-| recent reports                            | computed for any month on demand                                              |
-| recommendations, "what to do?"            | computed from stale applications, the monthly target and the best methods     |
-| audit logs                                | `auditLogs` table, one row per write to any table                             |
+| Wish list item                            | Where it lives                                                                          |
+| ----------------------------------------- | --------------------------------------------------------------------------------------- |
+| company                                   | `companies`, a catalog shared by all users once verified                                |
+| company locations                         | `companies.locations`, and each application copies the one it is for                    |
+| role / job posting, custom links          | `applications.role`, `postingUrl`, `links`                                              |
+| status                                    | `applications.status`, with every change appended to `applications.history`             |
+| method of application                     | `applications.method`                                                                   |
+| previous runs, snapshots from the past    | `applications.history`, which gives any application's status on any past date           |
+| resumes                                   | one file on `preferences`, kept to attach to applications and never read                |
+| user preferences, locations, custom roles | `preferences` settings, plus tags in `preferenceTags` and answers in `profileEntries`   |
+| auto fill, prefilled applications         | `profileEntries` with kind `field`: form fields in sections, suggested from the answers |
+| rate limits / monthly                     | a monthly target on `preferences` later, count from `applications.appliedAt`            |
+| emails / method of tracking               | `emails` table in phase 3, which needs a Gmail connection                               |
+| acceptance rate, interview rate           | computed from `applications.history`                                                    |
+| recent reports                            | computed for any month on demand                                                        |
+| recommendations, "what to do?"            | computed from stale applications, the monthly target and the best methods               |
+| audit logs                                | `auditLogs` table, one row per write to any table                                       |
 
 ## Tables
 
@@ -68,6 +72,8 @@ erDiagram
     users |o--o{ companies : "added"
     users ||--o{ applications : tracks
     users ||--o| preferences : "has one"
+    users ||--o{ preferenceTags : "lists"
+    users ||--o{ profileEntries : "writes"
     users ||--o{ auditLogs : "made changes"
     companies ||--o{ applications : "applied to"
     applications |o--o{ emails : "matched to"
@@ -103,13 +109,25 @@ erDiagram
     }
     preferences {
         id userId "unique"
-        string[] interests "also avoid, skillsToBuild, locations, companies, redFlagCompanies"
         enum workMode "any | remote | hybrid | onsite"
-        string identity "also growthGoal, companyTraits, redFlags"
-        object answers "offer, leave, goodWeek, pay, visa, start"
-        object[] prefilled "optional; sections of label + value form fields"
         id resumeId "optional, _storage"
         string resumeName "optional"
+        number prefilledAt "optional; first Prefilled save"
+    }
+    preferenceTags {
+        id userId
+        enum kind "interest | avoid | skill | location | company | redFlagCompany"
+        string value
+        number order
+    }
+    profileEntries {
+        id userId
+        enum kind "answer | field"
+        string group "Preferences step or Prefilled section"
+        string key "built-in question key, custom or field"
+        string label
+        string value
+        number order
     }
     emails {
         id userId
@@ -136,33 +154,37 @@ erDiagram
 
 Convex stores references as typed ids (`v.id("companies")`) but does not enforce them or cascade deletes. The "on delete" column is code the delete mutation must run.
 
-| From           | To             | Kind        | Field                            | When the "to" record is deleted                                             |
-| -------------- | -------------- | ----------- | -------------------------------- | --------------------------------------------------------------------------- |
-| `companies`    | `users`        | many to one | `createdBy`, optional            | delete the company if it is private and unused, otherwise clear `createdBy` |
-| `applications` | `users`        | many to one | `userId`                         | delete the application                                                      |
-| `applications` | `companies`    | many to one | `companyId`, required            | refuse while any user's application points at the company                   |
-| `preferences`  | `users`        | one to one  | `userId`, unique                 | delete the row and its resume file                                          |
-| `emails`       | `applications` | many to one | `applicationId`, optional        | clear `applicationId` and keep the email                                    |
-| `emails`       | `users`        | many to one | `userId`                         | delete the email                                                            |
-| `auditLogs`    | `users`        | many to one | `userId`, optional               | delete the audit row                                                        |
-| `auditLogs`    | any table      | loose       | `table` + `docId` (plain string) | keep the audit row after the record it describes is gone                    |
+| From             | To             | Kind        | Field                            | When the "to" record is deleted                                             |
+| ---------------- | -------------- | ----------- | -------------------------------- | --------------------------------------------------------------------------- |
+| `companies`      | `users`        | many to one | `createdBy`, optional            | delete the company if it is private and unused, otherwise clear `createdBy` |
+| `applications`   | `users`        | many to one | `userId`                         | delete the application                                                      |
+| `applications`   | `companies`    | many to one | `companyId`, required            | refuse while any user's application points at the company                   |
+| `preferences`    | `users`        | one to one  | `userId`, unique                 | delete the row and its resume file                                          |
+| `preferenceTags` | `users`        | many to one | `userId`                         | delete the tag                                                              |
+| `profileEntries` | `users`        | many to one | `userId`                         | delete the entry                                                            |
+| `emails`         | `applications` | many to one | `applicationId`, optional        | clear `applicationId` and keep the email                                    |
+| `emails`         | `users`        | many to one | `userId`                         | delete the email                                                            |
+| `auditLogs`      | `users`        | many to one | `userId`, optional               | delete the audit row                                                        |
+| `auditLogs`      | any table      | loose       | `table` + `docId` (plain string) | keep the audit row after the record it describes is gone                    |
 
 An application copies its location (`{ city, region, country }`) instead of pointing at an office by id. Nobody edits a location after adding it, so the copy never goes stale, and removing an office from a company can't break anyone's application.
 
 ### Indexes
 
-| Table          | Index                                      | For                                              |
-| -------------- | ------------------------------------------ | ------------------------------------------------ |
-| `companies`    | `by_domain`                                | dedupe, one company per domain                   |
-| `companies`    | `by_createdBy_and_name`                    | my private companies, dedupe ones with no domain |
-| `companies`    | search index on `name`, filter `status`    | the company picker searches verified ones        |
-| `applications` | `by_userId_and_status`                     | board columns, replacing `by_userId`             |
-| `applications` | `by_userId_and_appliedAt`                  | "this month" count, recent list                  |
-| `applications` | `by_companyId`                             | company page, per-company rates, delete check    |
-| `preferences`  | `by_userId`, `by_resumeId`                 | load mine, check who owns an uploaded file       |
-| `emails`       | `by_userId_and_receivedAt`, `by_messageId` | inbox view, skip already-synced mail             |
-| `auditLogs`    | `by_userId`                                | my activity, newest first                        |
-| `auditLogs`    | `by_docId`                                 | history of one record                            |
+| Table            | Index                                      | For                                              |
+| ---------------- | ------------------------------------------ | ------------------------------------------------ |
+| `companies`      | `by_domain`                                | dedupe, one company per domain                   |
+| `companies`      | `by_createdBy_and_name`                    | my private companies, dedupe ones with no domain |
+| `companies`      | search index on `name`, filter `status`    | the company picker searches verified ones        |
+| `applications`   | `by_userId_and_status`                     | board columns, replacing `by_userId`             |
+| `applications`   | `by_userId_and_appliedAt`                  | "this month" count, recent list                  |
+| `applications`   | `by_companyId`                             | company page, per-company rates, delete check    |
+| `preferences`    | `by_userId`, `by_resumeId`                 | load mine, check who owns an uploaded file       |
+| `preferenceTags` | `by_userId_and_kind_and_order`             | my tags, paged, in the order they were added     |
+| `profileEntries` | `by_userId_and_kind_and_order`             | my answers or my Prefilled fields, paged         |
+| `emails`         | `by_userId_and_receivedAt`, `by_messageId` | inbox view, skip already-synced mail             |
+| `auditLogs`      | `by_userId`                                | my activity, newest first                        |
+| `auditLogs`      | `by_docId`                                 | history of one record                            |
 
 `auditLogs` has no time field. `_creationTime` holds the time, and Convex adds it to every index as the last key, so both indexes return rows in time order.
 
@@ -204,7 +226,7 @@ A company with no website, such as a local shop or a stealth startup, stays `pri
 
 `companies.locations` is an array of offices. Each office has a city, an optional region and an ISO country code from a fixed list, plus a normalized `key` like `us|ca|san francisco`. Adding a location whose key already exists reuses the existing entry. Anyone can add a location to a company they can see. Remote isn't a location, so it goes in `applications.workMode`.
 
-`preferences.locations` is free-text tags for now, such as "Berlin" or "anywhere in the EU". Matching them to company offices needs geocoding, which can come with the scrape phase.
+Location tags in `preferenceTags` are free text for now, such as "Berlin" or "anywhere in the EU". Matching them to company offices needs geocoding, which can come with the scrape phase.
 
 ## Adding records that depend on each other
 
@@ -266,7 +288,7 @@ How rows get written:
 Rules:
 
 - Store only the fields that changed, not whole documents.
-- For `preferences` answers and profile fields, log the field names but not the values, since those include phone, salary and work authorization. The log should never be a second copy of private data.
+- For `preferenceTags` and `profileEntries`, log which rows changed but not their values, since those include phone, salary and work authorization. The log should never be a second copy of private data.
 - Deleting an account deletes that user's audit rows too, like everything else they own.
 - Keep rows for one year. A monthly cron deletes older rows in batches.
 
@@ -324,7 +346,7 @@ flowchart TD
         S4[method, postingUrl, workMode, appliedAt, links, notes]
     end
     subgraph P2[Phase 2: about me]
-        S5[preferences table: answers, AI prefill, one resume file - built]
+        S5[preferences, preferenceTags, profileEntries: answers, AI prefill, one resume file - built]
         S6[monthly target]
         S8[dashboard + recommendations]
     end
