@@ -39,6 +39,8 @@ Steps:
 
 - `form_input` turns a value that is pure JSON into `[object Object]`. Start the reply with a few words so it stays a string.
 - Each section mounts only when it's shown, so `find` can't reach a field on another step. Move there first.
+- The tab and step are in the URL (`/preferences?tab=edit&step=4`, steps count from 0), so `navigate` straight to a step instead of clicking Next. A reload keeps the step.
+- Status lines come from the action that ran, so they stay until the next action, not until you type. In the test browser, `Copy prompt` reports `Couldn't copy` because the clipboard is blocked.
 
 - The page fades in, so a screenshot taken right after a redirect can come out blank. Wait a second.
 - The page scrolls inside a coss scroll area, not the window. Scroll with the mouse over the page margin, or call `scrollIntoView` on a heading.

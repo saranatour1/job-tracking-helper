@@ -17,7 +17,7 @@ import {
 } from "@hugeicons/core-free-icons"
 import { HugeiconsIcon } from "@hugeicons/react"
 import { useForm, useStore } from "@tanstack/react-form"
-import { useNavigate } from "@tanstack/react-router"
+import { useLocation, useNavigate, useSearch } from "@tanstack/react-router"
 import { type } from "arktype"
 import {
   builtInAnswers,
@@ -27,7 +27,7 @@ import {
 } from "@convex/api/features/preferences/rows"
 import { useMutation, usePaginatedQuery, useQuery } from "convex/react"
 import { ConvexError } from "convex/values"
-import { useRef, useState } from "react"
+import { startTransition, useActionState, useRef } from "react"
 
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
@@ -78,7 +78,6 @@ const TagInput = ({
   onChange: (value: string[]) => void
   placeholder: string
 }) => {
-  const [draft, setDraft] = useState("")
   const add = (words: string[]) => {
     const next = [...value]
     for (const word of words.map((w) => w.trim()).filter(Boolean))
@@ -100,27 +99,30 @@ const TagInput = ({
           </button>
         </Badge>
       ))}
+      {/* The word being typed lives in the input itself; a comma, Enter or leaving
+          the field turns it into a tag and clears it. */}
       <input
         id={id}
-        value={draft}
         placeholder={value.length ? "" : placeholder}
         onChange={(e) => {
-          const parts = e.target.value.split(",")
-          if (parts.length > 1) add(parts.slice(0, -1))
-          setDraft(parts.at(-1) ?? "")
+          const parts = e.currentTarget.value.split(",")
+          if (parts.length < 2) return
+          add(parts.slice(0, -1))
+          e.currentTarget.value = parts.at(-1) ?? ""
         }}
         onKeyDown={(e) => {
+          const input = e.currentTarget
           if (e.key === "Enter") {
             e.preventDefault()
-            add([draft])
-            setDraft("")
-          } else if (e.key === "Backspace" && !draft && value.length) {
+            add([input.value])
+            input.value = ""
+          } else if (e.key === "Backspace" && !input.value && value.length) {
             onChange(value.slice(0, -1))
           }
         }}
-        onBlur={() => {
-          add([draft])
-          setDraft("")
+        onBlur={(e) => {
+          add([e.currentTarget.value])
+          e.currentTarget.value = ""
         }}
         className="placeholder:text-muted-foreground min-w-32 flex-1 bg-transparent px-1 text-sm outline-none"
       />
@@ -143,11 +145,26 @@ const Section = ({
   </div>
 )
 
+type Note = { ok: boolean; text: string } | undefined
+
 // Copy the prompt, run it in your own assistant, paste the JSON reply back.
 const Prefill = ({ onDraft }: { onDraft: (draft: Draft) => number }) => {
-  const [reply, setReply] = useState("")
-  const [status, setStatus] = useState<{ ok: boolean; text: string }>()
-  const [copied, setCopied] = useState(false)
+  const reply = useRef<HTMLTextAreaElement>(null)
+  // The last action's result is the message under the buttons.
+  const [status, run] = useActionState(async (_: Note, action: "copy" | "fill"): Promise<Note> => {
+    if (action === "copy")
+      return navigator.clipboard.writeText(assistantPrompt).then(
+        () => ({ ok: true, text: "Prompt copied. Paste it into your assistant." }),
+        () => ({ ok: false, text: "Couldn't copy. Open the prompt and copy it." })
+      )
+    const result = parseReply(reply.current?.value ?? "")
+    if (!result.draft) return { ok: false, text: result.error }
+    const count = onDraft(result.draft)
+    return {
+      ok: true,
+      text: `Filled ${count} ${count === 1 ? "answer" : "answers"}. Check them below, then save.`,
+    }
+  }, undefined)
   return (
     <Tile title="Fill this in with your own AI assistant" className="gap-4 p-4">
       <p className="text-muted-foreground text-xs leading-relaxed">
@@ -165,14 +182,9 @@ const Prefill = ({ onDraft }: { onDraft: (draft: Draft) => number }) => {
           type="button"
           size="sm"
           variant="outline"
-          onClick={() =>
-            void navigator.clipboard.writeText(assistantPrompt).then(
-              () => setCopied(true),
-              () => setStatus({ ok: false, text: "Couldn't copy. Open the prompt and copy it." })
-            )
-          }
+          onClick={() => startTransition(() => run("copy"))}
         >
-          <HugeiconsIcon icon={Copy01Icon} /> {copied ? "Copied" : "Copy prompt"}
+          <HugeiconsIcon icon={Copy01Icon} /> Copy prompt
         </Button>
         <details className="w-full">
           <summary className="text-muted-foreground cursor-pointer text-xs">
@@ -189,29 +201,12 @@ const Prefill = ({ onDraft }: { onDraft: (draft: Draft) => number }) => {
         </Label>
         <Textarea
           id="assistant-reply"
+          ref={reply}
           placeholder='Paste the reply that starts with "{"'
-          value={reply}
-          onChange={(e) => {
-            setReply(e.target.value)
-            setStatus(undefined)
-          }}
           className="min-h-20 font-mono text-xs"
         />
         <div className="flex items-center gap-3">
-          <Button
-            type="button"
-            size="sm"
-            disabled={!reply.trim()}
-            onClick={() => {
-              const result = parseReply(reply)
-              if (!result.draft) return setStatus({ ok: false, text: result.error })
-              const count = onDraft(result.draft)
-              setStatus({
-                ok: true,
-                text: `Filled ${count} ${count === 1 ? "answer" : "answers"}. Check them below, then save.`,
-              })
-            }}
-          >
+          <Button type="button" size="sm" onClick={() => startTransition(() => run("fill"))}>
             Fill the form
           </Button>
           {status && (
@@ -231,20 +226,23 @@ const Prefill = ({ onDraft }: { onDraft: (draft: Draft) => number }) => {
 const ResumeStep = ({ resume }: { resume: { name: string; url: string | null } | null }) => {
   const generateUploadUrl = useMutation(api.users.generateUploadUrl)
   const setResume = useMutation(api.preferences.setResume)
-  const [error, setError] = useState<string>()
-
-  const upload = async (file: File) => {
+  // The upload's result is the error under the picker, if there is one.
+  const [error, upload] = useActionState(async (_: string | undefined, file: File) => {
     // The server checks too; this keeps an obviously wrong file out of storage.
-    if (!resumeTypes.includes(file.type)) return setError("Upload a PDF, Word or plain text file.")
-    if (file.size > maxResumeBytes) return setError("Resumes must be 10 MB or smaller.")
-    const response = await fetch(await generateUploadUrl(), {
-      method: "POST",
-      headers: { "Content-Type": file.type },
-      body: file,
-    })
-    const { storageId } = (await response.json()) as { storageId: Id<"_storage"> }
-    await setResume({ resumeId: storageId, name: file.name.slice(0, 200) })
-  }
+    if (!resumeTypes.includes(file.type)) return "Upload a PDF, Word or plain text file."
+    if (file.size > maxResumeBytes) return "Resumes must be 10 MB or smaller."
+    try {
+      const response = await fetch(await generateUploadUrl(), {
+        method: "POST",
+        headers: { "Content-Type": file.type },
+        body: file,
+      })
+      const { storageId } = (await response.json()) as { storageId: Id<"_storage"> }
+      await setResume({ resumeId: storageId, name: file.name.slice(0, 200) })
+    } catch (cause) {
+      return messageOf(cause)
+    }
+  }, undefined)
 
   return (
     <Section
@@ -281,10 +279,7 @@ const ResumeStep = ({ resume }: { resume: { name: string; url: string | null } |
           onChange={(e) => {
             const file = e.target.files?.[0]
             e.target.value = ""
-            if (file) {
-              setError(undefined)
-              upload(file).catch((cause: unknown) => setError(messageOf(cause)))
-            }
+            if (file) startTransition(() => upload(file))
           }}
         />
         {error && (
@@ -321,6 +316,11 @@ const firstError = (
   fieldMeta: Record<string, { errors: ({ message?: string } | undefined)[] } | undefined>
 ) => Object.values(fieldMeta).flatMap((m) => m?.errors ?? [])[0]?.message
 
+type PrefilledAction =
+  | { type: "save" }
+  | { type: "fill" }
+  | { type: "copy"; label: string; value: string }
+
 // Fields application forms ask for, in sections, with what to put in each, ready to copy.
 // Saved on its own, so it never overwrites the answers in the other tabs.
 const Prefilled = ({
@@ -331,24 +331,44 @@ const Prefilled = ({
   suggestions: FieldSection[]
 }) => {
   const savePrefilled = useMutation(api.preferences.savePrefilled)
-  const [status, setStatus] = useState<string>()
-  const [copied, setCopied] = useState<string>()
-  const [defaults] = useState(() => ({ sections: saved ?? suggestions }))
+  // Kept from the first render: new defaults would reset the form and drop unsaved edits.
+  const defaults = useRef({ sections: saved ?? suggestions }).current
   const form = useForm({
     defaultValues: defaults,
     validators: { onSubmit: PrefilledShape },
     // Re-check on every save; otherwise one failed save blocks the next even once fixed.
     canSubmitWhenInvalid: true,
-    onSubmit: async ({ value }) => {
-      setStatus(undefined)
-      await savePrefilled(value).then(
-        () => setStatus("Saved."),
-        (error: unknown) => setStatus(messageOf(error))
-      )
-    },
-    onSubmitInvalid: ({ formApi }) =>
-      setStatus(firstError(formApi.state.fieldMeta) ?? "Some fields need fixing."),
+    onSubmit: ({ value }) => savePrefilled(value),
   })
+  // Save, fill and copy each end in one line of feedback next to Save.
+  const [status, run] = useActionState(
+    async (_: string | undefined, action: PrefilledAction): Promise<string | undefined> => {
+      switch (action.type) {
+        case "save":
+          try {
+            await form.handleSubmit()
+          } catch (error) {
+            return messageOf(error)
+          }
+          return form.state.isSubmitSuccessful
+            ? "Saved."
+            : (firstError(form.state.fieldMeta) ?? "Some fields need fixing.")
+        case "fill": {
+          const result = fillEmpty(form.state.values.sections, suggestions)
+          form.setFieldValue("sections", result.sections)
+          return result.filled
+            ? `Filled ${result.filled} from your answers. Check them, then save.`
+            : "Nothing new to fill from your answers."
+        }
+        case "copy":
+          return navigator.clipboard.writeText(action.value).then(
+            () => `Copied ${action.label || "the value"}.`,
+            () => "Couldn't copy. Select the text and copy it."
+          )
+      }
+    },
+    undefined
+  )
   // Array fields re-render only when items come or go; rows read titles and values live.
   const live = useStore(form.store, (st) => st.values.sections)
 
@@ -370,15 +390,7 @@ const Prefilled = ({
               type="button"
               variant="ghost"
               size="sm"
-              onClick={() => {
-                const result = fillEmpty(form.state.values.sections, suggestions)
-                form.setFieldValue("sections", result.sections)
-                setStatus(
-                  result.filled
-                    ? `Filled ${result.filled} from your answers. Check them, then save.`
-                    : "Nothing new to fill from your answers."
-                )
-              }}
+              onClick={() => startTransition(() => run({ type: "fill" }))}
             >
               <HugeiconsIcon icon={SparklesIcon} /> Fill empty ones from your answers
             </Button>
@@ -490,16 +502,16 @@ const Prefilled = ({
                                       type="button"
                                       size="icon-sm"
                                       variant="ghost"
-                                      aria-label={
-                                        copied === `${si}.${fi}`
-                                          ? "Copied"
-                                          : `Copy ${row.label || "value"}`
-                                      }
+                                      aria-label={`Copy ${row.label || "value"}`}
                                       disabled={!row.value.trim()}
                                       onClick={() =>
-                                        void navigator.clipboard
-                                          .writeText(row.value.trim())
-                                          .then(() => setCopied(`${si}.${fi}`))
+                                        startTransition(() =>
+                                          run({
+                                            type: "copy",
+                                            label: row.label.trim(),
+                                            value: row.value.trim(),
+                                          })
+                                        )
                                       }
                                     >
                                       <HugeiconsIcon icon={Copy01Icon} />
@@ -557,7 +569,7 @@ const Prefilled = ({
               type="button"
               className="ms-auto"
               disabled={submitting}
-              onClick={() => void form.handleSubmit()}
+              onClick={() => startTransition(() => run({ type: "save" }))}
             >
               Save prefilled
             </Button>
@@ -566,6 +578,27 @@ const Prefilled = ({
       </div>
     </div>
   )
+}
+
+const preferencesTabs = ["overview", "edit", "prefilled"] as const
+export type PreferencesTab = (typeof preferencesTabs)[number]
+
+// Reads `?tab=` and `?step=` for the route, dropping anything that isn't one of them.
+export const preferencesSearch = (
+  search: Record<string, unknown>
+): { tab?: PreferencesTab; step?: number } => ({
+  tab: preferencesTabs.find((t) => t === search.tab),
+  step:
+    typeof search.step === "number" && Number.isInteger(search.step) && search.step >= 0
+      ? search.step
+      : undefined,
+})
+
+declare module "@tanstack/react-router" {
+  interface HistoryState {
+    // Set when moving between steps, so the next one slides in from the right side.
+    forward?: boolean
+  }
 }
 
 // One section per step. `fields` maps a validation error back to its step.
@@ -737,17 +770,26 @@ const PreferencesForm = ({
   const savePreferences = useMutation(api.preferences.save)
   const skipPreferences = useMutation(api.preferences.skip)
   const navigate = useNavigate()
-  const [status, setStatus] = useState<string>()
-  const [step, setStep] = useState(0)
+  // The tab and step live in the URL, so a reload or the back button keeps your place.
+  const search = useSearch({ from: "/_app/preferences" })
   // Which way the last move went, so the next section slides in from that side.
-  const [forward, setForward] = useState(true)
+  const forward = useLocation({ select: (l) => l.state.forward ?? true })
+  // First run walks through the steps; after that, the overview is the quicker way in.
+  // Decided once, so a first save doesn't jump away from the step you're on.
+  const firstTab = useRef<PreferencesTab>(onboarded ? "overview" : "edit").current
+  const tab = search.tab ?? firstTab
+  const step = Math.min(search.step ?? 0, steps.length - 1)
   const lastMove = useRef(0)
   const wheel = useRef(0)
   const dragStart = useRef<number>(undefined)
   const goTo = (next: number) => {
     if (next < 0 || next >= steps.length || next === step) return
-    setForward(next > step)
-    setStep(next)
+    void navigate({
+      to: "/preferences",
+      search: (prev) => ({ ...prev, step: next }),
+      state: { forward: next > step },
+      replace: true,
+    })
   }
   // Wheel and drag move one section at a time; the pause stops one fling skipping several.
   const move = (delta: number) => {
@@ -755,35 +797,45 @@ const PreferencesForm = ({
     lastMove.current = Date.now()
     goTo(step + delta)
   }
-  // First run walks through the steps; after that, the overview is the quicker way in.
-  const [tab, setTab] = useState<"overview" | "edit" | "prefilled">(onboarded ? "overview" : "edit")
-  const edit = (id: string) => {
-    setTab("edit")
-    goTo(steps.findIndex((s) => s.id === id))
-  }
-  // Created once: a new object on each render would count as new defaults, and the form
-  // would reset itself, dropping anything filled in but not yet saved.
-  const [defaults] = useState(() => ({ ...saved, custom: saved.custom ?? [] }))
+  const edit = (id: string) =>
+    void navigate({
+      to: "/preferences",
+      search: { tab: "edit", step: steps.findIndex((s) => s.id === id) },
+      state: { forward: true },
+    })
+  // Kept from the first render: a new object on each render would count as new defaults,
+  // and the form would reset itself, dropping anything filled in but not yet saved.
+  const defaults = useRef({ ...saved, custom: saved.custom ?? [] }).current
   const form = useForm({
     defaultValues: defaults,
     validators: { onSubmit: PreferencesType },
     // Re-check on every save; otherwise one failed save blocks the next even once fixed.
     canSubmitWhenInvalid: true,
-    onSubmit: async ({ value }) => {
-      setStatus(undefined)
-      await savePreferences(value).then(
-        () => setStatus("Saved."),
-        (error: unknown) => setStatus(messageOf(error))
-      )
-    },
+    onSubmit: ({ value }) => savePreferences(value),
     // Opens the first step with a problem, since only one step shows at a time.
     onSubmitInvalid: ({ formApi }) => {
       const bad = Object.entries(formApi.state.fieldMeta).find(([, m]) => m?.errors.length)?.[0]
       const index = steps.findIndex((s) => s.fields.some((f) => bad?.startsWith(f)))
       if (index >= 0) goTo(index)
-      setStatus("Some answers need fixing.")
     },
   })
+  // Saving or skipping ends in the line of feedback next to Save.
+  const [status, run] = useActionState(
+    async (_: string | undefined, action: "save" | "skip"): Promise<string | undefined> => {
+      if (action === "skip") {
+        await skipPreferences()
+        await navigate({ to: "/" })
+        return undefined
+      }
+      try {
+        await form.handleSubmit()
+      } catch (error) {
+        return messageOf(error)
+      }
+      return form.state.isSubmitSuccessful ? "Saved." : "Some answers need fixing."
+    },
+    undefined
+  )
   const values = useStore(form.store, (s) => s.values)
   const current = steps[step]!
   const last = step === steps.length - 1
@@ -1022,7 +1074,7 @@ const PreferencesForm = ({
       className="flex min-h-0 flex-1 flex-col"
       onSubmit={(e) => {
         e.preventDefault()
-        void form.handleSubmit()
+        startTransition(() => run("save"))
       }}
       // Enter in a one-line field shouldn't save the whole form.
       onKeyDown={(e) =>
@@ -1031,7 +1083,12 @@ const PreferencesForm = ({
     >
       <Tabs
         value={tab}
-        onValueChange={(v) => setTab(v as typeof tab)}
+        onValueChange={(v) =>
+          void navigate({
+            to: "/preferences",
+            search: (prev) => ({ ...prev, tab: v as PreferencesTab }),
+          })
+        }
         className="flex min-h-0 flex-1 flex-col gap-0"
       >
         <div className="border-b px-4 py-1.5">
@@ -1105,7 +1162,7 @@ const PreferencesForm = ({
                 <Button
                   type="button"
                   variant="ghost"
-                  onClick={() => void skipPreferences().then(() => navigate({ to: "/" }))}
+                  onClick={() => startTransition(() => run("skip"))}
                 >
                   Skip for now
                 </Button>

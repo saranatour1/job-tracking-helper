@@ -51,6 +51,26 @@ export default defineConfig({
           "@convex-dev/no-process-env": "error",
         },
       },
+      // Preferences keeps state in the form, the URL or an action's result, and reads
+      // inputs through refs, so it doesn't need useState either.
+      {
+        files: ["src/features/preferences/**"],
+        rules: {
+          "no-restricted-imports": [
+            "error",
+            {
+              paths: [
+                {
+                  name: "react",
+                  importNames: ["useEffect", "useLayoutEffect", "useState"],
+                  message:
+                    "Use the form's state, the URL, useActionState for an action's result, or a ref for an input.",
+                },
+              ],
+            },
+          ],
+        },
+      },
       {
         files: ["src/components/ui/**", "src/hooks/use-media-query.ts"],
         rules: { "func-style": "off", "no-restricted-imports": "off" },
