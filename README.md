@@ -2,6 +2,8 @@
 
 Track job applications: company, role and status, saved per user.
 
+The Inbox, Pipeline, Goals and Views pages are a preview built on sample data from `src/features/tracker/data.ts`. They don't read from or save to Convex yet. Edits there last until you reload, and the create buttons do nothing.
+
 ## How to run
 
 Needs [Vite+](https://viteplus.dev) (`vp`) and pnpm.
@@ -52,6 +54,7 @@ src/
   routes/                              pages (TanStack Router); they only import a feature
     _app.tsx, _auth.tsx                layouts: signed-in pages, and /sign-in + /sign-up
   features/<feature>/                  the feature's components
+  features/tracker/                    Inbox, Pipeline, Goals and Views, on sample data for now
   components/ui/                       shadcn/coss components, managed by the shadcn CLI
 scripts/                               dev and secrets scripts
 docs/database-design.md                planned tables, status flow and build order

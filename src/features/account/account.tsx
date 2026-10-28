@@ -11,6 +11,7 @@ import { useState } from "react"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
+import { PageHeader } from "@/features/shell/page-header"
 
 const fields = [
   { name: "name", label: "Name", type: "text", autoComplete: "name" },
@@ -178,9 +179,9 @@ const AccountBody = ({ me }: { me: FunctionReturnType<typeof api.users.me> }) =>
 export const Account = () => {
   const me = useQuery(api.users.me)
   return (
-    <main className="flex flex-col gap-8 p-6">
-      <h1 className="font-heading text-lg font-medium">Account</h1>
-      {me && <AccountBody me={me} />}
-    </main>
+    <>
+      <PageHeader crumbs={[{ label: "Account" }]} />
+      <main className="flex flex-col gap-8 p-6">{me && <AccountBody me={me} />}</main>
+    </>
   )
 }
