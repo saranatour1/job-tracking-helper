@@ -1,3 +1,5 @@
+import { useSyncExternalStore } from "react"
+
 // shortcut: hard-coded sample data while the tracker UI has no backend; replace
 // with Convex queries once the schema in docs/database-design.md exists.
 
@@ -132,7 +134,7 @@ const app = (a: Omit<Application, "history"> & { history?: Event[] }): Applicati
   history: a.history ?? [{ status: a.status, at: a.createdAt }],
 })
 
-export const applications: Application[] = [
+const sample: Application[] = [
   app({
     id: "APP-21",
     role: "Senior Frontend Engineer",
@@ -320,6 +322,25 @@ export const applications: Application[] = [
     ],
   }),
 ]
+
+// shortcut: edits live in memory and reset on reload; replace with Convex queries and mutations.
+// `applications` is a live binding, so every module that imports it sees edits made anywhere.
+export let applications = sample
+const listeners = new Set<() => void>()
+const subscribe = (listener: () => void) => {
+  listeners.add(listener)
+  return () => listeners.delete(listener)
+}
+export const updateApplication = (id: string, patch: Partial<Application>) => {
+  applications = applications.map((a) => (a.id === id ? { ...a, ...patch } : a))
+  for (const listener of listeners) listener()
+}
+export const useApplications = () =>
+  useSyncExternalStore(
+    subscribe,
+    () => applications,
+    () => sample
+  )
 
 export const views: View[] = [
   {

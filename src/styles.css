@@ -93,6 +93,8 @@
 }
 
 .dark {
+  /* Dark scrollbars and form controls. */
+  color-scheme: dark;
   --background: oklch(0.147 0.004 49.25);
   --foreground: oklch(0.985 0.001 106.423);
   --card: oklch(0.216 0.006 56.043);

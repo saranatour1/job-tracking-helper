@@ -9,18 +9,18 @@ import {
 } from "@hugeicons/core-free-icons"
 import { HugeiconsIcon } from "@hugeicons/react"
 import { Link } from "@tanstack/react-router"
-import { useState } from "react"
+import { useRef, useState } from "react"
 
 import { Button } from "@/components/ui/button"
 import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group"
 import { Tooltip, TooltipPopup, TooltipTrigger } from "@/components/ui/tooltip"
+import { useIsMobile } from "@/hooks/use-media-query"
 
 import {
   type Application,
   type FilterField,
   type Filters,
   type Status,
-  applications,
   formatDate,
   goalName,
   goals,
@@ -30,9 +30,11 @@ import {
   statusLabels,
   statuses,
   views,
+  useApplications,
 } from "./data"
 import { type Display, DisplayOptions, defaultDisplay } from "./display-options"
 import { FilterChips, FilterMenu, toggleFilter } from "./filters"
+import { ApplicationPeek } from "./application"
 import { PriorityIcon, StatusIcon } from "./icons"
 import { NewApplicationDialog } from "./new-application"
 import { PageHeader } from "@/features/shell/page-header"
@@ -110,11 +112,23 @@ const Properties = ({ a, shown }: { a: Application; shown: Display["shown"] }) =
   </>
 )
 
-const Card = ({ a, shown }: { a: Application; shown: Display["shown"] }) => (
+type Peek = { id?: string; open?: (id: string) => void }
+
+// The first click opens the side panel. Clicking the open card again, or a
+// cmd/ctrl/shift click, follows the link to the full page.
+const peekOnClick = (peek: Peek, id: string) => (e: React.MouseEvent) => {
+  if (!peek.open || peek.id === id || e.metaKey || e.ctrlKey || e.shiftKey) return
+  e.preventDefault()
+  peek.open(id)
+}
+
+const Card = ({ a, shown, peek }: { a: Application; shown: Display["shown"]; peek: Peek }) => (
   <Link
     to="/pipeline/$id"
     params={{ id: a.id }}
-    className="bg-card hover:border-ring/40 flex flex-col gap-1.5 rounded-md border px-2.5 py-2 text-[13px] shadow-xs/5"
+    onClick={peekOnClick(peek, a.id)}
+    aria-current={peek.id === a.id || undefined}
+    className="bg-card hover:border-ring/40 aria-[current=true]:border-ring/70 flex flex-col gap-1.5 rounded-md border px-2.5 py-2 text-[13px] shadow-xs/5"
   >
     <span className="text-muted-foreground flex justify-between text-[11px] empty:hidden">
       {shown.includes("id") && <span>{a.id}</span>}
@@ -133,11 +147,13 @@ const Card = ({ a, shown }: { a: Application; shown: Display["shown"] }) => (
   </Link>
 )
 
-const Row = ({ a, shown }: { a: Application; shown: Display["shown"] }) => (
+const Row = ({ a, shown, peek }: { a: Application; shown: Display["shown"]; peek: Peek }) => (
   <Link
     to="/pipeline/$id"
     params={{ id: a.id }}
-    className="hover:bg-accent/50 flex h-9 items-center gap-2.5 border-b px-4 text-[13px]"
+    onClick={peekOnClick(peek, a.id)}
+    aria-current={peek.id === a.id || undefined}
+    className="hover:bg-accent/50 aria-[current=true]:bg-accent flex h-9 items-center gap-2.5 border-b px-4 text-[13px]"
   >
     {shown.includes("priority") && <PriorityIcon priority={a.priority} />}
     {shown.includes("id") && (
@@ -173,6 +189,56 @@ const IconButton = ({
     <TooltipPopup>{label}</TooltipPopup>
   </Tooltip>
 )
+
+const minWidth = 320
+const maxWidth = 900
+const clamp = (width: number) => Math.round(Math.min(maxWidth, Math.max(minWidth, width)))
+
+// A right-hand panel you resize by dragging its left edge, or with the arrow keys
+// when the edge has focus.
+const SidePanel = ({
+  width,
+  onResize,
+  children,
+}: {
+  width: number
+  onResize: (width: number) => void
+  children: React.ReactNode
+}) => {
+  const drag = useRef<{ x: number; width: number }>(undefined)
+  return (
+    <aside
+      aria-label="Application details"
+      style={{ width }}
+      className="bg-background relative shrink-0 border-s"
+    >
+      <div
+        role="separator"
+        aria-orientation="vertical"
+        aria-label="Resize panel"
+        aria-valuenow={width}
+        aria-valuemin={minWidth}
+        aria-valuemax={maxWidth}
+        tabIndex={0}
+        onPointerDown={(e) => {
+          e.preventDefault()
+          drag.current = { x: e.clientX, width }
+          e.currentTarget.setPointerCapture(e.pointerId)
+        }}
+        onPointerMove={(e) =>
+          drag.current && onResize(clamp(drag.current.width + drag.current.x - e.clientX))
+        }
+        onPointerUp={() => (drag.current = undefined)}
+        onKeyDown={(e) => {
+          if (e.key === "ArrowLeft") onResize(clamp(width + 24))
+          if (e.key === "ArrowRight") onResize(clamp(width - 24))
+        }}
+        className="hover:bg-ring/40 focus-visible:bg-ring/60 absolute inset-y-0 -start-1 z-10 w-2 cursor-col-resize outline-none"
+      />
+      {children}
+    </aside>
+  )
+}
 
 const panelFields = {
   company: "Company",
@@ -248,8 +314,12 @@ export const Pipeline = ({ viewId }: { viewId?: string }) => {
   const [filters, setFilters] = useState<Filters>(view?.filters ?? {})
   const [display, setDisplay] = useState<Display>(defaultDisplay)
   const [panel, setPanel] = useState(false)
+  const [peek, setPeek] = useState<string>()
+  const [peekWidth, setPeekWidth] = useState(440)
+  // Phones have no room for a side panel, so cards open the full page there.
+  const peeking: Peek = useIsMobile() ? {} : { id: peek, open: setPeek }
 
-  const visible = applications
+  const visible = useApplications()
     .filter((a) => tabs[tab].includes(a.status) && matches(a, filters))
     .sort(order[display.orderBy])
   const groups = groupsFor(visible, display.groupBy).filter(
@@ -258,7 +328,15 @@ export const Pipeline = ({ viewId }: { viewId?: string }) => {
   const hasFilters = Object.values(filters).some((v) => v?.length)
 
   return (
-    <div className="flex h-svh flex-col md:h-[calc(100svh-1rem)]">
+    <div
+      className="flex h-svh flex-col md:h-[calc(100svh-1rem)]"
+      // Esc closes the side panel from anywhere on the page, unless a menu or dialog is open.
+      onKeyDown={(e) =>
+        e.key === "Escape" &&
+        !(e.target as Element).closest("[role=menu],[role=listbox],[role=dialog]") &&
+        setPeek(undefined)
+      }
+    >
       <PageHeader
         crumbs={[
           { label: "Tracker" },
@@ -367,7 +445,7 @@ export const Pipeline = ({ viewId }: { viewId?: string }) => {
                 </header>
                 <div className="flex flex-col gap-1.5 overflow-y-auto">
                   {g.items.map((a) => (
-                    <Card key={a.id} a={a} shown={display.shown} />
+                    <Card key={a.id} a={a} shown={display.shown} peek={peeking} />
                   ))}
                 </div>
               </section>
@@ -383,13 +461,19 @@ export const Pipeline = ({ viewId }: { viewId?: string }) => {
                   <span className="text-muted-foreground">{g.items.length}</span>
                 </header>
                 {g.items.map((a) => (
-                  <Row key={a.id} a={a} shown={display.shown} />
+                  <Row key={a.id} a={a} shown={display.shown} peek={peeking} />
                 ))}
               </section>
             ))}
           </div>
         )}
-        {panel && <InsightsPanel items={visible} filters={filters} onChange={setFilters} />}
+        {peek ? (
+          <SidePanel width={peekWidth} onResize={setPeekWidth}>
+            <ApplicationPeek id={peek} onClose={() => setPeek(undefined)} />
+          </SidePanel>
+        ) : (
+          panel && <InsightsPanel items={visible} filters={filters} onChange={setFilters} />
+        )}
       </div>
     </div>
   )
