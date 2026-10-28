@@ -14,6 +14,13 @@ const tags = [
 ]
 const template = (id: string) => loopTemplates.find((t) => t.id === id)!.answers
 
+describe("criteriaOf", () => {
+  it("keeps only the answers a run uses, so old loops' extra fields never reach it", () => {
+    const old = { ...template("remote-fit"), digest: true }
+    expect(Object.keys(criteriaOf(old, tags))).not.toContain("digest")
+  })
+})
+
 describe("queriesOf", () => {
   it("searches remote roles for each interest", () => {
     expect(queriesOf(criteriaOf(template("remote-fit"), tags))).toEqual([

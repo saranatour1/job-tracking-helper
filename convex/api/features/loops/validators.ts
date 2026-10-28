@@ -3,16 +3,15 @@ import { blankTemplate, dailySizes, loopTemplates, runTimes } from "./catalog"
 
 const trimmed = type("string.trim")
 
-// A loop's answers: exactly the catalog's eight questions, each yes or no.
+// A loop's answers: exactly the catalog's questions, each yes or no.
 export const LoopAnswers = type({
   usePreferences: "boolean",
+  stretch: "boolean",
   remoteOnly: "boolean",
   nearMe: "boolean",
   listedCompanies: "boolean",
   skipRedFlags: "boolean",
-  stretch: "boolean",
   postedToday: "boolean",
-  digest: "boolean",
 })
 
 export const providerIds = ["firecrawl", "contextDev"] as const
@@ -27,4 +26,6 @@ export const NewLoop = type({
   daily: type.enumerated(...dailySizes),
   at: type.enumerated(...runTimes),
   timeZone: "0 < string <= 64",
+  // Runs by itself every morning; when no, it runs only when the person presses Run now.
+  auto: "boolean",
 })

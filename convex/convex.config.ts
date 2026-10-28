@@ -8,6 +8,7 @@ import authGithub from "@convex-dev/auth/components/github/convex.config.js"
 import authAnonymous from "@convex-dev/auth/components/anonymous/convex.config.js"
 import rateLimiter from "@convex-dev/rate-limiter/convex.config.js"
 import workflow from "@convex-dev/workflow/convex.config.js"
+import workpool from "@convex-dev/workpool/convex.config.js"
 
 const app = defineApp({
   env: {
@@ -52,9 +53,11 @@ app.use(authGithub, {
   },
 })
 
-// Loops: the workflow component runs each morning's search step by step, on its own
-// workpool, and the rate limiter keeps calls to each source under its limit.
+// Loops: the workflow component runs each morning's search step by step, `readPool`
+// reads postings for every run under one shared limit, and the rate limiter keeps calls
+// to each source under its per-minute limit.
 app.use(workflow)
+app.use(workpool, { name: "readPool" })
 app.use(rateLimiter)
 
 export default app

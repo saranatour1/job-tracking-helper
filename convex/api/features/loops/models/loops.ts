@@ -3,12 +3,14 @@ import { type } from "arktype"
 import { arkId, arkOutputToConvex } from "../../../../lib/ark"
 import { LoopAnswers } from "../validators"
 
-// A person's saved search. `nextRunAt` is when the cron should next start it.
+// A person's saved search. `nextRunAt` is when the cron should next start it; `active`
+// false means it runs only when the person presses Run now.
 export const Loop = type({
   userId: arkId("users"),
   name: "string",
   template: "string",
-  answers: LoopAnswers,
+  // `digest` is optional so loops saved before that question was dropped stay valid.
+  answers: LoopAnswers.and({ "digest?": "boolean" }),
   daily: "number",
   at: "string",
   timeZone: "string",

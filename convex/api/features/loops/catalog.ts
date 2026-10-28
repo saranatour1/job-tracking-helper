@@ -4,33 +4,16 @@
 
 export const maxLoops = 3
 
+// The yes/no answers a loop keeps. The setup screen asks them step by step, next to
+// what each one makes the run do; these labels are the short form for summaries.
 export const loopQuestions = {
-  usePreferences: {
-    label: "Judge fit with my Preferences?",
-    hint: "Uses your interests, places and the things you'd rather avoid.",
-  },
-  remoteOnly: { label: "Remote roles only?", hint: "Skips on-site and hybrid postings." },
-  nearMe: {
-    label: "Include on-site and hybrid roles in my places?",
-    hint: "Only in the places you listed.",
-  },
-  listedCompanies: {
-    label: "Only companies I listed?",
-    hint: "Watches the careers pages of your dream companies.",
-  },
-  skipRedFlags: {
-    label: "Skip companies and red flags I'd avoid?",
-    hint: "Drops them before they reach you.",
-  },
-  stretch: {
-    label: "Include roles that stretch my skills?",
-    hint: "A level up, using the skills you're building.",
-  },
-  postedToday: { label: "Only jobs posted in the last day?", hint: "Fewer, fresher results." },
-  digest: {
-    label: "Send a morning summary to my Inbox?",
-    hint: "One notification with what came in.",
-  },
+  usePreferences: { label: "Searches what you're drawn to" },
+  stretch: { label: "Also looks one level up" },
+  remoteOnly: { label: "Remote only" },
+  nearMe: { label: "In your places" },
+  listedCompanies: { label: "Only your companies" },
+  skipRedFlags: { label: "Leaves out what you'd avoid" },
+  postedToday: { label: "Posted since yesterday" },
 } as const
 export type LoopQuestion = keyof typeof loopQuestions
 export type LoopAnswers = Record<LoopQuestion, boolean>
@@ -66,7 +49,7 @@ export const loopTemplates: LoopTemplate[] = [
     id: "remote-fit",
     name: "Remote roles that fit",
     pitch: "Remote jobs that match what you're drawn to.",
-    answers: { ...allNo, usePreferences: true, remoteOnly: true, skipRedFlags: true, digest: true },
+    answers: { ...allNo, usePreferences: true, remoteOnly: true, skipRedFlags: true },
     daily: 10,
     at: "08:00",
   },
@@ -74,7 +57,7 @@ export const loopTemplates: LoopTemplate[] = [
     id: "close-to-home",
     name: "Close to home",
     pitch: "On-site and hybrid roles in the places you listed.",
-    answers: { ...allNo, usePreferences: true, nearMe: true, skipRedFlags: true, digest: true },
+    answers: { ...allNo, usePreferences: true, nearMe: true, skipRedFlags: true },
     daily: 10,
     at: "08:00",
   },
@@ -82,7 +65,7 @@ export const loopTemplates: LoopTemplate[] = [
     id: "dream-companies",
     name: "Dream companies watch",
     pitch: "New openings at the companies you'd love to work for.",
-    answers: { ...allNo, listedCompanies: true, postedToday: true, digest: true },
+    answers: { ...allNo, listedCompanies: true, postedToday: true },
     daily: 5,
     at: "07:00",
   },
@@ -103,7 +86,6 @@ export const loopTemplates: LoopTemplate[] = [
       usePreferences: true,
       postedToday: true,
       skipRedFlags: true,
-      digest: true,
     },
     daily: 20,
     at: "07:00",

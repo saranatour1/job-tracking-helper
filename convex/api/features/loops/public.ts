@@ -43,10 +43,11 @@ const create = arkMutation({
     if (loop.answers.remoteOnly && loop.answers.nearMe)
       throw new ConvexError("Pick remote only or on-site near you, not both.")
     if (!isTimeZone(loop.timeZone)) throw new ConvexError("That time zone isn't one we know.")
+    const { auto, ...fields } = loop
     return ctx.db.insert("loops", {
-      ...loop,
+      ...fields,
       userId: ctx.userId,
-      active: true,
+      active: auto,
       nextRunAt: nextRunAt(Date.now(), loop.at, loop.timeZone),
     })
   },

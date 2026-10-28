@@ -152,5 +152,6 @@ export declare const components: {
   authGoogle: import("@convex-dev/auth/components/google/_generated/component.js").ComponentApi<"authGoogle">;
   authGithub: import("@convex-dev/auth/components/github/_generated/component.js").ComponentApi<"authGithub">;
   workflow: import("@convex-dev/workflow/_generated/component.js").ComponentApi<"workflow">;
+  readPool: import("@convex-dev/workpool/_generated/component.js").ComponentApi<"readPool">;
   rateLimiter: import("@convex-dev/rate-limiter/_generated/component.js").ComponentApi<"rateLimiter">;
 };

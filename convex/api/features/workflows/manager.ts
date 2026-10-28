@@ -1,5 +1,6 @@
 import { DAY, MINUTE, RateLimiter } from "@convex-dev/rate-limiter"
 import { WorkflowManager } from "@convex-dev/workflow"
+import { Workpool } from "@convex-dev/workpool"
 import { components } from "../../../_generated/api"
 
 // Runs each loop's steps on the workflow component's own workpool. Steps are batches
@@ -16,5 +17,11 @@ export const limits = new RateLimiter(components.rateLimiter, {
   runNow: { kind: "fixed window", rate: 3, period: DAY },
 })
 
-// How many postings one run reads at a time.
-export const readAtOnce = 2
+// The batch worker: every run hands its postings to this pool in one batch, and the
+// pool reads at most 2 at a time across all runs, since context.dev's free plan allows
+// 2 requests at once. Each read retries twice before it counts as failed.
+export const readPool = new Workpool(components.readPool, {
+  maxParallelism: 2,
+  retryActionsByDefault: true,
+  defaultRetryBehavior: { maxAttempts: 3, initialBackoffMs: 1000, base: 2 },
+})

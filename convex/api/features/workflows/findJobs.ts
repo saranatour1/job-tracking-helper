@@ -3,9 +3,9 @@ import { internal } from "../../../_generated/api"
 import type { Provider } from "../loops/catalog"
 import { workflow } from "./manager"
 
-// One morning's run of a loop. Each step is a batch: plan, search, drop postings the
-// person has seen, read and score, save. It tries each source in turn, so when one is
-// out of credits the run carries on with the next.
+// One morning's run of a loop: plan, search, drop postings the person has seen, hand
+// the rest to the read pool as one batch and wait for it, then save the best. It tries
+// each source in turn, so when one is out of credits the run carries on with the next.
 const findJobs = workflow.define({
   args: { runId: v.id("loopRuns") },
   handler: async (step, { runId }): Promise<void> => {
@@ -34,31 +34,30 @@ const findJobs = workflow.define({
         postings: found.postings,
         limit: plan.scan,
       })
-      const read = await step.runAction(internal.workflows.read, {
-        provider,
-        postings: fresh,
-        criteria: plan.criteria,
-        keep: plan.daily,
-      })
-      spent.push({ provider, credits: read.credits })
-      if (read.outOfCredits) exhausted.push(provider)
+      if (fresh.length) {
+        await step.runMutation(internal.loops.queueReads, {
+          runId,
+          provider,
+          postings: fresh,
+          criteria: plan.criteria,
+        })
+        // readDone sends this once the pool has finished every read in the batch.
+        await step.awaitEvent({ name: "readsDone" })
+      }
       await step.runMutation(internal.loops.finishRun, {
         runId,
         provider,
-        scanned: read.scanned,
-        kept: read.kept,
         spent,
         exhausted,
-        note: read.note,
+        keep: plan.daily,
       })
       return
     }
     await step.runMutation(internal.loops.finishRun, {
       runId,
-      scanned: 0,
-      kept: [],
       spent,
       exhausted,
+      keep: 0,
       note: plan.sources.length ? "Every source ran out of credits during this run." : plan.why,
     })
   },

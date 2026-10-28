@@ -32,4 +32,12 @@ export const vKept = v.object({
   reasons: v.array(v.string()),
 })
 
+// What one read sends back to the run.
+export const vRead = v.object({
+  credits: v.number(),
+  outOfCredits: v.boolean(),
+  kept: v.union(v.null(), vKept),
+  rejected: v.optional(v.string()),
+})
+
 export const vSpent = v.object({ provider: vProvider, credits: v.number() })

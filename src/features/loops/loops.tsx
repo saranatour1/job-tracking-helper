@@ -5,9 +5,7 @@ import {
   creditsPerRun,
   dailySizes,
   type LoopAnswers,
-  type LoopQuestion,
   type LoopTemplate,
-  loopQuestions,
   loopTemplates,
   maxLoops,
   type Provider,
@@ -17,14 +15,16 @@ import {
   switchAt,
   templateById,
 } from "@convex/api/features/loops/catalog"
-import { formOf, rowLimits } from "@convex/api/features/preferences/rows"
+import { nextRunAt } from "@convex/api/features/loops/schedule"
+import { formOf, rowLimits, type TagKind } from "@convex/api/features/preferences/rows"
+import { criteriaOf, keepFrom, queriesOf } from "@convex/api/features/workflows/fit"
 import { CheckmarkCircle02Icon, PlusSignIcon } from "@hugeicons/core-free-icons"
 import { HugeiconsIcon } from "@hugeicons/react"
 import { useForm, useStore } from "@tanstack/react-form"
 import { Link, useNavigate, useSearch } from "@tanstack/react-router"
 import { useMutation, usePaginatedQuery, useQuery } from "convex/react"
 import { ConvexError } from "convex/values"
-import { startTransition, useActionState } from "react"
+import { startTransition, useActionState, useId } from "react"
 
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
@@ -32,6 +32,7 @@ import { Input } from "@/components/ui/input"
 import { Meter, MeterIndicator, MeterTrack } from "@/components/ui/meter"
 import { ScrollArea } from "@/components/ui/scroll-area"
 import { Tabs, TabsList, TabsPanel, TabsTab } from "@/components/ui/tabs"
+import { Switch } from "@/components/ui/switch"
 import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group"
 import { chip, PageIntro, pageBody, Tile, tileGrid } from "@/features/shell/page-body"
 import { PageHeader } from "@/features/shell/page-header"
@@ -190,16 +191,17 @@ const LoopTile = ({ loop, runs, prefs }: { loop: Loop; runs: Run[]; prefs: Prefs
       title={loop.name}
       actions={
         <Badge variant={loop.active ? "success" : "outline"} className="font-normal">
-          {loop.active ? "Active" : "Paused"}
+          {loop.active ? "Auto" : "Manual"}
         </Badge>
       }
     >
       <dl className="flex flex-col gap-1.5">
-        <Row label="Each morning">
-          {loop.at} · up to {loop.daily} jobs
+        <Row label="Runs">
+          {loop.active ? `Each morning at ${loop.at}` : "When you press Run now"} · up to{" "}
+          {loop.daily} jobs
         </Row>
         <Row label="Looks for">{lookFor(loop.answers, prefs).join(" · ")}</Row>
-        <Row label="Next run">{loop.active ? when(loop.nextRunAt) : "Paused"}</Row>
+        <Row label="Next run">{loop.active ? when(loop.nextRunAt) : "When you press Run now"}</Row>
         <Row label="Last run">
           {last
             ? last.status === "done"
@@ -218,7 +220,7 @@ const LoopTile = ({ loop, runs, prefs }: { loop: Loop; runs: Run[]; prefs: Prefs
           variant="ghost"
           onClick={() => startTransition(() => act(loop.active ? "pause" : "resume"))}
         >
-          {loop.active ? "Pause" : "Resume"}
+          {loop.active ? "Turn auto off" : "Turn auto on"}
         </Button>
         <Button
           size="xs"
@@ -321,7 +323,7 @@ const LoopsOverview = ({
       <>
         <Heading
           title={`Your loops · ${loops.length} of ${maxLoops}`}
-          description="Each one runs once a morning. Pause one to stop it without losing its history."
+          description="Auto loops run by themselves each morning; manual ones wait for Run now."
         />
         <div className={tileGrid}>
           {loops.map((loop) => (
@@ -367,168 +369,314 @@ const LoopsOverview = ({
   </>
 )
 
-// One question: its words on the left, Yes or No on the right.
-const YesNo = ({
-  question,
-  value,
+// One switch: what it asks on the left, on or off on the right.
+const Choice = ({
+  label,
+  detail,
+  checked,
   onChange,
+  disabled,
 }: {
-  question: LoopQuestion
-  value: boolean
-  onChange: (value: boolean) => void
-}) => (
-  <div className="hover:bg-accent/30 flex items-center gap-4 rounded-md px-2.5 py-2.5 transition-colors">
-    <div className="flex min-w-0 flex-1 flex-col">
-      <span id={`${question}-label`} className="text-[13px] font-medium">
-        {loopQuestions[question].label}
+  label: string
+  detail?: string
+  checked: boolean
+  onChange: (on: boolean) => void
+  disabled?: boolean
+}) => {
+  const id = useId()
+  return (
+    <div className="flex items-center gap-4 px-1 py-1.5">
+      <span className="flex min-w-0 flex-1 flex-col">
+        <span id={id} className="text-[13px] font-medium">
+          {label}
+        </span>
+        {detail && <span className="text-muted-foreground text-xs">{detail}</span>}
       </span>
-      <span className="text-muted-foreground text-xs">{loopQuestions[question].hint}</span>
+      <Switch
+        aria-labelledby={id}
+        checked={checked}
+        onCheckedChange={(on) => onChange(on)}
+        disabled={disabled}
+      />
     </div>
-    <ToggleGroup
-      variant="outline"
-      size="sm"
-      aria-labelledby={`${question}-label`}
-      value={[value ? "yes" : "no"]}
-      onValueChange={(v) => v[0] && onChange(v[0] === "yes")}
-    >
-      <ToggleGroupItem value="yes">Yes</ToggleGroupItem>
-      <ToggleGroupItem value="no">No</ToggleGroupItem>
-    </ToggleGroup>
-  </div>
-)
-
-// Remote only and on-site near me can't both be yes.
-const opposite: Partial<Record<LoopQuestion, LoopQuestion>> = {
-  remoteOnly: "nearMe",
-  nearMe: "remoteOnly",
+  )
 }
 
-// Picking from a few fixed answers keeps every loop's cost known before it runs.
-const Setup = ({ template, prefs }: { template: LoopTemplate; prefs: Prefs | undefined }) => {
+// One step of the run: its questions, then what the answers make it do.
+const Step = ({
+  n,
+  title,
+  last,
+  children,
+  does,
+}: {
+  n: number
+  title: string
+  last?: boolean
+  children?: React.ReactNode
+  does: React.ReactNode
+}) => (
+  <li className="grid grid-cols-[1.75rem_minmax(0,1fr)] gap-3">
+    <div className="flex flex-col items-center">
+      <span className="bg-muted flex size-7 shrink-0 items-center justify-center rounded-full border text-xs font-medium tabular-nums">
+        {n}
+      </span>
+      {!last && <span aria-hidden="true" className="bg-border mt-1 w-px flex-1" />}
+    </div>
+    <Tile title={title} className={cn("gap-2", !last && "mb-4")}>
+      {children && <div className="flex flex-col">{children}</div>}
+      <div className="bg-muted/60 flex flex-col gap-1 rounded-lg px-3 py-2 text-[13px]">
+        <span className="text-muted-foreground text-xs">What it does</span>
+        {does}
+      </div>
+    </Tile>
+  </li>
+)
+
+type Where = "anywhere" | "remote" | "near"
+
+// Setting up a loop is going through its run, step by step: each step asks a few yes or
+// no questions and shows what the answers make the run do, with the person's own
+// Preferences and the actual search words.
+const Setup = ({
+  template,
+  tags,
+}: {
+  template: LoopTemplate
+  tags: { kind: TagKind; value: string }[]
+}) => {
   const create = useMutation(api.loops.create)
   const navigate = useNavigate()
+  const timeZone = Intl.DateTimeFormat().resolvedOptions().timeZone
   const form = useForm({
     defaultValues: {
       name: template.name,
       answers: template.answers,
       daily: template.daily as DailySize,
       at: template.at as RunTime,
+      auto: true,
     },
   })
   const values = useStore(form.store, (s) => s.values)
+  const answers = values.answers
+  const criteria = criteriaOf(answers, tags)
   const credits = creditsPerRun(values.daily)
+  const where: Where = answers.remoteOnly ? "remote" : answers.nearMe ? "near" : "anywhere"
+  const set = (patch: Partial<LoopAnswers>) =>
+    form.setFieldValue("answers", { ...form.state.values.answers, ...patch })
   const [status, start] = useActionState(async () => {
     try {
-      await create({
-        name: values.name,
-        template: template.id,
-        answers: values.answers,
-        daily: values.daily,
-        at: values.at,
-        timeZone: Intl.DateTimeFormat().resolvedOptions().timeZone,
-      })
+      const { name, answers, daily, at, auto } = form.state.values
+      await create({ name, template: template.id, answers, daily, at, auto, timeZone })
       await navigate({ to: "/loops", search: { tab: "loops" } })
       return undefined
     } catch (error) {
       return messageOf(error)
     }
   }, undefined)
+
+  const drops = [
+    answers.remoteOnly && "Postings that don't say they're remote",
+    answers.listedCompanies &&
+      (criteria.companies.length
+        ? `Companies other than ${list(criteria.companies)}`
+        : "Every company, until you list some in Preferences"),
+    answers.skipRedFlags &&
+      criteria.avoid.length &&
+      `Anything that mentions ${list(criteria.avoid, 4)}`,
+    answers.postedToday && "Anything posted before yesterday",
+  ].filter((d): d is string => Boolean(d))
+  const boosts = [
+    answers.usePreferences && criteria.interests.length && list(criteria.interests),
+    answers.nearMe && criteria.places.length && list(criteria.places),
+    answers.stretch && criteria.skills.length && list(criteria.skills),
+  ].filter((b): b is string => Boolean(b))
+
   return (
     <>
       <PageIntro
         title={template.name}
-        description="Answer yes or no. It first runs at the time you pick, and you can pause or remove it any time."
+        description="This is what the loop does each morning. Answer each step; the box under it shows what your answers make it do."
       >
         <Button variant="ghost" size="sm" render={<Link to="/loops" search={{ tab: "loops" }} />}>
           Back to loops
         </Button>
       </PageIntro>
-      <div className="grid gap-3 lg:grid-cols-[minmax(0,3fr)_minmax(0,2fr)]">
-        <Tile title="Questions" className="gap-1 p-1.5">
-          <form.Field name="name">
-            {(f) => (
-              <label className="flex items-center gap-4 px-2.5 py-2">
-                <span className="flex-1 text-[13px] font-medium">Name</span>
-                <Input
-                  size="sm"
-                  className="max-w-56"
-                  value={f.state.value}
-                  onChange={(e) => f.handleChange(e.target.value)}
-                />
-              </label>
-            )}
-          </form.Field>
-          {(Object.keys(loopQuestions) as LoopQuestion[]).map((q) => (
-            <form.Field key={q} name={`answers.${q}`}>
-              {(f) => (
-                <YesNo
-                  question={q}
-                  value={f.state.value}
-                  onChange={(yes) => {
-                    f.handleChange(yes)
-                    const other = opposite[q]
-                    if (yes && other) form.setFieldValue(`answers.${other}`, false)
-                  }}
-                />
-              )}
-            </form.Field>
-          ))}
-        </Tile>
-        <div className="flex flex-col gap-3">
-          <Tile title="Each morning" className="gap-3">
-            <form.Field name="daily">
-              {(f) => (
-                <Row label="Up to">
-                  <ToggleGroup
-                    variant="outline"
-                    size="sm"
-                    aria-label="Jobs each morning"
-                    value={[String(f.state.value)]}
-                    onValueChange={(v) => v[0] && f.handleChange(Number(v[0]) as DailySize)}
-                  >
-                    {dailySizes.map((n) => (
-                      <ToggleGroupItem key={n} value={String(n)}>
-                        {n} jobs
-                      </ToggleGroupItem>
-                    ))}
-                  </ToggleGroup>
-                </Row>
-              )}
-            </form.Field>
-            <form.Field name="at">
-              {(f) => (
-                <Row label="Starts at">
-                  <ToggleGroup
-                    variant="outline"
-                    size="sm"
-                    aria-label="Start time"
-                    value={[f.state.value]}
-                    onValueChange={(v) => v[0] && f.handleChange(v[0] as RunTime)}
-                  >
-                    {runTimes.map((t) => (
-                      <ToggleGroupItem key={t} value={t}>
-                        {t}
-                      </ToggleGroupItem>
-                    ))}
-                  </ToggleGroup>
-                </Row>
-              )}
-            </form.Field>
-            <dl className="flex flex-col gap-1.5">
-              <Row label="Reads about">{scannedPerRun(values.daily)} postings a run</Row>
-              <Row label="Costs about">
-                {credits} credits a run, {(credits * 30).toLocaleString("en")} a month
-              </Row>
-              <Row label="Free tier">
-                context.dev's 1,000 free credits cover {Math.floor(1000 / credits)} runs
-              </Row>
-            </dl>
-          </Tile>
-          <Tile title="A matching job looks like">
-            <Checklist lines={lookFor(values.answers, prefs)} />
-          </Tile>
-        </div>
-      </div>
+      <form.Field name="name">
+        {(f) => (
+          <label className="flex items-center gap-3 px-1">
+            <span className="text-[13px] font-medium">Name</span>
+            <Input
+              size="sm"
+              className="max-w-72"
+              value={f.state.value}
+              onChange={(e) => f.handleChange(e.target.value)}
+            />
+          </label>
+        )}
+      </form.Field>
+      <ol>
+        <Step
+          n={1}
+          title="When it runs"
+          does={
+            values.auto
+              ? `First at ${when(nextRunAt(Date.now(), values.at, timeZone))}, then every morning at ${values.at} (${timeZone}).`
+              : "Only when you press Run now on the Loops tab."
+          }
+        >
+          <Choice
+            label="Run by itself every morning"
+            detail="Turn it off to run it only when you ask."
+            checked={values.auto}
+            onChange={(on) => form.setFieldValue("auto", on)}
+          />
+          {values.auto && (
+            <div className="flex items-center gap-4 px-1 py-1.5">
+              <span className="flex-1 text-[13px] font-medium">At</span>
+              <ToggleGroup
+                variant="outline"
+                size="sm"
+                aria-label="Start time"
+                value={[values.at]}
+                onValueChange={(v) => v[0] && form.setFieldValue("at", v[0] as RunTime)}
+              >
+                {runTimes.map((t) => (
+                  <ToggleGroupItem key={t} value={t}>
+                    {t}
+                  </ToggleGroupItem>
+                ))}
+              </ToggleGroup>
+            </div>
+          )}
+        </Step>
+        <Step
+          n={2}
+          title="What it searches for"
+          does={
+            <>
+              <span>Searches Firecrawl, or context.dev once Firecrawl runs low, for:</span>
+              <span className="flex flex-wrap gap-1.5">
+                {queriesOf(criteria).map((q) => (
+                  <span key={q} className={cn(chip, "font-normal")}>
+                    {q}
+                  </span>
+                ))}
+              </span>
+            </>
+          }
+        >
+          <Choice
+            label="Roles in what you're drawn to"
+            detail={
+              criteria.interests.length
+                ? list(criteria.interests, 4)
+                : "Add interests in Preferences to use this."
+            }
+            checked={answers.usePreferences}
+            onChange={(on) => set({ usePreferences: on })}
+          />
+          <Choice
+            label="Also roles one level up"
+            detail={
+              criteria.skills.length
+                ? `Using skills you're building: ${list(criteria.skills)}`
+                : "Add skills you're building in Preferences to use this."
+            }
+            checked={answers.stretch}
+            onChange={(on) => set({ stretch: on })}
+          />
+          <div className="flex items-center gap-4 px-1 py-1.5">
+            <span className="flex-1 text-[13px] font-medium">Where</span>
+            <ToggleGroup
+              variant="outline"
+              size="sm"
+              aria-label="Where"
+              value={[where]}
+              onValueChange={(v) =>
+                v[0] && set({ remoteOnly: v[0] === "remote", nearMe: v[0] === "near" })
+              }
+            >
+              <ToggleGroupItem value="anywhere">Anywhere</ToggleGroupItem>
+              <ToggleGroupItem value="remote">Remote only</ToggleGroupItem>
+              <ToggleGroupItem value="near" disabled={!criteria.places.length}>
+                {criteria.places[0] ? `Near ${criteria.places[0]}` : "Near you"}
+              </ToggleGroupItem>
+            </ToggleGroup>
+          </div>
+          <Choice
+            label="Only the companies you listed"
+            detail={
+              criteria.companies.length
+                ? list(criteria.companies, 4)
+                : "List companies in Preferences to use this."
+            }
+            checked={answers.listedCompanies}
+            onChange={(on) => set({ listedCompanies: on })}
+            disabled={!criteria.companies.length && !answers.listedCompanies}
+          />
+        </Step>
+        <Step
+          n={3}
+          title="How much it reads"
+          does={`Reads up to ${scannedPerRun(values.daily)} postings you haven't seen, 2 at a time alongside every other loop. About ${credits} credits a run; context.dev's 1,000 free credits cover ${Math.floor(1000 / credits)} runs.`}
+        >
+          <div className="flex items-center gap-4 px-1 py-1.5">
+            <span className="flex-1 text-[13px] font-medium">Jobs to keep at most</span>
+            <ToggleGroup
+              variant="outline"
+              size="sm"
+              aria-label="Jobs to keep at most"
+              value={[String(values.daily)]}
+              onValueChange={(v) => v[0] && form.setFieldValue("daily", Number(v[0]) as DailySize)}
+            >
+              {dailySizes.map((n) => (
+                <ToggleGroupItem key={n} value={String(n)}>
+                  {n}
+                </ToggleGroupItem>
+              ))}
+            </ToggleGroup>
+          </div>
+        </Step>
+        <Step
+          n={4}
+          title="What it leaves out"
+          does={
+            drops.length ? (
+              <ul className="flex list-disc flex-col gap-0.5 ps-4">
+                {drops.map((d) => (
+                  <li key={d}>{d}</li>
+                ))}
+              </ul>
+            ) : (
+              "Nothing. Every posting it reads gets a score."
+            )
+          }
+        >
+          <Choice
+            label="Leave out what you'd avoid"
+            detail={
+              criteria.avoid.length
+                ? list(criteria.avoid, 4)
+                : "Add things to avoid in Preferences to use this."
+            }
+            checked={answers.skipRedFlags}
+            onChange={(on) => set({ skipRedFlags: on })}
+          />
+          <Choice
+            label="Only jobs posted since yesterday"
+            detail="Fewer, fresher jobs. Some sites don't date their postings."
+            checked={answers.postedToday}
+            onChange={(on) => set({ postedToday: on })}
+          />
+        </Step>
+        <Step
+          n={5}
+          last
+          title="What you get"
+          does={`${boosts.length ? `Scores each posting higher when it mentions ${boosts.join("; ")}. ` : ""}Keeps up to ${values.daily} that score ${keepFrom} or more, best first, under New jobs with why each one fits. You save, apply or dismiss each one.`}
+        />
+      </ol>
       <div className="flex items-center justify-end gap-3">
         {status && (
           <p role="alert" className="text-destructive text-sm">
@@ -828,7 +976,7 @@ export const Loops = () => {
             [
               "loops",
               template ? (
-                <Setup key={template.id} template={template} prefs={prefs} />
+                <Setup key={template.id} template={template} tags={tags.results} />
               ) : (
                 <LoopsOverview
                   loops={loops}

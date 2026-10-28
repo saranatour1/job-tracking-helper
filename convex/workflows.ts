@@ -2,4 +2,4 @@
 // Definitions live in ./api/features/workflows.
 import { workflowsApi } from "./api/features/workflows"
 
-export const { findJobs, search, read } = workflowsApi
+export const { findJobs, search, readOne } = workflowsApi

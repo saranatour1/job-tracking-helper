@@ -2,10 +2,10 @@ import { v } from "convex/values"
 import { internalAction } from "../../../_generated/server"
 import { workLog } from "../../../lib/log"
 import { companyFromUrl, keepFrom, type Posting, score, urlKey } from "./fit"
-import { limits, readAtOnce } from "./manager"
+import { limits } from "./manager"
 import { apiKeyOf, sources } from "./sources"
 import { OutOfCredits } from "./sources/source"
-import { vCriteria, vKept, vPosting, vProvider } from "./validators"
+import { vCriteria, vPosting, vProvider, vRead } from "./validators"
 
 const sleep = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms))
 
@@ -62,68 +62,40 @@ const search = internalAction({
   },
 })
 
-// One batch: read each posting, score it, and keep the best `keep` that fit. Reads
-// `readAtOnce` at a time and stops early if the source runs out of credits.
-const read = internalAction({
-  args: {
-    provider: vProvider,
-    postings: v.array(vPosting),
-    criteria: vCriteria,
-    keep: v.number(),
-  },
-  returns: v.object({
-    kept: v.array(vKept),
-    scanned: v.number(),
-    credits: v.number(),
-    outOfCredits: v.boolean(),
-    note: v.optional(v.string()),
-  }),
-  handler: async (ctx, { provider, postings, criteria, keep }) => {
-    const log = workLog("loop.read", { provider, postings: postings.length, keep })
-    const apiKey = apiKeyOf(provider) ?? ""
-    const queue = [...postings]
-    const kept: (typeof vKept.type)[] = []
-    const rejected: Record<string, number> = {}
-    let scanned = 0
-    let credits = 0
-    let failed = 0
-    let outOfCredits = false
-    const worker = async () => {
-      while (queue.length && !outOfCredits) {
-        const posting = queue.shift()!
-        try {
-          await turn(ctx, provider)
-          const page = await sources[provider].read(apiKey, posting.url)
-          credits += page.credits
-          scanned++
-          const fit = score(criteria, { ...posting, text: page.text })
-          if ("rejected" in fit) rejected[fit.rejected] = (rejected[fit.rejected] ?? 0) + 1
-          else if (fit.fit >= keepFrom)
-            kept.push({
-              url: posting.url,
-              urlKey: urlKey(posting.url),
-              title: posting.title || "Untitled role",
-              company: companyFromUrl(posting.url),
-              snippet: posting.snippet.slice(0, 300),
-              ...fit,
-            })
-        } catch (error) {
-          if (error instanceof OutOfCredits) outOfCredits = true
-          else failed++
-        }
+// Reads and scores one posting. The read pool runs these, at most 2 at a time across
+// every run, and retries a failed read twice; running out of credits isn't retried.
+const readOne = internalAction({
+  args: { provider: vProvider, posting: vPosting, criteria: vCriteria },
+  returns: vRead,
+  handler: async (ctx, { provider, posting, criteria }) => {
+    const apiKey = apiKeyOf(provider)
+    if (!apiKey) return { credits: 0, outOfCredits: true, kept: null }
+    try {
+      await turn(ctx, provider)
+      const page = await sources[provider].read(apiKey, posting.url)
+      const fit = score(criteria, { ...posting, text: page.text })
+      if ("rejected" in fit)
+        return { credits: page.credits, outOfCredits: false, kept: null, rejected: fit.rejected }
+      return {
+        credits: page.credits,
+        outOfCredits: false,
+        kept:
+          fit.fit >= keepFrom
+            ? {
+                url: posting.url,
+                urlKey: urlKey(posting.url),
+                title: posting.title || "Untitled role",
+                company: companyFromUrl(posting.url),
+                snippet: posting.snippet.slice(0, 300),
+                ...fit,
+              }
+            : null,
       }
+    } catch (error) {
+      if (error instanceof OutOfCredits) return { credits: 0, outOfCredits: true, kept: null }
+      throw error
     }
-    await Promise.all(Array.from({ length: readAtOnce }, worker))
-    const best = kept.sort((a, b) => b.fit - a.fit).slice(0, keep)
-    const note = outOfCredits
-      ? `Ran out of credits after ${scanned} postings; kept what it had.`
-      : failed
-        ? `Couldn't read ${failed} of ${postings.length} postings.`
-        : undefined
-    log.set({ scanned, kept: best.length, credits, failed, outOfCredits, rejected })
-    log.emit()
-    return { kept: best, scanned, credits, outOfCredits, note }
   },
 })
 
-export const actionsApi = { search, read }
+export const actionsApi = { search, readOne }

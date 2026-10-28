@@ -14,6 +14,8 @@ export const {
   startDue,
   beginRun,
   unseen,
+  queueReads,
+  readDone,
   finishRun,
   runEnded,
 } = loopsApi

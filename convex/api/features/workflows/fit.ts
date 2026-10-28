@@ -17,8 +17,15 @@ export const criteriaOf = (
   tags: { kind: TagKind; value: string }[]
 ): Criteria => {
   const of = (...kinds: TagKind[]) => tags.filter((t) => kinds.includes(t.kind)).map((t) => t.value)
+  // Picked one by one, so a field a loop no longer uses never reaches the run.
   return {
-    ...answers,
+    usePreferences: answers.usePreferences,
+    stretch: answers.stretch,
+    remoteOnly: answers.remoteOnly,
+    nearMe: answers.nearMe,
+    listedCompanies: answers.listedCompanies,
+    skipRedFlags: answers.skipRedFlags,
+    postedToday: answers.postedToday,
     interests: of("interest"),
     skills: of("skill"),
     places: of("location"),

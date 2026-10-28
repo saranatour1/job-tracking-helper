@@ -1,4 +1,5 @@
-import { vResultValidator, vWorkflowId } from "@convex-dev/workflow"
+import { vResultValidator, vWorkflowId, type WorkflowId } from "@convex-dev/workflow"
+import { vOnCompleteArgs } from "@convex-dev/workpool"
 import { v } from "convex/values"
 import { internal } from "../../../_generated/api"
 import type { Doc, Id } from "../../../_generated/dataModel"
@@ -6,9 +7,9 @@ import { internalMutation, internalQuery, type MutationCtx } from "../../../_gen
 import { workLog } from "../../../lib/log"
 import { rowLimits } from "../preferences/rows"
 import { criteriaOf, queriesOf, urlKey } from "../workflows/fit"
-import { workflow } from "../workflows/manager"
+import { readPool, workflow } from "../workflows/manager"
 import { apiKeyOf, monthlyCredits, monthOf } from "../workflows/sources"
-import { vCriteria, vKept, vPosting, vProvider, vSpent } from "../workflows/validators"
+import { vCriteria, vPosting, vProvider, vRead, vSpent } from "../workflows/validators"
 import { type Provider, scannedPerRun, switchAt } from "./catalog"
 import { nextRunAt } from "./schedule"
 import { providerIds } from "./validators"
@@ -157,24 +158,82 @@ const addUsage = async (
     })
 }
 
-// Saves what a run kept, records each source's credits, and logs the run as one wide
-// event.
+// Hands a run's postings to the read pool as one batch. Each read reports to readDone.
+const queueReads = internalMutation({
+  args: {
+    runId: v.id("loopRuns"),
+    provider: vProvider,
+    postings: v.array(vPosting),
+    criteria: vCriteria,
+  },
+  returns: v.null(),
+  handler: async (ctx, { runId, provider, postings, criteria }) => {
+    await ctx.db.patch("loopRuns", runId, {
+      readsLeft: postings.length,
+      candidates: [],
+      readCredits: 0,
+      readFailures: 0,
+      outOfCredits: false,
+    })
+    await readPool.enqueueActionBatch(
+      ctx,
+      internal.workflows.readOne,
+      postings.map((posting) => ({ provider, posting, criteria })),
+      { onComplete: internal.loops.readDone, context: { runId } }
+    )
+    return null
+  },
+})
+
+// Adds one finished read to its run's tally, and wakes the run after the last one.
+const readDone = internalMutation({
+  args: vOnCompleteArgs(v.object({ runId: v.id("loopRuns") }), vRead),
+  returns: v.null(),
+  handler: async (ctx, { context, result }) => {
+    const run = await ctx.db.get("loopRuns", context.runId)
+    if (!run?.readsLeft) return null
+    const read = result.kind === "success" ? result.returnValue : undefined
+    const readsLeft = run.readsLeft - 1
+    await ctx.db.patch("loopRuns", run._id, {
+      readsLeft,
+      scanned: run.scanned + Number(Boolean(read && !read.outOfCredits)),
+      readCredits: (run.readCredits ?? 0) + (read?.credits ?? 0),
+      readFailures: (run.readFailures ?? 0) + Number(!read),
+      outOfCredits: Boolean(run.outOfCredits || read?.outOfCredits),
+      candidates: read?.kept ? [...(run.candidates ?? []), read.kept] : run.candidates,
+    })
+    if (readsLeft === 0 && run.workflowId)
+      await workflow.sendEvent(ctx, {
+        workflowId: run.workflowId as WorkflowId,
+        name: "readsDone",
+      })
+    return null
+  },
+})
+
+// Saves the best of what a run kept, records each source's credits, and logs the run
+// as one wide event.
 const finishRun = internalMutation({
   args: {
     runId: v.id("loopRuns"),
     provider: v.optional(vProvider),
-    scanned: v.number(),
-    kept: v.array(vKept),
     spent: v.array(vSpent),
     exhausted: v.array(vProvider),
+    keep: v.number(),
     note: v.optional(v.string()),
   },
   returns: v.null(),
-  handler: async (ctx, { runId, provider, scanned, kept, spent, exhausted, note }) => {
-    const run = await ctx.db.get("loopRuns", runId)
+  handler: async (ctx, args) => {
+    const run = await ctx.db.get("loopRuns", args.runId)
     if (!run) return null
+    const { provider, keep } = args
+    const spent = provider
+      ? [...args.spent, { provider, credits: run.readCredits ?? 0 }]
+      : args.spent
+    const exhausted = provider && run.outOfCredits ? [...args.exhausted, provider] : args.exhausted
+    const best = [...(run.candidates ?? [])].sort((a, b) => b.fit - a.fit).slice(0, keep)
     let saved = 0
-    for (const lead of kept) {
+    for (const lead of best) {
       const seen = await ctx.db
         .query("jobLeads")
         .withIndex("by_userId_and_urlKey", (q) =>
@@ -186,7 +245,7 @@ const finishRun = internalMutation({
         ...lead,
         userId: run.userId,
         loopId: run.loopId,
-        runId,
+        runId: run._id,
         status: "new",
       })
       saved++
@@ -195,23 +254,37 @@ const finishRun = internalMutation({
       const credits = spent.filter((s) => s.provider === p).reduce((n, s) => n + s.credits, 0)
       if (credits || exhausted.includes(p)) await addUsage(ctx, p, credits, exhausted.includes(p))
     }
+    const failures = run.readFailures ?? 0
+    const note =
+      args.note ??
+      (run.outOfCredits
+        ? `Ran out of credits after ${run.scanned} postings; kept what it had.`
+        : failures
+          ? `Couldn't read ${failures} postings.`
+          : undefined)
     const credits = spent.reduce((n, s) => n + s.credits, 0)
     const status = provider ? "done" : "skipped"
-    await ctx.db.patch("loopRuns", runId, {
+    await ctx.db.patch("loopRuns", run._id, {
       status,
       provider,
-      scanned,
       kept: saved,
       credits,
       finishedAt: Date.now(),
       note,
+      readsLeft: undefined,
+      candidates: undefined,
+      readCredits: undefined,
+      readFailures: undefined,
+      outOfCredits: undefined,
     })
-    const log = workLog("loop.run", { runId, loopId: run.loopId, userId: run.userId })
+    const log = workLog("loop.run", { runId: run._id, loopId: run.loopId, userId: run.userId })
     log.set({
       outcome: status,
       provider,
-      scanned,
+      scanned: run.scanned,
       kept: saved,
+      candidates: run.candidates?.length ?? 0,
+      failures,
       credits,
       spent,
       exhausted,
@@ -262,4 +335,4 @@ export const deleteLoops = async (ctx: MutationCtx, userId: Id<"users">) => {
     await ctx.db.delete("jobLeads", lead._id)
 }
 
-export const internalApi = { startDue, beginRun, unseen, finishRun, runEnded }
+export const internalApi = { startDue, beginRun, unseen, queueReads, readDone, finishRun, runEnded }
