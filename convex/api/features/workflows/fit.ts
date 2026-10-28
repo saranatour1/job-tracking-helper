@@ -34,16 +34,39 @@ export const criteriaOf = (
   }
 }
 
-// Up to three searches. Each names the kind of work and, when asked, where.
+// Job boards whose pages are one posting each. Searches only look here, so a run reads
+// postings instead of job-board front pages, lists and articles.
+export const jobBoards = [
+  "boards.greenhouse.io",
+  "job-boards.greenhouse.io",
+  "jobs.lever.co",
+  "jobs.ashbyhq.com",
+  "apply.workable.com",
+]
+
+// One posting's URL on a job board, not the board's or a company's front page.
+export const isPostingUrl = (url: string) => {
+  if (!URL.canParse(url)) return false
+  const u = new URL(url)
+  const host = u.hostname.toLowerCase()
+  const parts = u.pathname.split("/").filter(Boolean)
+  if (host === "boards.greenhouse.io" || host === "job-boards.greenhouse.io")
+    return parts[1] === "jobs" && Boolean(parts[2])
+  if (host === "jobs.lever.co" || host === "jobs.ashbyhq.com") return parts.length >= 2
+  if (host === "apply.workable.com") return parts[1] === "j" && Boolean(parts[2])
+  return false
+}
+
+// Up to three searches on the job boards. Each names the kind of work and, when asked,
+// where; for listed companies, just the company.
 export const queriesOf = (c: Criteria): string[] => {
-  if (c.listedCompanies && c.companies.length)
-    return c.companies.slice(0, 3).map((company) => `${company} careers open roles`)
+  if (c.listedCompanies && c.companies.length) return c.companies.slice(0, 3)
   const where = c.remoteOnly ? "remote" : c.nearMe && c.places[0] ? c.places[0] : ""
   const topics = [...(c.usePreferences ? c.interests : []), ...(c.stretch ? c.skills : [])].slice(
     0,
     3
   )
-  return (topics.length ? topics : ["software"]).map((topic) => `${topic} jobs ${where}`.trim())
+  return (topics.length ? topics : ["software engineer"]).map((topic) => `${topic} ${where}`.trim())
 }
 
 export type Posting = { url: string; title: string; snippet: string; text?: string }

@@ -1,3 +1,4 @@
+import { NonRetryableError } from "@convex-dev/workpool"
 import type { Posting } from "../fit"
 
 // What every source can do. A run only talks to sources through this, so adding a
@@ -7,7 +8,13 @@ export type Found = { postings: Posting[]; credits: number }
 export type Read = { text: string; credits: number }
 
 export type Source = {
-  search: (apiKey: string, query: string, limit: number, postedToday: boolean) => Promise<Found>
+  search: (
+    apiKey: string,
+    query: string,
+    limit: number,
+    postedToday: boolean,
+    domains: string[]
+  ) => Promise<Found>
   read: (apiKey: string, url: string) => Promise<Read>
 }
 
@@ -31,6 +38,10 @@ export const post = async (
   })
   const json: unknown = await res.json().catch(() => null)
   if (outOfCredits(res.status, json)) throw new OutOfCredits(`${url} is out of credits`)
+  // A site refusing a page (403, 404 and the like) won't change on a retry; rate limits
+  // and server errors might.
+  if (res.status >= 400 && res.status < 500 && res.status !== 408 && res.status !== 429)
+    throw new NonRetryableError(`${url} answered ${res.status}`)
   if (!res.ok) throw new Error(`${url} answered ${res.status}`)
   return json
 }

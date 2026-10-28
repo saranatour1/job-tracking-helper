@@ -1,7 +1,15 @@
 import { v } from "convex/values"
 import { internalAction } from "../../../_generated/server"
 import { workLog } from "../../../lib/log"
-import { companyFromUrl, keepFrom, type Posting, score, urlKey } from "./fit"
+import {
+  companyFromUrl,
+  isPostingUrl,
+  jobBoards,
+  keepFrom,
+  type Posting,
+  score,
+  urlKey,
+} from "./fit"
 import { limits } from "./manager"
 import { apiKeyOf, sources } from "./sources"
 import { OutOfCredits } from "./sources/source"
@@ -40,11 +48,18 @@ const search = internalAction({
       if (!apiKey) throw new OutOfCredits(`${provider} has no API key`)
       for (const query of queries) {
         await turn(ctx, provider)
-        const result = await sources[provider].search(apiKey, query, perQuery, postedToday)
+        const result = await sources[provider].search(
+          apiKey,
+          query,
+          perQuery,
+          postedToday,
+          jobBoards
+        )
         credits += result.credits
-        for (const posting of result.postings) {
-          const key = URL.canParse(posting.url) ? urlKey(posting.url) : undefined
-          if (key && !found.has(key)) found.set(key, posting)
+        // Only single postings get read; board front pages and lists are dropped here.
+        for (const posting of result.postings.filter((p) => isPostingUrl(p.url))) {
+          const key = urlKey(posting.url)
+          if (!found.has(key)) found.set(key, posting)
         }
       }
       log.set({ found: found.size, credits })

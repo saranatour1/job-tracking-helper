@@ -2,6 +2,7 @@ import { afterEach, describe, expect, it, vi } from "vite-plus/test"
 
 import * as contextDevApi from "./contextDev"
 import * as firecrawlApi from "./firecrawl"
+import { isNonRetryableError } from "@convex-dev/workpool"
 import { OutOfCredits } from "./source"
 
 afterEach(() => vi.unstubAllGlobals())
@@ -41,9 +42,34 @@ describe("Firecrawl", () => {
 
   it("treats 402 as out of credits", async () => {
     answer(402, { error: "Payment required" })
-    await expect(firecrawlApi.firecrawl.search("key", "q", 10, false)).rejects.toBeInstanceOf(
+    await expect(firecrawlApi.firecrawl.search("key", "q", 10, false, [])).rejects.toBeInstanceOf(
       OutOfCredits
     )
+  })
+})
+
+describe("refusals and job boards", () => {
+  it("doesn't retry a page a site refuses, but does retry rate limits", async () => {
+    answer(403, {})
+    const refused = await firecrawlApi.firecrawl
+      .read("key", "https://x.dev")
+      .catch((e: unknown) => e)
+    expect(isNonRetryableError(refused)).toBe(true)
+    answer(429, {})
+    const limited = await firecrawlApi.firecrawl
+      .read("key", "https://x.dev")
+      .catch((e: unknown) => e)
+    expect(isNonRetryableError(limited)).toBe(false)
+  })
+
+  it("searches Firecrawl on the job boards only", async () => {
+    answer(200, { data: { web: [] } })
+    await firecrawlApi.firecrawl.search("key", "climate remote", 10, false, [
+      "jobs.lever.co",
+      "jobs.ashbyhq.com",
+    ])
+    const body = JSON.parse(vi.mocked(fetch).mock.calls[0]![1]!.body as string)
+    expect(body.query).toBe("climate remote (site:jobs.lever.co OR site:jobs.ashbyhq.com)")
   })
 })
 
@@ -83,8 +109,13 @@ describe("context.dev", () => {
 
   it("sends freshness only for loops that want today's postings", async () => {
     answer(200, { results: [] })
-    await contextDevApi.contextDev.search("key", "q", 10, true)
+    await contextDevApi.contextDev.search("key", "q", 10, true, ["jobs.lever.co"])
     const body = JSON.parse(vi.mocked(fetch).mock.calls[0]![1]!.body as string)
-    expect(body).toEqual({ query: "q", numResults: 10, freshness: "last_24_hours" })
+    expect(body).toEqual({
+      query: "q",
+      numResults: 10,
+      includeDomains: ["jobs.lever.co"],
+      freshness: "last_24_hours",
+    })
   })
 })

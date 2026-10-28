@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vite-plus/test"
 
 import { loopTemplates } from "../loops/catalog"
-import { companyFromUrl, criteriaOf, queriesOf, score, urlKey } from "./fit"
+import { companyFromUrl, criteriaOf, isPostingUrl, queriesOf, score, urlKey } from "./fit"
 
 const tags = [
   { kind: "interest" as const, value: "developer tools" },
@@ -24,25 +24,21 @@ describe("criteriaOf", () => {
 describe("queriesOf", () => {
   it("searches remote roles for each interest", () => {
     expect(queriesOf(criteriaOf(template("remote-fit"), tags))).toEqual([
-      "developer tools jobs remote",
-      "climate jobs remote",
+      "developer tools remote",
+      "climate remote",
     ])
   })
 
   it("searches near the first place for on-site roles", () => {
-    expect(queriesOf(criteriaOf(template("close-to-home"), tags))[0]).toBe(
-      "developer tools jobs Berlin"
-    )
+    expect(queriesOf(criteriaOf(template("close-to-home"), tags))[0]).toBe("developer tools Berlin")
   })
 
   it("watches careers pages for listed companies", () => {
-    expect(queriesOf(criteriaOf(template("dream-companies"), tags))).toEqual([
-      "Linear careers open roles",
-    ])
+    expect(queriesOf(criteriaOf(template("dream-companies"), tags))).toEqual(["Linear"])
   })
 
   it("still searches something when Preferences are empty", () => {
-    expect(queriesOf(criteriaOf(template("remote-fit"), []))).toEqual(["software jobs remote"])
+    expect(queriesOf(criteriaOf(template("remote-fit"), []))).toEqual(["software engineer remote"])
   })
 })
 
@@ -87,5 +83,30 @@ describe("urlKey and companyFromUrl", () => {
     expect(companyFromUrl("https://boards.greenhouse.io/acme-labs/jobs/1")).toBe("acme labs")
     expect(companyFromUrl("https://jobs.lever.co/linear/abc")).toBe("linear")
     expect(companyFromUrl("https://careers.stripe.com/listing/1")).toBe("Stripe")
+  })
+})
+
+describe("isPostingUrl", () => {
+  it("accepts one posting on each job board", () => {
+    for (const url of [
+      "https://boards.greenhouse.io/acme/jobs/4012345",
+      "https://job-boards.greenhouse.io/acme/jobs/4012345?gh_src=x",
+      "https://jobs.lever.co/linear/1b2c3d4e-0000-4000-8000-000000000000",
+      "https://jobs.ashbyhq.com/notion/2a3b4c5d-0000-4000-8000-000000000000",
+      "https://apply.workable.com/acme/j/ABC123DEF/",
+    ])
+      expect(isPostingUrl(url)).toBe(true)
+  })
+
+  it("rejects board front pages, other sites and junk", () => {
+    for (const url of [
+      "https://boards.greenhouse.io/acme",
+      "https://jobs.lever.co/linear",
+      "https://apply.workable.com/acme/",
+      "https://www.indeed.com/q-climate-tech-l-remote-jobs.html",
+      "https://climatebase.org/",
+      "not a url",
+    ])
+      expect(isPostingUrl(url)).toBe(false)
   })
 })

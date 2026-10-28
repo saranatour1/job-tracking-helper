@@ -23,12 +23,16 @@ export const parseRead = (json: unknown) => {
 }
 
 export const firecrawl: Source = {
-  search: async (apiKey, query, limit, postedToday) =>
+  search: async (apiKey, query, limit, postedToday, domains) =>
     parseSearch(
       await post(
         "https://api.firecrawl.dev/v2/search",
         apiKey,
-        { query, limit, ...(postedToday && { tbs: "qdr:d" }) },
+        {
+          query: `${query} (${domains.map((d) => `site:${d}`).join(" OR ")})`,
+          limit,
+          ...(postedToday && { tbs: "qdr:d" }),
+        },
         outOfCredits
       ),
       limit

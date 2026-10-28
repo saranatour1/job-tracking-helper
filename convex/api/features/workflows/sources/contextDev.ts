@@ -23,12 +23,17 @@ export const parseRead = (json: unknown) => ({
 })
 
 export const contextDev: Source = {
-  search: async (apiKey, query, limit, postedToday) =>
+  search: async (apiKey, query, limit, postedToday, domains) =>
     parseSearch(
       await post(
         "https://api.context.dev/v1/web/search",
         apiKey,
-        { query, numResults: limit, ...(postedToday && { freshness: "last_24_hours" }) },
+        {
+          query,
+          numResults: limit,
+          includeDomains: domains,
+          ...(postedToday && { freshness: "last_24_hours" }),
+        },
         outOfCredits
       ),
       limit
