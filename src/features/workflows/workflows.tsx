@@ -92,6 +92,13 @@ const Row = ({ automation }: { automation: Doc<"automations"> }) => {
         />
         <Button
           size="sm"
+          variant="ghost"
+          render={<Link to="/workflows/$id" params={{ id: automation._id }} />}
+        >
+          Edit
+        </Button>
+        <Button
+          size="sm"
           variant="outline"
           onClick={() => startTransition(() => act({ run: true }))}
         >

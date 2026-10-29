@@ -4,6 +4,7 @@ import { loopsApi } from "./api/features/loops"
 export const {
   list,
   create,
+  update,
   setActive,
   remove,
   runNow,

@@ -5,6 +5,7 @@ import { ConvexError, v } from "convex/values"
 import type { Id } from "../../../_generated/dataModel"
 import type { MutationCtx } from "../../../_generated/server"
 import schema from "../../../schema"
+import { arkId } from "../../../lib/ark"
 import { arkMutation, authedMutation, authedQuery } from "../../../lib/functions"
 import { limits } from "../workflows/manager"
 import { apiKeyOf, monthlyCredits } from "../workflows/sources"
@@ -41,17 +42,32 @@ const create = arkMutation({
     ).length
     if (count >= maxLoops)
       throw new ConvexError(`You can have ${maxLoops} loops. Remove one to start another.`)
-    if (loop.answers.remoteOnly && loop.answers.nearMe)
-      throw new ConvexError("Pick remote only or on-site near you, not both.")
-    if (!isTimeZone(loop.timeZone)) throw new ConvexError("That time zone isn't one we know.")
-    const { auto, prompt, ...fields } = loop
-    return ctx.db.insert("loops", {
-      ...fields,
-      ...(prompt && { prompt }),
-      userId: ctx.userId,
-      active: auto,
-      nextRunAt: nextRunAt(Date.now(), loop.at, loop.timeZone),
-    })
+    return ctx.db.insert("loops", { ...rowOf(loop), userId: ctx.userId })
+  },
+})
+
+// A loop as it's kept, from the setup form's answers. Its next run moves to the new time.
+const rowOf = (loop: typeof NewLoop.infer) => {
+  if (loop.answers.remoteOnly && loop.answers.nearMe)
+    throw new ConvexError("Pick remote only or on-site near you, not both.")
+  if (!isTimeZone(loop.timeZone)) throw new ConvexError("That time zone isn't one we know.")
+  const { auto, prompt, ...fields } = loop
+  return {
+    ...fields,
+    prompt: prompt || undefined,
+    active: auto,
+    nextRunAt: nextRunAt(Date.now(), loop.at, loop.timeZone),
+  }
+}
+
+// Changes a loop's answers. A run already going keeps the answers it started with.
+const update = arkMutation({
+  args: NewLoop.and({ loopId: arkId("loops") }),
+  returns: v.null(),
+  handler: async (ctx, { loopId, ...loop }) => {
+    await ownLoop(ctx, ctx.userId, loopId)
+    await ctx.db.patch("loops", loopId, rowOf(loop))
+    return null
   },
 })
 
@@ -295,6 +311,7 @@ export const publicApi = {
   list,
   leadForApplication,
   create,
+  update,
   setActive,
   remove,
   runNow,
