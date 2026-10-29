@@ -10,7 +10,9 @@ Loops pick roles from that catalog each morning, for every kind of role you desc
 
 Account connects your own Cloudflare account, so emails can go out from your domain. Paste an account ID and an API token: the token is checked with Cloudflare, encrypted with AES-256-GCM under a key only the server holds, and never shown again, only its last 4 characters. Replacing it checks the new one before the old one goes. A test email shows it works. With your OK, the app also sets up incoming mail: it deploys a small Worker and a routing rule for your address (Email Routing must already be on, since it takes over the domain's MX records), and each email arrives at `/email/inbound/<id>`, sealed the same way. Each email is then filed under the application it's about (by company name, or by Jev when you let it read your mail) as one line on Applications: what it said, a portal link to check your status, and a suggested status change you confirm. Mail that matches nothing waits in Unsorted.
 
-The Inbox, Pipeline, Goals and Views pages are a preview built on sample data from `src/features/tracker/data.ts`. They don't read from or save to Convex yet. Edits there last until you reload, and the create buttons do nothing.
+The Inbox shows what happened: new mail about your applications, mail that needs filing, and new roles from loops. Each kind can be turned off under Account → Notifications. It reads from the notifications component in `convex/notifications`.
+
+The Pipeline, Goals and Views pages are a preview built on sample data from `src/features/tracker/data.ts`. They don't read from or save to Convex yet. Edits there last until you reload, and the create buttons do nothing.
 
 ## How to run
 
@@ -63,17 +65,19 @@ convex/
     utils.ts                           helpers used only here
     index.ts                           collects public and internal into one object
   cloudflareEmail/                     local component: sends through Cloudflare and keeps the emails
+  notifications/                       local component: each person's inbox feed and muted kinds
   lib/                                 shared helpers: arktype to Convex, signed-in builders, secrets
   schema.ts                            collects each feature's tables
 src/
   routes/                              pages (TanStack Router); they only import a feature
     _app.tsx, _auth.tsx                layouts: signed-in pages, and /sign-in + /sign-up
   features/<feature>/                  the feature's components
-  features/tracker/                    Inbox, Pipeline, Goals and Views, on sample data for now
+  features/tracker/                    Pipeline, Goals and Views, on sample data for now
   features/preferences/                Preferences: the form, the assistant prompt and the profile blocks
   features/jobs/                       Jobs: the shared catalog of open roles
   features/loops/                      Loops: morning job searches, their runs and sources
-  features/account/                    Account: profile, email connection, theme, sign-out
+  features/account/                    Account: profile, email connection, notifications, theme, sign-out
+  features/inbox/                      Inbox: notifications from mail and loops
   components/ui/                       shadcn/coss components, managed by the shadcn CLI
 scripts/                               dev and secrets scripts
 docs/database-design.md                planned tables, status flow and build order

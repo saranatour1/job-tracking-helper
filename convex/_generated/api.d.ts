@@ -45,6 +45,8 @@ import type * as api_features_loops_models_usage from "../api/features/loops/mod
 import type * as api_features_loops_public from "../api/features/loops/public.js";
 import type * as api_features_loops_schedule from "../api/features/loops/schedule.js";
 import type * as api_features_loops_validators from "../api/features/loops/validators.js";
+import type * as api_features_notifications_kinds from "../api/features/notifications/kinds.js";
+import type * as api_features_notifications_public from "../api/features/notifications/public.js";
 import type * as api_features_preferences_index from "../api/features/preferences/index.js";
 import type * as api_features_preferences_models_entries from "../api/features/preferences/models/entries.js";
 import type * as api_features_preferences_models_index from "../api/features/preferences/models/index.js";
@@ -73,6 +75,7 @@ import type * as auth from "../auth.js";
 import type * as crons from "../crons.js";
 import type * as email from "../email.js";
 import type * as http from "../http.js";
+import type * as inbox from "../inbox.js";
 import type * as jobs from "../jobs.js";
 import type * as lib_ark from "../lib/ark.js";
 import type * as lib_functions from "../lib/functions.js";
@@ -127,6 +130,8 @@ declare const fullApi: ApiFromModules<{
   "api/features/loops/public": typeof api_features_loops_public;
   "api/features/loops/schedule": typeof api_features_loops_schedule;
   "api/features/loops/validators": typeof api_features_loops_validators;
+  "api/features/notifications/kinds": typeof api_features_notifications_kinds;
+  "api/features/notifications/public": typeof api_features_notifications_public;
   "api/features/preferences/index": typeof api_features_preferences_index;
   "api/features/preferences/models/entries": typeof api_features_preferences_models_entries;
   "api/features/preferences/models/index": typeof api_features_preferences_models_index;
@@ -155,6 +160,7 @@ declare const fullApi: ApiFromModules<{
   crons: typeof crons;
   email: typeof email;
   http: typeof http;
+  inbox: typeof inbox;
   jobs: typeof jobs;
   "lib/ark": typeof lib_ark;
   "lib/functions": typeof lib_functions;
@@ -203,4 +209,5 @@ export declare const components: {
   readPool: import("@convex-dev/workpool/_generated/component.js").ComponentApi<"readPool">;
   rateLimiter: import("@convex-dev/rate-limiter/_generated/component.js").ComponentApi<"rateLimiter">;
   cloudflareEmail: import("../cloudflareEmail/_generated/component.js").ComponentApi<"cloudflareEmail">;
+  notifications: import("../notifications/_generated/component.js").ComponentApi<"notifications">;
 };

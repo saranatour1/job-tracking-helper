@@ -1,7 +1,7 @@
 import { vResultValidator, vWorkflowId, type WorkflowId } from "@convex-dev/workflow"
 import { vOnCompleteArgs, type WorkId } from "@convex-dev/workpool"
 import { v } from "convex/values"
-import { internal } from "../../../_generated/api"
+import { components, internal } from "../../../_generated/api"
 import type { Doc, Id } from "../../../_generated/dataModel"
 import {
   internalMutation,
@@ -325,6 +325,12 @@ const finishRun = internalMutation({
       candidates: undefined,
       readFailures: undefined,
     })
+    if (shown > 0)
+      await ctx.runMutation(components.notifications.lib.notify, {
+        owner: run.userId,
+        kind: "loop.found",
+        ref: run._id,
+      })
     const log = workLog("loop.run", { runId: run._id, loopId: run.loopId, userId: run.userId })
     log.set({
       outcome: "done",

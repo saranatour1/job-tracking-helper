@@ -29,7 +29,7 @@ import {
 } from "@/components/ui/sidebar"
 import { NavUser } from "@/features/shell/nav-user"
 import { ThemeSwitch } from "@/features/shell/theme"
-import { useUnreadCount } from "@/features/tracker/inbox"
+import { useUnreadCount } from "@/features/inbox/inbox"
 import { NewApplicationDialog } from "@/features/tracker/new-application"
 
 const tracker = [

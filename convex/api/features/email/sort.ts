@@ -17,6 +17,7 @@ import { arkId, arkOutputToConvex } from "../../../lib/ark"
 import { arkMutation, authedQuery } from "../../../lib/functions"
 import { seal } from "../../../lib/secrets"
 import { statuses } from "../applications/validators"
+import { mailNotificationKind } from "../notifications/kinds"
 import { jevModel } from "../workflows/judge"
 import { secretKeys } from "./inbound"
 import { aad, keys, openJson } from "./internal"
@@ -78,6 +79,7 @@ const sortContext = internalQuery({
   },
 })
 
+// Saves the event and tells the inbox, unless this email was already sorted.
 const record = internalMutation({
   args: arkOutputToConvex(MailEvent),
   returns: v.null(),
@@ -86,7 +88,13 @@ const record = internalMutation({
       .query("mailEvents")
       .withIndex("by_emailId", (q) => q.eq("emailId", event.emailId))
       .first()
-    if (!done) await ctx.db.insert("mailEvents", event)
+    if (done) return null
+    const id = await ctx.db.insert("mailEvents", event)
+    await ctx.runMutation(components.notifications.lib.notify, {
+      owner: event.userId,
+      kind: mailNotificationKind(event.kind, event.applicationId !== undefined),
+      ref: id,
+    })
     return null
   },
 })
