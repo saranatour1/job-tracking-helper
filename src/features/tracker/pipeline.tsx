@@ -7,7 +7,7 @@ import {
   Target02Icon,
 } from "@hugeicons/core-free-icons"
 import { HugeiconsIcon } from "@hugeicons/react"
-import { Link, useNavigate } from "@tanstack/react-router"
+import { Link, useNavigate, useSearch } from "@tanstack/react-router"
 import { useRef, useState } from "react"
 
 import { Badge } from "@/components/ui/badge"
@@ -33,20 +33,20 @@ import {
   priorityLabels,
   statusLabels,
   statuses,
-  addView,
-  useViews,
 } from "./data"
 import { type Display, DisplayOptions, defaultDisplay } from "./display-options"
 import { FilterChips, FilterMenu, toggleFilter } from "./filters"
 import { ApplicationPeek } from "./application"
 import { PriorityIcon, StatusIcon } from "./icons"
 import { MailBadge, UnsortedMail } from "./mail"
+import { ApplicationMenu, BoardMenu, ViewMenu } from "./context-menus"
+import { useCreateView, useSavedViews } from "./saved-views"
+import { displayDiff, type PipelineSearch, type Tab } from "./search"
 import { useSource } from "./source"
 import { NewApplicationDialog } from "./new-application"
 import { useCollapsesSidebar } from "@/features/shell/one-sidebar"
 import { type Crumb, PageHeader } from "@/features/shell/page-header"
 
-type Tab = "active" | "saved" | "all"
 const tabs: Record<Tab, readonly Status[]> = {
   active: ["applied", "interviewing", "offer"],
   saved: ["saved"],
@@ -355,12 +355,37 @@ export const Pipeline = ({
   editor?: boolean
 }) => {
   const navigate = useNavigate()
-  const savedViews = useViews()
-  const [tab, setTab] = useState<Tab>("all")
-  const [filters, setFilters] = useState<Filters>(initialFilters)
-  const [display, setDisplay] = useState<Display>({ ...defaultDisplay, ...initialDisplay })
-  const [panel, setPanel] = useState(Boolean(summary))
-  const [peek, setPeek] = useState<string>()
+  const savedViews = useSavedViews()
+  // The board's state is the URL's (see search.ts); each setter writes it back, replacing
+  // the history entry so Back leaves the page rather than undoing a filter.
+  const search = useSearch({ strict: false }) as PipelineSearch
+  const write = (patch: Partial<PipelineSearch>) =>
+    void navigate({
+      to: ".",
+      search: ((prev: PipelineSearch) => ({ ...prev, ...patch })) as never,
+      replace: true,
+    })
+  const tab = search.tab ?? "all"
+  const setTab = (next: Tab) => write({ tab: next === "all" ? undefined : next })
+  const filters = search.filters ?? initialFilters
+  const hasInitialFilters = Object.values(initialFilters).some((v) => v?.length)
+  // Clearing a view's filters has to say so in the URL, or the view's would come back.
+  const setFilters = (next: Filters) =>
+    write({
+      filters: Object.values(next).some((v) => v?.length)
+        ? next
+        : hasInitialFilters
+          ? {}
+          : undefined,
+    })
+  const baseDisplay: Display = { ...defaultDisplay, ...initialDisplay }
+  const display: Display = { ...baseDisplay, ...search.display }
+  const setDisplay = (next: Display) => write({ display: displayDiff(next, baseDisplay) })
+  const panel = search.insights ?? Boolean(summary)
+  const setPanel = (next: boolean) =>
+    write({ insights: next === Boolean(summary) ? undefined : next })
+  const peek = search.app
+  const setPeek = (id: string | undefined) => write({ app: id })
   const [peekWidth, setPeekWidth] = useState(440)
   const [name, setName] = useState("")
   const [description, setDescription] = useState("")
@@ -390,13 +415,14 @@ export const Pipeline = ({
   )
   const hasFilters = Object.values(filters).some((v) => v?.length)
 
-  const createView = () => {
-    const slug = name
-      .trim()
-      .toLowerCase()
-      .replace(/[^a-z0-9]+/g, "-")
-    const id = savedViews.some((v) => v.id === slug) ? `${slug}-${savedViews.length}` : slug
-    addView({ id, name: name.trim(), description: description.trim(), filters, display })
+  const saveView = useCreateView()
+  const createView = async () => {
+    const id = await saveView({
+      name: name.trim(),
+      description: description.trim(),
+      filters: filters as Record<string, string[]>,
+      display: displayDiff(display, defaultDisplay),
+    })
     void navigate({ to: "/", search: { view: id } })
   }
 
@@ -471,14 +497,15 @@ export const Pipeline = ({
             <Tabs value={viewId ?? null} className="shrink-0">
               <TabsList variant="underline" size="sm" aria-label="Saved views">
                 {savedViews.map((v) => (
-                  <TabsTab
-                    key={v.id}
-                    value={v.id}
-                    nativeButton={false}
-                    render={<Link to="/" search={{ view: v.id }} />}
-                  >
-                    {v.name}
-                  </TabsTab>
+                  <ViewMenu key={v.id} view={v} open={viewId === v.id}>
+                    <TabsTab
+                      value={v.id}
+                      nativeButton={false}
+                      render={<Link to="/" search={{ view: v.id }} />}
+                    >
+                      {v.name}
+                    </TabsTab>
+                  </ViewMenu>
                 ))}
               </TabsList>
             </Tabs>
@@ -553,81 +580,95 @@ export const Pipeline = ({
         </div>
       )}
       <div className="flex min-h-0 flex-1">
-        {visible.length === 0 ? (
-          <p className="text-muted-foreground m-auto text-sm">
-            No applications match these filters.
-          </p>
-        ) : display.layout === "board" ? (
-          <ScrollArea className="min-w-0 flex-1" fill clampContentMinWidth={false}>
-            <div className="flex h-full gap-2 p-2">
+        <BoardMenu
+          filters={filters}
+          display={displayDiff(display, defaultDisplay)}
+          onClear={hasFilters ? () => setFilters({}) : undefined}
+        >
+          {visible.length === 0 ? (
+            <p className="text-muted-foreground m-auto text-sm">
+              No applications match these filters.
+            </p>
+          ) : display.layout === "board" ? (
+            <ScrollArea className="min-w-0 flex-1" fill clampContentMinWidth={false}>
+              <div className="flex h-full gap-2 p-2">
+                {groups.map((g) => (
+                  <section
+                    key={g.key}
+                    aria-label={g.label}
+                    data-drop={dropOn === g.key || undefined}
+                    // Dropping a card on a status column moves it there, history and all. Other
+                    // groupings have no single value to set, so they don't take drops.
+                    {...(display.groupBy === "status" && {
+                      onDragOver: (e: React.DragEvent) => {
+                        if (!e.dataTransfer.types.includes(dragType)) return
+                        e.preventDefault()
+                        e.dataTransfer.dropEffect = "move"
+                        setDropOn(g.key)
+                      },
+                      onDragLeave: (e: React.DragEvent) => {
+                        if (!e.currentTarget.contains(e.relatedTarget as Node)) setDropOn(undefined)
+                      },
+                      onDrop: (e: React.DragEvent) => {
+                        e.preventDefault()
+                        setDropOn(undefined)
+                        const id = e.dataTransfer.getData(dragType)
+                        if (id) source.setStatus(id, g.key as Status)
+                      },
+                    })}
+                    className="bg-muted/40 data-[drop]:bg-accent data-[drop]:ring-ring/40 flex w-64 shrink-0 flex-col gap-1.5 rounded-lg p-1.5 transition-colors data-[drop]:ring-2"
+                  >
+                    <header className="flex h-7 items-center gap-1.5 px-1 text-[13px]">
+                      {g.icon}
+                      <span className="font-medium">{g.label}</span>
+                      <span className="text-muted-foreground">{g.items.length}</span>
+                      <span className="ms-auto flex">
+                        <IconButton
+                          label="Group options"
+                          icon={MoreHorizontalIcon}
+                          size="icon-xs"
+                        />
+                        <NewApplicationDialog
+                          trigger={
+                            <Button variant="ghost" size="icon-xs" aria-label={`Add to ${g.label}`}>
+                              <HugeiconsIcon icon={PlusSignIcon} />
+                            </Button>
+                          }
+                        />
+                      </span>
+                    </header>
+                    <ScrollArea className="-me-1.5 pe-1.5">
+                      <div className="flex flex-col gap-1.5">
+                        {g.items.map((a) => (
+                          <ApplicationMenu key={a.id} a={a} onOpen={() => setPeek(a.id)}>
+                            <Card a={a} shown={display.shown} peek={peeking} />
+                          </ApplicationMenu>
+                        ))}
+                      </div>
+                    </ScrollArea>
+                  </section>
+                ))}
+              </div>
+            </ScrollArea>
+          ) : (
+            <ScrollArea className="@container min-w-0 flex-1">
               {groups.map((g) => (
-                <section
-                  key={g.key}
-                  aria-label={g.label}
-                  data-drop={dropOn === g.key || undefined}
-                  // Dropping a card on a status column moves it there, history and all. Other
-                  // groupings have no single value to set, so they don't take drops.
-                  {...(display.groupBy === "status" && {
-                    onDragOver: (e: React.DragEvent) => {
-                      if (!e.dataTransfer.types.includes(dragType)) return
-                      e.preventDefault()
-                      e.dataTransfer.dropEffect = "move"
-                      setDropOn(g.key)
-                    },
-                    onDragLeave: (e: React.DragEvent) => {
-                      if (!e.currentTarget.contains(e.relatedTarget as Node)) setDropOn(undefined)
-                    },
-                    onDrop: (e: React.DragEvent) => {
-                      e.preventDefault()
-                      setDropOn(undefined)
-                      const id = e.dataTransfer.getData(dragType)
-                      if (id) source.setStatus(id, g.key as Status)
-                    },
-                  })}
-                  className="bg-muted/40 data-[drop]:bg-accent data-[drop]:ring-ring/40 flex w-64 shrink-0 flex-col gap-1.5 rounded-lg p-1.5 transition-colors data-[drop]:ring-2"
-                >
-                  <header className="flex h-7 items-center gap-1.5 px-1 text-[13px]">
+                <section key={g.key} aria-label={g.label}>
+                  <header className="bg-muted/40 flex h-8 items-center gap-2 border-b px-4 text-[13px]">
                     {g.icon}
                     <span className="font-medium">{g.label}</span>
                     <span className="text-muted-foreground">{g.items.length}</span>
-                    <span className="ms-auto flex">
-                      <IconButton label="Group options" icon={MoreHorizontalIcon} size="icon-xs" />
-                      <NewApplicationDialog
-                        trigger={
-                          <Button variant="ghost" size="icon-xs" aria-label={`Add to ${g.label}`}>
-                            <HugeiconsIcon icon={PlusSignIcon} />
-                          </Button>
-                        }
-                      />
-                    </span>
                   </header>
-                  <ScrollArea className="-me-1.5 pe-1.5">
-                    <div className="flex flex-col gap-1.5">
-                      {g.items.map((a) => (
-                        <Card key={a.id} a={a} shown={display.shown} peek={peeking} />
-                      ))}
-                    </div>
-                  </ScrollArea>
+                  {g.items.map((a) => (
+                    <ApplicationMenu key={a.id} a={a} onOpen={() => setPeek(a.id)}>
+                      <Row a={a} shown={display.shown} peek={peeking} />
+                    </ApplicationMenu>
+                  ))}
                 </section>
               ))}
-            </div>
-          </ScrollArea>
-        ) : (
-          <ScrollArea className="@container min-w-0 flex-1">
-            {groups.map((g) => (
-              <section key={g.key} aria-label={g.label}>
-                <header className="bg-muted/40 flex h-8 items-center gap-2 border-b px-4 text-[13px]">
-                  {g.icon}
-                  <span className="font-medium">{g.label}</span>
-                  <span className="text-muted-foreground">{g.items.length}</span>
-                </header>
-                {g.items.map((a) => (
-                  <Row key={a.id} a={a} shown={display.shown} peek={peeking} />
-                ))}
-              </section>
-            ))}
-          </ScrollArea>
-        )}
+            </ScrollArea>
+          )}
+        </BoardMenu>
         {/* One wrapper for either panel, so switching between them leaves the app sidebar alone. */}
         {(peek || panel) && (
           <div ref={collapsesSidebar} className="contents">

@@ -345,41 +345,9 @@ const sample: Application[] = [
   }),
 ]
 
-const sampleViews: View[] = [
-  {
-    id: "remote",
-    name: "Remote roles",
-    description: "Everything labelled Remote.",
-    filters: { label: ["Remote"] },
-    display: { layout: "board" },
-  },
-  {
-    id: "in-play",
-    name: "In play",
-    description: "Applied or interviewing, waiting on a next step.",
-    filters: { status: ["applied", "interviewing"] },
-    display: { layout: "list", orderBy: "created" },
-  },
-  {
-    id: "dream",
-    name: "Dream companies",
-    description: "High-stakes applications to prepare carefully.",
-    filters: { label: ["Dream company"], priority: ["urgent", "high"] },
-    display: { layout: "board", groupBy: "priority" },
-  },
-  {
-    id: "frontend-goal",
-    name: "Frontend role goal",
-    description: "Applications counting toward the frontend role goal.",
-    filters: { goal: ["frontend-role"] },
-    display: { layout: "list" },
-  },
-]
-
-// shortcut: edits live in memory and reset on reload; replace with Convex queries and mutations.
-// `applications` and `views` are live bindings, so every module that imports them sees edits made anywhere.
+// shortcut: sample edits live in memory and reset on reload; Goals still read these until
+// they move to Convex. `applications` is a live binding, so every importer sees edits.
 export let applications = sample
-export let views = sampleViews
 const listeners = new Set<() => void>()
 const subscribe = (listener: () => void) => {
   listeners.add(listener)
@@ -392,21 +360,11 @@ export const updateApplication = (id: string, patch: Partial<Application>) => {
   applications = applications.map((a) => (a.id === id ? { ...a, ...patch } : a))
   changed()
 }
-export const addView = (view: View) => {
-  views = [...views, view]
-  changed()
-}
 export const useApplications = () =>
   useSyncExternalStore(
     subscribe,
     () => applications,
     () => sample
-  )
-export const useViews = () =>
-  useSyncExternalStore(
-    subscribe,
-    () => views,
-    () => sampleViews
   )
 
 export const goalName = (id?: string) => goals.find((g) => g.id === id)?.name ?? "No goal"

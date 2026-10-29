@@ -59,6 +59,8 @@ import type * as api_features_users_index from "../api/features/users/index.js";
 import type * as api_features_users_models from "../api/features/users/models.js";
 import type * as api_features_users_public from "../api/features/users/public.js";
 import type * as api_features_users_validators from "../api/features/users/validators.js";
+import type * as api_features_views_models from "../api/features/views/models.js";
+import type * as api_features_views_public from "../api/features/views/public.js";
 import type * as api_features_workflows_actions from "../api/features/workflows/actions.js";
 import type * as api_features_workflows_findJobs from "../api/features/workflows/findJobs.js";
 import type * as api_features_workflows_fit from "../api/features/workflows/fit.js";
@@ -84,6 +86,7 @@ import type * as lib_secrets from "../lib/secrets.js";
 import type * as loops from "../loops.js";
 import type * as preferences from "../preferences.js";
 import type * as users from "../users.js";
+import type * as views from "../views.js";
 import type * as workflows from "../workflows.js";
 
 import type {
@@ -144,6 +147,8 @@ declare const fullApi: ApiFromModules<{
   "api/features/users/models": typeof api_features_users_models;
   "api/features/users/public": typeof api_features_users_public;
   "api/features/users/validators": typeof api_features_users_validators;
+  "api/features/views/models": typeof api_features_views_models;
+  "api/features/views/public": typeof api_features_views_public;
   "api/features/workflows/actions": typeof api_features_workflows_actions;
   "api/features/workflows/findJobs": typeof api_features_workflows_findJobs;
   "api/features/workflows/fit": typeof api_features_workflows_fit;
@@ -169,6 +174,7 @@ declare const fullApi: ApiFromModules<{
   loops: typeof loops;
   preferences: typeof preferences;
   users: typeof users;
+  views: typeof views;
   workflows: typeof workflows;
 }>;
 
