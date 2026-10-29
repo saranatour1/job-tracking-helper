@@ -263,7 +263,11 @@ const startDue = internalMutation({
     const now = Date.now()
     const due = await ctx.db
       .query("automations")
-      .withIndex("by_active_and_nextRunAt", (q) => q.eq("active", true).lte("nextRunAt", now))
+      // The lower bound matters: a missing nextRunAt (every manual workflow) sorts before
+      // all numbers, so without it they'd fill the batch and starve the scheduled ones.
+      .withIndex("by_active_and_nextRunAt", (q) =>
+        q.eq("active", true).gte("nextRunAt", 0).lte("nextRunAt", now)
+      )
       .take(50)
     for (const automation of due) {
       if (automation.trigger.kind !== "schedule") continue
@@ -291,7 +295,12 @@ export const cancelRun = async (ctx: MutationCtx, found: Doc<"automationRuns">) 
         : e
     ),
   })
-  if (found.workflowId) await workflow.cancel(ctx, found.workflowId as WorkflowId)
+  // A workflow that already ended (its completion handler failed, say) can't be canceled,
+  // and trying would throw; the run only needs marking.
+  if (found.workflowId) {
+    const id = found.workflowId as WorkflowId
+    if ((await workflow.status(ctx, id)).type === "inProgress") await workflow.cancel(ctx, id)
+  }
 }
 
 export const engineApi = { run, shapeOf, runStep, startSplit, finishStep, ended, startDue }
