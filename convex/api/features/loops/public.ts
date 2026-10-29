@@ -201,25 +201,28 @@ const leadForApplication = authedQuery({
 })
 
 // How well each of the person's applications fit, for the badges on the board: the
-// first lead tied to each one, if a loop found it or Jev checked its link.
+// first lead tied to each one, if a loop found it or Jev checked its link. It reads
+// leads only, so editing an application doesn't re-run it.
 const fits = authedQuery({
   args: {},
   returns: v.array(
     v.object({ applicationId: v.id("applications"), fit: v.number(), isFit: v.boolean() })
   ),
   handler: async (ctx) => {
-    const applications = await ctx.db
-      .query("applications")
-      .withIndex("by_userId", (q) => q.eq("userId", ctx.userId))
-      .take(500)
+    // A missing applicationId sorts before any string, so this skips leads without one.
+    const leads = await ctx.db
+      .query("jobLeads")
+      .withIndex("by_userId_and_applicationId", (q) =>
+        q.eq("userId", ctx.userId).gte("applicationId", "" as Id<"applications">)
+      )
+      .take(1000)
+    const seen = new Set<Id<"applications">>()
     const out = []
-    for (const application of applications) {
-      const lead = await ctx.db
-        .query("jobLeads")
-        .withIndex("by_applicationId", (q) => q.eq("applicationId", application._id))
-        .first()
-      if (lead?.userId === ctx.userId)
-        out.push({ applicationId: application._id, fit: lead.fit, isFit: lead.verdict === "fit" })
+    for (const { applicationId, fit, verdict } of leads) {
+      if (!applicationId || seen.has(applicationId)) continue
+      seen.add(applicationId)
+      // Leads from before Jev have no verdict, and aren't "not a fit".
+      out.push({ applicationId, fit, isFit: verdict !== "notFit" })
     }
     return out
   },

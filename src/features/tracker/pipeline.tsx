@@ -161,7 +161,7 @@ const Card = ({ a, shown, peek }: { a: Application; shown: Display["shown"]; pee
     </span>
     <span className="line-clamp-2 leading-snug font-medium">{a.role}</span>
     <span className="flex flex-wrap gap-1">
-      <TopBadges a={a} now={Date.now()} />
+      <TopBadges a={a} />
       <MailBadge id={a.id} />
       <Properties a={a} shown={shown} />
     </span>
@@ -187,7 +187,7 @@ const Row = ({ a, shown, peek }: { a: Application; shown: Display["shown"]; peek
     </span>
     <span className="hidden shrink-0 items-center gap-1 @xl:flex">
       {a.fit !== undefined && <FitBadge fit={a.fit} isFit={a.isFit} />}
-      <ActivityBadge a={a} now={Date.now()} />
+      <ActivityBadge a={a} />
     </span>
     <MailBadge id={a.id} />
     <span className="hidden min-w-0 items-center justify-end gap-1.5 overflow-hidden @2xl:flex">

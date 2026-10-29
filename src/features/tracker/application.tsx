@@ -237,7 +237,7 @@ const Content = ({ a, properties }: { a: Application; properties?: React.ReactNo
           </p>
         </div>
         <div className="flex flex-wrap gap-1">
-          <TopBadges a={a} now={Date.now()} />
+          <TopBadges a={a} />
           <PriorityBadge a={a} />
         </div>
         <p className="text-foreground/90 text-[13px] leading-relaxed">{a.description}</p>

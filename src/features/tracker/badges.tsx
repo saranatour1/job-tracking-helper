@@ -1,8 +1,10 @@
 import { Badge } from "@/components/ui/badge"
 import { cn } from "@/lib/utils"
 
-import { type Application, priorityLabels, type Status, statusLabels } from "./data"
+import { type Application, priorityLabels, type Status, statusLabels, today } from "./data"
 import { PriorityIcon, StatusIcon } from "./icons"
+import { useMailFor } from "./mail"
+import { useSource } from "./source"
 
 // The few things worth seeing first about an application, as small pills: where it
 // stands, how well it fits, and whether anything is happening.
@@ -44,7 +46,11 @@ const fitTone = (fit: number) =>
 
 /** How well Jev thought the role fits, when a loop found it or its link was checked. */
 export const FitBadge = ({ fit, isFit }: { fit: number; isFit?: boolean }) => (
-  <Pill className={fitTone(fit)} title={isFit ? "Jev says it fits you" : "Jev's fit score"}>
+  // A role Jev called not a fit stays neutral, whatever its score.
+  <Pill
+    className={isFit === false ? undefined : fitTone(fit)}
+    title={isFit ? "Jev says it fits you" : "Jev's fit score"}
+  >
     <svg viewBox="0 0 16 16" className="size-3" aria-hidden>
       <circle
         cx="8"
@@ -73,26 +79,32 @@ export const FitBadge = ({ fit, isFit }: { fit: number; isFit?: boolean }) => (
 const open: Status[] = ["applied", "interviewing", "offer"]
 const day = 24 * 60 * 60 * 1000
 
-/** When anything last happened: a status change or a note. */
-export const lastActivity = (a: Application) =>
+/** When anything last happened: a status change, a note, or any other times passed in
+ * (like company mail). */
+export const lastActivity = (a: Application, ...also: number[]) =>
   Math.max(
     ...a.history.map((e) => Date.parse(e.at)),
     ...(a.notes ?? []).map((n) => Date.parse(n.at)),
-    Date.parse(a.createdAt)
+    Date.parse(a.createdAt),
+    ...also
   )
 
 /** For an application still in play: Active with news in the last two weeks, or Quiet
  * with how long it's been. Closed and saved ones show nothing. */
-export const activityOf = (a: Application, now: number) => {
+export const activityOf = (a: Application, now: number, ...also: number[]) => {
   if (!open.includes(a.status)) return undefined
-  const days = Math.floor((now - lastActivity(a)) / day)
+  const days = Math.floor((now - lastActivity(a, ...also)) / day)
   if (days < 14) return { quiet: false, label: "Active" } as const
   const weeks = Math.floor(days / 7)
   return { quiet: true, label: `Quiet ${weeks}w` } as const
 }
 
-export const ActivityBadge = ({ a, now }: { a: Application; now: number }) => {
-  const activity = activityOf(a, now)
+export const ActivityBadge = ({ a }: { a: Application }) => {
+  const source = useSource()
+  // The sample data is pinned to its own today, so it doesn't drift to Quiet.
+  const now = source.real ? Date.now() : Date.parse(today)
+  // Mail from the company is news too.
+  const activity = activityOf(a, now, ...useMailFor(a.id).map((e) => e.at))
   if (!activity) return null
   return (
     <Pill
@@ -118,10 +130,10 @@ export const PriorityBadge = ({ a }: { a: Application }) =>
   )
 
 /** The top badges, in order: status, fit, activity. */
-export const TopBadges = ({ a, now }: { a: Application; now: number }) => (
+export const TopBadges = ({ a }: { a: Application }) => (
   <>
     <StatusBadge status={a.status} />
     {a.fit !== undefined && <FitBadge fit={a.fit} isFit={a.isFit} />}
-    <ActivityBadge a={a} now={now} />
+    <ActivityBadge a={a} />
   </>
 )

@@ -26,6 +26,12 @@ describe("activityOf", () => {
   it("treats a recent note as news", () => {
     expect(activityOf(app("applied", 30, 2), now)?.quiet).toBe(false)
   })
+  it("treats recent company mail as news", () => {
+    expect(activityOf(app("applied", 30), now, now - 40 * day, now - 5 * day)).toEqual({
+      quiet: false,
+      label: "Active",
+    })
+  })
   it("says nothing for saved or closed applications", () => {
     expect(activityOf(app("saved", 40), now)).toBeUndefined()
     expect(activityOf(app("rejected", 40), now)).toBeUndefined()
