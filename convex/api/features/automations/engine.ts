@@ -10,7 +10,7 @@ import type { Doc, Id } from "../../../_generated/dataModel"
 import { internalMutation, internalQuery, type MutationCtx } from "../../../_generated/server"
 import { limits as applicationLimits } from "../applications/validators"
 import { workflow } from "../workflows/manager"
-import { insertRun, patchRun } from "./counts"
+import { deleteRuns, insertRun, patchRun } from "./counts"
 import type { vLogEntry } from "./models"
 import { type Block, fill, nextScheduledAt, stepAt } from "./validators"
 
@@ -76,6 +76,9 @@ const runPath = workflow.define({
   },
 })
 
+// How many runs each workflow keeps in its history.
+export const keptRuns = 50
+
 /** Starts a run of `automation` now, with its steps as they are. */
 export const startRun = async (
   ctx: MutationCtx,
@@ -99,6 +102,16 @@ export const startRun = async (
     { onComplete: internal.automations.ended, context: { runId } }
   )
   await ctx.db.patch("automationRuns", runId, { workflowId })
+  // Keep the newest runs: the oldest finished ones go, a few at a time.
+  const older = await ctx.db
+    .query("automationRuns")
+    .withIndex("by_automationId_and_startedAt", (q) => q.eq("automationId", automation._id))
+    .order("desc")
+    .take(keptRuns + 10)
+  await deleteRuns(
+    ctx,
+    older.slice(keptRuns).filter((r) => r.status !== "running")
+  )
   return runId
 }
 
@@ -250,7 +263,9 @@ const ended = internalMutation({
     context: v.object({ runId: v.id("automationRuns") }),
   },
   returns: v.null(),
-  handler: async (ctx, { result, context }) => {
+  handler: async (ctx, { workflowId, result, context }) => {
+    // The run keeps its own history, so the workflow's journal can go once it's over.
+    await ctx.scheduler.runAfter(0, internal.automations.forgetWorkflow, { workflowId })
     const found = await ctx.db.get("automationRuns", context.runId)
     if (!found || found.status !== "running") return null
     const finishedAt = Date.now()
@@ -273,6 +288,15 @@ const ended = internalMutation({
       error,
       log,
     })
+    return null
+  },
+})
+
+const forgetWorkflow = internalMutation({
+  args: { workflowId: vWorkflowId },
+  returns: v.null(),
+  handler: async (ctx, { workflowId }) => {
+    await workflow.cleanup(ctx, workflowId)
     return null
   },
 })
@@ -318,11 +342,23 @@ export const cancelRun = async (ctx: MutationCtx, found: Doc<"automationRuns">) 
     ),
   })
   // A workflow that already ended (its completion handler failed, say) can't be canceled,
-  // and trying would throw; the run only needs marking.
+  // and trying would throw; nor can one already cleaned up, which the component no longer
+  // knows. The run only needs marking.
   if (found.workflowId) {
     const id = found.workflowId as WorkflowId
-    if ((await workflow.status(ctx, id)).type === "inProgress") await workflow.cancel(ctx, id)
+    const status = await workflow.status(ctx, id).catch(() => null)
+    if (status?.type === "inProgress") await workflow.cancel(ctx, id)
   }
 }
 
-export const engineApi = { run, runPath, shapeOf, runStep, startSplit, finishStep, ended, startDue }
+export const engineApi = {
+  run,
+  runPath,
+  forgetWorkflow,
+  shapeOf,
+  runStep,
+  startSplit,
+  finishStep,
+  ended,
+  startDue,
+}

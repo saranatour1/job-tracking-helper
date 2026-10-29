@@ -38,10 +38,18 @@ export const patchRun = async (
     await runCounts.replace(ctx, run, (await ctx.db.get("automationRuns", run._id))!)
 }
 
-/** Deletes a run and stops counting it. */
-export const deleteRun = async (ctx: MutationCtx, run: Doc<"automationRuns">) => {
-  await runCounts.deleteIfExists(ctx, run)
-  await ctx.db.delete("automationRuns", run._id)
+/** Deletes runs, stops counting them, and takes their Inbox lines with them. */
+export const deleteRuns = async (ctx: MutationCtx, runs: Doc<"automationRuns">[]) => {
+  for (const run of runs) {
+    await runCounts.deleteIfExists(ctx, run)
+    await ctx.db.delete("automationRuns", run._id)
+  }
+  const owner = runs[0]?.userId
+  if (owner)
+    await ctx.runMutation(components.notifications.lib.forget, {
+      owner,
+      prefixes: runs.map((r) => `${r._id}#`),
+    })
 }
 
 /** How many of a workflow's runs are in each state. */

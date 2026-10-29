@@ -242,6 +242,21 @@ export const Inbox = () => {
                 </p>
               )}
               <div className="flex gap-2">
+                {"run" in note && note.run && (
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    render={
+                      <Link
+                        to="/workflows/$id"
+                        params={{ id: note.run.automationId }}
+                        search={{ tab: "history", run: note.run.runId }}
+                      />
+                    }
+                  >
+                    Open the run
+                  </Button>
+                )}
                 {note.link && (
                   <Button variant="outline" size="sm" render={<Link to={note.link} />}>
                     {note.link === "/loops"

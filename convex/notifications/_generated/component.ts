@@ -24,6 +24,13 @@ import type { FunctionReference } from "convex/server";
 export type ComponentApi<Name extends string | undefined = string | undefined> =
   {
     lib: {
+      forget: FunctionReference<
+        "mutation",
+        "internal",
+        { owner: string; prefixes: Array<string> },
+        number,
+        Name
+      >;
       list: FunctionReference<
         "query",
         "internal",

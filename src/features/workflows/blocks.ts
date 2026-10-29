@@ -62,13 +62,16 @@ export const blockKinds = Object.keys(blocks) as Block["kind"][]
 
 const plural = (n: number, word: string) => `${n} ${word}${n === 1 ? "" : "s"}`
 
-/** "3 days", "90 minutes": a wait as people say it. */
+/** "3 days", "1 day 2 hours 30 minutes": a wait as people say it. */
 export const durationOf = (minutes: number) =>
-  minutes % 1440 === 0
-    ? plural(minutes / 1440, "day")
-    : minutes % 60 === 0
-      ? plural(minutes / 60, "hour")
-      : plural(minutes, "minute")
+  [
+    [Math.floor(minutes / 1440), "day"],
+    [Math.floor((minutes % 1440) / 60), "hour"],
+    [minutes % 60, "minute"],
+  ]
+    .filter(([n]) => n)
+    .map(([n, word]) => plural(n as number, word as string))
+    .join(" ") || "0 minutes"
 
 /** A card's second line. */
 export const summaryOf = (step: Step, companyOf: (id: string) => string | undefined) => {
