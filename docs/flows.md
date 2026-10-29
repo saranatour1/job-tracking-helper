@@ -264,6 +264,12 @@ hours go to the batch worker (`internal.jobs.fetchBoard`). It reads each public 
 longer lists. A board that answers 4xx is noted and not retried. Loops and pasted links
 add new boards.
 
+**Postings:** a board's HTML is parsed with rehype, cleaned with rehype-sanitize (no
+scripts, styles, event handlers, `javascript:` links or images) and kept as Markdown, at
+most 3,500 characters (`convex/lib/markdown.ts`). The app draws it with react-markdown,
+which never draws raw HTML and sanitizes the tree again (`src/components/markdown.tsx`).
+Previews are the same text as plain words.
+
 **Rules:** the catalog is shared by everyone; what Jev thought of a role is yours alone.
 
 **Files:** `src/features/jobs/`, `convex/api/features/jobs/`.

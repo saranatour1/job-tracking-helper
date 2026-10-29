@@ -26,6 +26,7 @@ import {
 } from "@/components/ui/menu"
 import { ScrollArea } from "@/components/ui/scroll-area"
 import { PageHeader } from "@/features/shell/page-header"
+import { Markdown } from "@/components/markdown"
 
 import {
   type Application,
@@ -240,7 +241,7 @@ const Content = ({ a, properties }: { a: Application; properties?: React.ReactNo
           <TopBadges a={a} />
           <PriorityBadge a={a} />
         </div>
-        <p className="text-foreground/90 text-[13px] leading-relaxed">{a.description}</p>
+        {a.description.trim() && <Markdown>{a.description}</Markdown>}
       </div>
       {properties}
       <section aria-label="Tasks" className="flex flex-col">
