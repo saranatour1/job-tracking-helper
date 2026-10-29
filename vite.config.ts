@@ -17,7 +17,13 @@ export default defineConfig({
   },
   plugins: [tailwindcss(), tanstackStart(), viteReact()],
   lint: {
-    ignorePatterns: ["src/routeTree.gen.ts", "convex/_generated", "convex/*/_generated"],
+    // kloq is the calendar's source from its registry, kept as it ships.
+    ignorePatterns: [
+      "src/routeTree.gen.ts",
+      "convex/_generated",
+      "convex/*/_generated",
+      "src/components/kloq",
+    ],
     options: { typeAware: true, typeCheck: true },
     jsPlugins: ["@convex-dev/eslint-plugin"],
     rules: {
@@ -99,7 +105,12 @@ export default defineConfig({
   fmt: {
     semi: false,
     trailingComma: "es5",
-    // Convex writes these, for the app and for each local component.
-    ignorePatterns: ["src/routeTree.gen.ts", "convex/_generated", "convex/*/_generated"],
+    // Convex writes these, for the app and for each local component; kloq ships as it is.
+    ignorePatterns: [
+      "src/routeTree.gen.ts",
+      "convex/_generated",
+      "convex/*/_generated",
+      "src/components/kloq",
+    ],
   },
 })

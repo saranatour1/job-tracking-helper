@@ -136,6 +136,59 @@ const hourOf = (hour: string | undefined, minute: string | undefined, half: stri
   return { h, m: Number(minute ?? 0) }
 }
 
+// The zones invites name most, by the abbreviation or word they use.
+const zoneNames: Record<string, string> = {
+  pt: "America/Los_Angeles",
+  pst: "America/Los_Angeles",
+  pdt: "America/Los_Angeles",
+  pacific: "America/Los_Angeles",
+  mt: "America/Denver",
+  mst: "America/Denver",
+  mdt: "America/Denver",
+  mountain: "America/Denver",
+  ct: "America/Chicago",
+  cst: "America/Chicago",
+  cdt: "America/Chicago",
+  central: "America/Chicago",
+  et: "America/New_York",
+  est: "America/New_York",
+  edt: "America/New_York",
+  eastern: "America/New_York",
+  utc: "UTC",
+  gmt: "UTC",
+  bst: "Europe/London",
+  cet: "Europe/Berlin",
+  cest: "Europe/Berlin",
+  eet: "Europe/Athens",
+  eest: "Europe/Athens",
+  ist: "Asia/Kolkata",
+  sgt: "Asia/Singapore",
+  jst: "Asia/Tokyo",
+  aest: "Australia/Sydney",
+  aedt: "Australia/Sydney",
+}
+
+/**
+ * The time zone an invite gives right after a time ("10:30 AM PT", "14:00 CET",
+ * "2pm (Europe/Berlin)"), as an IANA id. Undefined when it names none.
+ */
+export const zoneOf = (text: string): string | undefined => {
+  const after = /\d(?::\d{2})?\s*(?:am|pm)?\s*\(?\s*([A-Za-z]+(?:\/[A-Za-z_]+)+|[A-Za-z]{2,7})\b/gi
+  for (const [, word] of text.matchAll(after)) {
+    // Abbreviations only in capitals, so "10:30 et merci" isn't Eastern time.
+    const named = word!.length > 4 || word === word!.toUpperCase()
+    const zone = word!.includes("/") ? word! : named ? zoneNames[word!.toLowerCase()] : undefined
+    if (!zone) continue
+    try {
+      new Intl.DateTimeFormat("en", { timeZone: zone })
+      return zone
+    } catch {
+      // not a real zone; keep looking
+    }
+  }
+  return undefined
+}
+
 /**
  * The time an interview email proposes, as written: "Tue, Nov 4 at 10:00 AM",
  * "November 4, 2026 2pm", "2026-11-04 10:00" or "Tuesday at 10:00" (the next one

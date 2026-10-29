@@ -1,152 +1,338 @@
-import { Link, useNavigate, useSearch } from "@tanstack/react-router"
+import { useNavigate, useSearch } from "@tanstack/react-router"
+import { useCallback, useMemo, useRef } from "react"
 
+import {
+  byResourceId,
+  type CalEvent,
+  type CalendarSource,
+  EVENT_COLORS,
+  eventsToICS,
+  expandRecurrence,
+  formatInstant,
+  Kloq,
+  type KloqChange,
+  KloqNav,
+  KloqToolbar,
+  type KloqView,
+  type Lane,
+  parseICS,
+  parseInstant,
+  rangeOfView,
+  registerCalendarAccounts,
+  registerCalendarSources,
+  useKloq,
+  useKloqStore,
+} from "@/components/kloq"
 import { Button } from "@/components/ui/button"
-import { Calendar as MonthGrid } from "@/components/ui/calendar"
 import { ScrollArea } from "@/components/ui/scroll-area"
+import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group"
 import { PageHeader } from "@/features/shell/page-header"
+import type { Application } from "@/features/tracker/data"
 import { useSource } from "@/features/tracker/source"
 import { cn } from "@/lib/utils"
 
-import { type CalendarEvent, dayKey, type EventKind, eventsOf, timeOf } from "./events"
+import { EventList } from "./event-list"
+import {
+  type EventKind,
+  eventsOf,
+  kinds,
+  noApplication,
+  toKloq,
+  toSaved,
+  withSaved,
+} from "./events"
+import { useCalendarSettings, useRemoveEvent, useSaveEvent, useSavedEvents } from "./saved"
 
-const kinds: Record<EventKind, { label: string; dot: string }> = {
-  applied: { label: "Applied", dot: "bg-info" },
-  moved: { label: "Status change", dot: "bg-muted-foreground" },
-  email: { label: "Email", dot: "bg-foreground/40" },
-  interview: { label: "Interview", dot: "bg-success" },
-  followup: { label: "Follow-up", dot: "bg-warning" },
-}
-
+const views = ["day", "week", "month", "agenda", "year", "timeline"] as const
+const kindKeys = Object.keys(kinds) as EventKind[]
 const pad = (n: number) => String(n).padStart(2, "0")
 const keyOf = (d: Date) => `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`
-const dateOf = (key: string) => {
-  const [y, m, d] = key.split("-").map(Number)
-  return new Date(y!, m! - 1, d)
-}
-const longDay = (key: string) =>
-  dateOf(key).toLocaleDateString(undefined, { weekday: "long", month: "short", day: "numeric" })
+const dateOf = (key: string) => new Date(`${key}T00:00`)
 
-// The selected day lives in the URL, so a reload or a shared link opens the same day.
-export const calendarSearch = (search: Record<string, unknown>): { day?: string } => ({
-  day:
-    typeof search.day === "string" && /^\d{4}-\d{2}-\d{2}$/.test(search.day)
-      ? search.day
+export type CalendarSearch = {
+  view?: KloqView
+  date?: string
+  hide?: EventKind[]
+  list?: "application"
+}
+
+// The view, the date it's on, the kinds you hid and how the list groups all live in the
+// URL, as kloq's own URL example has them (`?view=3&date=2026-10-29`). A number is an
+// n-day view, 2 to 14 days.
+export const calendarSearch = (search: Record<string, unknown>): CalendarSearch => ({
+  view:
+    views.find((v) => v === search.view) ??
+    (Number.isInteger(search.view) && Number(search.view) >= 2 && Number(search.view) <= 14
+      ? Number(search.view)
+      : undefined),
+  date:
+    typeof search.date === "string" && /^\d{4}-\d{2}-\d{2}$/.test(search.date)
+      ? search.date
       : undefined,
+  hide: Array.isArray(search.hide)
+    ? kindKeys.filter((k) => (search.hide as unknown[]).includes(k))
+    : undefined,
+  list: search.list === "application" ? "application" : undefined,
 })
 
-const EventRow = ({ e }: { e: CalendarEvent }) => {
-  const body = (
-    <>
-      <span className="text-muted-foreground w-11 shrink-0 text-xs tabular-nums">
-        {timeOf(e) ?? ""}
-      </span>
-      <span className={cn("size-2 shrink-0 rounded-full", kinds[e.kind].dot)} />
-      <span className="flex min-w-0 flex-col">
-        <span className="truncate text-[13px] font-medium">{e.title}</span>
-        <span className="text-muted-foreground truncate text-xs">{e.detail}</span>
-      </span>
-    </>
-  )
-  const row = "flex items-center gap-3 rounded-md px-2 py-1.5"
-  return e.applicationId ? (
-    <Link
-      to="/pipeline/$id"
-      params={{ id: e.applicationId }}
-      className={cn(row, "hover:bg-accent/50 transition-colors duration-150")}
-    >
-      {body}
-    </Link>
-  ) : (
-    <div className={row}>{body}</div>
+// Applications are kloq "calendars", so its event panel names the one an event is about
+// and lets you pick another for your own events. Registered for as long as the page is.
+const account = "job-search"
+const sourcesOf = (applications: Application[]): CalendarSource[] => [
+  { id: noApplication, name: "No application", color: "blue", accountId: account, isDefault: true },
+  ...applications.map((a) => ({
+    id: a.id,
+    name: `${a.company} · ${a.role}`,
+    color: "blue" as const,
+    accountId: account,
+  })),
+]
+const register = (json: string) => {
+  const offAccount = registerCalendarAccounts({
+    id: account,
+    label: "Applications",
+    provider: "job-tracking-helper",
+    providerLabel: "Job search",
+  })
+  const offSources = registerCalendarSources(...(JSON.parse(json) as CalendarSource[]))
+  return () => {
+    offSources()
+    offAccount()
+  }
+}
+
+// One timeline row per application, so dragging an event to another row relinks it.
+const byApplication = byResourceId("calendarId")
+
+const download = (text: string, name: string) => {
+  const url = URL.createObjectURL(new Blob([text], { type: "text/calendar;charset=utf-8" }))
+  Object.assign(document.createElement("a"), { href: url, download: name }).click()
+  URL.revokeObjectURL(url)
+}
+
+/** Import an invite's .ics as your events, or export what's on screen to another calendar. */
+const IcsButtons = () => {
+  const store = useKloqStore()
+  const k = useKloq()
+  const file = useRef<HTMLInputElement>(null)
+  const importFile = async (picked: File | undefined) => {
+    if (!picked) return
+    // A UID becomes the key, so importing the same invite twice adds it once.
+    const { events } = parseICS(await picked.text(), {
+      uidToId: (uid) => `ics:${uid}`.slice(0, 100),
+    })
+    // kloq reads a TZID time as local wall-clock and keeps the zone aside; place it in
+    // that zone instead, so a "10:00 New York" invite lands at 10:00 New York.
+    const fresh = events
+      .filter((e) => !store.get(e.id))
+      .map((e) =>
+        e.allDay || !e.timeZone
+          ? e
+          : {
+              ...e,
+              start: formatInstant(new Date(parseInstant(e.start)), e.timeZone),
+              end: formatInstant(new Date(parseInstant(e.end)), e.timeZone),
+            }
+      )
+    store.batch(fresh.map((event) => ({ type: "add" as const, event })))
+    if (fresh[0]) k.goToDate(new Date(parseInstant(fresh[0].start)))
+  }
+  const exportVisible = () => {
+    const range = rangeOfView(k.view)
+    const visible = store
+      .getSnapshot()
+      .filter((e) => expandRecurrence(e, range).occurrences.length > 0)
+    download(eventsToICS(visible, { prodId: "job-tracking-helper" }), "job-search.ics")
+  }
+  return (
+    <div className="flex items-center gap-1">
+      <Button variant="ghost" size="xs" onClick={() => file.current?.click()}>
+        Import .ics
+      </Button>
+      <input
+        ref={file}
+        type="file"
+        accept=".ics,text/calendar"
+        aria-label="Calendar file"
+        hidden
+        onChange={(e) => void importFile(e.target.files?.[0])}
+      />
+      <Button variant="ghost" size="xs" onClick={exportVisible}>
+        Export
+      </Button>
+    </div>
   )
 }
 
-const DayList = ({
-  day,
-  events,
-  empty,
-}: {
-  day: string
-  events: CalendarEvent[]
-  empty?: string
-}) => (
-  <section aria-label={longDay(day)} className="flex flex-col gap-1">
-    <h3 className="text-muted-foreground px-2 text-xs font-medium">{longDay(day)}</h3>
-    {events.length ? (
-      events.map((e) => <EventRow key={e.id} e={e} />)
-    ) : (
-      <p className="text-muted-foreground px-2 py-1.5 text-[13px]">{empty}</p>
-    )}
-  </section>
-)
-
-// One place for every date the tracker knows: when you applied, each move and email,
-// interview slots from invites, and when to follow up. A month grid marks the busy days;
-// the agenda shows the chosen day, then the next two weeks.
+// One place for every date the tracker knows, and the ones you add: when you applied,
+// each move and email, interview slots from invites, follow-ups, and your own events.
+// Click an event for its details; double-click opens its application.
 export const CalendarPage = () => {
-  const { applications, mail, loaded } = useSource()
+  const { applications, mail } = useSource()
+  const saved = useSavedEvents() ?? []
+  const settings = useCalendarSettings() ?? {}
+  const save = useSaveEvent()
+  const remove = useRemoveEvent()
   const search = useSearch({ from: "/_app/calendar" })
   const navigate = useNavigate({ from: "/calendar" })
-  const today = keyOf(new Date())
-  const day = search.day ?? today
-  const pick = (key: string) => void navigate({ search: { day: key }, replace: true })
+  const write = (patch: CalendarSearch) =>
+    void navigate({ search: (prev) => ({ ...prev, ...patch }), replace: true })
 
-  const events = eventsOf(applications, mail)
-  const byDay = new Map<string, CalendarEvent[]>()
-  for (const e of events) byDay.set(dayKey(e), [...(byDay.get(dayKey(e)) ?? []), e])
-  const ahead = [...byDay.keys()]
-    .filter((key) => key > day && dateOf(key).getTime() - dateOf(day).getTime() <= 14 * 86_400_000)
-    .sort()
+  const zone = settings.timeZone
+  const today = keyOf(new Date())
+  const date = search.date ?? today
+  const appsById = new Map(applications.map((a) => [a.id, a]))
+  const appIds = new Set(appsById.keys())
+  const all = withSaved(eventsOf(applications, mail), saved, (id) => appsById.get(id)?.company)
+  const byId = new Map(all.map((e) => [e.id, e]))
+  const hidden = new Set(search.hide ?? [])
+  const shown = all.filter((e) => !hidden.has(e.kind))
+  const kloq = new Map(shown.map((e) => [e.id, toKloq(e, zone)]))
+  const events = [...kloq.values()]
+
+  // kloq reports each change once; Convex keeps it, and the optimistic update shows it now.
+  const commit = async (change: KloqChange): Promise<void> => {
+    switch (change.type) {
+      case "batch":
+        await Promise.all(change.changes.map(commit))
+        return
+      case "reset":
+        return
+      case "add":
+        await save(toSaved(change.event, byId.get(change.event.id), appIds))
+        return
+      case "update":
+        await save(
+          toSaved({ ...change.prev, ...change.patch } as CalEvent, byId.get(change.id), appIds)
+        )
+        return
+      case "remove": {
+        const e = byId.get(change.event.id)
+        if (e?.saved) await remove({ key: e.id })
+        else await save({ ...toSaved(change.event, e, appIds), hidden: true })
+      }
+    }
+  }
+
+  const sourcesKey = JSON.stringify(sourcesOf(applications))
+  const registerApplications = useCallback(
+    (el: HTMLDivElement | null) => (el ? register(sourcesKey) : undefined),
+    [sourcesKey]
+  )
+  // Nothing new before today; what's already there can still be moved out of the past.
+  const constraints = useMemo(() => ({ minDate: dateOf(today) }), [today])
+  const lanes: Lane[] = [
+    ...applications
+      .filter((a) => shown.some((e) => e.applicationId === a.id))
+      .map((a) => ({ id: a.id, label: a.company, sublabel: a.code ?? a.role })),
+    { id: noApplication, label: "Not about an application" },
+  ]
+
+  const shared = {
+    date: dateOf(date),
+    onDateChange: (d: Date) => write({ date: keyOf(d) }),
+    events,
+    onEventsChange: () => {},
+    onCommit: commit,
+    onEventDoubleClick: (e: CalEvent) => {
+      const id = byId.get(e.id)?.applicationId
+      if (id) void navigate({ to: "/pipeline/$id", params: { id } })
+    },
+    theme: "coss",
+    designMode: false,
+    workingHours: false,
+    constraints,
+    displayTimeZone: zone,
+    hour12: settings.hour12,
+    weekStartsOn: settings.weekStartsOn ?? 1,
+  } as const
 
   return (
-    <div className="flex h-svh flex-col md:h-[calc(100svh-1rem)]">
-      <PageHeader
-        crumbs={[{ label: "Calendar" }]}
-        actions={
-          <Button variant="ghost" size="sm" disabled={day === today} onClick={() => pick(today)}>
-            Today
-          </Button>
-        }
-      />
-      <div className="flex min-h-0 flex-1 flex-col md:flex-row">
-        <aside className="flex shrink-0 flex-col gap-4 border-b p-4 md:border-e md:border-b-0">
-          <MonthGrid
-            mode="single"
-            required
-            selected={dateOf(day)}
-            onSelect={(d) => d && pick(keyOf(d))}
-            defaultMonth={dateOf(day)}
-            modifiers={{ busy: [...byDay.keys()].map(dateOf) }}
-            // A small dot under each day that has something on it.
-            modifiersClassNames={{
-              busy: "relative after:absolute after:bottom-1 after:left-1/2 after:size-1 after:-translate-x-1/2 after:rounded-full after:bg-primary",
-            }}
-          />
-          <ul className="text-muted-foreground grid grid-cols-2 gap-x-4 gap-y-1 px-1 text-xs">
-            {Object.values(kinds).map((k) => (
-              <li key={k.label} className="flex items-center gap-1.5">
-                <span className={cn("size-2 rounded-full", k.dot)} />
-                {k.label}
-              </li>
-            ))}
-          </ul>
-        </aside>
-        <ScrollArea className="min-h-0 flex-1">
-          <div className="mx-auto flex max-w-2xl flex-col gap-6 p-4 md:p-6">
-            {/* Nothing until the first load, so an empty day never flashes. */}
-            {loaded && (
-              <DayList day={day} events={byDay.get(day) ?? []} empty="Nothing on this day." />
-            )}
-            {ahead.length > 0 && (
-              <div className="flex flex-col gap-4 border-t pt-6">
-                <h2 className="px-2 text-[13px] font-medium">Next two weeks</h2>
-                {ahead.map((key) => (
-                  <DayList key={key} day={key} events={byDay.get(key)!} />
-                ))}
-              </div>
-            )}
+    <div ref={registerApplications} className="flex h-svh flex-col md:h-[calc(100svh-1rem)]">
+      <PageHeader crumbs={[{ label: "Calendar" }]} />
+      <div className="flex min-h-0 flex-1">
+        <div className="min-w-0 flex-1">
+          <Kloq
+            {...shared}
+            view={search.view ?? "month"}
+            onViewChange={(view) => write({ view })}
+            // kloq would narrow a week to 3 days here and report it as a view change,
+            // which would overwrite the view you picked in the URL.
+            responsive={false}
+            lanes={lanes}
+            laneAdapter={byApplication}
+            timeZones={settings.extraTimeZones}
+            dayStartHour={settings.dayStartHour}
+            dayEndHour={settings.dayEndHour}
+          >
+            <KloqToolbar>
+              <KloqNav />
+              <IcsButtons />
+            </KloqToolbar>
+          </Kloq>
+        </div>
+        <aside className="hidden w-80 shrink-0 flex-col border-s lg:flex">
+          {/* The month beside the grid: pick a day and the grid and list go there. */}
+          <div className="h-72 shrink-0 border-b">
+            <Kloq {...shared} view="month" responsive={false} commandPalette={false} />
           </div>
-        </ScrollArea>
+          <div className="flex flex-col gap-2 border-b p-3">
+            <ToggleGroup
+              multiple
+              size="sm"
+              variant="outline"
+              aria-label="Kinds to show"
+              className="flex-wrap"
+              value={kindKeys.filter((k) => !hidden.has(k))}
+              onValueChange={(on) => {
+                const hide = kindKeys.filter((k) => !(on as string[]).includes(k))
+                write({ hide: hide.length ? hide : undefined })
+              }}
+            >
+              {kindKeys.map((k) => {
+                const color = kinds[k].color
+                return (
+                  <ToggleGroupItem key={k} value={k} className="gap-1.5 text-xs">
+                    <span
+                      className={cn(
+                        "size-2 rounded-full",
+                        color ? EVENT_COLORS[color].bar : "bg-foreground/40"
+                      )}
+                    />
+                    {kinds[k].label}
+                  </ToggleGroupItem>
+                )
+              })}
+            </ToggleGroup>
+            <ToggleGroup
+              size="sm"
+              variant="outline"
+              aria-label="Group the list"
+              className="*:flex-1"
+              value={[search.list ?? "day"]}
+              onValueChange={(v) =>
+                v[0] && write({ list: v[0] === "application" ? "application" : undefined })
+              }
+            >
+              <ToggleGroupItem value="day">By day</ToggleGroupItem>
+              <ToggleGroupItem value="application">By application</ToggleGroupItem>
+            </ToggleGroup>
+          </div>
+          <ScrollArea className="min-h-0 flex-1">
+            <div className="p-2">
+              <EventList
+                events={shown}
+                kloq={kloq}
+                applications={applications}
+                from={date}
+                zone={zone}
+                hour12={settings.hour12}
+                group={search.list ?? "day"}
+                onPick={(day) => write({ date: day })}
+              />
+            </div>
+          </ScrollArea>
+        </aside>
       </div>
     </div>
   )

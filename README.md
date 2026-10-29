@@ -10,7 +10,7 @@ Loops pick roles from that catalog each morning, for every kind of role you desc
 
 Account connects your own Cloudflare account, so emails can go out from your domain. Paste an account ID and an API token: the token is checked with Cloudflare, encrypted with AES-256-GCM under a key only the server holds, and locked: it never comes back to the browser, and changing the account or address reuses it on the server. Replacing it checks the new one before the old one goes. A test email shows it works. With your OK, the app also sets up incoming mail: it deploys a small Worker and a routing rule for your address (Email Routing must already be on, since it takes over the domain's MX records), and each email arrives at `/email/inbound/<id>`, sealed the same way. Each email is then filed under the application it's about (by company name, or by Jev when you let it read your mail) in that application's timeline: what it said, a portal link to check your status, a suggested status change you confirm, and the email itself to read. A reply follows its thread: it goes under the same application as the email it answers, matched by a hash of the Message-ID postal-mime reads, never the ID itself. Mail that matches nothing waits in Unsorted, in the Applications toolbar.
 
-Calendar (`/calendar`) puts every date in one place: when you applied, each status change and email, interview slots read from invites ("Tue, Nov 3 at 10:30"), and a follow-up a week after an application last heard anything. A month grid marks busy days; the agenda shows the chosen day and the next two weeks.
+Calendar (`/calendar`) puts every date in one place, in [kloq](https://coss.com/kloq): when you applied, each status change and email, interview slots read from invites ("Tue, Nov 3 at 10:30 AM PT"), follow-ups, and events you add by dragging on the grid, typing in ⌘K or importing an invite's .ics. Click an event for kloq's panel, where the Calendar row is its application; double-click opens the application. Interview slots and follow-ups can be moved, which saves a fix in their place; your events and fixes are kept in Convex (`calendarEvents`) and link to an application when their title names its company. The Timeline view has a row per application, and dragging between rows relinks. Beside the grid: a month, filters by kind and a list by day or by application. Times follow your zone from Account → Calendar (with up to three more beside the hours); an interview keeps the zone its email or invite gave. The view, date, filters and grouping stay in the URL.
 
 The Inbox shows what happened: new mail about your applications, mail that needs filing, and new roles from loops. Each kind can be turned off under Account → Notifications. It reads from the notifications component in `convex/notifications`.
 
@@ -80,15 +80,16 @@ src/
   features/loops/                      Loops: morning job searches, their runs and sources
   features/account/                    Account: profile, email connection, notifications, theme, sign-out
   features/inbox/                      Inbox: notifications from mail and loops
-  features/calendar/                   Calendar: dates from applications and mail
+  features/calendar/                   Calendar: dates from applications and mail, your events, the side list and settings
   components/ui/                       shadcn/coss components, managed by the shadcn CLI
+  components/kloq/                     the kloq calendar as source, from its registry
 scripts/                               dev and secrets scripts
 docs/database-design.md                planned tables, status flow and build order
 .claude/skills/verify-job-tracking-helper/   how an agent launches, drives and checks the app
 .claude/skills/write-pr/             how an agent writes commits and PRs
 ```
 
-Code rules, enforced by `vp check`: arrow functions only, no `useEffect`. Files the shadcn CLI manages are exempt. Frontend imports use `@/` for `src/` and `@convex/` for `convex/`.
+Code rules, enforced by `vp check`: arrow functions only, no `useEffect`. Files the shadcn CLI manages are exempt, and `src/components/kloq` is skipped by lint and format. Frontend imports use `@/` for `src/` and `@convex/` for `convex/`.
 
 ## Tools
 

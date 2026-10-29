@@ -97,6 +97,8 @@ export const MailNote = type({
   "portalUrl?": "string",
   // An interview's proposed time, as written, in UTC milliseconds (see slotOf).
   "slot?": "number",
+  // The zone the email gave with that time, when it gave one (see zoneOf).
+  "slotZone?": "string",
 })
 
 // Where Jev moved an application from and to, so the move can be undone.

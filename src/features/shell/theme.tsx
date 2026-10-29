@@ -12,7 +12,8 @@ const themes = [
 type Theme = (typeof themes)[number]["value"]
 
 // Runs in <head> before the page paints, so a dark theme never flashes light first.
-export const themeScript = `try{var t=localStorage.getItem("theme")||"system";document.documentElement.classList.toggle("dark",t==="dark"||(t==="system"&&matchMedia("(prefers-color-scheme: dark)").matches))}catch(e){}`
+// It sets `light` too, since the calendar (kloq) follows the OS when neither class is there.
+export const themeScript = `try{var t=localStorage.getItem("theme")||"system",d=t==="dark"||(t==="system"&&matchMedia("(prefers-color-scheme: dark)").matches),c=document.documentElement.classList;c.toggle("dark",d);c.toggle("light",!d)}catch(e){}`
 
 const dark = () => matchMedia("(prefers-color-scheme: dark)")
 const read = (): Theme => {
@@ -23,11 +24,11 @@ const read = (): Theme => {
     return "system"
   }
 }
-const apply = (theme: Theme) =>
-  document.documentElement.classList.toggle(
-    "dark",
-    theme === "dark" || (theme === "system" && dark().matches)
-  )
+const apply = (theme: Theme) => {
+  const isDark = theme === "dark" || (theme === "system" && dark().matches)
+  document.documentElement.classList.toggle("dark", isDark)
+  document.documentElement.classList.toggle("light", !isDark)
+}
 
 const listeners = new Set<() => void>()
 const subscribe = (listener: () => void) => {

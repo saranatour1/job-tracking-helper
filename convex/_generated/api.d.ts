@@ -15,6 +15,8 @@ import type * as api_features_applications_validators from "../api/features/appl
 import type * as api_features_auth_index from "../api/features/auth/index.js";
 import type * as api_features_auth_internal from "../api/features/auth/internal.js";
 import type * as api_features_auth_public from "../api/features/auth/public.js";
+import type * as api_features_calendar_models from "../api/features/calendar/models.js";
+import type * as api_features_calendar_public from "../api/features/calendar/public.js";
 import type * as api_features_email_cloudflare from "../api/features/email/cloudflare.js";
 import type * as api_features_email_inbound from "../api/features/email/inbound.js";
 import type * as api_features_email_index from "../api/features/email/index.js";
@@ -74,6 +76,7 @@ import type * as api_features_workflows_sources_source from "../api/features/wor
 import type * as api_features_workflows_validators from "../api/features/workflows/validators.js";
 import type * as applications from "../applications.js";
 import type * as auth from "../auth.js";
+import type * as calendar from "../calendar.js";
 import type * as crons from "../crons.js";
 import type * as email from "../email.js";
 import type * as http from "../http.js";
@@ -103,6 +106,8 @@ declare const fullApi: ApiFromModules<{
   "api/features/auth/index": typeof api_features_auth_index;
   "api/features/auth/internal": typeof api_features_auth_internal;
   "api/features/auth/public": typeof api_features_auth_public;
+  "api/features/calendar/models": typeof api_features_calendar_models;
+  "api/features/calendar/public": typeof api_features_calendar_public;
   "api/features/email/cloudflare": typeof api_features_email_cloudflare;
   "api/features/email/inbound": typeof api_features_email_inbound;
   "api/features/email/index": typeof api_features_email_index;
@@ -162,6 +167,7 @@ declare const fullApi: ApiFromModules<{
   "api/features/workflows/validators": typeof api_features_workflows_validators;
   applications: typeof applications;
   auth: typeof auth;
+  calendar: typeof calendar;
   crons: typeof crons;
   email: typeof email;
   http: typeof http;
