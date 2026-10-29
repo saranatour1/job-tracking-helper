@@ -54,8 +54,14 @@ export const vStep = v.union(
   ...blocks,
   // Runs its paths side by side, and goes on once every path is done.
   v.object({ kind: v.literal("parallel"), paths: vPaths }),
-  // Jev answers `question` with one of the paths' labels, and that path runs.
-  v.object({ kind: v.literal("decide"), question: v.string(), paths: vPaths })
+  // Jev answers `question` with one of the paths' labels, and that path runs. `id` stays
+  // with the step when it moves, so its answer counts do too; older steps have none.
+  v.object({
+    kind: v.literal("decide"),
+    id: v.optional(v.string()),
+    question: v.string(),
+    paths: vPaths,
+  })
 )
 export type Step = Infer<typeof vStep>
 export type StepKind = Step["kind"]
@@ -203,6 +209,8 @@ export const problemOf = (name: string, trigger: Trigger, steps: Step[]) => {
       return `Ask Jev a question of up to ${limits.question} characters.`
     if (step.paths.length < 2 || step.paths.length > limits.paths)
       return `${what} has 2 to ${limits.paths} paths.`
+    if (step.kind === "decide" && step.id !== undefined && !/^[\w-]{1,40}$/.test(step.id))
+      return "That Ask Jev step's id isn't one the app made."
     const labels = step.paths.map((p) => p.label.trim().toLowerCase())
     if (step.kind === "decide" && new Set(labels).size !== labels.length)
       return "Give each of Jev's answers a different name."

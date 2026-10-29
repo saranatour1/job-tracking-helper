@@ -18,7 +18,9 @@ vi.mock("ai", async (actual) => ({
   },
 }))
 import notificationsSchema from "../../../notifications/schema"
-import { insertRun, patchRun } from "./counts"
+import { seal } from "../../../lib/secrets"
+import { aad, keys } from "../email/internal"
+import { choiceCounts, insertRun, patchRun } from "./counts"
 import schema from "../../../schema"
 
 // A run's history, in step order.
@@ -469,6 +471,80 @@ describe("a workflow run", () => {
     expect(await as.query(api.automations.choices, { automationId: id })).toEqual({
       "0": { Yes: 1, No: 1 },
     })
+  })
+
+  it("starts on a sorted email of a kind it watches, and opens its words for a step", async () => {
+    vi.stubEnv("SECRETS_KEYS", `v1:${btoa(String.fromCharCode(...new Uint8Array(32).fill(7)))}`)
+    const { t, as, userId, applicationId } = await setup()
+    await as.mutation(api.automations.save, {
+      name: "Interviews",
+      trigger: { kind: "mail", kinds: ["interview"] },
+      active: true,
+      steps: [{ kind: "addNote", text: "{email.from} wrote: {email.subject} ({email.kind})" }],
+    })
+    const mail = async (emailId: string, kind: "interview" | "rejection", subject: string) =>
+      t.mutation(internal.email.record, {
+        event: {
+          userId,
+          emailId,
+          applicationId,
+          kind,
+          note: await seal(
+            await keys(),
+            JSON.stringify({ from: "Ana at Hooli", subject }),
+            aad.email(userId)
+          ),
+          at: Date.now(),
+          by: "rules",
+        },
+        move: false,
+      })
+    await mail("e1", "rejection", "Thanks, but no")
+    await mail("e2", "interview", "Let's talk")
+    await t.finishAllScheduledFunctions(vi.runAllTimers)
+
+    const runs = await t.run((ctx) => ctx.db.query("automationRuns").collect())
+    expect(runs.map((r) => [r.trigger, r.status])).toEqual([["event", "done"]])
+    // The run keeps only ids; the email's words were opened when the note was written.
+    expect(JSON.stringify(runs[0]?.context)).not.toContain("Let's talk")
+    const application = await t.run((ctx) => ctx.db.get("applications", applicationId))
+    expect(application?.notes?.map((n) => n.text)).toEqual([
+      "Ana at Hooli wrote: Let's talk (interview)",
+    ])
+    vi.unstubAllEnvs()
+  })
+
+  it("keeps Jev's answer counts with its step when the step moves", async () => {
+    const { t, as } = await setup()
+    const decide = {
+      kind: "decide" as const,
+      id: "ask-1",
+      question: "Worth it?",
+      paths: [
+        { label: "Yes", steps: [{ kind: "notify" as const, message: "yes" }] },
+        { label: "No", steps: [] },
+      ],
+    }
+    const draft = { name: "Ask", trigger: { kind: "manual" as const }, active: true }
+    const id = await as.mutation(api.automations.save, { ...draft, steps: [decide] })
+    jev.choice = "p0"
+    await as.mutation(api.automations.runNow, { id })
+    await t.finishAllScheduledFunctions(vi.runAllTimers)
+
+    // A step added before it moves it from "0" to "1".
+    await as.mutation(api.automations.save, {
+      id,
+      ...draft,
+      steps: [{ kind: "notify", message: "first" }, decide],
+    })
+    expect(await as.query(api.automations.choices, { automationId: id })).toEqual({
+      "1": { Yes: 1, No: 0 },
+    })
+    // Old runs still find their entries to remove.
+    const counted = () => t.run((ctx) => choiceCounts.count(ctx as never, { namespace: id }))
+    expect(await counted()).toBe(1)
+    await as.mutation(api.automations.remove, { id })
+    expect(await counted()).toBe(0)
   })
 
   it("stops with Jev's reason when it can't answer", async () => {
