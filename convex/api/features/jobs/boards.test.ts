@@ -100,7 +100,7 @@ describe("parseFeed", () => {
         location: "Munich, Berlin",
         remote: false,
         postedAt: Date.parse("2026-10-01T10:00:00+00:00"),
-        text: "Frontend Engineer & Designer\nAcme Labs · Munich, Berlin\n\nBuild tools .",
+        text: "Frontend Engineer & Designer\nAcme Labs · Munich, Berlin\n\nBuild **tools**.",
       },
     ])
   })

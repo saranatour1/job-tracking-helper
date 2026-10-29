@@ -11,7 +11,6 @@ import { HugeiconsIcon } from "@hugeicons/react"
 import { Link, useNavigate, useSearch } from "@tanstack/react-router"
 import { useRef, useState } from "react"
 
-import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { ScrollArea } from "@/components/ui/scroll-area"
 import { Tabs, TabsList, TabsTab } from "@/components/ui/tabs"
@@ -34,6 +33,7 @@ import {
   statusLabels,
   statuses,
 } from "./data"
+import { ActivityBadge, FitBadge, Pill, PriorityBadge, TopBadges } from "./badges"
 import { type Display, DisplayOptions, defaultDisplay } from "./display-options"
 import { FilterChips, FilterMenu, toggleFilter } from "./filters"
 import { ApplicationPeek } from "./application"
@@ -88,38 +88,37 @@ const order: Record<Display["orderBy"], (a: Application, b: Application) => numb
   company: (a, b) => a.company.localeCompare(b.company),
 }
 
-const Chip = ({ children }: { children: React.ReactNode }) => (
-  <Badge
-    variant="outline"
-    className="text-muted-foreground h-5 gap-1 rounded-full px-1.5 text-[11px] font-normal sm:h-5 sm:text-[11px]"
-  >
-    {children}
-  </Badge>
-)
-
-const Properties = ({ a, shown }: { a: Application; shown: Display["shown"] }) => (
-  <>
-    {shown.includes("priority") && (
-      <Chip>
-        <PriorityIcon priority={a.priority} />
-      </Chip>
-    )}
-    {shown.includes("goal") && a.goalId && (
-      <Chip>
-        <HugeiconsIcon icon={Target02Icon} className="size-3" />
-        <span className="max-w-28 truncate">{goalName(a.goalId)}</span>
-      </Chip>
-    )}
-    {shown.includes("labels") &&
-      a.labels.map((label) => (
-        <Chip key={label}>
-          <span className="bg-primary/60 size-1.5 rounded-full" />
-          {label}
-        </Chip>
-      ))}
-    {shown.includes("location") && <Chip>{a.location}</Chip>}
-  </>
-)
+const Properties = ({ a, shown }: { a: Application; shown: Display["shown"] }) => {
+  const tasks = a.tasks ?? []
+  return (
+    <>
+      {shown.includes("priority") && <PriorityBadge a={a} />}
+      {shown.includes("goal") && a.goalId && (
+        <Pill>
+          <HugeiconsIcon icon={Target02Icon} className="size-3" />
+          <span className="max-w-28 truncate">{goalName(a.goalId)}</span>
+        </Pill>
+      )}
+      {shown.includes("labels") &&
+        a.labels.map((label) => (
+          <Pill key={label}>
+            <span className="bg-primary/60 size-1.5 rounded-full" />
+            {label}
+          </Pill>
+        ))}
+      {shown.includes("location") && a.location.trim() && (
+        <Pill>
+          <span className="max-w-32 truncate">{a.location}</span>
+        </Pill>
+      )}
+      {tasks.length > 0 && (
+        <Pill title="Tasks done">
+          {tasks.filter((t) => t.done).length}/{tasks.length} tasks
+        </Pill>
+      )}
+    </>
+  )
+}
 
 type Peek = { id?: string; open?: (id: string) => void }
 
@@ -145,20 +144,24 @@ const Card = ({ a, shown, peek }: { a: Application; shown: Display["shown"]; pee
     }}
     onClick={peekOnClick(peek, a.id)}
     aria-current={peek.id === a.id || undefined}
-    className="bg-card hover:border-ring/40 aria-[current=true]:border-ring/70 flex flex-col transition-colors duration-150 gap-1.5 rounded-md border px-2.5 py-2 text-[13px] shadow-xs/5"
+    className="bg-card hover:border-ring/40 aria-[current=true]:border-ring/70 flex flex-col gap-2 rounded-lg border px-3 py-2.5 text-[13px] shadow-xs/5 transition-colors duration-150"
   >
-    <span className="text-muted-foreground flex justify-between text-[11px] empty:hidden">
-      {shown.includes("id") && a.code && <span>{a.code}</span>}
-      {shown.includes("created") && <span>{formatDate(a.createdAt)}</span>}
-    </span>
-    <span className="flex items-start gap-1.5 leading-snug">
-      <StatusIcon status={a.status} className="mt-0.5" />
-      <span className="min-w-0">
-        <span className="font-medium">{a.role}</span>
-        <span className="text-muted-foreground block truncate text-xs">{a.company}</span>
+    <span className="text-muted-foreground flex items-center gap-1.5 text-xs">
+      <span
+        aria-hidden
+        className="bg-muted text-foreground/80 flex size-4 shrink-0 items-center justify-center rounded text-[10px] font-semibold uppercase"
+      >
+        {a.company.trim()[0] ?? "?"}
+      </span>
+      <span className="text-foreground/80 min-w-0 truncate font-medium">{a.company}</span>
+      <span className="ms-auto flex shrink-0 items-center gap-1.5 text-[11px]">
+        {shown.includes("id") && a.code && <span>{a.code}</span>}
+        {shown.includes("created") && <span>{formatDate(a.createdAt)}</span>}
       </span>
     </span>
-    <span className="flex flex-wrap gap-1 empty:hidden">
+    <span className="line-clamp-2 leading-snug font-medium">{a.role}</span>
+    <span className="flex flex-wrap gap-1">
+      <TopBadges a={a} />
       <MailBadge id={a.id} />
       <Properties a={a} shown={shown} />
     </span>
@@ -181,6 +184,10 @@ const Row = ({ a, shown, peek }: { a: Application; shown: Display["shown"]; peek
     <span className="min-w-36 flex-1 truncate">
       <span className="font-medium">{a.role}</span>
       <span className="text-muted-foreground"> · {a.company}</span>
+    </span>
+    <span className="hidden shrink-0 items-center gap-1 @xl:flex">
+      {a.fit !== undefined && <FitBadge fit={a.fit} isFit={a.isFit} />}
+      <ActivityBadge a={a} />
     </span>
     <MailBadge id={a.id} />
     <span className="hidden min-w-0 items-center justify-end gap-1.5 overflow-hidden @2xl:flex">

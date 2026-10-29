@@ -1,3 +1,5 @@
+import { markdownOf, unmark } from "../../../lib/markdown"
+
 // Job boards with a free public feed of every open role at a company. The catalog is
 // built from these feeds; paid search is only used to find more boards. Personio is
 // how many German companies hire, so it covers cities like Berlin, Munich and Hamburg.
@@ -83,7 +85,7 @@ const entities: Record<string, string> = {
 }
 const unescape = (s: string) => s.replace(/&(amp|lt|gt|quot|#39|nbsp);/g, (_, e) => entities[e])
 
-// Greenhouse sends escaped HTML; the others send plain text too.
+// A short field (a title, an office), as plain text.
 export const plainText = (html: string) =>
   unescape(unescape(html))
     .replace(/<(br|\/p|\/li|\/h\d|\/div)[^>]*>/gi, "\n")
@@ -95,6 +97,13 @@ export const plainText = (html: string) =>
 const textOf = (title: string, company: string, location: string, description: string) =>
   `${title}\n${company} · ${location}\n\n${description}`.slice(0, maxText)
 
+const escapeHtml = (s: string) =>
+  s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;")
+
+// A description as safe Markdown: from the board's HTML when it sends some, else its plain
+// text as it is.
+const describe = (html: string, plain: string) => (html.trim() ? markdownOf(html) : plain)
+
 const isRemote = (...hints: unknown[]) =>
   hints.some((h) => typeof h === "string" && /remote/i.test(h)) || hints.includes(true)
 
@@ -105,6 +114,15 @@ const timeOf = (value: unknown, fallback: number) => {
   const t = typeof value === "number" ? value : Date.parse(str(value))
   return Number.isFinite(t) ? t : fallback
 }
+
+// Lever splits a posting into a description, lists like "Requirements", and a closing
+// part, each HTML.
+const leverHtml = (j: Record<string, unknown>) =>
+  [
+    str(j.description),
+    ...list(j.lists).map((l) => `<h3>${escapeHtml(str(l.text))}</h3><ul>${str(l.content)}</ul>`),
+    str(j.additional),
+  ].join("")
 
 export const parseFeed = (kind: BoardKind, slug: string, json: unknown, now: number): FeedJob[] => {
   const body = json && typeof json === "object" ? (json as Record<string, unknown>) : {}
@@ -120,7 +138,8 @@ export const parseFeed = (kind: BoardKind, slug: string, json: unknown, now: num
         location,
         remote: isRemote(location),
         postedAt: timeOf(j.first_published ?? j.updated_at, now),
-        text: textOf(str(j.title), company, location, plainText(str(j.content))),
+        // Greenhouse escapes its HTML once more.
+        text: textOf(str(j.title), company, location, describe(unescape(str(j.content)), "")),
       }
     })
   if (kind === "lever")
@@ -134,7 +153,12 @@ export const parseFeed = (kind: BoardKind, slug: string, json: unknown, now: num
         location,
         remote: isRemote(location, j.workplaceType),
         postedAt: timeOf(j.createdAt, now),
-        text: textOf(str(j.text), fallbackCompany, location, str(j.descriptionPlain)),
+        text: textOf(
+          str(j.text),
+          fallbackCompany,
+          location,
+          describe(leverHtml(j), str(j.descriptionPlain))
+        ),
       }
     })
   if (kind === "personio") return parsePersonio(slug, str(json), now)
@@ -149,7 +173,12 @@ export const parseFeed = (kind: BoardKind, slug: string, json: unknown, now: num
         location,
         remote: isRemote(location, j.workplaceType, j.isRemote),
         postedAt: timeOf(j.publishedAt, now),
-        text: textOf(str(j.title), fallbackCompany, location, str(j.descriptionPlain)),
+        text: textOf(
+          str(j.title),
+          fallbackCompany,
+          location,
+          describe(str(j.descriptionHtml), str(j.descriptionPlain))
+        ),
       }
     })
 }
@@ -171,8 +200,8 @@ const parsePersonio = (slug: string, xml: string, now: number): FeedJob[] =>
       )
       const location = [...new Set(offices)].join(", ")
       const description = [...p.matchAll(/<value>([\s\S]*?)<\/value>/g)]
-        .map((m) => plainText(cdata(m[1] ?? "")))
-        .join("\n")
+        .map((m) => markdownOf(cdata(m[1] ?? "")))
+        .join("\n\n")
       return {
         url: `https://${slug}.jobs.personio.de/job/${tag(p, "id")}`,
         title,
@@ -185,6 +214,8 @@ const parsePersonio = (slug: string, xml: string, now: number): FeedJob[] =>
     })
     .filter((j) => /\/job\/\d+$/.test(j.url))
 
-// The description alone, for a short preview under a role's title.
+// The description alone, as plain words, for a short preview under a role's title.
 export const previewOf = (text: string, length = 240) =>
-  (text.split("\n\n").slice(1).join(" ") || text).replace(/\s+/g, " ").slice(0, length)
+  unmark(text.split("\n\n").slice(1).join(" ") || text)
+    .replace(/\s+/g, " ")
+    .slice(0, length)
