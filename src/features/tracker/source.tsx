@@ -22,6 +22,8 @@ type Editable = Pick<
 // Where the tracker's applications come from and how edits are saved. Pipeline and an
 // application's page read Convex; Goals and Views still use the sample data.
 export type Source = {
+  // Convex rather than the sample data.
+  real: boolean
   applications: Application[]
   // False while the first load is on its way.
   loaded: boolean
@@ -45,6 +47,7 @@ const useSampleSource = (): Source => {
   const applications = useApplications()
   const find = (id: string) => applications.find((a) => a.id === id)
   return {
+    real: false,
     // Sample ids double as their short code, like APP-21.
     applications: applications.map((a) => ({ ...a, code: a.id })),
     loaded: true,
@@ -107,6 +110,7 @@ export const ConvexSource = ({ children }: { children: React.ReactNode }) => {
   const file = useMutation(api.email.assign)
   const id = (s: string) => s as Id<"applications">
   const source: Source = {
+    real: true,
     applications: (docs ?? []).map(fromDoc),
     loaded: docs !== undefined,
     setStatus: (s, status) => void setStatus({ id: id(s), status }),

@@ -164,6 +164,26 @@ const lead = authedQuery({
   },
 })
 
+// The job an application came from, if a loop or a pasted link found it: how well it
+// fits, Jev's reasons and breakdown, and the posting.
+const leadForApplication = authedQuery({
+  args: { applicationId: v.id("applications") },
+  returns: v.union(
+    v.null(),
+    v.object({ lead: schema.doc("jobLeads"), text: v.string(), loopName: v.optional(v.string()) })
+  ),
+  handler: async (ctx, { applicationId }) => {
+    const lead = await ctx.db
+      .query("jobLeads")
+      .withIndex("by_applicationId", (q) => q.eq("applicationId", applicationId))
+      .first()
+    if (!lead || lead.userId !== ctx.userId) return null
+    const job = lead.jobId && (await ctx.db.get("jobs", lead.jobId))
+    const loop = lead.loopId && (await ctx.db.get("loops", lead.loopId))
+    return { lead, text: lead.text ?? job?.text ?? lead.snippet, loopName: loop?.name }
+  },
+})
+
 const ownLead = async (ctx: MutationCtx, userId: Id<"users">, leadId: Id<"jobLeads">) => {
   const lead = await ctx.db.get("jobLeads", leadId)
   if (!lead || lead.userId !== userId) throw new ConvexError("That job doesn't exist.")
@@ -273,6 +293,7 @@ const sourceStatus = authedQuery({
 
 export const publicApi = {
   list,
+  leadForApplication,
   create,
   setActive,
   remove,
