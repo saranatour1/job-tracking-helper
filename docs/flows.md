@@ -110,7 +110,7 @@ pasted links that aren't on a known board. A source without a key is skipped.
 **Stories**
 
 - As anyone, I want one sidebar to every page, with how many Inbox lines I haven't read.
-- As someone on a small screen, I want side panels to take the room the sidebar had.
+- As anyone, I want the sidebar to stay as I left it when I open an application or a job.
 - As anyone, I want light, dark, or my system's theme.
 
 **Flows**
@@ -118,8 +118,10 @@ pasted links that aren't on a known board. A source without a key is skipped.
 1. The sidebar lists Inbox (with its unread count), Applications, Calendar,
    Preferences, Jobs, Loops, Workflows, then Goals and Views under Tracker. The pencil
    opens New application.
-2. Opening a side panel (an application, a job from a loop) collapses the sidebar;
-   closing it brings the sidebar back if it was open.
+2. The header's sidebar button opens and closes the app sidebar. Side panels (an
+   application, insights, a job from a loop) open beside it and leave it alone; on the
+   board, the panel button at the right of the toolbar opens insights or closes an open
+   application. On phones a side panel covers the page.
 3. The theme switch in the sidebar's footer (also under Account) is kept in the
    browser, with no server.
 
