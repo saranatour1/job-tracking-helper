@@ -1,7 +1,7 @@
 import { type Display, groupings, orderings, properties } from "./display-options"
 import { type FilterField, type Filters, filterFields } from "./data"
 
-export const pipelineTabs = ["active", "saved", "all"] as const
+export const pipelineTabs = ["active", "saved", "all", "archived", "trash"] as const
 export type Tab = (typeof pipelineTabs)[number]
 
 // Everything about how the board looks lives in the URL, so a link or a reload opens it

@@ -62,6 +62,12 @@ export const ApplicationMenu = ({
             ))}
           </ContextMenuSubPopup>
         </ContextMenuSub>
+        <ContextMenuItem onClick={() => source.archive(a.id, !a.archived)}>
+          {a.archived ? "Back to the board" : "Archive"}
+        </ContextMenuItem>
+        <ContextMenuItem variant="destructive" onClick={() => source.trash(a.id)}>
+          Move to Trash
+        </ContextMenuItem>
         <ContextMenuSeparator />
         <ContextMenuLinkItem render={<Link to="/jobs" search={{ q: a.company }} />}>
           Roles at {a.company} in Jobs

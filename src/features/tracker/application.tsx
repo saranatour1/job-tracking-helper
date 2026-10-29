@@ -1,7 +1,10 @@
 import {
+  Archive02Icon,
+  ArchiveArrowUpIcon,
   ArrowExpand01Icon,
   Building03Icon,
   Cancel01Icon,
+  Delete02Icon,
   CheckmarkCircle02Icon,
   CircleIcon,
   Note01Icon,
@@ -395,7 +398,8 @@ export const ApplicationDetail = ({ id }: { id: string }) => {
 
 // The same application in the pipeline's side panel, with a link to the full page.
 export const ApplicationPeek = ({ id, onClose }: { id: string; onClose: () => void }) => {
-  const a = useSource().applications.find((x) => x.id === id)
+  const source = useSource()
+  const a = source.applications.find((x) => x.id === id)
   if (!a) return null
   return (
     <div className="flex h-full flex-col">
@@ -405,6 +409,27 @@ export const ApplicationPeek = ({ id, onClose }: { id: string; onClose: () => vo
           variant="ghost"
           size="xs"
           className="ms-auto"
+          aria-label={a.archived ? "Back to the board" : "Archive"}
+          title={a.archived ? "Back to the board" : "Archive"}
+          onClick={() => source.archive(a.id, !a.archived)}
+        >
+          <HugeiconsIcon icon={a.archived ? ArchiveArrowUpIcon : Archive02Icon} />
+        </Button>
+        <Button
+          variant="ghost"
+          size="xs"
+          aria-label="Move to Trash"
+          title="Move to Trash"
+          onClick={() => {
+            source.trash(a.id)
+            onClose()
+          }}
+        >
+          <HugeiconsIcon icon={Delete02Icon} />
+        </Button>
+        <Button
+          variant="ghost"
+          size="xs"
           render={<Link to="/pipeline/$id" params={{ id: a.id }} />}
         >
           <HugeiconsIcon icon={ArrowExpand01Icon} /> Open

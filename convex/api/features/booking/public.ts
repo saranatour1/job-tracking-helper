@@ -240,10 +240,12 @@ const book = mutation({
     let applicationId = found.applicationId
     if (!applicationId) {
       // Like mail: a guest from acme.com books under the Acme application.
-      const applications = await ctx.db
-        .query("applications")
-        .withIndex("by_userId", (q) => q.eq("userId", found.userId))
-        .take(1000)
+      const applications = (
+        await ctx.db
+          .query("applications")
+          .withIndex("by_userId", (q) => q.eq("userId", found.userId))
+          .take(1000)
+      ).filter((a) => a.trashedAt === undefined)
       const match = ruleMatch(
         { from: email, subject: "" },
         applications.map((a) => ({ ...a, id: a._id, at: a._creationTime }))

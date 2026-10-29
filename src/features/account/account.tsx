@@ -12,6 +12,7 @@ import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { ScrollArea } from "@/components/ui/scroll-area"
+import { Select, SelectItem, SelectPopup, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { EmailSection } from "@/features/account/email"
 import { NotificationsSection } from "@/features/account/notifications"
 import { messageOf, Row, Section } from "@/features/account/settings"
@@ -204,6 +205,51 @@ const ProfileSection = ({ me }: { me: Me }) => {
   )
 }
 
+const trashChoices = [
+  { value: "30", label: "30 days" },
+  { value: "90", label: "90 days" },
+  { value: "180", label: "180 days" },
+  { value: "365", label: "A year" },
+  { value: "0", label: "Never" },
+]
+
+// How long the Trash keeps applications before deleting them for good.
+const ApplicationsSection = () => {
+  const settings = useQuery(api.applications.trashSettings)
+  const setTrashDays = useMutation(api.applications.setTrashDays).withOptimisticUpdate(
+    (store, { days }) => {
+      const now = store.getQuery(api.applications.trashSettings, {})
+      if (now) store.setQuery(api.applications.trashSettings, {}, { ...now, trashDays: days })
+    }
+  )
+  if (!settings) return null
+  return (
+    <Section title="Applications">
+      <Row
+        label="Empty the Trash after"
+        description={`Applications in the Trash are deleted for good after this long. Archived ones move to the Trash after ${settings.archiveDays} days.`}
+      >
+        <Select
+          value={String(settings.trashDays)}
+          items={trashChoices}
+          onValueChange={(v) => v !== null && void setTrashDays({ days: Number(v) })}
+        >
+          <SelectTrigger size="sm" aria-label="Empty the Trash after" className="w-36">
+            <SelectValue />
+          </SelectTrigger>
+          <SelectPopup>
+            {trashChoices.map((c) => (
+              <SelectItem key={c.value} value={c.value}>
+                {c.label}
+              </SelectItem>
+            ))}
+          </SelectPopup>
+        </Select>
+      </Row>
+    </Section>
+  )
+}
+
 const AccountSection = () => {
   const deleteAccount = useMutation(api.users.deleteAccount)
   const { signOut } = useAuthActions()
@@ -253,6 +299,7 @@ export const Account = () => {
           <NotificationsSection />
           <CalendarSection />
           <BookingSection />
+          <ApplicationsSection />
           <Section title="Interface and theme">
             <Row label="Theme" description="Light, dark, or follow your system.">
               <div className="w-32">

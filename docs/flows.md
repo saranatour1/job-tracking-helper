@@ -38,15 +38,15 @@ Workflows have their own page, [workflows.md](workflows.md).
 
 ### Who acts
 
-| Actor                         | What it does                                                                                           | Where                                                                               |
-| ----------------------------- | ------------------------------------------------------------------------------------------------------ | ----------------------------------------------------------------------------------- |
-| You                           | Everything in the pages below                                                                          | `src/features/*`                                                                    |
-| A guest on a booking page     | Books time with you, signed in or not                                                                  | `/book/$slug`                                                                       |
-| Crons                         | Start due loops (every 15 minutes), start due workflows (every 5 minutes), refresh job boards (hourly) | `convex/crons.ts`                                                                   |
-| The inbound email hook        | Takes mail your Cloudflare Worker forwards                                                             | `POST /email/inbound/<id>`, `convex/http.ts`                                        |
-| Jev                           | Judges roles for loops and pasted links, sorts mail, answers Ask Jev, drafts workflows from a sentence | `convex/api/features/workflows/judge.ts`, `email/sort.ts`, `automations/actions.ts` |
-| The batch worker (`readPool`) | Fetches job boards and runs Jev's judgments, 8 at a time, retrying each up to 3 times                  | `convex/api/features/workflows/manager.ts`                                          |
-| Workflows                     | Runs the steps people build                                                                            | `convex/api/features/automations/engine.ts`                                         |
+| Actor                         | What it does                                                                                                                                | Where                                                                               |
+| ----------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------- |
+| You                           | Everything in the pages below                                                                                                               | `src/features/*`                                                                    |
+| A guest on a booking page     | Books time with you, signed in or not                                                                                                       | `/book/$slug`                                                                       |
+| Crons                         | Start due loops (every 15 minutes), start due workflows (every 5 minutes), refresh job boards (hourly), sweep the Archive and Trash (daily) | `convex/crons.ts`                                                                   |
+| The inbound email hook        | Takes mail your Cloudflare Worker forwards                                                                                                  | `POST /email/inbound/<id>`, `convex/http.ts`                                        |
+| Jev                           | Judges roles for loops and pasted links, sorts mail, answers Ask Jev, drafts workflows from a sentence                                      | `convex/api/features/workflows/judge.ts`, `email/sort.ts`, `automations/actions.ts` |
+| The batch worker (`readPool`) | Fetches job boards and runs Jev's judgments, 8 at a time, retrying each up to 3 times                                                       | `convex/api/features/workflows/manager.ts`                                          |
+| Workflows                     | Runs the steps people build                                                                                                                 | `convex/api/features/automations/engine.ts`                                         |
 
 ### Events that start workflows
 
@@ -175,6 +175,8 @@ of 50 fields, with no names twice.
 - As a job seeker, I want to add one in seconds from its posting link, and have the rest
   filled in for me.
 - As a job seeker, I want notes, tasks and labels on each, and the emails about it.
+- As a job seeker, I want to archive what's done and delete what I don't want, with a
+  Trash that empties itself.
 - As someone with many applications, I want to filter, group and sort them, and get back
   to the same view from a link.
 
@@ -203,12 +205,23 @@ of 50 fields, with no names twice.
    sorter's suggestion ("The email “X” suggests moving this to Y." Yes or No), or Jev's
    move with an Undo. "N unsorted" in the toolbar lets you file mail by hand
    (`api.email.assign`).
-9. **Right-click:** a card offers Open, Move to, "Roles at <company> in Jobs", "Roles like
-   this in Jobs", Open posting, Copy link. The board offers "Save as a view" and Clear
-   filters.
+9. **Right-click:** a card offers Open, Move to, Archive, Move to Trash, "Roles at
+   <company> in Jobs", "Roles like this in Jobs", Open posting, Copy link. The board
+   offers "Save as a view" and Clear filters.
+10. **Archive one:** Archive (on the card's menu, or the box icon in its panel) takes it off
+    the board into the **Archived** tab (`api.applications.archive`); "Back to the board"
+    undoes it.
+11. **Delete one:** Move to Trash (or the bin icon in its panel) puts it in the **Trash**
+    tab, out of everything else: the board, mail matching, bookings and workflows
+    (`api.applications.trash`). In the Trash, Restore puts it back on the board, Delete
+    forever removes it now, and Empty the Trash removes them all.
 
 **By itself:** a status change fires the `status` event for workflows; a sorted email
-can suggest a move, or make it when you let Jev (see [Email](#email)).
+can suggest a move, or make it when you let Jev (see [Email](#email)). Each day
+(`internal.applications.sweep`), applications archived 30 days ago move to the Trash, and
+ones in the Trash longer than you keep them (90 days unless you change it) are deleted
+for good. Deleting one leaves its mail unfiled, its events on the calendar, and its job
+lead marked tracked, so loops never offer the role again.
 
 **Rules:** 20 labels, 50 tasks, the last 100 notes and 100 history entries per
 application.
@@ -495,7 +508,9 @@ Interface and theme, Account)
 1. **Profile** fields save when you leave them (`api.users.updateProfile`). A picture is
    an image up to 5 MB.
 2. **Notifications:** a switch per kind; a kind that's off isn't recorded.
-3. **Delete account:** confirm, then everything goes: applications, Preferences and
+3. **Applications:** how long the Trash keeps applications before deleting them: 30, 90
+   (the default), 180 or 365 days, or never (`api.applications.setTrashDays`).
+4. **Delete account:** confirm, then everything goes: applications, Preferences and
    resume, loops and their runs and roles, email connection and mail, notifications,
    views, calendar, booking pages and workflows. Your username is freed.
 
@@ -515,6 +530,5 @@ describe it in a sentence and let Jev draft it. The full story is in
   afterwards is refused.
 - Deleting an account doesn't stop a loop run that's in progress; it finds nothing to
   save and stops.
-- Applications can't be deleted yet.
 - Goals use sample data.
 - A guest with no Calendar time zone gets workflow calendar events in UTC.

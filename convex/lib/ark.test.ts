@@ -73,6 +73,8 @@ describe("applications table", () => {
         "history",
         "notes",
         "number",
+        "archivedAt",
+        "trashedAt",
       ].sort()
     )
     const status = fields.status as unknown as { members: { value: string }[] }

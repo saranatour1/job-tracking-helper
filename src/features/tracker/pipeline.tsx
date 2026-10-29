@@ -41,16 +41,20 @@ import { PriorityIcon, StatusIcon } from "./icons"
 import { MailBadge, UnsortedMail } from "./mail"
 import { ApplicationMenu, BoardMenu, ViewMenu } from "./context-menus"
 import { useCreateView, useSavedViews } from "./saved-views"
-import { displayDiff, type PipelineSearch, type Tab } from "./search"
+import { displayDiff, type PipelineSearch, pipelineTabs, type Tab } from "./search"
+import { TrashList } from "./trash"
 import { useSource } from "./source"
 import { NewApplicationDialog } from "./new-application"
 import { useCollapsesSidebar } from "@/features/shell/one-sidebar"
 import { type Crumb, PageHeader } from "@/features/shell/page-header"
 
-const tabs: Record<Tab, readonly Status[]> = {
+// Which statuses each tab shows. Archived applications only show under Archived, and the
+// Trash has its own list.
+const tabs: Record<Exclude<Tab, "trash">, readonly Status[]> = {
   active: ["applied", "interviewing", "offer"],
   saved: ["saved"],
   all: statuses,
+  archived: statuses,
 }
 
 type Group = { key: string; label: string; icon: React.ReactNode; items: Application[] }
@@ -408,7 +412,13 @@ export const Pipeline = ({
   // The status column a dragged card is over, to highlight it.
   const [dropOn, setDropOn] = useState<string>()
   const visible = source.applications
-    .filter((a) => tabs[tab].includes(a.status) && matches(a, filters))
+    .filter(
+      (a) =>
+        tab !== "trash" &&
+        tabs[tab].includes(a.status) &&
+        Boolean(a.archived) === (tab === "archived") &&
+        matches(a, filters)
+    )
     .sort(order[display.orderBy])
   const groups = groupsFor(visible, display.groupBy).filter(
     (g) => display.showEmpty || g.items.length > 0
@@ -483,7 +493,7 @@ export const Pipeline = ({
       <div className="flex items-center gap-1 overflow-x-auto px-3 py-1.5 [scrollbar-width:none]">
         <Tabs value={tab} onValueChange={(v) => setTab(v as Tab)} className="shrink-0">
           <TabsList size="sm" aria-label="Status">
-            {(Object.keys(tabs) as Tab[]).map((t) => (
+            {pipelineTabs.map((t) => (
               <TabsTab key={t} value={t} className="capitalize">
                 {t}
               </TabsTab>
@@ -580,95 +590,104 @@ export const Pipeline = ({
         </div>
       )}
       <div className="flex min-h-0 flex-1">
-        <BoardMenu
-          filters={filters}
-          display={displayDiff(display, defaultDisplay)}
-          onClear={hasFilters ? () => setFilters({}) : undefined}
-        >
-          {visible.length === 0 ? (
-            <p className="text-muted-foreground m-auto text-sm">
-              No applications match these filters.
-            </p>
-          ) : display.layout === "board" ? (
-            <ScrollArea className="min-w-0 flex-1" fill clampContentMinWidth={false}>
-              <div className="flex h-full gap-2 p-2">
+        {tab === "trash" ? (
+          <TrashList />
+        ) : (
+          <BoardMenu
+            filters={filters}
+            display={displayDiff(display, defaultDisplay)}
+            onClear={hasFilters ? () => setFilters({}) : undefined}
+          >
+            {visible.length === 0 ? (
+              <p className="text-muted-foreground m-auto text-sm">
+                No applications match these filters.
+              </p>
+            ) : display.layout === "board" ? (
+              <ScrollArea className="min-w-0 flex-1" fill clampContentMinWidth={false}>
+                <div className="flex h-full gap-2 p-2">
+                  {groups.map((g) => (
+                    <section
+                      key={g.key}
+                      aria-label={g.label}
+                      data-drop={dropOn === g.key || undefined}
+                      // Dropping a card on a status column moves it there, history and all. Other
+                      // groupings have no single value to set, so they don't take drops.
+                      {...(display.groupBy === "status" && {
+                        onDragOver: (e: React.DragEvent) => {
+                          if (!e.dataTransfer.types.includes(dragType)) return
+                          e.preventDefault()
+                          e.dataTransfer.dropEffect = "move"
+                          setDropOn(g.key)
+                        },
+                        onDragLeave: (e: React.DragEvent) => {
+                          if (!e.currentTarget.contains(e.relatedTarget as Node))
+                            setDropOn(undefined)
+                        },
+                        onDrop: (e: React.DragEvent) => {
+                          e.preventDefault()
+                          setDropOn(undefined)
+                          const id = e.dataTransfer.getData(dragType)
+                          if (id) source.setStatus(id, g.key as Status)
+                        },
+                      })}
+                      className="bg-muted/40 data-[drop]:bg-accent data-[drop]:ring-ring/40 flex w-64 shrink-0 flex-col gap-1.5 rounded-lg p-1.5 transition-colors data-[drop]:ring-2"
+                    >
+                      <header className="flex h-7 items-center gap-1.5 px-1 text-[13px]">
+                        {g.icon}
+                        <span className="font-medium">{g.label}</span>
+                        <span className="text-muted-foreground">{g.items.length}</span>
+                        <span className="ms-auto flex">
+                          <IconButton
+                            label="Group options"
+                            icon={MoreHorizontalIcon}
+                            size="icon-xs"
+                          />
+                          <NewApplicationDialog
+                            trigger={
+                              <Button
+                                variant="ghost"
+                                size="icon-xs"
+                                aria-label={`Add to ${g.label}`}
+                              >
+                                <HugeiconsIcon icon={PlusSignIcon} />
+                              </Button>
+                            }
+                          />
+                        </span>
+                      </header>
+                      <ScrollArea className="-me-1.5 pe-1.5">
+                        <div className="flex flex-col gap-1.5">
+                          {g.items.map((a) => (
+                            <ApplicationMenu key={a.id} a={a} onOpen={() => setPeek(a.id)}>
+                              <Card a={a} shown={display.shown} peek={peeking} />
+                            </ApplicationMenu>
+                          ))}
+                        </div>
+                      </ScrollArea>
+                    </section>
+                  ))}
+                </div>
+              </ScrollArea>
+            ) : (
+              <ScrollArea className="@container min-w-0 flex-1">
                 {groups.map((g) => (
-                  <section
-                    key={g.key}
-                    aria-label={g.label}
-                    data-drop={dropOn === g.key || undefined}
-                    // Dropping a card on a status column moves it there, history and all. Other
-                    // groupings have no single value to set, so they don't take drops.
-                    {...(display.groupBy === "status" && {
-                      onDragOver: (e: React.DragEvent) => {
-                        if (!e.dataTransfer.types.includes(dragType)) return
-                        e.preventDefault()
-                        e.dataTransfer.dropEffect = "move"
-                        setDropOn(g.key)
-                      },
-                      onDragLeave: (e: React.DragEvent) => {
-                        if (!e.currentTarget.contains(e.relatedTarget as Node)) setDropOn(undefined)
-                      },
-                      onDrop: (e: React.DragEvent) => {
-                        e.preventDefault()
-                        setDropOn(undefined)
-                        const id = e.dataTransfer.getData(dragType)
-                        if (id) source.setStatus(id, g.key as Status)
-                      },
-                    })}
-                    className="bg-muted/40 data-[drop]:bg-accent data-[drop]:ring-ring/40 flex w-64 shrink-0 flex-col gap-1.5 rounded-lg p-1.5 transition-colors data-[drop]:ring-2"
-                  >
-                    <header className="flex h-7 items-center gap-1.5 px-1 text-[13px]">
+                  <section key={g.key} aria-label={g.label}>
+                    <header className="bg-muted/40 flex h-8 items-center gap-2 border-b px-4 text-[13px]">
                       {g.icon}
                       <span className="font-medium">{g.label}</span>
                       <span className="text-muted-foreground">{g.items.length}</span>
-                      <span className="ms-auto flex">
-                        <IconButton
-                          label="Group options"
-                          icon={MoreHorizontalIcon}
-                          size="icon-xs"
-                        />
-                        <NewApplicationDialog
-                          trigger={
-                            <Button variant="ghost" size="icon-xs" aria-label={`Add to ${g.label}`}>
-                              <HugeiconsIcon icon={PlusSignIcon} />
-                            </Button>
-                          }
-                        />
-                      </span>
                     </header>
-                    <ScrollArea className="-me-1.5 pe-1.5">
-                      <div className="flex flex-col gap-1.5">
-                        {g.items.map((a) => (
-                          <ApplicationMenu key={a.id} a={a} onOpen={() => setPeek(a.id)}>
-                            <Card a={a} shown={display.shown} peek={peeking} />
-                          </ApplicationMenu>
-                        ))}
-                      </div>
-                    </ScrollArea>
+                    {g.items.map((a) => (
+                      <ApplicationMenu key={a.id} a={a} onOpen={() => setPeek(a.id)}>
+                        <Row a={a} shown={display.shown} peek={peeking} />
+                      </ApplicationMenu>
+                    ))}
                   </section>
                 ))}
-              </div>
-            </ScrollArea>
-          ) : (
-            <ScrollArea className="@container min-w-0 flex-1">
-              {groups.map((g) => (
-                <section key={g.key} aria-label={g.label}>
-                  <header className="bg-muted/40 flex h-8 items-center gap-2 border-b px-4 text-[13px]">
-                    {g.icon}
-                    <span className="font-medium">{g.label}</span>
-                    <span className="text-muted-foreground">{g.items.length}</span>
-                  </header>
-                  {g.items.map((a) => (
-                    <ApplicationMenu key={a.id} a={a} onOpen={() => setPeek(a.id)}>
-                      <Row a={a} shown={display.shown} peek={peeking} />
-                    </ApplicationMenu>
-                  ))}
-                </section>
-              ))}
-            </ScrollArea>
-          )}
-        </BoardMenu>
+              </ScrollArea>
+            )}
+          </BoardMenu>
+        )}
         {/* One wrapper for either panel, so switching between them leaves the app sidebar alone. */}
         {(peek || panel) && (
           <div ref={collapsesSidebar} className="contents">

@@ -41,6 +41,10 @@ export type Source = {
   fileMail: (eventId: MailEvent["id"], applicationId: string) => void
   // Puts an application back where it was before Jev moved it.
   undoMove: (eventId: MailEvent["id"]) => void
+  // Takes it off the board into the Archive, or back.
+  archive: (id: string, archived: boolean) => void
+  // Moves it to the Trash.
+  trash: (id: string) => void
 }
 
 const SourceContext = createContext<Source | null>(null)
@@ -67,6 +71,8 @@ const useSampleSource = (): Source => {
     answerMail: () => undefined,
     fileMail: () => undefined,
     undoMove: () => undefined,
+    archive: () => undefined,
+    trash: () => undefined,
   }
 }
 
@@ -101,6 +107,7 @@ export const fromDoc = (d: Doc<"applications">): Application => ({
   })),
   tasks: d.tasks,
   notes: d.notes?.map((n) => ({ text: n.text, at: isoOf(n.at) })),
+  ...(d.archivedAt !== undefined && { archived: true }),
 })
 
 export const ConvexSource = ({ children }: { children: React.ReactNode }) => {
@@ -112,6 +119,8 @@ export const ConvexSource = ({ children }: { children: React.ReactNode }) => {
   const answer = useMutation(api.email.resolveSuggestion)
   const file = useMutation(api.email.assign)
   const undo = useMutation(api.email.undoMove)
+  const archive = useMutation(api.applications.archive)
+  const trash = useMutation(api.applications.trash)
   const id = (s: string) => s as Id<"applications">
   const source: Source = {
     real: true,
@@ -126,6 +135,8 @@ export const ConvexSource = ({ children }: { children: React.ReactNode }) => {
     answerMail: (eventId, accept) => void answer({ eventId, accept }),
     fileMail: (eventId, s) => void file({ eventId, applicationId: id(s) }),
     undoMove: (eventId) => void undo({ eventId }),
+    archive: (s, archived) => void archive({ id: id(s), archived }),
+    trash: (s) => void trash({ id: id(s) }),
   }
   return <SourceContext value={source}>{children}</SourceContext>
 }

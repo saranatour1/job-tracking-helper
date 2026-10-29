@@ -11,6 +11,7 @@
 import type * as api_features_applications_index from "../api/features/applications/index.js";
 import type * as api_features_applications_models from "../api/features/applications/models.js";
 import type * as api_features_applications_public from "../api/features/applications/public.js";
+import type * as api_features_applications_trash from "../api/features/applications/trash.js";
 import type * as api_features_applications_validators from "../api/features/applications/validators.js";
 import type * as api_features_auth_index from "../api/features/auth/index.js";
 import type * as api_features_auth_internal from "../api/features/auth/internal.js";
@@ -115,6 +116,7 @@ declare const fullApi: ApiFromModules<{
   "api/features/applications/index": typeof api_features_applications_index;
   "api/features/applications/models": typeof api_features_applications_models;
   "api/features/applications/public": typeof api_features_applications_public;
+  "api/features/applications/trash": typeof api_features_applications_trash;
   "api/features/applications/validators": typeof api_features_applications_validators;
   "api/features/auth/index": typeof api_features_auth_index;
   "api/features/auth/internal": typeof api_features_auth_internal;

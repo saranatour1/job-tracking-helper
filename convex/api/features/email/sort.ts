@@ -97,11 +97,13 @@ const sortContext = internalQuery({
       .withIndex("by_userId", (q) => q.eq("userId", userId))
       .unique()
     // shortcut: the 200 newest applications; page through them if people keep more.
-    const applications = await ctx.db
-      .query("applications")
-      .withIndex("by_userId", (q) => q.eq("userId", userId))
-      .order("desc")
-      .take(200)
+    const applications = (
+      await ctx.db
+        .query("applications")
+        .withIndex("by_userId", (q) => q.eq("userId", userId))
+        .order("desc")
+        .take(200)
+    ).filter((a) => a.trashedAt === undefined)
     return {
       payload: email.payload,
       read: connection?.allow.read ?? false,

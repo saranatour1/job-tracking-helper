@@ -57,6 +57,8 @@ export type Application = {
   history: Event[]
   tasks?: Task[]
   notes?: Note[]
+  // Off the board, in the Archived tab.
+  archived?: boolean
 }
 
 export type Task = { title: string; done: boolean }
