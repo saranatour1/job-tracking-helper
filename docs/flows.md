@@ -254,9 +254,16 @@ applications can't join a goal.
 **Flows**
 
 1. `/jobs` says how many roles are in the shared catalog, from how many boards.
-2. Search by words (`?q=`) or show remote only (`api.jobs.search`), 25 at a time. Roles
-   a loop judged show "Fits you · N%" or "Not a fit".
-3. "More like this" on a role searches by its title. Applications link here too.
+2. Search by words (`?q=`), or pick a "Try" chip from your Preferences (interests,
+   places, companies). Narrow it down with Remote only, Fits me (only roles Jev said fit
+   you, best first), Posted (past day, week or month) and a company (`api.jobs.companies`,
+   the boards with the most roles). Every filter is in the address, so a link opens the
+   same list; Clear filters resets them (`api.jobs.search`, 25 at a time).
+3. Each role shows its company, title, where, how long ago it was posted, and badges:
+   Jev's verdict for you ("Fits you · 69%", "Not a fit"), New (posted in the last two
+   days) and Remote. Compact turns them into one line each.
+4. "More like this" searches by a role's title; the link icon opens the posting.
+   Applications link here too.
 
 **By itself:** every hour (`internal.jobs.refreshDue`) up to 25 boards not fetched in 20
 hours go to the batch worker (`internal.jobs.fetchBoard`). It reads each public feed

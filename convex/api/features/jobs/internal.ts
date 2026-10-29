@@ -102,9 +102,12 @@ const boardFetched = internalMutation({
     startedAt: v.number(),
     jobs: v.number(),
     error: v.optional(v.string()),
+    // The name the board's own roles give the company, which reads better than one
+    // made from the board's address.
+    company: v.optional(v.string()),
   },
   returns: v.null(),
-  handler: async (ctx, { boardId, startedAt, jobs, error }) => {
+  handler: async (ctx, { boardId, startedAt, jobs, error, company }) => {
     if (!error) {
       const closed = await ctx.db
         .query("jobs")
@@ -118,6 +121,7 @@ const boardFetched = internalMutation({
         fetchedAt: Date.now(),
         jobs: error ? b.jobs : jobs,
         error,
+        ...(company?.trim() && { company: company.trim().slice(0, 120) }),
       })
     return null
   },
