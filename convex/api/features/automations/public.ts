@@ -4,7 +4,7 @@ import type { Doc, Id } from "../../../_generated/dataModel"
 import type { MutationCtx } from "../../../_generated/server"
 import { authedMutation, authedQuery } from "../../../lib/functions"
 import { limits as rates } from "../workflows/manager"
-import { countsOf, deleteRun } from "./counts"
+import { countsOf, deleteRuns } from "./counts"
 import { cancelRun, startRun } from "./engine"
 import {
   blocksOf,
@@ -115,15 +115,21 @@ const setActive = authedMutation({
   },
 })
 
-const stopRunsOf = async (ctx: MutationCtx, automation: Doc<"automations">) => {
-  const running = await ctx.db
+// A workflow's runs. Old ones are pruned as new ones start (see startRun), so there are
+// only a few dozen, plus any still waiting.
+const runsOf = (ctx: MutationCtx, automationId: Id<"automations">) =>
+  ctx.db
     .query("automationRuns")
-    .withIndex("by_userId_and_status", (q) =>
-      q.eq("userId", automation.userId).eq("status", "running")
-    )
-    .take(100)
-  for (const found of running)
-    if (found.automationId === automation._id) await cancelRun(ctx, found)
+    .withIndex("by_automationId_and_startedAt", (q) => q.eq("automationId", automationId))
+    .take(500)
+
+/** Stops a workflow's runs, then deletes them, their Inbox lines and the workflow. */
+const deleteWorkflow = async (ctx: MutationCtx, automation: Doc<"automations">) => {
+  for (const run of await runsOf(ctx, automation._id))
+    if (run.status === "running") await cancelRun(ctx, run)
+  // Read again: stopping moved them to another count, and deleting goes by what's stored.
+  await deleteRuns(ctx, await runsOf(ctx, automation._id))
+  await ctx.db.delete("automations", automation._id)
 }
 
 /** Deletes a workflow: stops its runs and forgets their history. */
@@ -131,13 +137,7 @@ const remove = authedMutation({
   args: { id: v.id("automations") },
   returns: v.null(),
   handler: async (ctx, { id }) => {
-    const automation = await own(ctx, ctx.userId, id)
-    await stopRunsOf(ctx, automation)
-    for await (const found of ctx.db
-      .query("automationRuns")
-      .withIndex("by_automationId_and_startedAt", (q) => q.eq("automationId", id)))
-      await deleteRun(ctx, found)
-    await ctx.db.delete("automations", id)
+    await deleteWorkflow(ctx, await own(ctx, ctx.userId, id))
     return null
   },
 })
@@ -168,14 +168,8 @@ const stopRun = authedMutation({
 export const deleteAutomations = async (ctx: MutationCtx, userId: Id<"users">) => {
   for await (const automation of ctx.db
     .query("automations")
-    .withIndex("by_userId", (q) => q.eq("userId", userId))) {
-    await stopRunsOf(ctx, automation)
-    for await (const found of ctx.db
-      .query("automationRuns")
-      .withIndex("by_automationId_and_startedAt", (q) => q.eq("automationId", automation._id)))
-      await deleteRun(ctx, found)
-    await ctx.db.delete("automations", automation._id)
-  }
+    .withIndex("by_userId", (q) => q.eq("userId", userId)))
+    await deleteWorkflow(ctx, automation)
 }
 
 export const publicApi = { list, counts, runs, save, setActive, remove, runNow, stopRun }

@@ -58,11 +58,6 @@ const Pick = ({
   </Select>
 )
 
-const units = { minutes: 1, hours: 60, days: 1440 } as const
-type Unit = keyof typeof units
-const unitOf = (minutes: number): Unit =>
-  minutes % 1440 === 0 ? "days" : minutes % 60 === 0 ? "hours" : "minutes"
-
 const weekdays = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"]
 
 const TriggerSettings = ({
@@ -185,32 +180,30 @@ const BlockSettings = ({
         </div>
       )
     case "wait": {
-      const unit = unitOf(block.minutes)
-      const amount = block.minutes / units[unit]
+      // Days, hours and minutes side by side, so nothing changes unit as you type.
+      const parts = [
+        ["days", Math.floor(block.minutes / 1440), 1440, 30],
+        ["hours", Math.floor((block.minutes % 1440) / 60), 60, 23],
+        ["minutes", block.minutes % 60, 1, 59],
+      ] as const
       return (
         <Field label="Wait for">
-          <div className="flex gap-2">
-            <Input
-              type="number"
-              min={1}
-              className="w-24"
-              value={amount}
-              onChange={(e) =>
-                onChange({
-                  ...block,
-                  minutes: Math.max(1, Math.round(Number(e.target.value))) * units[unit],
-                })
-              }
-            />
-            <Pick
-              label="Unit"
-              value={unit}
-              items={Object.keys(units).map((u) => ({
-                value: u,
-                label: amount === 1 ? u.slice(0, -1) : u,
-              }))}
-              onChange={(u) => onChange({ ...block, minutes: amount * units[u as Unit] })}
-            />
+          <div className="grid grid-cols-3 gap-2">
+            {parts.map(([name, value, size, max]) => (
+              <label key={name} className="grid gap-1">
+                <Input
+                  type="number"
+                  min={0}
+                  max={max}
+                  value={value}
+                  onChange={(e) => {
+                    const next = Math.min(max, Math.max(0, Math.floor(Number(e.target.value) || 0)))
+                    onChange({ ...block, minutes: block.minutes + (next - value) * size })
+                  }}
+                />
+                <span className="text-muted-foreground text-xs">{name}</span>
+              </label>
+            ))}
           </div>
         </Field>
       )

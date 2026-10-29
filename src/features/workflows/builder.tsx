@@ -15,8 +15,8 @@ import { startTransition, useActionState } from "react"
 
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
-import { Label } from "@/components/ui/label"
 import { ScrollArea } from "@/components/ui/scroll-area"
+import { Sheet, SheetPopup, SheetTrigger } from "@/components/ui/sheet"
 import { Switch } from "@/components/ui/switch"
 import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group"
 import { messageOf } from "@/features/account/settings"
@@ -143,6 +143,7 @@ const Editor = ({ saved }: { saved?: Doc<"automations"> }) => {
   const save = useMutation(api.automations.save)
   const runNow = useMutation(api.automations.runNow)
   const stopRun = useMutation(api.automations.stopRun)
+  const remove_ = useMutation(api.automations.remove)
   const applications = useQuery(api.applications.list) ?? []
   const zone = useCalendarSettings()?.timeZone ?? Intl.DateTimeFormat().resolvedOptions().timeZone
 
@@ -162,22 +163,31 @@ const Editor = ({ saved }: { saved?: Doc<"automations"> }) => {
   )
 
   const [status, act] = useActionState(
-    async (_: string | undefined, action: "save" | "run" | "stop") => {
+    async (_: string | undefined, action: "save" | "run" | "stop" | "delete") => {
       try {
         if (action === "stop" && run) await stopRun({ runId: run._id })
+        if (action === "delete" && saved) {
+          if (!window.confirm(`Delete “${saved.name}” and its history? Runs still going stop.`))
+            return undefined
+          const removing = remove_({ id: saved._id })
+          void navigate({ to: "/workflows" })
+          await removing
+        }
         if (action === "run" && saved) {
           const runId = await runNow({ id: saved._id })
           write({ tab: "history", run: runId, step: undefined })
         }
         if (action === "save") {
+          // Saved as the server keeps it, so the page doesn't look unsaved afterwards.
+          const next = { ...draft, name: draft.name.trim() }
           const problem =
-            problemOf(draft.name, draft.trigger, draft.steps) ??
+            problemOf(next.name, next.trigger, next.steps) ??
             (blocksOf(draft.steps).some((b) => b.kind === "addNote" && !b.applicationId)
               ? "Pick an application for each note."
               : undefined)
           if (problem) return problem
-          const id = await save({ ...(saved && { id: saved._id }), ...draft })
-          form.reset(draft)
+          const id = await save({ ...(saved && { id: saved._id }), ...next })
+          form.reset(next)
           if (!saved) void navigate({ to: "/workflows/$id", params: { id }, replace: true })
         }
         return undefined
@@ -190,7 +200,11 @@ const Editor = ({ saved }: { saved?: Doc<"automations"> }) => {
 
   const onInsert = (slot: Slot, kind: InsertKind) => {
     const steps = draft.steps
-    if (kind === "split") return setSteps(splitAt(steps, slot.index, blocks.notify.make()))
+    if (kind === "split") {
+      setSteps(splitAt(steps, slot.index, blocks.notify.make()))
+      // Select it, so the panel never shows a step that just moved down.
+      return write({ step: String(slot.index) })
+    }
     setSteps(insert(steps, slot, blocks[kind].make()))
     const at =
       slot.split === undefined ? String(slot.index) : `${slot.split}.${slot.path}.${slot.index}`
@@ -198,6 +212,58 @@ const Editor = ({ saved }: { saved?: Doc<"automations"> }) => {
   }
   const companyOf = (id: string) => applications.find((a) => a._id === id)?.company
   const shown = run ? run.steps : draft.steps
+
+  // The left panel: name, on/off, and the blocks (or, in History, the runs). A sheet
+  // on small screens, where there's no room beside the canvas.
+  const side = (
+    <>
+      <div className="grid gap-3 border-b p-3">
+        <label className="grid gap-1.5">
+          <span className="text-sm font-medium">Name</span>
+          <Input value={draft.name} onChange={(e) => form.setFieldValue("name", e.target.value)} />
+        </label>
+        <label className="flex items-center justify-between gap-2 text-[13px]">
+          On
+          <Switch
+            checked={draft.active}
+            onCheckedChange={(active) => form.setFieldValue("active", active)}
+          />
+        </label>
+      </div>
+      <ScrollArea className="min-h-0 flex-1">
+        <div className="p-3">
+          {history && saved ? (
+            <RunList automationId={saved._id} selected={run?._id} />
+          ) : (
+            <div className="flex flex-col gap-1">
+              <p className="text-muted-foreground mb-1 px-1 text-xs">
+                Drag a block onto a +, or click to add it at the end.
+              </p>
+              {[
+                ...blockKinds.map((kind) => ({ kind, ...blocks[kind] })),
+                { kind: "split" as const, ...split },
+              ].map((b) => (
+                <button
+                  key={b.kind}
+                  type="button"
+                  draggable
+                  onDragStart={(e) => e.dataTransfer.setData("text/workflow-block", b.kind)}
+                  onClick={() => onInsert({ index: draft.steps.length }, b.kind)}
+                  className="hover:bg-accent/50 flex items-center gap-2.5 rounded-md border px-2.5 py-2 text-start transition-colors"
+                >
+                  <HugeiconsIcon icon={b.icon} className="text-muted-foreground size-4 shrink-0" />
+                  <span className="flex min-w-0 flex-col">
+                    <span className="text-[13px] font-medium">{b.label}</span>
+                    <span className="text-muted-foreground truncate text-xs">{b.hint}</span>
+                  </span>
+                </button>
+              ))}
+            </div>
+          )}
+        </div>
+      </ScrollArea>
+    </>
+  )
 
   return (
     <div className="flex h-svh flex-col md:h-[calc(100svh-1rem)]">
@@ -209,6 +275,15 @@ const Editor = ({ saved }: { saved?: Doc<"automations"> }) => {
             {history && run?.status === "running" && (
               <Button size="sm" variant="ghost" onClick={() => startTransition(() => act("stop"))}>
                 Stop run
+              </Button>
+            )}
+            {saved && (
+              <Button
+                size="sm"
+                variant="ghost"
+                onClick={() => startTransition(() => act("delete"))}
+              >
+                Delete
               </Button>
             )}
             <Button
@@ -230,62 +305,25 @@ const Editor = ({ saved }: { saved?: Doc<"automations"> }) => {
           </div>
         }
       />
-      <div className="flex min-h-0 flex-1">
-        <aside className="hidden w-60 shrink-0 flex-col border-e md:flex">
-          <div className="grid gap-3 border-b p-3">
-            <div className="grid gap-1.5">
-              <Label htmlFor="workflow-name">Name</Label>
-              <Input
-                id="workflow-name"
-                value={draft.name}
-                onChange={(e) => form.setFieldValue("name", e.target.value)}
-              />
-            </div>
-            <label className="flex items-center justify-between gap-2 text-[13px]">
-              On
-              <Switch
-                checked={draft.active}
-                onCheckedChange={(active) => form.setFieldValue("active", active)}
-              />
-            </label>
-          </div>
-          <ScrollArea className="min-h-0 flex-1">
-            <div className="p-3">
-              {history && saved ? (
-                <RunList automationId={saved._id} selected={run?._id} />
-              ) : (
-                <div className="flex flex-col gap-1">
-                  <p className="text-muted-foreground mb-1 px-1 text-xs">
-                    Drag a block onto a +, or click to add it at the end.
-                  </p>
-                  {[
-                    ...blockKinds.map((kind) => ({ kind, ...blocks[kind] })),
-                    { kind: "split" as const, ...split },
-                  ].map((b) => (
-                    <button
-                      key={b.kind}
-                      type="button"
-                      draggable
-                      onDragStart={(e) => e.dataTransfer.setData("text/workflow-block", b.kind)}
-                      onClick={() => onInsert({ index: draft.steps.length }, b.kind)}
-                      className="hover:bg-accent/50 flex items-center gap-2.5 rounded-md border px-2.5 py-2 text-start transition-colors"
-                    >
-                      <HugeiconsIcon
-                        icon={b.icon}
-                        className="text-muted-foreground size-4 shrink-0"
-                      />
-                      <span className="flex min-w-0 flex-col">
-                        <span className="text-[13px] font-medium">{b.label}</span>
-                        <span className="text-muted-foreground truncate text-xs">{b.hint}</span>
-                      </span>
-                    </button>
-                  ))}
-                </div>
-              )}
-            </div>
-          </ScrollArea>
-        </aside>
+      <div className="relative flex min-h-0 flex-1">
+        <aside className="hidden w-60 shrink-0 flex-col border-e md:flex">{side}</aside>
         <div className="relative min-w-0 flex-1">
+          <Sheet>
+            <SheetTrigger
+              render={
+                <Button
+                  size="sm"
+                  variant="outline"
+                  className="bg-card absolute right-3 top-3 z-10 md:hidden"
+                />
+              }
+            >
+              {history ? "Runs" : "Blocks"}
+            </SheetTrigger>
+            <SheetPopup side="left" className="w-72">
+              <div className="flex min-h-0 flex-1 flex-col">{side}</div>
+            </SheetPopup>
+          </Sheet>
           {saved && (
             <ToggleGroup
               size="sm"
@@ -317,9 +355,17 @@ const Editor = ({ saved }: { saved?: Doc<"automations"> }) => {
           />
         </div>
         {search.step && (
-          <aside className="w-80 shrink-0 border-s">
+          <aside className="bg-background w-80 shrink-0 border-s max-md:absolute max-md:inset-y-0 max-md:end-0 max-md:z-20 max-md:w-full">
             <ScrollArea className="h-full">
-              <div className="p-4">
+              <div className="grid gap-3 p-4">
+                <Button
+                  size="xs"
+                  variant="ghost"
+                  className="justify-self-end"
+                  onClick={() => write({ step: undefined })}
+                >
+                  Close
+                </Button>
                 {history && run ? (
                   <LogEntry run={run} at={search.step} />
                 ) : (

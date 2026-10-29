@@ -8,7 +8,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vite-plus/test"
 
 import { api, components, internal } from "../../../_generated/api"
 import notificationsSchema from "../../../notifications/schema"
-import { patchRun } from "./counts"
+import { insertRun, patchRun } from "./counts"
 import schema from "../../../schema"
 
 // A run's history, in step order.
@@ -320,6 +320,53 @@ describe("a workflow run", () => {
     expect(run?.status).toBe("canceled")
     await as.mutation(api.automations.remove, { id })
     expect(await t.run((ctx) => ctx.db.get("automations", id))).toBeNull()
+  })
+
+  it("deletes a workflow with its runs and their Inbox lines", async () => {
+    const { t, as, userId } = await setup()
+    const id = await as.mutation(api.automations.save, {
+      name: "Ping",
+      trigger: { kind: "manual" },
+      active: true,
+      steps: [{ kind: "notify", message: "Hi" }],
+    })
+    await as.mutation(api.automations.runNow, { id })
+    await t.finishAllScheduledFunctions(vi.runAllTimers)
+    const inbox = () =>
+      t.run((ctx) => ctx.runQuery(components.notifications.lib.list, { owner: userId }))
+    expect(await inbox()).toHaveLength(1)
+    await as.mutation(api.automations.remove, { id })
+    expect(await inbox()).toHaveLength(0)
+    expect(await t.run((ctx) => ctx.db.query("automationRuns").collect())).toHaveLength(0)
+  })
+
+  it("keeps the newest 50 runs of a workflow", async () => {
+    const { t, as, userId } = await setup()
+    const id = await as.mutation(api.automations.save, {
+      name: "Busy",
+      trigger: { kind: "manual" },
+      active: true,
+      steps: [{ kind: "notify", message: "Hi" }],
+    })
+    await t.run(async (ctx) => {
+      for (let i = 0; i < 55; i++)
+        await insertRun(ctx as never, {
+          automationId: id,
+          userId,
+          name: "Busy",
+          trigger: "manual",
+          steps: [],
+          status: "done",
+          startedAt: i,
+          log: [],
+        })
+    })
+    await as.mutation(api.automations.runNow, { id })
+    const runs = await t.run((ctx) => ctx.db.query("automationRuns").collect())
+    expect(runs).toHaveLength(50)
+    expect(Math.min(...runs.map((r) => r.startedAt))).toBe(6)
+    const counts = await as.query(api.automations.counts, { automationId: id })
+    expect(counts.done + counts.running).toBe(50)
   })
 
   it("won't save someone else's application into a step", async () => {

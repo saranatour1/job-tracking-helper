@@ -46,6 +46,28 @@ export const unreadCount = query({
     ).length,
 })
 
+/** Removes an owner's notifications whose ref starts with one of `prefixes`, from the
+ * newest 1000: the app calls this when the things they point at are deleted. */
+export const forget = mutation({
+  args: { owner: v.string(), prefixes: v.array(v.string()) },
+  returns: v.number(),
+  handler: async (ctx, { owner, prefixes }) => {
+    if (!prefixes.length) return 0
+    const rows = await ctx.db
+      .query("notifications")
+      .withIndex("by_owner_and_at", (q) => q.eq("owner", owner))
+      .order("desc")
+      .take(1000)
+    let removed = 0
+    for (const row of rows)
+      if (row.ref && prefixes.some((p) => row.ref!.startsWith(p))) {
+        await ctx.db.delete("notifications", row._id)
+        removed++
+      }
+    return removed
+  },
+})
+
 // Marks the given notifications, or every unread one when `ids` is left out.
 export const setRead = mutation({
   args: { owner: v.string(), ids: v.optional(v.array(v.id("notifications"))), read: v.boolean() },
