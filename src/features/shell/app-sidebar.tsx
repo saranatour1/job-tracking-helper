@@ -7,7 +7,6 @@ import {
   PencilEdit02Icon,
   RepeatIcon,
   Target02Icon,
-  Task01Icon,
   UserCircleIcon,
 } from "@hugeicons/core-free-icons"
 import { HugeiconsIcon } from "@hugeicons/react"
@@ -33,7 +32,6 @@ import { useUnreadCount } from "@/features/inbox/inbox"
 import { NewApplicationDialog } from "@/features/tracker/new-application"
 
 const tracker = [
-  { title: "Pipeline", to: "/pipeline", icon: Task01Icon },
   { title: "Goals", to: "/goals", icon: Target02Icon },
   { title: "Views", to: "/views", icon: Layers01Icon },
 ] as const
