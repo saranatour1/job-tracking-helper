@@ -200,6 +200,34 @@ const leadForApplication = authedQuery({
   },
 })
 
+// How well each of the person's applications fit, for the badges on the board: the
+// first lead tied to each one, if a loop found it or Jev checked its link. It reads
+// leads only, so editing an application doesn't re-run it.
+const fits = authedQuery({
+  args: {},
+  returns: v.array(
+    v.object({ applicationId: v.id("applications"), fit: v.number(), isFit: v.boolean() })
+  ),
+  handler: async (ctx) => {
+    // A missing applicationId sorts before any string, so this skips leads without one.
+    const leads = await ctx.db
+      .query("jobLeads")
+      .withIndex("by_userId_and_applicationId", (q) =>
+        q.eq("userId", ctx.userId).gte("applicationId", "" as Id<"applications">)
+      )
+      .take(1000)
+    const seen = new Set<Id<"applications">>()
+    const out = []
+    for (const { applicationId, fit, verdict } of leads) {
+      if (!applicationId || seen.has(applicationId)) continue
+      seen.add(applicationId)
+      // Leads from before Jev have no verdict, and aren't "not a fit".
+      out.push({ applicationId, fit, isFit: verdict !== "notFit" })
+    }
+    return out
+  },
+})
+
 const ownLead = async (ctx: MutationCtx, userId: Id<"users">, leadId: Id<"jobLeads">) => {
   const lead = await ctx.db.get("jobLeads", leadId)
   if (!lead || lead.userId !== userId) throw new ConvexError("That job doesn't exist.")
@@ -310,6 +338,7 @@ const sourceStatus = authedQuery({
 export const publicApi = {
   list,
   leadForApplication,
+  fits,
   create,
   update,
   setActive,
