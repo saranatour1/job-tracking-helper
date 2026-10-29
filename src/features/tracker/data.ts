@@ -89,14 +89,6 @@ export type View = {
   display?: Partial<Display>
 }
 
-export type Notification = {
-  id: string
-  applicationId: string
-  message: string
-  at: string
-  unread: boolean
-}
-
 // Sample dates are relative to this fixed day, so the server and the browser render the same text.
 export const today = "2026-10-28"
 
@@ -412,51 +404,6 @@ export const useViews = () =>
     () => views,
     () => sampleViews
   )
-
-export const notifications: Notification[] = [
-  {
-    id: "n1",
-    applicationId: "APP-21",
-    message: "Take-home assignment received, due in 5 days",
-    at: "2026-10-27",
-    unread: true,
-  },
-  {
-    id: "n2",
-    applicationId: "APP-17",
-    message: "Offer letter received, reply by Nov 4",
-    at: "2026-10-22",
-    unread: true,
-  },
-  {
-    id: "n3",
-    applicationId: "APP-12",
-    message: "No update in 19 days, consider a follow-up",
-    at: "2026-10-28",
-    unread: true,
-  },
-  {
-    id: "n4",
-    applicationId: "APP-15",
-    message: "Onsite interview scheduled for Nov 6",
-    at: "2026-10-12",
-    unread: true,
-  },
-  {
-    id: "n5",
-    applicationId: "APP-18",
-    message: "Posting closes in 2 weeks",
-    at: "2026-10-25",
-    unread: false,
-  },
-  {
-    id: "n6",
-    applicationId: "APP-19",
-    message: "Marked as rejected: position filled internally",
-    at: "2026-10-01",
-    unread: false,
-  },
-]
 
 export const goalName = (id?: string) => goals.find((g) => g.id === id)?.name ?? "No goal"
 

@@ -10,6 +10,7 @@ import rateLimiter from "@convex-dev/rate-limiter/convex.config.js"
 import workflow from "@convex-dev/workflow/convex.config.js"
 import workpool from "@convex-dev/workpool/convex.config.js"
 import cloudflareEmail from "./cloudflareEmail/convex.config"
+import notifications from "./notifications/convex.config"
 
 const app = defineApp({
   env: {
@@ -68,5 +69,8 @@ app.use(rateLimiter)
 // Email: each person sends from their own Cloudflare account, with their token
 // sealed in emailConnections. The component keeps the emails themselves.
 app.use(cloudflareEmail)
+
+// The inbox: a notification feed per person, and the kinds they muted.
+app.use(notifications)
 
 export default app
