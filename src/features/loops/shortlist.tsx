@@ -9,7 +9,8 @@ import {
 } from "@hugeicons/core-free-icons"
 import { HugeiconsIcon } from "@hugeicons/react"
 import { Link, useNavigate } from "@tanstack/react-router"
-import { useAction, useMutation, useQuery } from "convex/react"
+import { useAction, useMutation } from "convex/react"
+import { useQuery } from "convex-helpers/react/cache/hooks"
 import { startTransition, useActionState } from "react"
 
 import { Badge } from "@/components/ui/badge"

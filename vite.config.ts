@@ -31,6 +31,12 @@ export default defineConfig({
               importNames: ["useEffect", "useLayoutEffect"],
               message: "Derive during render, handle it in the event, or use useSyncExternalStore.",
             },
+            {
+              name: "convex/react",
+              importNames: ["useQuery", "usePaginatedQuery", "useQueries"],
+              message:
+                "Import it from convex-helpers/react/cache/hooks, so a page you come back to keeps its data.",
+            },
           ],
         },
       ],
@@ -71,6 +77,12 @@ export default defineConfig({
                   importNames: ["useEffect", "useLayoutEffect", "useState"],
                   message:
                     "Use the form's state, the URL, useActionState for an action's result, or a ref for an input.",
+                },
+                {
+                  name: "convex/react",
+                  importNames: ["useQuery", "usePaginatedQuery", "useQueries"],
+                  message:
+                    "Import it from convex-helpers/react/cache/hooks, so a page you come back to keeps its data.",
                 },
               ],
             },

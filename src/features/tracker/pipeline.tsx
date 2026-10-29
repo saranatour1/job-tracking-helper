@@ -3,7 +3,6 @@ import {
   Layers01Icon,
   MoreHorizontalIcon,
   PlusSignIcon,
-  SidebarRight01Icon,
   SlidersHorizontalIcon,
   Target02Icon,
 } from "@hugeicons/core-free-icons"
@@ -18,6 +17,7 @@ import { Tabs, TabsList, TabsTab } from "@/components/ui/tabs"
 import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group"
 import { Toolbar, ToolbarButton } from "@/components/ui/toolbar"
 import { Tooltip, TooltipPopup, TooltipTrigger } from "@/components/ui/tooltip"
+import { useSidebar } from "@/components/ui/sidebar"
 import { useIsMobile } from "@/hooks/use-media-query"
 
 import {
@@ -42,6 +42,7 @@ import { FilterChips, FilterMenu, toggleFilter } from "./filters"
 import { ApplicationPeek } from "./application"
 import { PriorityIcon, StatusIcon } from "./icons"
 import { NewApplicationDialog } from "./new-application"
+import { useCollapsesSidebar } from "@/features/shell/one-sidebar"
 import { type Crumb, PageHeader } from "@/features/shell/page-header"
 
 type Tab = "active" | "saved" | "all"
@@ -353,7 +354,19 @@ export const Pipeline = ({
   const [name, setName] = useState("")
   const [description, setDescription] = useState("")
   // Phones have no room for a side panel, so cards open the full page there.
-  const peeking: Peek = useIsMobile() ? {} : { id: peek, open: setPeek }
+  const isMobile = useIsMobile()
+  const peeking: Peek = isMobile ? {} : { id: peek, open: setPeek }
+  const { open: sidebarOpen, setOpen: setSidebarOpen } = useSidebar()
+  const collapsesSidebar = useCollapsesSidebar()
+  // The page's one sidebar button: closes the right panel, else brings the app sidebar
+  // back, else opens insights in its place.
+  const switchSidebar = () => {
+    if (peek || panel) {
+      setPeek(undefined)
+      setPanel(false)
+    } else if (!sidebarOpen) setSidebarOpen(true)
+    else setPanel(true)
+  }
 
   const visible = useApplications()
     .filter((a) => tabs[tab].includes(a.status) && matches(a, filters))
@@ -385,6 +398,7 @@ export const Pipeline = ({
     >
       <PageHeader
         crumbs={crumbs}
+        onSidebar={isMobile ? undefined : switchSidebar}
         actions={
           !editor && (
             <NewApplicationDialog
@@ -496,16 +510,6 @@ export const Pipeline = ({
               </ToolbarButton>
             }
           />
-          <ToolbarButton
-            render={
-              <IconButton
-                label={summary ? "Summary" : "Insights"}
-                icon={SidebarRight01Icon}
-                aria-pressed={panel}
-                onClick={() => setPanel(!panel)}
-              />
-            }
-          />
         </Toolbar>
       </div>
       {hasFilters && (
@@ -590,19 +594,22 @@ export const Pipeline = ({
             ))}
           </ScrollArea>
         )}
-        {peek ? (
-          <SidePanel width={peekWidth} onResize={setPeekWidth}>
-            <ApplicationPeek id={peek} onClose={() => setPeek(undefined)} />
-          </SidePanel>
-        ) : (
-          panel && (
-            <InsightsPanel
-              items={visible}
-              filters={filters}
-              onChange={setFilters}
-              header={summary}
-            />
-          )
+        {/* One wrapper for either panel, so switching between them leaves the app sidebar alone. */}
+        {(peek || panel) && (
+          <div ref={collapsesSidebar} className="contents">
+            {peek ? (
+              <SidePanel width={peekWidth} onResize={setPeekWidth}>
+                <ApplicationPeek id={peek} onClose={() => setPeek(undefined)} />
+              </SidePanel>
+            ) : (
+              <InsightsPanel
+                items={visible}
+                filters={filters}
+                onChange={setFilters}
+                header={summary}
+              />
+            )}
+          </div>
         )}
       </div>
     </div>

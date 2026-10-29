@@ -4,7 +4,7 @@ import { Logout01Icon, UnfoldMoreIcon, UserIcon } from "@hugeicons/core-free-ico
 import { HugeiconsIcon } from "@hugeicons/react"
 import { Link } from "@tanstack/react-router"
 import type { FunctionReturnType } from "convex/server"
-import { useQuery } from "convex/react"
+import { useQuery } from "convex-helpers/react/cache/hooks"
 
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import {
