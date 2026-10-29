@@ -1,6 +1,7 @@
 import type { Doc } from "@convex/_generated/dataModel"
-import type { Block, Step, Trigger } from "@convex/api/features/automations/validators"
-import { limits, stepAt } from "@convex/api/features/automations/validators"
+import { statusLabels, statuses } from "@convex/api/features/applications/validators"
+import type { Block, Branch, Step, Trigger } from "@convex/api/features/automations/validators"
+import { limits, stepAt, triggerHasApplication } from "@convex/api/features/automations/validators"
 import { Delete02Icon, PlusSignIcon } from "@hugeicons/core-free-icons"
 import { HugeiconsIcon } from "@hugeicons/react"
 
@@ -12,7 +13,7 @@ import { Textarea } from "@/components/ui/textarea"
 import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group"
 import { ZonePick } from "@/features/calendar/settings"
 
-import { blocks, placeholders } from "./blocks"
+import { blocks, branches, mailKindLabels, placeholdersFor, triggerKinds } from "./blocks"
 import { remove, update } from "./tree"
 
 const Field = ({ label, children }: { label: string; children: React.ReactNode }) => (
@@ -60,6 +61,52 @@ const Pick = ({
 
 const weekdays = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"]
 
+// A new trigger of each kind, as it starts out.
+const freshTrigger = (kind: Trigger["kind"], zone: string): Trigger => {
+  switch (kind) {
+    case "schedule":
+      return { kind, at: "09:00", days: [1, 2, 3, 4, 5], timeZone: zone }
+    case "mail":
+      return { kind, kinds: [] }
+    case "status":
+      return { kind, to: [] }
+    default:
+      return { kind }
+  }
+}
+
+// Picks some of a list; none picked means any.
+const Some = <T extends string>({
+  label,
+  value,
+  labels,
+  onChange,
+}: {
+  label: string
+  value: T[]
+  labels: Record<T, string>
+  onChange: (value: T[]) => void
+}) => (
+  <Field label={label}>
+    <ToggleGroup
+      multiple
+      size="sm"
+      variant="outline"
+      aria-label={label}
+      className="flex-wrap"
+      value={value}
+      onValueChange={(v) => onChange(v as T[])}
+    >
+      {(Object.keys(labels) as T[]).map((key) => (
+        <ToggleGroupItem key={key} value={key}>
+          {labels[key]}
+        </ToggleGroupItem>
+      ))}
+    </ToggleGroup>
+    <p className="text-muted-foreground text-xs">None picked: any.</p>
+  </Field>
+)
+
 const TriggerSettings = ({
   trigger,
   zone,
@@ -70,24 +117,40 @@ const TriggerSettings = ({
   onChange: (trigger: Trigger) => void
 }) => (
   <div className="grid gap-4">
-    <Field label="Starts">
-      <ToggleGroup
-        size="sm"
-        variant="outline"
-        aria-label="Starts"
-        className="*:flex-1"
-        value={[trigger.kind]}
-        onValueChange={(v) =>
-          v[0] === "manual"
-            ? onChange({ kind: "manual" })
-            : v[0] === "schedule" &&
-              onChange({ kind: "schedule", at: "09:00", days: [1, 2, 3, 4, 5], timeZone: zone })
+    <Field label="Starts when">
+      <Pick
+        label="Starts when"
+        value={trigger.kind}
+        items={(Object.keys(triggerKinds) as Trigger["kind"][]).map((kind) => ({
+          value: kind,
+          label: triggerKinds[kind],
+        }))}
+        onChange={(kind) =>
+          kind !== trigger.kind && onChange(freshTrigger(kind as Trigger["kind"], zone))
         }
-      >
-        <ToggleGroupItem value="manual">When I run it</ToggleGroupItem>
-        <ToggleGroupItem value="schedule">On a schedule</ToggleGroupItem>
-      </ToggleGroup>
+      />
     </Field>
+    {trigger.kind === "mail" && (
+      <Some
+        label="Kinds of email"
+        value={trigger.kinds}
+        labels={mailKindLabels}
+        onChange={(kinds) => onChange({ ...trigger, kinds })}
+      />
+    )}
+    {trigger.kind === "status" && (
+      <Some
+        label="Moves to"
+        value={trigger.to}
+        labels={statusLabels}
+        onChange={(to) => onChange({ ...trigger, to })}
+      />
+    )}
+    {trigger.kind === "booking" && (
+      <p className="text-muted-foreground text-xs">
+        Runs when someone books time on any of your booking pages.
+      </p>
+    )}
     {trigger.kind === "schedule" && (
       <>
         <Field label="At">
@@ -127,44 +190,99 @@ const TriggerSettings = ({
   </div>
 )
 
+// Which application a step acts on: one you pick, or the one the trigger is about.
+const ApplicationPick = ({
+  value,
+  trigger,
+  applications,
+  onChange,
+}: {
+  value: Doc<"applications">["_id"] | undefined
+  trigger: Trigger
+  applications: Doc<"applications">[]
+  onChange: (id: Doc<"applications">["_id"] | undefined) => void
+}) => {
+  const fromTrigger = triggerHasApplication(trigger)
+  return (
+    <Field label="Application">
+      <Pick
+        label="Pick an application"
+        value={value ?? (fromTrigger ? "trigger" : null)}
+        items={[
+          ...(fromTrigger ? [{ value: "trigger", label: "The one the trigger is about" }] : []),
+          ...applications.map((a) => ({ value: a._id, label: `${a.company} · ${a.role}` })),
+        ]}
+        onChange={(id) =>
+          onChange(id === "trigger" ? undefined : (id as Doc<"applications">["_id"]))
+        }
+      />
+    </Field>
+  )
+}
+
+const sends = { inbox: "Inbox", email: "Email", both: "Both" } as const
+
 const BlockSettings = ({
   block,
+  trigger,
   applications,
   onChange,
 }: {
   block: Block
+  trigger: Trigger
   applications: Doc<"applications">[]
   onChange: (block: Block) => void
 }) => {
   switch (block.kind) {
     case "notify":
       return (
-        <Field label="Message">
-          <Textarea
-            rows={4}
-            maxLength={limits.message}
-            value={block.message}
-            onChange={(e) => onChange({ ...block, message: e.target.value })}
-          />
-          <Tokens
-            names={placeholders.notify}
-            onPick={(name) => onChange({ ...block, message: `${block.message} ${name}`.trim() })}
-          />
-        </Field>
+        <div className="grid gap-4">
+          <Field label="Message">
+            <Textarea
+              rows={4}
+              maxLength={limits.message}
+              value={block.message}
+              onChange={(e) => onChange({ ...block, message: e.target.value })}
+            />
+            <Tokens
+              names={placeholdersFor(trigger)}
+              onPick={(name) => onChange({ ...block, message: `${block.message} ${name}`.trim() })}
+            />
+          </Field>
+          <Field label="Send to">
+            <ToggleGroup
+              size="sm"
+              variant="outline"
+              aria-label="Send to"
+              className="*:flex-1"
+              value={[block.send ?? "inbox"]}
+              onValueChange={(v) =>
+                v[0] && onChange({ ...block, send: v[0] as keyof typeof sends })
+              }
+            >
+              {(Object.keys(sends) as (keyof typeof sends)[]).map((key) => (
+                <ToggleGroupItem key={key} value={key}>
+                  {sends[key]}
+                </ToggleGroupItem>
+              ))}
+            </ToggleGroup>
+            {block.send && block.send !== "inbox" && (
+              <p className="text-muted-foreground text-xs">
+                Sent from your Cloudflare email, once “Send email” is on under Account.
+              </p>
+            )}
+          </Field>
+        </div>
       )
     case "addNote":
       return (
         <div className="grid gap-4">
-          <Field label="Application">
-            <Pick
-              label="Pick an application"
-              value={block.applicationId || null}
-              items={applications.map((a) => ({ value: a._id, label: `${a.company} · ${a.role}` }))}
-              onChange={(id) =>
-                onChange({ ...block, applicationId: id as Doc<"applications">["_id"] })
-              }
-            />
-          </Field>
+          <ApplicationPick
+            value={block.applicationId}
+            trigger={trigger}
+            applications={applications}
+            onChange={(applicationId) => onChange({ ...block, applicationId })}
+          />
           <Field label="Note">
             <Textarea
               rows={4}
@@ -173,10 +291,93 @@ const BlockSettings = ({
               onChange={(e) => onChange({ ...block, text: e.target.value })}
             />
             <Tokens
-              names={placeholders.addNote}
+              names={placeholdersFor(trigger, true)}
               onPick={(name) => onChange({ ...block, text: `${block.text} ${name}`.trim() })}
             />
           </Field>
+        </div>
+      )
+    case "move":
+      return (
+        <div className="grid gap-4">
+          <ApplicationPick
+            value={block.applicationId}
+            trigger={trigger}
+            applications={applications}
+            onChange={(applicationId) => onChange({ ...block, applicationId })}
+          />
+          <Field label="Move to">
+            <Pick
+              label="Move to"
+              value={block.to}
+              items={statuses.map((s) => ({ value: s, label: statusLabels[s] }))}
+              onChange={(to) => onChange({ ...block, to: to as typeof block.to })}
+            />
+          </Field>
+        </div>
+      )
+    case "addEvent":
+      return (
+        <div className="grid gap-4">
+          <Field label="Title">
+            <Input
+              maxLength={limits.title}
+              value={block.title}
+              onChange={(e) => onChange({ ...block, title: e.target.value })}
+            />
+            <Tokens
+              names={placeholdersFor(trigger)}
+              onPick={(name) => onChange({ ...block, title: `${block.title} ${name}`.trim() })}
+            />
+          </Field>
+          <div className="grid grid-cols-3 gap-2">
+            <label className="grid gap-1">
+              <Input
+                type="number"
+                min={0}
+                max={limits.eventDays}
+                value={block.inDays}
+                onChange={(e) =>
+                  onChange({
+                    ...block,
+                    inDays: Math.min(
+                      limits.eventDays,
+                      Math.max(0, Math.floor(Number(e.target.value) || 0))
+                    ),
+                  })
+                }
+              />
+              <span className="text-muted-foreground text-xs">days later</span>
+            </label>
+            <label className="grid gap-1">
+              <Input
+                type="time"
+                value={block.at}
+                onChange={(e) => onChange({ ...block, at: e.target.value })}
+              />
+              <span className="text-muted-foreground text-xs">at</span>
+            </label>
+            <label className="grid gap-1">
+              <Input
+                type="number"
+                min={5}
+                max={limits.eventMinutes}
+                step={5}
+                value={block.minutes}
+                onChange={(e) =>
+                  onChange({
+                    ...block,
+                    minutes: Math.min(
+                      limits.eventMinutes,
+                      Math.max(5, Math.floor(Number(e.target.value) || 0))
+                    ),
+                  })
+                }
+              />
+              <span className="text-muted-foreground text-xs">minutes long</span>
+            </label>
+          </div>
+          <p className="text-muted-foreground text-xs">In your Calendar's time zone.</p>
         </div>
       )
     case "wait": {
@@ -211,21 +412,45 @@ const BlockSettings = ({
   }
 }
 
-const SplitSettings = ({
+const BranchSettings = ({
   step,
+  trigger,
   onChange,
 }: {
-  step: Extract<Step, { kind: "parallel" }>
+  step: Branch
+  trigger: Trigger
   onChange: (step: Step) => void
 }) => (
   <div className="grid gap-3">
-    <p className="text-muted-foreground text-xs">
-      Each path runs at the same time, and the workflow goes on once every path is done.
-    </p>
+    {step.kind === "decide" ? (
+      <>
+        <Field label="Question">
+          <Textarea
+            rows={3}
+            maxLength={limits.question}
+            value={step.question}
+            onChange={(e) => onChange({ ...step, question: e.target.value })}
+          />
+          <Tokens
+            names={placeholdersFor(trigger)}
+            onPick={(name) => onChange({ ...step, question: `${step.question} ${name}`.trim() })}
+          />
+        </Field>
+        <p className="text-muted-foreground text-xs">
+          Jev reads what the run knows, like the email or the application, and picks one answer.
+          Only that path runs; a path with no steps does nothing.
+        </p>
+        <Label>Answers</Label>
+      </>
+    ) : (
+      <p className="text-muted-foreground text-xs">
+        Each path runs at the same time, and the workflow goes on once every path is done.
+      </p>
+    )}
     {step.paths.map((path, p) => (
       <div key={p} className="flex items-center gap-2">
         <Input
-          aria-label={`Path ${p + 1} name`}
+          aria-label={step.kind === "decide" ? `Answer ${p + 1}` : `Path ${p + 1} name`}
           maxLength={limits.label}
           value={path.label}
           onChange={(e) =>
@@ -256,13 +481,15 @@ const SplitSettings = ({
             ...step,
             paths: [
               ...step.paths,
-              { label: `Path ${step.paths.length + 1}`, steps: [blocks.notify.make()] },
+              step.kind === "decide"
+                ? { label: `Answer ${step.paths.length + 1}`, steps: [] }
+                : { label: `Path ${step.paths.length + 1}`, steps: [blocks.notify.make()] },
             ],
           })
         }
       >
         <HugeiconsIcon icon={PlusSignIcon} />
-        Add a path
+        {step.kind === "decide" ? "Add an answer" : "Add a path"}
       </Button>
     )}
   </div>
@@ -297,7 +524,10 @@ export const StepSettings = ({
     )
   const step = stepAt(steps, at)
   if (!step) return null
-  const title = step.kind === "parallel" ? "Split" : blocks[step.kind].label
+  const title =
+    step.kind === "parallel" || step.kind === "decide"
+      ? branches[step.kind].short
+      : blocks[step.kind].label
   return (
     <section className="grid gap-4">
       <div className="flex items-center justify-between gap-2">
@@ -314,11 +544,16 @@ export const StepSettings = ({
           Remove
         </Button>
       </div>
-      {step.kind === "parallel" ? (
-        <SplitSettings step={step} onChange={(next) => onSteps(update(steps, at, next))} />
+      {step.kind === "parallel" || step.kind === "decide" ? (
+        <BranchSettings
+          step={step}
+          trigger={trigger}
+          onChange={(next) => onSteps(update(steps, at, next))}
+        />
       ) : (
         <BlockSettings
           block={step}
+          trigger={trigger}
           applications={applications}
           onChange={(next) => onSteps(update(steps, at, next))}
         />

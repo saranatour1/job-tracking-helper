@@ -19,6 +19,8 @@ export const limits = new RateLimiter(components.rateLimiter, {
   checkLink: { kind: "fixed window", rate: 10, period: DAY },
   // Workflows people build, started by hand.
   automationRun: { kind: "fixed window", rate: 50, period: DAY },
+  // Workflows started by emails, status changes and bookings.
+  automationEvent: { kind: "fixed window", rate: 200, period: DAY },
 })
 
 // The batch worker: it fetches job boards for the catalog, and every run hands it the

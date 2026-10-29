@@ -6,6 +6,7 @@ import type { MutationCtx } from "../../../_generated/server"
 import { arkId } from "../../../lib/ark"
 import { arkMutation, authedQuery } from "../../../lib/functions"
 import { internal } from "../../../_generated/api"
+import { fireEvent } from "../automations/fire"
 import { Application, Details, limits, priorityFor, type Status, statuses } from "./validators"
 
 const list = authedQuery({
@@ -46,9 +47,18 @@ export const changeStatus = async (
   ctx: MutationCtx,
   application: Doc<"applications">,
   status: Status,
-  note?: string
+  note?: string,
+  // Quiet moves start no workflows: a workflow's own Move application step is one.
+  { quiet = false }: { quiet?: boolean } = {}
 ) => {
   if (application.status === status) return
+  if (!quiet)
+    await fireEvent(ctx, application.userId, {
+      kind: "status",
+      from: application.status,
+      to: status,
+      applicationId: application._id,
+    })
   const history = application.history ?? [
     { status: application.status, at: application._creationTime },
   ]

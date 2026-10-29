@@ -1,41 +1,73 @@
 import { v, type Infer } from "convex/values"
+import { statuses } from "../applications/validators"
 import { fromWall, wallOf } from "../booking/slots"
+import { kinds as mailKinds } from "../email/match"
 
 // A workflow someone builds is data, never code: a trigger and a list of steps, each one
-// a block the app knows how to run. Steps can split into paths one level deep: a split
-// holds paths, and a path holds blocks. Safe to import from the frontend.
+// a block the app knows how to run. Steps can branch one level deep: a split runs all of
+// its paths, Ask Jev runs the one path it picks, and a path holds blocks. Safe to import
+// from the frontend.
+
+const vStatus = v.union(...statuses.map((s) => v.literal(s)))
+const vMailKind = v.union(...mailKinds.map((k) => v.literal(k)))
 
 const blocks = [
-  // Puts a line in the Inbox.
-  v.object({ kind: v.literal("notify"), message: v.string() }),
-  // Adds a note to one application.
-  v.object({ kind: v.literal("addNote"), applicationId: v.id("applications"), text: v.string() }),
+  // Puts a line in the Inbox, or emails you, or both.
+  v.object({
+    kind: v.literal("notify"),
+    message: v.string(),
+    send: v.optional(v.union(v.literal("inbox"), v.literal("email"), v.literal("both"))),
+  }),
+  // Adds a note to an application: the one picked, or else the one the trigger is about.
+  v.object({
+    kind: v.literal("addNote"),
+    applicationId: v.optional(v.id("applications")),
+    text: v.string(),
+  }),
+  // Moves an application to another status, the same way.
+  v.object({
+    kind: v.literal("move"),
+    applicationId: v.optional(v.id("applications")),
+    to: vStatus,
+  }),
+  // Puts an event on your Calendar, some days from the run at a time of day.
+  v.object({
+    kind: v.literal("addEvent"),
+    title: v.string(),
+    inDays: v.number(),
+    at: v.string(),
+    minutes: v.number(),
+  }),
   // Waits before the next step; free while it waits.
   v.object({ kind: v.literal("wait"), minutes: v.number() }),
 ] as const
 export const vBlock = v.union(...blocks)
 export type Block = Infer<typeof vBlock>
 
+const vPaths = v.array(v.object({ label: v.string(), steps: v.array(vBlock) }))
+
 export const vStep = v.union(
   ...blocks,
   // Runs its paths side by side, and goes on once every path is done.
-  v.object({
-    kind: v.literal("parallel"),
-    paths: v.array(v.object({ label: v.string(), steps: v.array(vBlock) })),
-  })
+  v.object({ kind: v.literal("parallel"), paths: vPaths }),
+  // Jev answers `question` with one of the paths' labels, and that path runs.
+  v.object({ kind: v.literal("decide"), question: v.string(), paths: vPaths })
 )
 export type Step = Infer<typeof vStep>
 export type StepKind = Step["kind"]
+export type Branch = Extract<Step, { kind: "parallel" | "decide" }>
+export const isBranch = (step: Step | undefined): step is Branch =>
+  step?.kind === "parallel" || step?.kind === "decide"
 
 /**
  * A step's place in the tree, as runs record it: "2" is the third step, and "2.1.0" is
- * the first step on the second path of that split.
+ * the first step on the second path of that branch.
  */
 export const stepAt = (steps: Step[], at: string): Step | undefined => {
   const [i, path, j] = at.split(".").map(Number)
   const step = steps[i!]
   if (path === undefined) return step
-  return step?.kind === "parallel" ? step.paths[path]?.steps[j!] : undefined
+  return isBranch(step) ? step.paths[path]?.steps[j!] : undefined
 }
 
 export const vTrigger = v.union(
@@ -47,9 +79,30 @@ export const vTrigger = v.union(
     at: v.string(),
     days: v.array(v.number()),
     timeZone: v.string(),
-  })
+  }),
+  // When an email is sorted, of these kinds (none picked: any kind).
+  v.object({ kind: v.literal("mail"), kinds: v.array(vMailKind) }),
+  // When an application moves, to these statuses (none picked: any).
+  v.object({ kind: v.literal("status"), to: v.array(vStatus) }),
+  // When someone books time on one of your booking pages.
+  v.object({ kind: v.literal("booking") })
 )
 export type Trigger = Infer<typeof vTrigger>
+
+/** Triggers that come with an application, so steps can act on "the one it's about". */
+export const triggerHasApplication = (trigger: Trigger) =>
+  trigger.kind === "mail" || trigger.kind === "status" || trigger.kind === "booking"
+
+// What a run started by an event points at. Only ids: the email's words stay sealed and
+// are opened when a step needs them.
+export const vRunContext = v.object({
+  applicationId: v.optional(v.id("applications")),
+  mailEventId: v.optional(v.id("mailEvents")),
+  bookingId: v.optional(v.id("calendarEvents")),
+  from: v.optional(vStatus),
+  to: v.optional(vStatus),
+})
+export type RunContext = Infer<typeof vRunContext>
 
 export const limits = {
   automations: 30,
@@ -60,8 +113,13 @@ export const limits = {
   name: 80,
   message: 500,
   note: 2000,
+  question: 300,
+  title: 120,
   // A wait is at most 30 days.
   waitMinutes: 30 * 24 * 60,
+  // A calendar event is 5 minutes to 8 hours, up to 60 days ahead.
+  eventMinutes: 480,
+  eventDays: 60,
 } as const
 
 const isZone = (zone: string) => {
@@ -73,11 +131,28 @@ const isZone = (zone: string) => {
   }
 }
 
-const blockProblem = (step: Block) => {
+const time = /^([01]\d|2[0-3]):[0-5]\d$/
+
+const blockProblem = (step: Block, trigger: Trigger) => {
   if (step.kind === "notify" && (!step.message.trim() || step.message.length > limits.message))
     return `A message is 1 to ${limits.message} characters.`
   if (step.kind === "addNote" && (!step.text.trim() || step.text.length > limits.note))
     return `A note is 1 to ${limits.note} characters.`
+  if (
+    (step.kind === "addNote" || step.kind === "move") &&
+    !step.applicationId &&
+    !triggerHasApplication(trigger)
+  )
+    return "Pick an application, or start the workflow from an email, a status change or a booking."
+  if (step.kind === "addEvent") {
+    if (!step.title.trim() || step.title.length > limits.title)
+      return `An event title is 1 to ${limits.title} characters.`
+    if (!Number.isInteger(step.inDays) || step.inDays < 0 || step.inDays > limits.eventDays)
+      return `An event is 0 to ${limits.eventDays} days after the run.`
+    if (!time.test(step.at)) return "Pick a time like 09:00."
+    if (!Number.isInteger(step.minutes) || step.minutes < 5 || step.minutes > limits.eventMinutes)
+      return "An event lasts 5 minutes to 8 hours."
+  }
   if (
     step.kind === "wait" &&
     (!Number.isInteger(step.minutes) || step.minutes < 1 || step.minutes > limits.waitMinutes)
@@ -90,31 +165,34 @@ const blockProblem = (step: Block) => {
 export const problemOf = (name: string, trigger: Trigger, steps: Step[]) => {
   if (!name.trim() || name.length > limits.name) return "Give it a name of up to 80 characters."
   if (!steps.length) return "Add at least one step."
-  const blockCount = steps.reduce(
-    (n, s) => n + (s.kind === "parallel" ? s.paths.reduce((m, p) => m + p.steps.length, 0) : 1),
-    0
-  )
-  if (blockCount > limits.steps) return `A workflow has at most ${limits.steps} steps.`
+  if (blocksOf(steps).length > limits.steps) return `A workflow has at most ${limits.steps} steps.`
   if (trigger.kind === "schedule") {
-    if (!/^([01]\d|2[0-3]):[0-5]\d$/.test(trigger.at)) return "Pick a time like 09:00."
+    if (!time.test(trigger.at)) return "Pick a time like 09:00."
     if (!trigger.days.length || trigger.days.some((d) => !Number.isInteger(d) || d < 0 || d > 6))
       return "Pick at least one day."
     if (!isZone(trigger.timeZone)) return "That isn't a time zone."
   }
   for (const step of steps) {
-    if (step.kind !== "parallel") {
-      const problem = blockProblem(step)
+    if (!isBranch(step)) {
+      const problem = blockProblem(step, trigger)
       if (problem) return problem
       continue
     }
+    const what = step.kind === "decide" ? "Ask Jev" : "A split"
+    if (step.kind === "decide" && (!step.question.trim() || step.question.length > limits.question))
+      return `Ask Jev a question of up to ${limits.question} characters.`
     if (step.paths.length < 2 || step.paths.length > limits.paths)
-      return `A split has 2 to ${limits.paths} paths.`
+      return `${what} has 2 to ${limits.paths} paths.`
+    const labels = step.paths.map((p) => p.label.trim().toLowerCase())
+    if (step.kind === "decide" && new Set(labels).size !== labels.length)
+      return "Give each of Jev's answers a different name."
     for (const path of step.paths) {
       if (!path.label.trim() || path.label.length > limits.label)
         return `Name each path, up to ${limits.label} characters.`
-      if (!path.steps.length) return "Each path needs at least one step."
+      if (!path.steps.length && step.kind === "parallel")
+        return "Each path of a split needs at least one step."
       for (const block of path.steps) {
-        const problem = blockProblem(block)
+        const problem = blockProblem(block, trigger)
         if (problem) return problem
       }
     }
@@ -124,7 +202,7 @@ export const problemOf = (name: string, trigger: Trigger, steps: Step[]) => {
 
 /** Every block, on paths too, for checks that look at each one. */
 export const blocksOf = (steps: Step[]): Block[] =>
-  steps.flatMap((s) => (s.kind === "parallel" ? s.paths.flatMap((p) => p.steps) : [s]))
+  steps.flatMap((s) => (isBranch(s) ? s.paths.flatMap((p) => p.steps) : [s]))
 
 /**
  * Fills placeholders like {application.company} from `values`. Plain text replacement:

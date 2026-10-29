@@ -13,6 +13,15 @@ export const statuses = [
 ] as const
 export type Status = (typeof statuses)[number]
 
+export const statusLabels: Record<Status, string> = {
+  saved: "Saved",
+  applied: "Applied",
+  interviewing: "Interviewing",
+  offer: "Offer",
+  rejected: "Rejected",
+  withdrawn: "Withdrawn",
+}
+
 export const priorities = ["urgent", "high", "medium", "low", "none"] as const
 export type Priority = (typeof priorities)[number]
 

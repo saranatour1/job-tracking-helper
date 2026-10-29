@@ -17,6 +17,7 @@ import { arkId, arkOutputToConvex } from "../../../lib/ark"
 import { arkMutation, authedQuery } from "../../../lib/functions"
 import { seal } from "../../../lib/secrets"
 import { changeStatus } from "../applications/public"
+import { fireEvent } from "../automations/fire"
 import { statuses } from "../applications/validators"
 import { mailNotificationKind } from "../notifications/kinds"
 import { jevModel } from "../workflows/judge"
@@ -149,6 +150,12 @@ const record = internalMutation({
       owner: event.userId,
       kind: mailNotificationKind(event.kind, event.applicationId !== undefined),
       ref: id,
+    })
+    await fireEvent(ctx, event.userId, {
+      kind: "mail",
+      mailKind: event.kind,
+      mailEventId: id,
+      ...(event.applicationId && { applicationId: event.applicationId }),
     })
     return null
   },

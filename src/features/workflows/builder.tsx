@@ -1,11 +1,6 @@
 import { api } from "@convex/_generated/api"
 import type { Doc, Id } from "@convex/_generated/dataModel"
-import {
-  blocksOf,
-  problemOf,
-  type Step,
-  type Trigger,
-} from "@convex/api/features/automations/validators"
+import { problemOf, type Step, type Trigger } from "@convex/api/features/automations/validators"
 import { HugeiconsIcon } from "@hugeicons/react"
 import { useForm, useStore } from "@tanstack/react-form"
 import { useNavigate, useSearch } from "@tanstack/react-router"
@@ -24,10 +19,10 @@ import { useCalendarSettings } from "@/features/calendar/saved"
 import { PageHeader } from "@/features/shell/page-header"
 import { cn } from "@/lib/utils"
 
-import { blockKinds, blocks, split } from "./blocks"
+import { blockKinds, blocks, branches } from "./blocks"
 import { Canvas, type InsertKind, type StepStatus } from "./canvas"
 import { StepSettings } from "./step-settings"
-import { insert, remove, type Slot, splitAt } from "./tree"
+import { branchAt, insert, remove, type Slot } from "./tree"
 
 export type WorkflowSearch = { step?: string; tab?: "history"; run?: string }
 export const workflowSearch = (search: Record<string, unknown>): WorkflowSearch => ({
@@ -68,6 +63,8 @@ const when = (ms: number) =>
     minute: "2-digit",
   })
 
+const startedBy = { manual: "Run now", schedule: "Scheduled", event: "Event" } as const
+
 // Runs on the left in History: how many ended which way, then the latest ones.
 const RunList = ({
   automationId,
@@ -106,7 +103,7 @@ const RunList = ({
               <span className="flex min-w-0 flex-col">
                 <span className="truncate text-[13px] font-medium">{when(run.startedAt)}</span>
                 <span className="text-muted-foreground truncate text-xs">
-                  {run.trigger === "schedule" ? "Scheduled" : "Run now"} · {run.status}
+                  {startedBy[run.trigger]} · {run.status}
                   {run.error ? ` · ${run.error}` : ""}
                 </span>
               </span>
@@ -156,6 +153,7 @@ const Editor = ({ saved }: { saved?: Doc<"automations"> }) => {
   const setSteps = (steps: Step[]) => form.setFieldValue("steps", steps)
 
   const runs = useQuery(api.automations.runs, saved ? { automationId: saved._id } : "skip")
+  const choices = useQuery(api.automations.choices, saved ? { automationId: saved._id } : "skip")
   const history = search.tab === "history" && saved
   const run = history ? (runs?.find((r) => r._id === search.run) ?? runs?.[0]) : undefined
   const statuses: Record<string, StepStatus> = Object.fromEntries(
@@ -180,11 +178,7 @@ const Editor = ({ saved }: { saved?: Doc<"automations"> }) => {
         if (action === "save") {
           // Saved as the server keeps it, so the page doesn't look unsaved afterwards.
           const next = { ...draft, name: draft.name.trim() }
-          const problem =
-            problemOf(next.name, next.trigger, next.steps) ??
-            (blocksOf(draft.steps).some((b) => b.kind === "addNote" && !b.applicationId)
-              ? "Pick an application for each note."
-              : undefined)
+          const problem = problemOf(next.name, next.trigger, next.steps)
           if (problem) return problem
           const id = await save({ ...(saved && { id: saved._id }), ...next })
           form.reset(next)
@@ -200,8 +194,8 @@ const Editor = ({ saved }: { saved?: Doc<"automations"> }) => {
 
   const onInsert = (slot: Slot, kind: InsertKind) => {
     const steps = draft.steps
-    if (kind === "split") {
-      setSteps(splitAt(steps, slot.index, blocks.notify.make()))
+    if (kind === "parallel" || kind === "decide") {
+      setSteps(branchAt(steps, slot.index, kind, blocks.notify.make()))
       // Select it, so the panel never shows a step that just moved down.
       return write({ step: String(slot.index) })
     }
@@ -241,7 +235,8 @@ const Editor = ({ saved }: { saved?: Doc<"automations"> }) => {
               </p>
               {[
                 ...blockKinds.map((kind) => ({ kind, ...blocks[kind] })),
-                { kind: "split" as const, ...split },
+                { kind: "parallel" as const, ...branches.parallel },
+                { kind: "decide" as const, ...branches.decide },
               ].map((b) => (
                 <button
                   key={b.kind}
@@ -343,6 +338,7 @@ const Editor = ({ saved }: { saved?: Doc<"automations"> }) => {
             trigger={draft.trigger}
             steps={shown}
             companyOf={companyOf}
+            choices={choices}
             selected={search.step}
             editable={!history}
             statuses={statuses}
