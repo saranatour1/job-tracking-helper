@@ -200,6 +200,31 @@ const leadForApplication = authedQuery({
   },
 })
 
+// How well each of the person's applications fit, for the badges on the board: the
+// first lead tied to each one, if a loop found it or Jev checked its link.
+const fits = authedQuery({
+  args: {},
+  returns: v.array(
+    v.object({ applicationId: v.id("applications"), fit: v.number(), isFit: v.boolean() })
+  ),
+  handler: async (ctx) => {
+    const applications = await ctx.db
+      .query("applications")
+      .withIndex("by_userId", (q) => q.eq("userId", ctx.userId))
+      .take(500)
+    const out = []
+    for (const application of applications) {
+      const lead = await ctx.db
+        .query("jobLeads")
+        .withIndex("by_applicationId", (q) => q.eq("applicationId", application._id))
+        .first()
+      if (lead?.userId === ctx.userId)
+        out.push({ applicationId: application._id, fit: lead.fit, isFit: lead.verdict === "fit" })
+    }
+    return out
+  },
+})
+
 const ownLead = async (ctx: MutationCtx, userId: Id<"users">, leadId: Id<"jobLeads">) => {
   const lead = await ctx.db.get("jobLeads", leadId)
   if (!lead || lead.userId !== userId) throw new ConvexError("That job doesn't exist.")
@@ -310,6 +335,7 @@ const sourceStatus = authedQuery({
 export const publicApi = {
   list,
   leadForApplication,
+  fits,
   create,
   update,
   setActive,
