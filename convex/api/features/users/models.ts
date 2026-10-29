@@ -10,6 +10,9 @@ export const User = type({
   "imageId?": arkId("_storage"),
   // Set when someone saves or skips Preferences, so first run only sends them there once.
   "onboardedAt?": "number",
+  // How many days applications stay in the Trash before they're deleted; 0 keeps them.
+  // Unset means 90.
+  "trashDays?": "number",
 })
 
 export const usersTable = defineTable(arkOutputToConvex(User))

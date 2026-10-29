@@ -286,7 +286,8 @@ const applicationFor = async (
   const id = picked ?? found.context?.applicationId
   if (!id) throw new ConvexError("This run isn't about an application, so there was none to use.")
   const application = await ctx.db.get("applications", id)
-  if (application?.userId !== found.userId) throw new ConvexError("That application is gone.")
+  if (application?.userId !== found.userId || application.trashedAt !== undefined)
+    throw new ConvexError("That application is gone.")
   return application
 }
 

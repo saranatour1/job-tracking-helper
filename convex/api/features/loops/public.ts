@@ -276,7 +276,17 @@ const track = authedMutation({
   returns: v.id("applications"),
   handler: async (ctx, { leadId }) => {
     const lead = await ownLead(ctx, ctx.userId, leadId)
-    if (lead.applicationId) return lead.applicationId
+    const linked = lead.applicationId && (await ctx.db.get("applications", lead.applicationId))
+    if (linked) {
+      // Tracking a role again brings its application back out of the Trash or Archive.
+      if (linked.trashedAt !== undefined || linked.archivedAt !== undefined)
+        await ctx.db.patch("applications", linked._id, {
+          trashedAt: undefined,
+          archivedAt: undefined,
+          purgeAt: undefined,
+        })
+      return linked._id
+    }
     const applicationId = await ctx.db.insert("applications", {
       userId: ctx.userId,
       company: lead.company,

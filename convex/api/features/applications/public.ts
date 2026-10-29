@@ -12,16 +12,21 @@ import { Application, Details, limits, priorityFor, type Status, statuses } from
 const list = authedQuery({
   args: {},
   returns: v.array(schema.doc("applications")),
-  handler: (ctx) =>
-    ctx.db
-      .query("applications")
-      .withIndex("by_userId", (q) => q.eq("userId", ctx.userId))
-      .collect(),
+  // The Trash keeps its own list (`trashed`); archived ones are here, marked.
+  handler: async (ctx) =>
+    (
+      await ctx.db
+        .query("applications")
+        .withIndex("by_userId", (q) => q.eq("userId", ctx.userId))
+        .collect()
+    ).filter((a) => a.trashedAt === undefined),
 })
 
 const own = async (ctx: MutationCtx, userId: Id<"users">, id: Id<"applications">) => {
   const application = await ctx.db.get("applications", id)
   if (application?.userId !== userId) throw new ConvexError("That application isn't yours.")
+  if (application.trashedAt !== undefined)
+    throw new ConvexError("That application is in the Trash.")
   return application
 }
 

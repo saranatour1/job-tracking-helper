@@ -11,4 +11,13 @@ crons.interval("start due workflows", { minutes: 5 }, internal.automations.start
 // Fetches the job boards due a refresh, so the shared catalog stays current.
 crons.interval("refresh job boards", { hours: 1 }, internal.jobs.refreshDue, {})
 
+// Moves applications archived a month ago to the Trash, and empties each person's Trash
+// of what's older than they keep.
+crons.daily(
+  "sweep archive and trash",
+  { hourUTC: 3, minuteUTC: 17 },
+  internal.applications.sweep,
+  {}
+)
+
 export default crons

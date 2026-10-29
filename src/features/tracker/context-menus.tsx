@@ -31,10 +31,13 @@ const copyLink = (search: Record<string, string>) =>
 export const ApplicationMenu = ({
   a,
   onOpen,
+  onTrashed,
   children,
 }: {
   a: Application
   onOpen: () => void
+  // So the board can close the application's panel when it goes to the Trash.
+  onTrashed?: () => void
   children: React.ReactNode
 }) => {
   const source = useSource()
@@ -62,6 +65,22 @@ export const ApplicationMenu = ({
             ))}
           </ContextMenuSubPopup>
         </ContextMenuSub>
+        {source.real && (
+          <>
+            <ContextMenuItem onClick={() => source.archive(a.id, !a.archived)}>
+              {a.archived ? "Back to the board" : "Archive"}
+            </ContextMenuItem>
+            <ContextMenuItem
+              variant="destructive"
+              onClick={() => {
+                source.trash(a.id)
+                onTrashed?.()
+              }}
+            >
+              Move to Trash
+            </ContextMenuItem>
+          </>
+        )}
         <ContextMenuSeparator />
         <ContextMenuLinkItem render={<Link to="/jobs" search={{ q: a.company }} />}>
           Roles at {a.company} in Jobs

@@ -12,6 +12,15 @@ export const applicationsTable = defineTable(
       "notes?": Note.array(),
       // Numbered 1, 2, 3… per person, shown as APP-1. Set by the server.
       "number?": "number",
+      // Off the board but kept; after 30 days it moves to the Trash.
+      "archivedAt?": "number",
+      // In the Trash, out of everything else.
+      "trashedAt?": "number",
+      // When the Trash deletes it for good, from the owner's `trashDays`; unset keeps it.
+      "purgeAt?": "number",
     })
   )
-).index("by_userId", ["userId"])
+)
+  .index("by_userId", ["userId"])
+  .index("by_archivedAt", ["archivedAt"])
+  .index("by_purgeAt", ["purgeAt"])

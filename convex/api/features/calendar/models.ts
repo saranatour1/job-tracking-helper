@@ -63,7 +63,10 @@ export const calendarEventsTable = defineTable({
   kind: v.union(...eventKinds.map((k) => v.literal(k))),
   // Set by the server when a guest books it on one of your booking pages.
   bookingPageId: v.optional(v.id("bookingPages")),
-}).index("by_userId_and_key", ["userId", "key"])
+})
+  .index("by_userId_and_key", ["userId", "key"])
+  // An application's events, to unlink them when it's deleted.
+  .index("by_userId_and_applicationId", ["userId", "applicationId"])
 
 // How someone reads their calendar. Unset fields follow the browser and kloq's defaults.
 export const vCalendarSettings = {

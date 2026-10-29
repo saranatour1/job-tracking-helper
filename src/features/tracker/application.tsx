@@ -1,7 +1,10 @@
 import {
+  Archive02Icon,
+  ArchiveArrowUpIcon,
   ArrowExpand01Icon,
   Building03Icon,
   Cancel01Icon,
+  Delete02Icon,
   CheckmarkCircle02Icon,
   CircleIcon,
   Note01Icon,
@@ -406,16 +409,62 @@ export const ApplicationDetail = ({ id }: { id: string }) => {
 
 // The same application in the pipeline's side panel, with a link to the full page.
 export const ApplicationPeek = ({ id, onClose }: { id: string; onClose: () => void }) => {
-  const a = useSource().applications.find((x) => x.id === id)
-  if (!a) return null
+  const source = useSource()
+  const a = source.applications.find((x) => x.id === id)
+  // Trashed, deleted, or a link to someone else's: say so, and keep a way out.
+  if (!a)
+    return (
+      <div className="flex h-full flex-col">
+        <header className="flex h-10 shrink-0 items-center border-b px-3">
+          <Button
+            variant="ghost"
+            size="icon-xs"
+            className="ms-auto"
+            aria-label="Close panel"
+            onClick={onClose}
+          >
+            <HugeiconsIcon icon={Cancel01Icon} />
+          </Button>
+        </header>
+        <p className="text-muted-foreground p-5 text-sm">
+          This application isn't on the board anymore.
+        </p>
+      </div>
+    )
   return (
     <div className="flex h-full flex-col">
       <header className="flex h-10 shrink-0 items-center gap-1 border-b px-3">
         <span className="text-muted-foreground text-xs">{a.code ?? a.company}</span>
+        {source.real && (
+          <>
+            <Button
+              variant="ghost"
+              size="xs"
+              className="ms-auto"
+              aria-label={a.archived ? "Back to the board" : "Archive"}
+              title={a.archived ? "Back to the board" : "Archive"}
+              onClick={() => source.archive(a.id, !a.archived)}
+            >
+              <HugeiconsIcon icon={a.archived ? ArchiveArrowUpIcon : Archive02Icon} />
+            </Button>
+            <Button
+              variant="ghost"
+              size="xs"
+              aria-label="Move to Trash"
+              title="Move to Trash"
+              onClick={() => {
+                source.trash(a.id)
+                onClose()
+              }}
+            >
+              <HugeiconsIcon icon={Delete02Icon} />
+            </Button>
+          </>
+        )}
         <Button
           variant="ghost"
           size="xs"
-          className="ms-auto"
+          className={source.real ? undefined : "ms-auto"}
           render={<Link to="/pipeline/$id" params={{ id: a.id }} />}
         >
           <HugeiconsIcon icon={ArrowExpand01Icon} /> Open
