@@ -10,6 +10,7 @@ import {
   type QueryCtx,
 } from "../../../_generated/server"
 import { workLog } from "../../../lib/log"
+import { fillFromJob } from "../applications/public"
 import { rowLimits } from "../preferences/rows"
 import { criteriaOf, descriptionsOf, queriesOf } from "../workflows/fit"
 import { profileOf } from "../workflows/judge"
@@ -208,12 +209,39 @@ const leadByUrlKey = internalQuery({
 })
 
 // Saves a pasted link's verdict on the shortlist, fit or not: they asked about it.
+// A pasted link opens on the shortlist. One checked for an application goes straight to
+// it instead: already in the tracker, with the application filled in from the job.
 const savePasted = internalMutation({
-  args: { userId: v.id("users"), lead: vPasted, credits: v.number() },
+  args: {
+    userId: v.id("users"),
+    lead: vPasted,
+    credits: v.number(),
+    applicationId: v.optional(v.id("applications")),
+  },
   returns: v.id("jobLeads"),
-  handler: async (ctx, { userId, lead, credits }) => {
+  handler: async (ctx, { userId, lead, credits, applicationId }) => {
     if (credits) await addUsage(ctx, "firecrawl", credits, false)
-    return ctx.db.insert("jobLeads", { ...lead, userId, status: "new" })
+    const leadId = await ctx.db.insert("jobLeads", {
+      ...lead,
+      userId,
+      status: applicationId ? "applied" : "new",
+      ...(applicationId && { applicationId }),
+    })
+    if (applicationId) await fillFromJob(ctx, userId, applicationId, lead)
+    return leadId
+  },
+})
+
+// Links a job someone already checked to the application they just added for it.
+const attachLead = internalMutation({
+  args: { leadId: v.id("jobLeads"), applicationId: v.id("applications") },
+  returns: v.null(),
+  handler: async (ctx, { leadId, applicationId }) => {
+    const lead = await ctx.db.get("jobLeads", leadId)
+    if (!lead || lead.applicationId) return null
+    await ctx.db.patch("jobLeads", leadId, { applicationId, status: "applied" })
+    await fillFromJob(ctx, lead.userId, applicationId, lead)
+    return null
   },
 })
 
@@ -438,4 +466,5 @@ export const internalApi = {
   profileForLink,
   leadByUrlKey,
   savePasted,
+  attachLead,
 }

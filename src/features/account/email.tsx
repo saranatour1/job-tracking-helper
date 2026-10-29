@@ -336,7 +336,8 @@ const switches: {
   key: (typeof allowKeys)[number]
   label: string
   description: string
-  needs?: "setup"
+  // What has to be on first: the token's setup permissions, or Jev reading mail.
+  needs?: "setup" | "read"
 }[] = [
   {
     key: "send",
@@ -362,6 +363,13 @@ const switches: {
     description:
       "So it can tell an interview invite from a rejection. Off, mail is matched by sender only.",
   },
+  {
+    key: "move",
+    label: "Let Jev move cards",
+    description:
+      "When an email clearly says interview, offer or rejection, Jev moves the application and tells you, with an undo. Off, it only suggests.",
+    needs: "read",
+  },
 ]
 
 // Each switch is checked on the server before the app acts, so off means it can't.
@@ -370,25 +378,30 @@ const OnYourBehalf = ({ connection }: { connection: Connection }) => {
   const canSetUp = connection.access.workers && connection.access.routing
   return (
     <Section title="On your behalf">
-      {switches.map(({ key, label, description, needs }) => (
-        <Row
-          key={key}
-          label={label}
-          htmlFor={`allow-${key}`}
-          description={
-            needs && !canSetUp
-              ? "Your token can't do this yet: it needs Workers Scripts and Email Routing Rules."
-              : description
-          }
-        >
-          <Switch
-            id={`allow-${key}`}
-            checked={connection.allow[key]}
-            disabled={Boolean(needs) && !canSetUp}
-            onCheckedChange={(value) => void setAllow({ key, value })}
-          />
-        </Row>
-      ))}
+      {switches.map(({ key, label, description, needs }) => {
+        const blocked =
+          needs === "setup"
+            ? !canSetUp &&
+              "Your token can't do this yet: it needs Workers Scripts and Email Routing Rules."
+            : needs === "read" &&
+              !connection.allow.read &&
+              "Turn on “Let Jev read your mail” first."
+        return (
+          <Row
+            key={key}
+            label={label}
+            htmlFor={`allow-${key}`}
+            description={blocked || description}
+          >
+            <Switch
+              id={`allow-${key}`}
+              checked={connection.allow[key] ?? false}
+              disabled={Boolean(blocked)}
+              onCheckedChange={(value) => void setAllow({ key, value })}
+            />
+          </Row>
+        )
+      })}
     </Section>
   )
 }

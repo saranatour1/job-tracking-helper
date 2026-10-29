@@ -12,6 +12,8 @@ export const {
   shortlist,
   lead,
   leadForApplication,
+  enrichApplication,
+  attachLead,
   respond,
   track,
   sourceStatus,

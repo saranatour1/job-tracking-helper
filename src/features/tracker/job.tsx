@@ -48,7 +48,7 @@ export const JobContext = ({ a }: { a: Application }) => {
               {lead.fit}% · {lead.verdict === "notFit" ? "Not a fit" : "A fit for you"}
             </Badge>
             <span className="text-muted-foreground">
-              {data.loopName ? `Found by ${data.loopName}` : "You pasted this link"}
+              {data.loopName ? `Found by ${data.loopName}` : "Checked by Jev from its link"}
             </span>
           </div>
           <p className="text-[13px] leading-relaxed">{lead.reasons.join(" ")}</p>
