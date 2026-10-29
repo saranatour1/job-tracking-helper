@@ -1,10 +1,10 @@
 import { api } from "@convex/_generated/api"
-import type { Id } from "@convex/_generated/dataModel"
 import { rowLimits } from "@convex/api/features/preferences/rows"
 import { Cancel01Icon, LinkSquare02Icon, Search01Icon } from "@hugeicons/core-free-icons"
 import { HugeiconsIcon } from "@hugeicons/react"
 import { Link, useNavigate, useSearch } from "@tanstack/react-router"
 import { usePaginatedQuery, useQuery } from "convex-helpers/react/cache/hooks"
+import { useMemo } from "react"
 
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
@@ -39,7 +39,8 @@ type JobsSearch = {
   remote?: boolean
   compact?: boolean
   posted?: Posted
-  board?: Id<"jobBoards">
+  // A board id; the server finds nothing for one that isn't.
+  board?: string
   fits?: boolean
 }
 
@@ -52,10 +53,7 @@ export const jobsSearch = (search: Record<string, unknown>): JobsSearch => ({
     typeof search.posted === "string" && search.posted in postedWithin
       ? (search.posted as Posted)
       : undefined,
-  board:
-    typeof search.board === "string" && search.board
-      ? (search.board as Id<"jobBoards">)
-      : undefined,
+  board: typeof search.board === "string" && search.board ? search.board : undefined,
   fits: search.fits === true ? true : undefined,
 })
 
@@ -125,11 +123,18 @@ export const Jobs = () => {
   const set = (patch: Partial<JobsSearch>) =>
     void navigate({ search: (prev) => ({ ...prev, ...patch }), replace: true })
   const now = Date.now()
-  // Rounded to the hour, so the same filters ask the same question for a while.
-  const since = posted ? Math.floor(now / hour) * hour - postedWithin[posted] * dayMs : undefined
+  // Fixed when the filter is picked, so a re-render past the hour doesn't reset the list;
+  // rounded to the hour so the same filters ask the same question for a while.
+  const since = useMemo(
+    () =>
+      posted ? Math.floor(Date.now() / hour) * hour - postedWithin[posted] * dayMs : undefined,
+    [posted]
+  )
   const stats = useQuery(api.jobs.stats)
   const companies = useQuery(api.jobs.companies) ?? []
-  const company = companies.find((c) => c.boardId === board)
+  // Keyed by board, since two boards can share a company name.
+  const options = companies.map((c) => ({ value: c.boardId, label: c.company, jobs: c.jobs }))
+  const company = options.find((o) => o.value === board) ?? null
   const tags = usePaginatedQuery(api.preferences.tags, {}, { initialNumItems: rowLimits.tags })
   const suggestions = [
     ...new Set(
@@ -241,11 +246,10 @@ export const Jobs = () => {
                 </SelectPopup>
               </Select>
               <Combobox
-                items={companies.map((c) => c.company)}
-                value={company?.company ?? null}
-                onValueChange={(name) =>
-                  set({ board: companies.find((c) => c.company === name)?.boardId })
-                }
+                items={options}
+                value={company}
+                isItemEqualToValue={(a, b) => a.value === b.value}
+                onValueChange={(picked) => set({ board: picked?.value })}
               >
                 <ComboboxInput
                   size="sm"
@@ -256,11 +260,11 @@ export const Jobs = () => {
                 <ComboboxPopup>
                   <ComboboxEmpty>No company matches.</ComboboxEmpty>
                   <ComboboxList>
-                    {(name: string) => (
-                      <ComboboxItem key={name} value={name}>
-                        {name}
+                    {(option: (typeof options)[number]) => (
+                      <ComboboxItem key={option.value} value={option}>
+                        {option.label}
                         <span className="text-muted-foreground ms-auto ps-3 text-xs tabular-nums">
-                          {companies.find((c) => c.company === name)?.jobs}
+                          {option.jobs}
                         </span>
                       </ComboboxItem>
                     )}
@@ -295,7 +299,8 @@ export const Jobs = () => {
                   </div>
                 </div>
               ))}
-            {jobs.status !== "LoadingFirstPage" && jobs.results.length === 0 && (
+            {/* Only once every page is read: a filter can empty one page with more behind it. */}
+            {jobs.status === "Exhausted" && jobs.results.length === 0 && (
               <p className="text-muted-foreground px-2.5 py-3 text-[13px]">
                 {fits
                   ? "No roles marked as a fit yet. Your loops, and links you check, add them."

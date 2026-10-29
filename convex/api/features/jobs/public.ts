@@ -13,7 +13,8 @@ const search = authedQuery({
   args: {
     q: v.optional(v.string()),
     remoteOnly: v.optional(v.boolean()),
-    boardId: v.optional(v.id("jobBoards")),
+    // A string, since it comes from the address; a bad one finds nothing instead of throwing.
+    boardId: v.optional(v.string()),
     // Posted at or after this time; the page rounds it to the hour so it caches.
     since: v.optional(v.number()),
     fits: v.optional(v.boolean()),
@@ -21,17 +22,22 @@ const search = authedQuery({
   },
   returns: paginationResultValidator(vJobRow),
   handler: async (ctx, { q, remoteOnly, boardId, since, fits, paginationOpts }) => {
+    const board = boardId ? ctx.db.normalizeId("jobBoards", boardId) : null
+    if (boardId && !board) return { page: [], isDone: true, continueCursor: "" }
     const words = q?.trim().slice(0, 200)
     const keep = (job: Doc<"jobs">) =>
       (!remoteOnly || job.remote) &&
-      (!boardId || job.boardId === boardId) &&
+      (!board || job.boardId === board) &&
       (since === undefined || job.postedAt >= since)
 
     if (fits) {
+      // Best first across every page; the other filters only thin each page out.
       const page = await ctx.db
         .query("jobLeads")
-        .withIndex("by_userId_and_urlKey", (i) => i.eq("userId", ctx.userId))
-        .filter((f) => f.eq(f.field("verdict"), "fit"))
+        .withIndex("by_userId_and_verdict_and_fit", (i) =>
+          i.eq("userId", ctx.userId).eq("verdict", "fit")
+        )
+        .order("desc")
         .paginate(paginationOpts)
       const rows = []
       for (const lead of page.page) {
@@ -48,7 +54,6 @@ const search = authedQuery({
           continue
         rows.push(rowOf(job, lead))
       }
-      rows.sort((a, b) => (b.fit ?? 0) - (a.fit ?? 0))
       return { ...page, page: rows }
     }
 
@@ -58,20 +63,21 @@ const search = authedQuery({
           .withSearchIndex("search_text", (s) => {
             const found = s.search("text", words)
             const remote = remoteOnly ? found.eq("remote", true) : found
-            return boardId ? remote.eq("boardId", boardId) : remote
+            return board ? remote.eq("boardId", board) : remote
           })
+          // After the search index, which only ranks Convex's top 1024 matches, so very
+          // common words with "Posted" can miss recent roles that ranked lower.
           .filter((f) => (since === undefined ? true : f.gte(f.field("postedAt"), since)))
           .paginate(paginationOpts)
-      : boardId
+      : board
         ? await jobs
-            .withIndex("by_boardId_and_seenAt", (i) => i.eq("boardId", boardId))
-            .order("desc")
-            .filter((f) =>
-              f.and(
-                remoteOnly ? f.eq(f.field("remote"), true) : true,
-                since === undefined ? true : f.gte(f.field("postedAt"), since)
-              )
+            .withIndex("by_boardId_and_postedAt", (i) =>
+              since === undefined
+                ? i.eq("boardId", board)
+                : i.eq("boardId", board).gte("postedAt", since)
             )
+            .order("desc")
+            .filter((f) => (remoteOnly ? f.eq(f.field("remote"), true) : true))
             .paginate(paginationOpts)
         : remoteOnly
           ? await jobs
