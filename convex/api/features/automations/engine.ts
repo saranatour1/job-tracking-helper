@@ -106,15 +106,16 @@ const valuesOf = async (ctx: MutationCtx, found: Doc<"automationRuns">) => {
     .query("calendarSettings")
     .withIndex("by_userId", (q) => q.eq("userId", found.userId))
     .unique()
-  return {
-    "workflow.name": found.name,
-    "run.date": new Intl.DateTimeFormat("en-US", {
-      timeZone: settings?.timeZone,
+  const zone = settings?.timeZone
+  const date = (ms: number, time = false) =>
+    new Intl.DateTimeFormat("en-US", {
+      timeZone: zone,
       weekday: "short",
       month: "short",
       day: "numeric",
-    }).format(Date.now()),
-  }
+      ...(time && { hour: "numeric", minute: "2-digit", timeZoneName: "short" }),
+    }).format(ms)
+  return { values: { "workflow.name": found.name, "run.date": date(Date.now()) }, date }
 }
 
 /** Does one block. Returns what it said or did, and how long to wait after it. */
@@ -124,7 +125,7 @@ const doBlock = async (
   at: string,
   block: Block
 ): Promise<{ output: string; waitMs: number }> => {
-  const values = await valuesOf(ctx, found)
+  const { values, date } = await valuesOf(ctx, found)
   switch (block.kind) {
     case "notify": {
       await ctx.runMutation(components.notifications.lib.notify, {
@@ -155,7 +156,7 @@ const doBlock = async (
     }
     case "wait": {
       const waitMs = block.minutes * 60_000
-      return { output: `Until ${new Date(Date.now() + waitMs).toISOString()}`, waitMs }
+      return { output: `Until ${date(Date.now() + waitMs, true)}`, waitMs }
     }
   }
 }

@@ -27,6 +27,8 @@ import { Route as AppPipelineIndexRouteImport } from './routes/_app/pipeline/ind
 import { Route as AppPipelineIdRouteImport } from './routes/_app/pipeline/$id'
 import { Route as AppViewsIndexRouteImport } from './routes/_app/views/index'
 import { Route as AppViewsNewRouteImport } from './routes/_app/views/new'
+import { Route as AppWorkflowsIndexRouteImport } from './routes/_app/workflows/index'
+import { Route as AppWorkflowsIdRouteImport } from './routes/_app/workflows/$id'
 
 const AppRoute = AppRouteImport.update({
   id: '/_app',
@@ -116,6 +118,16 @@ const AppViewsNewRoute = AppViewsNewRouteImport.update({
   path: '/views/new',
   getParentRoute: () => AppRoute,
 } as any)
+const AppWorkflowsIndexRoute = AppWorkflowsIndexRouteImport.update({
+  id: '/workflows/',
+  path: '/workflows/',
+  getParentRoute: () => AppRoute,
+} as any)
+const AppWorkflowsIdRoute = AppWorkflowsIdRouteImport.update({
+  id: '/workflows/$id',
+  path: '/workflows/$id',
+  getParentRoute: () => AppRoute,
+} as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof AppIndexRoute
@@ -131,9 +143,11 @@ export interface FileRoutesByFullPath {
   '/goals/$id': typeof AppGoalsIdRoute
   '/pipeline/$id': typeof AppPipelineIdRoute
   '/views/new': typeof AppViewsNewRoute
+  '/workflows/$id': typeof AppWorkflowsIdRoute
   '/goals/': typeof AppGoalsIndexRoute
   '/pipeline/': typeof AppPipelineIndexRoute
   '/views/': typeof AppViewsIndexRoute
+  '/workflows/': typeof AppWorkflowsIndexRoute
 }
 export interface FileRoutesByTo {
   '/': typeof AppIndexRoute
@@ -149,9 +163,11 @@ export interface FileRoutesByTo {
   '/goals/$id': typeof AppGoalsIdRoute
   '/pipeline/$id': typeof AppPipelineIdRoute
   '/views/new': typeof AppViewsNewRoute
+  '/workflows/$id': typeof AppWorkflowsIdRoute
   '/goals': typeof AppGoalsIndexRoute
   '/pipeline': typeof AppPipelineIndexRoute
   '/views': typeof AppViewsIndexRoute
+  '/workflows': typeof AppWorkflowsIndexRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
@@ -170,9 +186,11 @@ export interface FileRoutesById {
   '/_app/goals/$id': typeof AppGoalsIdRoute
   '/_app/pipeline/$id': typeof AppPipelineIdRoute
   '/_app/views/new': typeof AppViewsNewRoute
+  '/_app/workflows/$id': typeof AppWorkflowsIdRoute
   '/_app/goals/': typeof AppGoalsIndexRoute
   '/_app/pipeline/': typeof AppPipelineIndexRoute
   '/_app/views/': typeof AppViewsIndexRoute
+  '/_app/workflows/': typeof AppWorkflowsIndexRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
@@ -190,9 +208,11 @@ export interface FileRouteTypes {
     | '/goals/$id'
     | '/pipeline/$id'
     | '/views/new'
+    | '/workflows/$id'
     | '/goals/'
     | '/pipeline/'
     | '/views/'
+    | '/workflows/'
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/'
@@ -208,9 +228,11 @@ export interface FileRouteTypes {
     | '/goals/$id'
     | '/pipeline/$id'
     | '/views/new'
+    | '/workflows/$id'
     | '/goals'
     | '/pipeline'
     | '/views'
+    | '/workflows'
   id:
     | '__root__'
     | '/_app'
@@ -228,9 +250,11 @@ export interface FileRouteTypes {
     | '/_app/goals/$id'
     | '/_app/pipeline/$id'
     | '/_app/views/new'
+    | '/_app/workflows/$id'
     | '/_app/goals/'
     | '/_app/pipeline/'
     | '/_app/views/'
+    | '/_app/workflows/'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
@@ -367,6 +391,20 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AppViewsNewRouteImport
       parentRoute: typeof AppRoute
     }
+    '/_app/workflows/': {
+      id: '/_app/workflows/'
+      path: '/workflows'
+      fullPath: '/workflows/'
+      preLoaderRoute: typeof AppWorkflowsIndexRouteImport
+      parentRoute: typeof AppRoute
+    }
+    '/_app/workflows/$id': {
+      id: '/_app/workflows/$id'
+      path: '/workflows/$id'
+      fullPath: '/workflows/$id'
+      preLoaderRoute: typeof AppWorkflowsIdRouteImport
+      parentRoute: typeof AppRoute
+    }
   }
 }
 
@@ -381,9 +419,11 @@ interface AppRouteChildren {
   AppGoalsIdRoute: typeof AppGoalsIdRoute
   AppPipelineIdRoute: typeof AppPipelineIdRoute
   AppViewsNewRoute: typeof AppViewsNewRoute
+  AppWorkflowsIdRoute: typeof AppWorkflowsIdRoute
   AppGoalsIndexRoute: typeof AppGoalsIndexRoute
   AppPipelineIndexRoute: typeof AppPipelineIndexRoute
   AppViewsIndexRoute: typeof AppViewsIndexRoute
+  AppWorkflowsIndexRoute: typeof AppWorkflowsIndexRoute
 }
 
 const AppRouteChildren: AppRouteChildren = {
@@ -397,9 +437,11 @@ const AppRouteChildren: AppRouteChildren = {
   AppGoalsIdRoute: AppGoalsIdRoute,
   AppPipelineIdRoute: AppPipelineIdRoute,
   AppViewsNewRoute: AppViewsNewRoute,
+  AppWorkflowsIdRoute: AppWorkflowsIdRoute,
   AppGoalsIndexRoute: AppGoalsIndexRoute,
   AppPipelineIndexRoute: AppPipelineIndexRoute,
   AppViewsIndexRoute: AppViewsIndexRoute,
+  AppWorkflowsIndexRoute: AppWorkflowsIndexRoute,
 }
 
 const AppRouteWithChildren = AppRoute._addFileChildren(AppRouteChildren)

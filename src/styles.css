@@ -4,6 +4,7 @@
 @import "@fontsource-variable/public-sans";
 @import "@fontsource-variable/figtree";
 @import "./components/kloq/styles/kloq.css";
+@import "@xyflow/react/dist/base.css";
 
 @custom-variant dark (&:is(.dark *));
 
@@ -213,4 +214,11 @@
   .section-progress > span {
     transition: none;
   }
+}
+
+/* The workflow builder's canvas, in the app's tokens. */
+.workflow-canvas {
+  --xy-background-color: var(--background);
+  --xy-background-pattern-dots-color-default: var(--border);
+  --xy-edge-stroke-default: var(--border);
 }
