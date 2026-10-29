@@ -58,10 +58,7 @@ const choices = authedQuery({
   handler: async (ctx, { automationId }) => {
     const automation = await ctx.db.get("automations", automationId)
     if (automation?.userId !== ctx.userId) return {}
-    const asked = automation.steps.flatMap((step, i) =>
-      step.kind === "decide" ? [{ at: String(i), answers: step.paths.map((p) => p.label) }] : []
-    )
-    return asked.length ? choicesOf(ctx, automationId, asked) : {}
+    return choicesOf(ctx, automationId, automation.steps)
   },
 })
 

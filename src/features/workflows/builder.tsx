@@ -25,16 +25,19 @@ import { StepSettings } from "./step-settings"
 import { blank, type Draft, type TemplateName, templates } from "./templates"
 import { branchAt, insert, remove, type Slot } from "./tree"
 
-// `template` and `loop` only matter for a new workflow: what it starts as.
+// `template` and `loop` only matter for a new workflow: what it starts as. A top-level
+// step's place is a number in the address, so it reads ?step=2: the router quotes
+// strings that look like numbers.
 export type WorkflowSearch = {
-  step?: string
+  step?: string | number
   tab?: "history"
   run?: string
   template?: TemplateName
   loop?: string
 }
 export const workflowSearch = (search: Record<string, unknown>): WorkflowSearch => ({
-  step: typeof search.step === "string" ? search.step : undefined,
+  step:
+    typeof search.step === "string" || typeof search.step === "number" ? search.step : undefined,
   tab: search.tab === "history" ? "history" : undefined,
   run: typeof search.run === "string" ? search.run : undefined,
   template:
@@ -145,7 +148,16 @@ const Editor = ({ saved }: { saved?: Doc<"automations"> }) => {
   const search = useSearch({ from: "/_app/workflows/$id" })
   const navigate = useNavigate({ from: "/workflows/$id" })
   const write = (patch: WorkflowSearch) =>
-    void navigate({ search: (s) => ({ ...s, ...patch }), replace: true })
+    void navigate({
+      search: (s) => ({
+        ...s,
+        ...patch,
+        ...(typeof patch.step === "string" &&
+          /^\d+$/.test(patch.step) && { step: Number(patch.step) }),
+      }),
+      replace: true,
+    })
+  const at = search.step === undefined ? undefined : String(search.step)
   const save = useMutation(api.automations.save)
   const runNow = useMutation(api.automations.runNow)
   const stopRun = useMutation(api.automations.stopRun)
@@ -352,7 +364,7 @@ const Editor = ({ saved }: { saved?: Doc<"automations"> }) => {
             steps={shown}
             nameOf={nameOf}
             choices={choices}
-            selected={search.step}
+            selected={at}
             editable={!history}
             statuses={statuses}
             onSelect={(at) => write({ step: at })}
@@ -363,7 +375,7 @@ const Editor = ({ saved }: { saved?: Doc<"automations"> }) => {
             onInsert={onInsert}
           />
         </div>
-        {search.step && (
+        {at && (
           <aside className="bg-background w-80 shrink-0 border-s max-md:absolute max-md:inset-y-0 max-md:end-0 max-md:z-20 max-md:w-full">
             <ScrollArea className="h-full">
               <div className="grid gap-3 p-4">
@@ -376,10 +388,10 @@ const Editor = ({ saved }: { saved?: Doc<"automations"> }) => {
                   Close
                 </Button>
                 {history && run ? (
-                  <LogEntry run={run} at={search.step} />
+                  <LogEntry run={run} at={at} />
                 ) : (
                   <StepSettings
-                    at={search.step}
+                    at={at}
                     trigger={draft.trigger}
                     steps={draft.steps}
                     zone={zone}

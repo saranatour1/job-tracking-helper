@@ -209,9 +209,10 @@ export const factsOf = async (ctx: QueryCtx, found: Doc<"automationRuns">) => {
     .withIndex("by_userId", (q) => q.eq("userId", found.userId))
     .unique()
   const zone = settings?.timeZone
-  const date = (ms: number, time = false) =>
+  // In the Calendar's zone; without one, the zone a fact came with, or else UTC.
+  const date = (ms: number, time = false, where = zone) =>
     new Intl.DateTimeFormat("en-US", {
-      timeZone: zone,
+      timeZone: where,
       weekday: "short",
       month: "short",
       day: "numeric",
@@ -257,7 +258,7 @@ export const factsOf = async (ctx: QueryCtx, found: Doc<"automationRuns">) => {
     const booking = await ctx.db.get("calendarEvents", context.bookingId)
     if (booking?.userId === found.userId) {
       values["booking.title"] = booking.title
-      values["booking.when"] = date(Date.parse(booking.start), true)
+      values["booking.when"] = date(Date.parse(booking.start), true, zone ?? booking.timeZone)
     }
   }
   return {

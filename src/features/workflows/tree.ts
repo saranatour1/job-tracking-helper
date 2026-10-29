@@ -76,6 +76,7 @@ export const branchAt = (
         }
       : {
           kind,
+          id: crypto.randomUUID(),
           question: "Is this worth following up on?",
           paths: [
             { label: "Yes", steps: [first] },

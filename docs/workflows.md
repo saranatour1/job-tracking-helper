@@ -42,8 +42,8 @@ and the rules both go by. For the rest of the app, see [flows.md](flows.md).
    the selected step's settings on the right.
 2. Add a step: drag a block onto a line's **+**, press the **+** and pick one, or click a
    block on the left to add it at the end. Branches only go at the top level.
-3. Click a card to open its settings. The address keeps the selection (`?step=…`), so a
-   reload or a shared link opens the same step.
+3. Click a card to open its settings. The address keeps the selection (`?step=2`, or
+   `?step=2.1.0` on a path), so a reload or a shared link opens the same step.
 4. Click the trigger card to change what starts the workflow:
    - **Run now:** only when you press Run now.
    - **On a schedule:** a time, some weekdays, and a time zone.
@@ -79,7 +79,8 @@ and the rules both go by. For the rest of the app, see [flows.md](flows.md).
    done or failed. Click a card to see what that step did ("Moved Frontend Engineer at
    Hooli to Offer", "Jev answered “Yes”", "Jev judged 50 roles: 1 fit.").
 3. The lines under an Ask Jev step show how often Jev picked each answer, across all
-   runs.
+   runs. The counts stay with the step when it moves; renaming an answer starts its
+   count again.
 4. **Stop run** stops a run that's still going. Steps still running or waiting are
    marked failed with "Stopped.", and a loop run that Find roles started stops too.
 5. A Notify me line in the **Inbox** opens its run.
@@ -153,16 +154,17 @@ workflow's journal is cleaned up. Each workflow keeps its newest 50 runs.
 
 ## Placeholders
 
-| Names                                                                 | When they're there                                                  |
-| --------------------------------------------------------------------- | ------------------------------------------------------------------- |
-| `{workflow.name}`, `{run.date}`                                       | Always                                                              |
-| `{application.company}`, `{application.role}`, `{application.status}` | The trigger is about an application, or (in Add note) one is picked |
-| `{status.from}`, `{status.to}`                                        | An application moves                                                |
-| `{email.subject}`, `{email.from}`, `{email.kind}`                     | An email comes in                                                   |
-| `{booking.title}`, `{booking.when}`                                   | Someone books time                                                  |
-| `{loop.name}`, `{roles.judged}`, `{roles.fits}`                       | After a Find roles step                                             |
+| Names                                                                 | When they're there                                                                  |
+| --------------------------------------------------------------------- | ----------------------------------------------------------------------------------- |
+| `{workflow.name}`, `{run.date}`                                       | Always                                                                              |
+| `{application.company}`, `{application.role}`, `{application.status}` | The trigger is about an application, or (in Add note) one is picked                 |
+| `{status.from}`, `{status.to}`                                        | An application moves                                                                |
+| `{email.subject}`, `{email.from}`, `{email.kind}`                     | An email comes in                                                                   |
+| `{booking.title}`, `{booking.when}`                                   | Someone books time; the time is in your Calendar's zone, or else the booking page's |
+| `{loop.name}`, `{roles.judged}`, `{roles.fits}`                       | After a Find roles step                                                             |
 
-A name the run doesn't know stays as written. Placeholders are only ever replaced with
+Dates and times are in your Calendar's zone. A name the run doesn't know stays as
+written. Placeholders are only ever replaced with
 text; nothing in them runs.
 
 ## Limits
