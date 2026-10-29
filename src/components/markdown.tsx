@@ -23,6 +23,9 @@ export const Markdown = ({ children, className }: { children: string; className?
     <ReactMarkdown
       remarkPlugins={[remarkGfm]}
       rehypePlugins={[rehypeSanitize]}
+      // A pasted page's own Markdown can carry images, which can track who reads them.
+      disallowedElements={["img"]}
+      unwrapDisallowed
       components={{
         a: ({ href, children }) => (
           <a href={href} target="_blank" rel="noopener noreferrer nofollow">
