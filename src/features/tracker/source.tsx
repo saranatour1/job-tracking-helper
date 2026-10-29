@@ -105,6 +105,7 @@ export const fromDoc = (d: Doc<"applications">): Application => ({
 
 export const ConvexSource = ({ children }: { children: React.ReactNode }) => {
   const docs = useQuery(api.applications.list)
+  const fits = new Map((useQuery(api.loops.fits) ?? []).map((f) => [f.applicationId, f]))
   const setStatus = useMutation(api.applications.setStatus)
   const update = useMutation(api.applications.update)
   const addNote = useMutation(api.applications.addNote)
@@ -115,7 +116,10 @@ export const ConvexSource = ({ children }: { children: React.ReactNode }) => {
   const id = (s: string) => s as Id<"applications">
   const source: Source = {
     real: true,
-    applications: (docs ?? []).map(fromDoc),
+    applications: (docs ?? []).map((d) => {
+      const fit = fits.get(d._id)
+      return { ...fromDoc(d), ...(fit && { fit: fit.fit, isFit: fit.isFit }) }
+    }),
     loaded: docs !== undefined,
     setStatus: (s, status) => void setStatus({ id: id(s), status }),
     update: (s, patch) => void update({ id: id(s), ...patch }),

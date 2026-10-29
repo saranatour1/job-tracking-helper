@@ -60,3 +60,5 @@ export const jobLeadsTable = defineTable(arkOutputToConvex(JobLead))
   .index("by_userId_and_feedback", ["userId", "feedback"])
   // The job behind an application, for its side panel.
   .index("by_applicationId", ["applicationId"])
+  // The fits of someone's applications, for the badges on the board.
+  .index("by_userId_and_applicationId", ["userId", "applicationId"])

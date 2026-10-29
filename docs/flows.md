@@ -191,6 +191,10 @@ of 50 fields, with no names twice.
    priority, date or company, with Active, Saved and All tabs. Filters, display and the
    open application live in the address (`?tab=`, `?filters=`, `?display=`, `?app=`), so
    a link opens the same view.
+   Each card shows the company, the role, and badges: its status, how well it fits
+   (when a loop found it or Jev checked its link, from `api.loops.fits`), Active or
+   Quiet for open applications (no news in two weeks), then priority, labels,
+   location, mail and tasks done.
 3. **Move one.** Drag a card to another column, use "Move to" on right-click, or the
    Status picker. All go through `api.applications.setStatus`, which adds to the
    history and may start workflows.

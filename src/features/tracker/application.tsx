@@ -40,6 +40,7 @@ import {
   priorityLabels,
   statusLabels,
 } from "./data"
+import { PriorityBadge, TopBadges } from "./badges"
 import { PriorityIcon, StatusIcon } from "./icons"
 import { JobContext } from "./job"
 import { MailLine, Suggestion, useMailFor } from "./mail"
@@ -227,8 +228,17 @@ const Content = ({ a, properties }: { a: Application; properties?: React.ReactNo
     <>
       <div className="flex flex-col gap-2">
         <div>
-          <h2 className="font-heading text-xl font-semibold">{a.role}</h2>
-          <p className="text-muted-foreground text-sm">{a.company}</p>
+          <h2 className="font-heading text-xl leading-tight font-semibold text-balance">
+            {a.role}
+          </h2>
+          <p className="text-muted-foreground text-sm">
+            {a.company}
+            {a.location.trim() && ` · ${a.location}`}
+          </p>
+        </div>
+        <div className="flex flex-wrap gap-1">
+          <TopBadges a={a} />
+          <PriorityBadge a={a} />
         </div>
         <p className="text-foreground/90 text-[13px] leading-relaxed">{a.description}</p>
       </div>
