@@ -96,7 +96,7 @@ const runNow = authedMutation({
   },
 })
 
-const lastRunOf = (ctx: MutationCtx, loopId: Id<"loops">) =>
+export const lastRunOf = (ctx: MutationCtx, loopId: Id<"loops">) =>
   ctx.db
     .query("loopRuns")
     .withIndex("by_loopId_and_startedAt", (q) => q.eq("loopId", loopId))

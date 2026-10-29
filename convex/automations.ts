@@ -11,6 +11,7 @@ export const {
   runPath,
   decisionOf,
   answered,
+  foundRoles,
   emailOf,
   emailed,
   onEvent,
@@ -22,4 +23,4 @@ export const {
   ended,
   startDue,
 } = engineApi
-export const { askJev, emailMe } = actionsApi
+export const { askJev, sendMail } = actionsApi

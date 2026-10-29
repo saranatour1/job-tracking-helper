@@ -7,6 +7,15 @@ import { useQuery } from "convex-helpers/react/cache/hooks"
 import { startTransition, useActionState } from "react"
 
 import { Button } from "@/components/ui/button"
+import {
+  Menu,
+  MenuGroup,
+  MenuGroupLabel,
+  MenuItem,
+  MenuPopup,
+  MenuSeparator,
+  MenuTrigger,
+} from "@/components/ui/menu"
 import { ScrollArea } from "@/components/ui/scroll-area"
 import { Switch } from "@/components/ui/switch"
 import { messageOf, Section } from "@/features/account/settings"
@@ -15,6 +24,7 @@ import { PageIntro, pageBody } from "@/features/shell/page-body"
 import { cn } from "@/lib/utils"
 
 import { triggerInfo } from "./blocks"
+import { templateNames, templates } from "./templates"
 
 const Row = ({ automation }: { automation: Doc<"automations"> }) => {
   const counts = useQuery(api.automations.counts, { automationId: automation._id })
@@ -104,16 +114,42 @@ export const Workflows = () => {
       <PageHeader
         crumbs={[{ label: "Workflows" }]}
         actions={
-          <Button size="sm" render={<Link to="/workflows/$id" params={{ id: "new" }} />}>
-            New workflow
-          </Button>
+          <Menu>
+            <MenuTrigger render={<Button size="sm" />}>New workflow</MenuTrigger>
+            <MenuPopup align="end" className="min-w-64">
+              <MenuItem render={<Link to="/workflows/$id" params={{ id: "new" }} />}>
+                Start from scratch
+              </MenuItem>
+              <MenuSeparator />
+              <MenuGroup>
+                <MenuGroupLabel>Templates</MenuGroupLabel>
+                {templateNames.map((name) => (
+                  <MenuItem
+                    key={name}
+                    render={
+                      <Link
+                        to="/workflows/$id"
+                        params={{ id: "new" }}
+                        search={{ template: name }}
+                      />
+                    }
+                  >
+                    <span className="flex flex-col">
+                      <span>{templates[name].label}</span>
+                      <span className="text-muted-foreground text-xs">{templates[name].hint}</span>
+                    </span>
+                  </MenuItem>
+                ))}
+              </MenuGroup>
+            </MenuPopup>
+          </Menu>
         }
       />
       <ScrollArea className="min-h-0 flex-1">
         <main className={cn(pageBody, "max-w-3xl gap-8")}>
           <PageIntro
             title="Workflows"
-            description="Steps that run for you: on a schedule or when you press Run now. Build one from blocks; it never runs code."
+            description="Steps that run for you: on a schedule, when an email or a booking comes in, when an application moves, or when you press Run now. Build one from blocks, or start from a template; it never runs code."
           />
           {automations && (
             <Section title="Yours">

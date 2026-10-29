@@ -1,6 +1,6 @@
 import { api } from "@convex/_generated/api"
 import type { Doc, Id } from "@convex/_generated/dataModel"
-import { problemOf, type Step, type Trigger } from "@convex/api/features/automations/validators"
+import { problemOf, type Step } from "@convex/api/features/automations/validators"
 import { HugeiconsIcon } from "@hugeicons/react"
 import { useForm, useStore } from "@tanstack/react-form"
 import { useNavigate, useSearch } from "@tanstack/react-router"
@@ -22,22 +22,31 @@ import { cn } from "@/lib/utils"
 import { blockKinds, blocks, branches } from "./blocks"
 import { Canvas, type InsertKind, type StepStatus } from "./canvas"
 import { StepSettings } from "./step-settings"
+import { blank, type Draft, type TemplateName, templates } from "./templates"
 import { branchAt, insert, remove, type Slot } from "./tree"
 
-export type WorkflowSearch = { step?: string; tab?: "history"; run?: string }
+// `template` and `loop` only matter for a new workflow: what it starts as.
+export type WorkflowSearch = {
+  step?: string
+  tab?: "history"
+  run?: string
+  template?: TemplateName
+  loop?: string
+}
 export const workflowSearch = (search: Record<string, unknown>): WorkflowSearch => ({
   step: typeof search.step === "string" ? search.step : undefined,
   tab: search.tab === "history" ? "history" : undefined,
   run: typeof search.run === "string" ? search.run : undefined,
+  template:
+    typeof search.template === "string" && search.template in templates
+      ? (search.template as TemplateName)
+      : undefined,
+  loop: typeof search.loop === "string" ? search.loop : undefined,
 })
 
-type Draft = { name: string; trigger: Trigger; steps: Step[]; active: boolean }
-const blank: Draft = {
-  name: "New workflow",
-  trigger: { kind: "manual" },
-  steps: [blocks.notify.make()],
-  active: true,
-}
+// The browser's zone, not the Calendar's: the Calendar's arrives later, and a draft that
+// changed under you would look edited.
+const browserZone = Intl.DateTimeFormat().resolvedOptions().timeZone
 
 // JSON with keys in order, so a saved workflow (whose fields Convex may reorder) still
 // compares equal to the draft it was saved from.
@@ -142,11 +151,14 @@ const Editor = ({ saved }: { saved?: Doc<"automations"> }) => {
   const stopRun = useMutation(api.automations.stopRun)
   const remove_ = useMutation(api.automations.remove)
   const applications = useQuery(api.applications.list) ?? []
+  const loops = useQuery(api.loops.list) ?? []
   const zone = useCalendarSettings()?.timeZone ?? Intl.DateTimeFormat().resolvedOptions().timeZone
 
   const initial: Draft = saved
     ? { name: saved.name, trigger: saved.trigger, steps: saved.steps, active: saved.active }
-    : blank
+    : search.template
+      ? templates[search.template].make(browserZone, search.loop)
+      : blank
   const form = useForm({ defaultValues: initial })
   const draft = useStore(form.store, (s) => s.values)
   const dirty = stable(draft) !== stable(initial)
@@ -204,7 +216,8 @@ const Editor = ({ saved }: { saved?: Doc<"automations"> }) => {
       slot.split === undefined ? String(slot.index) : `${slot.split}.${slot.path}.${slot.index}`
     write({ step: at })
   }
-  const companyOf = (id: string) => applications.find((a) => a._id === id)?.company
+  const nameOf = (id: string) =>
+    applications.find((a) => a._id === id)?.company ?? loops.find((l) => l._id === id)?.name
   const shown = run ? run.steps : draft.steps
 
   // The left panel: name, on/off, and the blocks (or, in History, the runs). A sheet
@@ -337,7 +350,7 @@ const Editor = ({ saved }: { saved?: Doc<"automations"> }) => {
           <Canvas
             trigger={draft.trigger}
             steps={shown}
-            companyOf={companyOf}
+            nameOf={nameOf}
             choices={choices}
             selected={search.step}
             editable={!history}
@@ -371,6 +384,7 @@ const Editor = ({ saved }: { saved?: Doc<"automations"> }) => {
                     steps={draft.steps}
                     zone={zone}
                     applications={applications}
+                    loops={loops}
                     onTrigger={(trigger) => form.setFieldValue("trigger", trigger)}
                     onSteps={setSteps}
                     onDone={() => write({ step: undefined })}

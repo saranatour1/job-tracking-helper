@@ -50,25 +50,24 @@ const askJev = internalAction({
 })
 
 /**
- * Emails a Notify me step's message to the person, from their own Cloudflare connection,
- * the way the test email goes. Returns why it couldn't, or null.
+ * Sends an email step from the person's own Cloudflare connection, the way the test email
+ * goes: Notify me to themselves, Send email to whoever it names. Returns why it couldn't,
+ * or null.
  */
-const emailMe = internalAction({
+const sendMail = internalAction({
   args: { runId: v.id("automationRuns"), at: v.string() },
   returns: v.union(v.string(), v.null()),
   handler: async (ctx, { runId, at }): Promise<string | null> => {
-    const mail: { userId: Id<"users">; subject: string; text: string } | null = await ctx.runQuery(
-      internal.automations.emailOf,
-      { runId, at }
-    )
+    const mail: { userId: Id<"users">; to?: string; subject: string; text: string } | null =
+      await ctx.runQuery(internal.automations.emailOf, { runId, at })
     if (!mail) return null
     try {
       const { row, k, details, token: apiToken } = await openConnection(ctx, mail.userId)
       if (!row.allow.send)
-        throw new ConvexError("Turn on “Send email” under Account to get workflow emails.")
+        throw new ConvexError("Turn on “Send email” under Account to let workflows send email.")
       const email = {
         from: details.fromAddress,
-        to: [row.userEmail || details.fromAddress],
+        to: [mail.to ?? (row.userEmail || details.fromAddress)],
         subject: mail.subject,
         text: mail.text,
       }
@@ -100,4 +99,4 @@ const emailMe = internalAction({
   },
 })
 
-export const actionsApi = { askJev, emailMe }
+export const actionsApi = { askJev, sendMail }

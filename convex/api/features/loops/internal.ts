@@ -21,9 +21,10 @@ import { blankTemplate, defaultShow, type LoopAnswers, type Provider, switchAt }
 import { nextRunAt } from "./schedule"
 import { providerIds } from "./validators"
 
-// Starts one run of a loop: a queued row for the Runs tab, then the workflow.
-export const startRun = async (ctx: MutationCtx, loop: Doc<"loops">) => {
-  const runId = await ctx.db.insert("loopRuns", {
+// A queued run of a loop, for the Runs tab. A workflow's Find roles step runs it as part
+// of its own run; otherwise `startRun` starts it.
+export const insertLoopRun = (ctx: MutationCtx, loop: Doc<"loops">) =>
+  ctx.db.insert("loopRuns", {
     loopId: loop._id,
     userId: loop.userId,
     loopName: loop.name,
@@ -35,6 +36,10 @@ export const startRun = async (ctx: MutationCtx, loop: Doc<"loops">) => {
     credits: 0,
     startedAt: Date.now(),
   })
+
+// Starts one run of a loop: a queued row, then the workflow.
+export const startRun = async (ctx: MutationCtx, loop: Doc<"loops">) => {
+  const runId = await insertLoopRun(ctx, loop)
   const workflowId = await workflow.start(
     ctx,
     internal.workflows.findJobs,
@@ -123,7 +128,8 @@ export const profileForLink = internalQuery({
 // Plans a run from its loop and the person's Preferences, and picks the sources that
 // still have credits this month, in order, for finding new boards.
 const beginRun = internalMutation({
-  args: { runId: v.id("loopRuns") },
+  // The run's own workflow, which Jev's judgments wake when they're done.
+  args: { runId: v.id("loopRuns"), workflowId: v.string() },
   returns: v.union(
     v.null(),
     v.object({
@@ -139,7 +145,7 @@ const beginRun = internalMutation({
       sources: v.array(vProvider),
     })
   ),
-  handler: async (ctx, { runId }) => {
+  handler: async (ctx, { runId, workflowId }) => {
     const run = await ctx.db.get("loopRuns", runId)
     const loop = run?.loopId && (await ctx.db.get("loops", run.loopId))
     if (!run || !loop) return null
@@ -151,7 +157,7 @@ const beginRun = internalMutation({
       if (!usage?.exhaustedAt && (usage?.used ?? 0) < monthlyCredits(provider) * switchAt)
         sources.push(provider)
     }
-    await ctx.db.patch("loopRuns", runId, { status: "running" })
+    await ctx.db.patch("loopRuns", runId, { status: "running", workflowId })
     return {
       userId: loop.userId,
       profile,

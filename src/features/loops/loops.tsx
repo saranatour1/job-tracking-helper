@@ -28,6 +28,7 @@ import {
   PlusSignIcon,
   RepeatIcon,
   StopIcon,
+  WorkflowSquare03Icon,
 } from "@hugeicons/core-free-icons"
 import { HugeiconsIcon } from "@hugeicons/react"
 import { useForm, useStore } from "@tanstack/react-form"
@@ -182,6 +183,7 @@ const LoopTile = ({ loop, runs, prefs }: { loop: Loop; runs: Run[]; prefs: Prefs
   const runNow = useMutation(api.loops.runNow)
   const stopRun = useMutation(api.loops.stopRun)
   const remove = useMutation(api.loops.remove)
+  const navigate = useNavigate()
   const [status, act] = useActionState(
     async (_: string | undefined, action: "run" | "stop" | "pause" | "resume" | "remove") => {
       try {
@@ -274,6 +276,17 @@ const LoopTile = ({ loop, runs, prefs }: { loop: Loop; runs: Run[]; prefs: Prefs
             onClick={() => startTransition(() => act("resume"))}
           />
         )}
+        <IconAction
+          label="Use in a workflow"
+          icon={WorkflowSquare03Icon}
+          onClick={() =>
+            void navigate({
+              to: "/workflows/$id",
+              params: { id: "new" },
+              search: { template: "jobSearch", loop: loop._id },
+            })
+          }
+        />
         <IconAction
           label="Remove loop"
           icon={Delete02Icon}

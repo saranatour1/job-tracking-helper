@@ -90,6 +90,23 @@ describe("paths", () => {
   })
 })
 
+describe("Send email and Find roles", () => {
+  const manual = { kind: "manual" as const }
+  const email = (to: string) => ({ kind: "sendEmail" as const, to, subject: "Hi", text: "Hello" })
+  it("wants one address, or a placeholder for one", () => {
+    expect(problemOf("x", manual, [email("sam@example.com")])).toBeUndefined()
+    expect(problemOf("x", manual, [email("{email.from}")])).toBeUndefined()
+    expect(problemOf("x", manual, [email("sam@example.com, kim@example.com")])).toBeDefined()
+    expect(problemOf("x", manual, [email("Sam <sam@example.com>")])).toBeDefined()
+    expect(problemOf("x", manual, [email(" ")])).toBeDefined()
+  })
+  it("wants a loop picked", () => {
+    expect(problemOf("x", manual, [{ kind: "findRoles", loopId: "" as never }])).toBe(
+      "Pick a loop to find roles with."
+    )
+  })
+})
+
 describe("the trigger's application", () => {
   const move = { kind: "move" as const, to: "offer" as const }
   it("needs one picked unless the trigger brings one", () => {

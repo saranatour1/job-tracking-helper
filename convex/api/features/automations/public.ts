@@ -99,6 +99,10 @@ const save = authedMutation({
         const application = await ctx.db.get("applications", step.applicationId)
         if (application?.userId !== ctx.userId)
           throw new ConvexError("That application isn't yours, or it's gone.")
+      } else if (step.kind === "findRoles") {
+        const loop = await ctx.db.get("loops", step.loopId)
+        if (loop?.userId !== ctx.userId)
+          throw new ConvexError("That loop isn't yours, or it's gone.")
       }
     const row = { ...automation, name, nextRunAt: nextRunOf(automation.trigger, automation.active) }
     if (id) {
