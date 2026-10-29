@@ -69,6 +69,7 @@ const sealed = internalQuery({
     v.object({
       details: v.string(),
       token: v.string(),
+      tokenAddedAt: v.number(),
       allow: arkOutputToConvex(Allow),
       userEmail: v.optional(v.string()),
     })
@@ -77,8 +78,8 @@ const sealed = internalQuery({
     const connection = await connectionOf(ctx, userId)
     if (!connection) return null
     const user = await ctx.db.get("users", userId)
-    const { details, token, allow } = connection
-    return { details, token, allow, userEmail: user?.email }
+    const { details, token, tokenAddedAt, allow } = connection
+    return { details, token, tokenAddedAt, allow, userEmail: user?.email }
   },
 })
 

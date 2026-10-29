@@ -1,6 +1,8 @@
 import { api } from "@convex/_generated/api"
 import type { allowKeys } from "@convex/api/features/email/models"
 import { Connect } from "@convex/api/features/email/validators"
+import { SquareLock02Icon } from "@hugeicons/core-free-icons"
+import { HugeiconsIcon } from "@hugeicons/react"
 import { useForm } from "@tanstack/react-form"
 import type { FunctionReturnType } from "convex/server"
 import { useAction, useMutation, useQuery } from "convex/react"
@@ -39,7 +41,6 @@ const fields = [
     hint: "On your Cloudflare dashboard's overview, under API.",
     type: "text",
   },
-  { name: "apiToken", label: "API token", hint: tokenHelp, type: "password" },
   {
     name: "fromAddress",
     label: "Send from",
@@ -48,15 +49,26 @@ const fields = [
   },
 ] as const
 
-// The connection as rows on the card, like the profile. The token field always starts
-// empty: a saved token never comes back to the browser, so any change means pasting
-// it again, and it's checked with Cloudflare before it replaces the old one.
+// Drawn here: nothing about a saved token, not even its length, comes from the server.
+const mask = "••••••••••••••••"
+
+// Keep password managers and spellcheck away from what's typed here.
+const quiet = {
+  autoComplete: "off",
+  spellCheck: false,
+  "data-1p-ignore": true,
+  "data-lpignore": "true",
+} as const
+
+// The connection as rows on the card, like the profile. A saved token is locked: it
+// can't be viewed or copied, only replaced. Changing the account or address reuses
+// it on the server, and a new token is checked with Cloudflare before it replaces it.
 const ConnectForm = ({ connection }: { connection: Connection | null }) => {
   const connect = useAction(api.email.connect)
   const [error, save] = useActionState(async (_: string | undefined, value: Connect) => {
     try {
       await connect(value)
-      form.reset({ ...value, apiToken: "" })
+      form.reset({ ...value, apiToken: "", replacing: false })
     } catch (cause) {
       return messageOf(cause)
     }
@@ -66,10 +78,42 @@ const ConnectForm = ({ connection }: { connection: Connection | null }) => {
       accountId: connection?.accountId ?? "",
       apiToken: "",
       fromAddress: connection?.fromAddress ?? "",
+      // Whether the token field is open for a new token. Always open before connecting.
+      replacing: !connection,
     },
     validators: { onSubmit: Connect },
-    onSubmit: ({ value }) => startTransition(() => save(value)),
+    onSubmit: ({ value: { replacing, ...input } }) =>
+      startTransition(() => save(replacing ? input : { ...input, apiToken: "" })),
   })
+
+  const textRow = ({ name, label, hint, type }: (typeof fields)[number]) => (
+    <form.Field key={name} name={name}>
+      {(field) => (
+        <Row
+          label={label}
+          htmlFor={`email-${name}`}
+          description={
+            field.state.meta.errors.length ? (
+              <span className="text-destructive">{field.state.meta.errors[0]?.message}</span>
+            ) : (
+              hint
+            )
+          }
+        >
+          <Input
+            id={`email-${name}`}
+            type={type}
+            className="sm:w-64"
+            {...quiet}
+            value={field.state.value}
+            onBlur={field.handleBlur}
+            onChange={(e) => field.handleChange(e.target.value)}
+            aria-invalid={field.state.meta.errors.length > 0}
+          />
+        </Row>
+      )}
+    </form.Field>
+  )
 
   return (
     <form
@@ -80,46 +124,88 @@ const ConnectForm = ({ connection }: { connection: Connection | null }) => {
         void form.handleSubmit()
       }}
     >
-      {fields.map(({ name, label, hint, type }) => (
-        <form.Field key={name} name={name}>
-          {(field) => (
-            <Row
-              label={label}
-              htmlFor={`email-${name}`}
-              description={
-                field.state.meta.errors.length ? (
-                  <span className="text-destructive">{field.state.meta.errors[0]?.message}</span>
-                ) : name === "apiToken" && connection ? (
-                  <>
-                    Added {dateOf(connection.tokenAddedAt)}. Paste a new one to replace it.{" "}
-                    {tokenHelp}
-                  </>
-                ) : (
-                  hint
-                )
-              }
+      {textRow(fields[0])}
+      <form.Subscribe selector={(s) => s.values.replacing}>
+        {(replacing) =>
+          replacing ? (
+            <form.Field
+              name="apiToken"
+              validators={{
+                onSubmit: ({ value }) =>
+                  value.trim() ? undefined : { message: "Paste a Cloudflare API token." },
+              }}
             >
-              <Input
-                id={`email-${name}`}
-                type={type}
-                className="sm:w-64"
-                placeholder={
-                  name === "apiToken" && connection ? `•••• ${connection.tokenHint}` : ""
-                }
-                // Keep password managers and spellcheck away from the token.
-                autoComplete="off"
-                spellCheck={false}
-                data-1p-ignore
-                data-lpignore="true"
-                value={field.state.value}
-                onBlur={field.handleBlur}
-                onChange={(e) => field.handleChange(e.target.value)}
-                aria-invalid={field.state.meta.errors.length > 0}
-              />
+              {(field) => (
+                <Row
+                  label="API token"
+                  htmlFor="email-apiToken"
+                  description={
+                    field.state.meta.errors.length ? (
+                      <span className="text-destructive">
+                        {field.state.meta.errors[0]?.message}
+                      </span>
+                    ) : (
+                      tokenHelp
+                    )
+                  }
+                >
+                  <Input
+                    id="email-apiToken"
+                    type="password"
+                    className="sm:w-64"
+                    {...quiet}
+                    value={field.state.value}
+                    onBlur={field.handleBlur}
+                    onChange={(e) => field.handleChange(e.target.value)}
+                    aria-invalid={field.state.meta.errors.length > 0}
+                  />
+                  {connection && (
+                    <Button
+                      type="button"
+                      size="sm"
+                      variant="ghost"
+                      onClick={() => {
+                        form.setFieldValue("apiToken", "")
+                        form.setFieldValue("replacing", false)
+                      }}
+                    >
+                      Cancel
+                    </Button>
+                  )}
+                </Row>
+              )}
+            </form.Field>
+          ) : (
+            <Row
+              label="API token"
+              description={`Locked. Added ${connection ? dateOf(connection.tokenAddedAt) : ""}. It can't be viewed or copied, only replaced.`}
+            >
+              <div className="relative sm:w-44">
+                <Input
+                  readOnly
+                  tabIndex={-1}
+                  aria-label="Saved API token, locked"
+                  className="pe-8 select-none"
+                  value={mask}
+                />
+                <HugeiconsIcon
+                  icon={SquareLock02Icon}
+                  className="text-muted-foreground pointer-events-none absolute end-2.5 top-1/2 size-4 -translate-y-1/2"
+                />
+              </div>
+              <Button
+                type="button"
+                size="sm"
+                variant="outline"
+                onClick={() => form.setFieldValue("replacing", true)}
+              >
+                Replace
+              </Button>
             </Row>
-          )}
-        </form.Field>
-      ))}
+          )
+        }
+      </form.Subscribe>
+      {textRow(fields[1])}
       <Row
         label={connection ? "Save changes" : "Connect Cloudflare"}
         description={
@@ -127,8 +213,10 @@ const ConnectForm = ({ connection }: { connection: Connection | null }) => {
             <span role="alert" className="text-destructive">
               {error}
             </span>
+          ) : connection ? (
+            "Checked with Cloudflare using your saved token, unless you replace it."
           ) : (
-            "The token is checked with Cloudflare, encrypted, and never shown again."
+            "The token is checked with Cloudflare, encrypted, and locked."
           )
         }
       >

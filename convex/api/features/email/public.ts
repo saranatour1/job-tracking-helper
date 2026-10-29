@@ -6,7 +6,7 @@ import { components, internal } from "../../../_generated/api"
 import { action, type ActionCtx } from "../../../_generated/server"
 import { arkOutputToConvex, arkToConvex } from "../../../lib/ark"
 import { arkMutation, authedMutation, authedQuery } from "../../../lib/functions"
-import { hintOf, open, seal } from "../../../lib/secrets"
+import { open, seal } from "../../../lib/secrets"
 import { accessOf, tokenStatus } from "./cloudflare"
 import { aad, keys, openJson } from "./internal"
 import { Access, Allow, allowKeys, Details, Sent } from "./models"
@@ -39,7 +39,6 @@ const connection = authedQuery({
     v.object({
       accountId: v.string(),
       fromAddress: v.string(),
-      tokenHint: v.string(),
       tokenAddedAt: v.number(),
       access: arkOutputToConvex(Access),
       allow: arkOutputToConvex(Allow),
@@ -72,7 +71,6 @@ const connection = authedQuery({
     return {
       accountId: details.accountId,
       fromAddress: details.fromAddress,
-      tokenHint: details.tokenHint,
       tokenAddedAt: row.tokenAddedAt,
       access: row.access,
       allow: row.allow,
@@ -90,8 +88,10 @@ const connection = authedQuery({
   },
 })
 
-// Connecting and replacing a token are the same: the new token is checked with
-// Cloudflare before it replaces anything, then sealed. It's never sent back.
+// Connecting, replacing the token and changing the account or address are the same.
+// With no token pasted, the saved one is opened here and reused; it never goes to the
+// browser, not even in part. Either way the token is checked with Cloudflare against
+// the account before anything is saved.
 const connect = action({
   args: arkToConvex(Connect),
   returns: v.null(),
@@ -102,7 +102,11 @@ const connect = action({
     const { ok } = await limits.limit(ctx, "connectEmail", { key: userId })
     if (!ok) throw new ConvexError("Too many tries. Wait an hour and try again.")
     const k = await secretKeys()
-    const status = await tokenStatus(input.accountId, input.apiToken)
+    const saved = input.apiToken ? null : await ctx.runQuery(internal.email.sealed, { userId })
+    const apiToken =
+      input.apiToken || (saved && (await open(k, saved.token, aad.token(userId)).catch(() => null)))
+    if (!apiToken) throw new ConvexError("Paste a Cloudflare API token.")
+    const status = await tokenStatus(input.accountId, apiToken)
     if (status !== "active")
       throw new ConvexError(
         status === "invalid"
@@ -110,20 +114,19 @@ const connect = action({
           : `Cloudflare says that token is ${status}.`
       )
     const domain = input.fromAddress.split("@")[1]!
-    const { zoneId, access } = await accessOf(input.accountId, input.apiToken, domain)
+    const { zoneId, access } = await accessOf(input.accountId, apiToken, domain)
     if (access.sending === false)
       throw new ConvexError(`Email Sending isn't turned on for ${domain} in Cloudflare yet.`)
     const details: typeof Details.infer = {
       accountId: input.accountId,
       fromAddress: input.fromAddress,
-      tokenHint: hintOf(input.apiToken),
       zoneId,
     }
     await ctx.runMutation(internal.email.save, {
       userId,
       details: await seal(k, JSON.stringify(details), aad.details(userId)),
-      token: await seal(k, input.apiToken, aad.token(userId)),
-      tokenAddedAt: Date.now(),
+      token: saved ? saved.token : await seal(k, apiToken, aad.token(userId)),
+      tokenAddedAt: saved ? saved.tokenAddedAt : Date.now(),
       access,
     })
     return null

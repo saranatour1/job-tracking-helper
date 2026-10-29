@@ -62,6 +62,3 @@ export const open = async (keys: Keys, sealed: string, aad: string) => {
 
 /** Whether a sealed value uses an older key and should be resealed. */
 export const isStale = (keys: Keys, sealed: string) => !sealed.startsWith(`${keys.current}.`)
-
-/** The last 4 characters, to tell tokens apart without showing them. */
-export const hintOf = (secret: string) => secret.slice(-4)

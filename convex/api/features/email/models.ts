@@ -6,8 +6,6 @@ import { arkId, arkOutputToConvex } from "../../../lib/ark"
 export const Details = type({
   accountId: "string",
   fromAddress: "string",
-  // The token's last 4 characters, to tell tokens apart.
-  tokenHint: "string",
   "zoneId?": "string",
 })
 export type Details = typeof Details.infer

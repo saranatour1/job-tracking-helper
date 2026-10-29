@@ -3,8 +3,9 @@ import { type } from "arktype"
 const trimmed = type("string.trim")
 
 // What someone pastes to connect their Cloudflare account. Safe to import from the frontend.
-// Each rule has a fixed message: arktype's default repeats the value, and a token
-// must never end up on screen or in a server error log.
+// An empty token keeps the saved one, so the account or address can change without
+// pasting it again. Each rule has a fixed message: arktype's default repeats the
+// value, and a token must never end up on screen or in a server error log.
 export const Connect = type({
   accountId: trimmed.to(
     type(/^[0-9a-f]{32}$/).configure({
@@ -12,7 +13,7 @@ export const Connect = type({
     })
   ),
   apiToken: trimmed.to(
-    type(/^[\w-]{20,200}$/).configure({ message: "Paste a Cloudflare API token." })
+    type(/^$|^[\w-]{20,200}$/).configure({ message: "Paste a Cloudflare API token." })
   ),
   fromAddress: trimmed.to(
     type("string.email").configure({ message: "Use an email address on your domain." })
