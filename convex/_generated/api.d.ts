@@ -17,6 +17,7 @@ import type * as api_features_auth_internal from "../api/features/auth/internal.
 import type * as api_features_auth_public from "../api/features/auth/public.js";
 import type * as api_features_automations_actions from "../api/features/automations/actions.js";
 import type * as api_features_automations_counts from "../api/features/automations/counts.js";
+import type * as api_features_automations_describe from "../api/features/automations/describe.js";
 import type * as api_features_automations_engine from "../api/features/automations/engine.js";
 import type * as api_features_automations_fire from "../api/features/automations/fire.js";
 import type * as api_features_automations_models from "../api/features/automations/models.js";
@@ -120,6 +121,7 @@ declare const fullApi: ApiFromModules<{
   "api/features/auth/public": typeof api_features_auth_public;
   "api/features/automations/actions": typeof api_features_automations_actions;
   "api/features/automations/counts": typeof api_features_automations_counts;
+  "api/features/automations/describe": typeof api_features_automations_describe;
   "api/features/automations/engine": typeof api_features_automations_engine;
   "api/features/automations/fire": typeof api_features_automations_fire;
   "api/features/automations/models": typeof api_features_automations_models;

@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vite-plus/test"
 
-import { fill, nextScheduledAt, problemOf, stepAt } from "./validators"
+import { fill, holds, nextScheduledAt, problemOf, stepAt } from "./validators"
 
 describe("fill", () => {
   it("fills known names and leaves the rest as written", () => {
@@ -104,6 +104,29 @@ describe("Send email and Find roles", () => {
     expect(problemOf("x", manual, [{ kind: "findRoles", loopId: "" as never }])).toBe(
       "Pick a loop to find roles with."
     )
+  })
+})
+
+describe("Only go on if", () => {
+  it("checks a fact's value", () => {
+    expect(holds({ test: "set", value: "" }, "Hooli")).toBe(true)
+    expect(holds({ test: "set", value: "" }, " ")).toBe(false)
+    expect(holds({ test: "notSet", value: "" }, undefined)).toBe(true)
+    expect(holds({ test: "is", value: "applied" }, "Applied")).toBe(true)
+    expect(holds({ test: "isNot", value: "applied" }, "Offer")).toBe(true)
+    expect(holds({ test: "atLeast", value: "1" }, "3")).toBe(true)
+    expect(holds({ test: "atLeast", value: "1" }, "0")).toBe(false)
+    expect(holds({ test: "atLeast", value: "1" }, undefined)).toBe(false)
+  })
+  it("wants a known fact, and a value where one is needed", () => {
+    const manual = { kind: "manual" as const }
+    const check = (fact: string, test: "is" | "atLeast", value: string) => [
+      { kind: "onlyIf" as const, fact, test, value },
+    ]
+    expect(problemOf("x", manual, check("roles.fits", "atLeast", "1"))).toBeUndefined()
+    expect(problemOf("x", manual, check("process.env", "is", "x"))).toBe("Pick what to check.")
+    expect(problemOf("x", manual, check("roles.fits", "atLeast", "many"))).toBeDefined()
+    expect(problemOf("x", manual, check("application.status", "is", " "))).toBeDefined()
   })
 })
 

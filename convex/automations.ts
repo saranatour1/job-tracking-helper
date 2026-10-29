@@ -12,6 +12,7 @@ export const {
   decisionOf,
   answered,
   foundRoles,
+  firstLoopOf,
   emailOf,
   emailed,
   onEvent,
@@ -23,4 +24,4 @@ export const {
   ended,
   startDue,
 } = engineApi
-export const { askJev, sendMail } = actionsApi
+export const { askJev, sendMail, describe } = actionsApi

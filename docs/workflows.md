@@ -12,7 +12,7 @@ and the rules both go by. For the rest of the app, see [flows.md](flows.md).
 - **Trigger:** what starts a run: Run now, a schedule, an email being sorted, an
   application moving, or someone booking time.
 - **Block:** one thing to do: Notify me, Find roles, Send email, Add note, Move
-  application, Add calendar event, Wait.
+  application, Add calendar event, Only go on if, Wait.
 - **Branch:** a step that holds 2 to 4 paths of blocks, one level deep. A **split** runs
   every path side by side; **Ask Jev** runs only the path for Jev's answer.
 - **Run:** one go through the steps (`automationRuns`). It copies the steps when it
@@ -30,11 +30,34 @@ and the rules both go by. For the rest of the app, see [flows.md](flows.md).
    trigger, its number of steps, and how its runs went.
 2. Press **New workflow** and pick:
    - **Start from scratch:** a Run now trigger and one Notify me step.
-   - **A template:** Morning job search, Follow up after applying, or Interview email
-     (`src/features/workflows/templates.ts`). It opens as an unsaved draft
-     (`/workflows/new?template=…`).
+   - **A template** (`src/features/workflows/templates.ts`), which opens as an unsaved
+     draft (`/workflows/new?template=…`):
+
+     | Group           | Template                  | What it does                                                                   |
+     | --------------- | ------------------------- | ------------------------------------------------------------------------------ |
+     | Find roles      | Morning job search        | Runs a loop each weekday; tells you only when something fits                   |
+     | Find roles      | Weekly review             | Half an hour each Monday to go over your board                                 |
+     | After you apply | Follow up after applying  | A week after you apply, if it's still at Applied: a follow-up on your calendar |
+     | After you apply | Note when it goes quiet   | Three weeks with no news: a note, and a nudge                                  |
+     | After you apply | Interview prep            | Research time when an application moves to Interviewing                        |
+     | Email           | Interview email           | Moves it to Interviewing and plans prep time                                   |
+     | Email           | Thank whoever invites you | Ask Jev whether a person wrote it; if so, replies                              |
+     | Email           | Offer email               | Moves it to Offer, tells you everywhere, and sets time to decide               |
+     | Email           | Rejection email           | Moves it to Rejected and notes why                                             |
+     | Email           | Portal email              | Time today to check the company's portal                                       |
+     | Bookings        | New booking               | Tells you everywhere, and notes it on its application                          |
+
+     Every template checks what it needs before acting: one started by an email goes on
+     only if the email matched an application, and a reminder after a wait goes on only
+     if the application hasn't moved meanwhile.
 3. Or, on the **Loops** page, press a loop's **Use in a workflow**. That opens Morning
    job search with the loop already picked (`?template=jobSearch&loop=…`).
+4. Or **Describe one** on the Workflows page: write what it should do in a sentence and
+   press **Draft it** (`api.automations.describe`). Jev answers fixed questions about the
+   sentence (what starts it, which blocks, how long to wait, which status), and the
+   draft is built from those answers, with the same checks the templates have. Jev never
+   writes a step's text, so nothing typed becomes part of a step. The draft opens unsaved
+   (`?draft=…`) for you to check. 20 drafts a day.
 
 ### Build it
 
@@ -128,8 +151,12 @@ and the rules both go by. For the rest of the app, see [flows.md](flows.md).
   tab shows it like any other run. Afterwards `foundRoles` records "Jev judged N roles:
   M fit." and later steps can name `{roles.fits}`.
 - **Ask Jev** calls Jev (`askJev`) with the question, the answers, and every fact the
-  run knows. Jev picks one answer; the answer is counted in the `automationChoices`
-  aggregate, and that path's blocks run in order.
+  run knows, and tries once more after a second if the call fails. Jev picks one
+  answer; the answer is counted in the `automationChoices` aggregate, and that path's
+  blocks run in order.
+- **Only go on if** checks one fact in the same mutation as the step, with no call out.
+  If it doesn't hold, the run ends there as done ("Stopped here: {application.status} is
+  “Interviewing”"); on a split's path, only that path ends.
 - **A split** starts each path as its own child workflow (`runPath`), so a wait on one
   path never holds back another. The run goes on once every path is done.
 - **A step that can't run** is recorded as failed with its reason, and the run stops
@@ -140,17 +167,18 @@ workflow's journal is cleaned up. Each workflow keeps its newest 50 runs.
 
 ## Blocks
 
-| Block              | What it does                                                                       | Needs                                                   |
-| ------------------ | ---------------------------------------------------------------------------------- | ------------------------------------------------------- |
-| Notify me          | A line in your Inbox, an email to you, or both                                     | For email: a Cloudflare connection with “Send email” on |
-| Find roles         | Runs one of your loops now                                                         | A loop that isn't already running; 5 a day              |
-| Send email         | Emails one address from your Cloudflare address                                    | “Send email” on; 20 a day                               |
-| Add note           | Adds a note to an application                                                      | An application picked, or one from the trigger          |
-| Move application   | Moves an application to a status                                                   | The same                                                |
-| Add calendar event | An event some days after the run, at a time, in your Calendar's zone (UTC if none) | 0 to 60 days later, 5 minutes to 8 hours long           |
-| Wait               | Waits before the next step                                                         | 1 minute to 30 days                                     |
-| Split into paths   | Runs 2 to 4 paths side by side                                                     | Every path has a step                                   |
-| Ask Jev            | Jev answers a question with one of 2 to 4 answers; that path runs                  | A question, and different answer names                  |
+| Block              | What it does                                                                                 | Needs                                                   |
+| ------------------ | -------------------------------------------------------------------------------------------- | ------------------------------------------------------- |
+| Notify me          | A line in your Inbox, an email to you, or both                                               | For email: a Cloudflare connection with “Send email” on |
+| Find roles         | Runs one of your loops now                                                                   | A loop that isn't already running; 5 a day              |
+| Send email         | Emails one address from your Cloudflare address                                              | “Send email” on; 20 a day                               |
+| Add note           | Adds a note to an application                                                                | An application picked, or one from the trigger          |
+| Move application   | Moves an application to a status                                                             | The same                                                |
+| Add calendar event | An event some days after the run, at a time, in your Calendar's zone (UTC if none)           | 0 to 60 days later, 5 minutes to 8 hours long           |
+| Wait               | Waits before the next step                                                                   | 1 minute to 30 days                                     |
+| Split into paths   | Runs 2 to 4 paths side by side                                                               | Every path has a step                                   |
+| Ask Jev            | Jev answers a question with one of 2 to 4 answers; that path runs                            | A question, and different answer names                  |
+| Only go on if      | Goes on only if a fact has a value, is empty, is or isn't something, or is at least a number | A fact the trigger or a Find roles step brings          |
 
 ## Placeholders
 
@@ -178,6 +206,7 @@ text; nothing in them runs.
 | Runs started by events                      | 200 a day |
 | Find roles                                  | 5 a day   |
 | Send email                                  | 20 a day  |
+| Drafts from Describe one                    | 20 a day  |
 | Runs kept per workflow                      | 50        |
 
 ## Files
@@ -186,7 +215,9 @@ text; nothing in them runs.
   checks a workflow must pass. Shared with the frontend.
 - `convex/api/features/automations/engine.ts`: the interpreter, each block, events and
   the schedule.
-- `convex/api/features/automations/actions.ts`: Ask Jev and sending email.
+- `convex/api/features/automations/actions.ts`: Ask Jev, sending email, and Describe one.
+- `convex/api/features/automations/describe.ts`: Describe one's questions, and the draft
+  built from Jev's answers.
 - `convex/api/features/automations/public.ts`: what the app calls.
 - `convex/api/features/automations/counts.ts`: run and answer counts.
 - `convex/api/features/automations/fire.ts`: the event hook.

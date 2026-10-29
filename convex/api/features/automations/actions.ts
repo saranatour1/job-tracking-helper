@@ -1,13 +1,16 @@
+import { getAuthUserId } from "@convex-dev/auth/server"
 import { convexGateway } from "@convex-dev/ai-sdk-provider"
 import { experimental_decide as decide } from "ai"
 import { ConvexError, v } from "convex/values"
 import { components, internal } from "../../../_generated/api"
 import type { Id } from "../../../_generated/dataModel"
-import { internalAction } from "../../../_generated/server"
+import { action, internalAction } from "../../../_generated/server"
 import { seal } from "../../../lib/secrets"
 import { openConnection } from "../email/inbound"
 import { aad } from "../email/internal"
 import { jevModel } from "../workflows/judge"
+import { limits as rates } from "../workflows/manager"
+import { type DescribeAnswers, type Draft, describeQuestions, draftFrom, vDraft } from "./describe"
 
 // The steps that call out: Jev for Ask Jev, and Cloudflare for Notify me by email. Each
 // records how it went before returning, so a run's history says why it stopped.
@@ -22,10 +25,15 @@ const askJev = internalAction({
     if (!asked) return { path: null, error: "The run stopped." }
     try {
       const criteria = Object.fromEntries(asked.answers.map((answer, i) => [`p${i}`, answer]))
-      const result = await decide({
-        model: convexGateway.evaluationModel(jevModel),
-        state: asked.facts,
-        questions: { answer: { type: "choice", instructions: asked.question, criteria } },
+      const ask = () =>
+        decide({
+          model: convexGateway.evaluationModel(jevModel),
+          state: asked.facts,
+          questions: { answer: { type: "choice", instructions: asked.question, criteria } },
+        })
+      const result = await ask().catch(async () => {
+        await new Promise((resolve) => setTimeout(resolve, 1000))
+        return ask()
       })
       const choice = (result.answers as Record<string, { choice?: string } | undefined>).answer
         ?.choice
@@ -99,4 +107,38 @@ const sendMail = internalAction({
   },
 })
 
-export const actionsApi = { askJev, sendMail }
+/** Drafts a workflow from one sentence: Jev answers fixed questions about it, and the
+ * draft is built from the answers. Nothing is saved; the builder opens the draft. */
+const describe = action({
+  args: { request: v.string(), zone: v.string() },
+  returns: vDraft,
+  handler: async (ctx, { request, zone }): Promise<Draft> => {
+    const userId = await getAuthUserId(ctx)
+    if (!userId) throw new Error("Not signed in")
+    const said = request.trim()
+    if (said.length < 5 || said.length > 300)
+      throw new ConvexError("Say what it should do in 5 to 300 characters.")
+    const { ok } = await rates.limit(ctx, "automationDescribe", { key: userId })
+    if (!ok) throw new ConvexError("That's 20 drafts today. Build this one from blocks.")
+    const result = await decide({
+      model: convexGateway.evaluationModel(jevModel),
+      state: { request: said },
+      questions: describeQuestions,
+    }).catch(() => {
+      throw new ConvexError("Jev couldn't read that just now. Try again, or build it from blocks.")
+    })
+    const answers = Object.fromEntries(
+      Object.entries(
+        result.answers as Record<string, { type: string; choice?: string; probability?: number }>
+      )
+        .filter(([, a]) => a.type === "choice" || a.type === "boolean")
+        .map(([key, a]) => [key, a.type === "choice" ? a.choice : (a.probability ?? 0) >= 0.5])
+    ) as DescribeAnswers
+    const loopId: Id<"loops"> | null = await ctx.runQuery(internal.automations.firstLoopOf, {
+      userId,
+    })
+    return draftFrom(answers, { request: said, zone, ...(loopId && { loopId }) })
+  },
+})
+
+export const actionsApi = { askJev, sendMail, describe }

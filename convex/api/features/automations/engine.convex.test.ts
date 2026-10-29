@@ -547,6 +547,51 @@ describe("a workflow run", () => {
     expect(await counted()).toBe(0)
   })
 
+  it("ends a run quietly when an Only go on if doesn't hold", async () => {
+    const { t, as, userId, applicationId } = await setup()
+    const id = await as.mutation(api.automations.save, {
+      name: "Check",
+      trigger: { kind: "status", to: [] },
+      active: true,
+      steps: [
+        {
+          kind: "parallel",
+          paths: [
+            {
+              label: "Offer only",
+              steps: [
+                { kind: "onlyIf", fact: "status.to", test: "is", value: "offer" },
+                { kind: "notify", message: "offer" },
+              ],
+            },
+            { label: "Always", steps: [{ kind: "notify", message: "always" }] },
+          ],
+        },
+        { kind: "onlyIf", fact: "application.status", test: "is", value: "Offer" },
+        { kind: "notify", message: "after" },
+      ],
+    })
+    await as.mutation(api.applications.setStatus, { id: applicationId, status: "interviewing" })
+    await t.finishAllScheduledFunctions(vi.runAllTimers)
+
+    const [run] = await t.run((ctx) => ctx.db.query("automationRuns").collect())
+    expect(run?.automationId).toBe(id)
+    expect(run?.status).toBe("done")
+    expect(byPlace(run?.log).map((e) => [e.at, e.status])).toEqual([
+      ["0", "done"],
+      ["0.0.0", "done"],
+      ["0.1.0", "done"],
+      ["1", "done"],
+    ])
+    expect(byPlace(run?.log)[3]?.output).toBe(
+      "Stopped here: {application.status} is “Interviewing”"
+    )
+    const inbox = await t.run((ctx) =>
+      ctx.runQuery(components.notifications.lib.list, { owner: userId })
+    )
+    expect(inbox).toHaveLength(1)
+  })
+
   it("stops with Jev's reason when it can't answer", async () => {
     const { t, as } = await setup()
     const id = await as.mutation(api.automations.save, {

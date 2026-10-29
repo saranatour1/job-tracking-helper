@@ -24,6 +24,7 @@ export const limits = new RateLimiter(components.rateLimiter, {
   // Find roles and Send email steps: each spends search credits, Jev or someone's inbox.
   automationFind: { kind: "fixed window", rate: 5, period: DAY },
   automationEmail: { kind: "fixed window", rate: 20, period: DAY },
+  automationDescribe: { kind: "fixed window", rate: 20, period: DAY },
 })
 
 // The batch worker: it fetches job boards for the catalog, and every run hands it the
