@@ -28,11 +28,39 @@ import {
   kindLabels,
   kindOf,
   kinds,
+  messageIdsIn,
   portalOf,
+  textOfHtml,
   ruleMatch,
   suggestionOf,
 } from "./match"
-import { MailEvent, MailNote, Received } from "./models"
+import { MailEvent, MailNote, Moved, Received } from "./models"
+
+/** A Message-ID hashed with its owner, so threads match without storing the ID. */
+export const threadKeyOf = async (userId: string, messageId: string) =>
+  Array.from(
+    new Uint8Array(
+      await crypto.subtle.digest("SHA-256", new TextEncoder().encode(`${userId}:${messageId}`))
+    )
+  )
+    .map((b) => b.toString(16).padStart(2, "0"))
+    .join("")
+
+// The application an earlier email in the same thread was filed under, newest first.
+const threadOf = internalQuery({
+  args: { userId: v.id("users"), keys: v.array(v.string()) },
+  returns: v.union(v.id("applications"), v.null()),
+  handler: async (ctx, { userId, keys }) => {
+    for (const key of keys.slice(-20).reverse()) {
+      const earlier = await ctx.db
+        .query("mailEvents")
+        .withIndex("by_userId_and_messageKey", (q) => q.eq("userId", userId).eq("messageKey", key))
+        .first()
+      if (earlier?.applicationId) return earlier.applicationId
+    }
+    return null
+  },
+})
 
 const vCandidate = v.object({
   id: v.id("applications"),
@@ -47,7 +75,12 @@ const sortContext = internalQuery({
   args: { userId: v.id("users"), emailId: v.string() },
   returns: v.union(
     v.null(),
-    v.object({ payload: v.string(), read: v.boolean(), applications: v.array(vCandidate) })
+    v.object({
+      payload: v.string(),
+      read: v.boolean(),
+      move: v.boolean(),
+      applications: v.array(vCandidate),
+    })
   ),
   handler: async (ctx, { userId, emailId }) => {
     const done = await ctx.db
@@ -69,6 +102,7 @@ const sortContext = internalQuery({
     return {
       payload: email.payload,
       read: connection?.allow.read ?? false,
+      move: connection?.allow.move ?? false,
       applications: applications.map((a) => ({
         id: a._id,
         company: a.company,
@@ -81,16 +115,34 @@ const sortContext = internalQuery({
 })
 
 // Saves the event and tells the inbox, unless this email was already sorted.
+// With `move`, Jev moves the application to the status the email points to, and the
+// event remembers where it was so the person can undo it.
 const record = internalMutation({
-  args: arkOutputToConvex(MailEvent),
+  args: {
+    event: arkOutputToConvex(MailEvent.omit("moved")),
+    move: v.boolean(),
+  },
   returns: v.null(),
-  handler: async (ctx, event) => {
+  handler: async (ctx, { event, move }) => {
     const done = await ctx.db
       .query("mailEvents")
       .withIndex("by_emailId", (q) => q.eq("emailId", event.emailId))
       .first()
     if (done) return null
-    const id = await ctx.db.insert("mailEvents", event)
+    const application =
+      move && event.suggest && event.applicationId
+        ? await ctx.db.get("applications", event.applicationId)
+        : null
+    if (application && event.suggest)
+      await changeStatus(ctx, application, event.suggest, "Moved by Jev from an email")
+    const id = await ctx.db.insert("mailEvents", {
+      ...event,
+      ...(application &&
+        event.suggest && {
+          suggest: undefined,
+          moved: { from: application.status, to: event.suggest },
+        }),
+    })
     await ctx.runMutation(components.notifications.lib.notify, {
       owner: event.userId,
       kind: mailNotificationKind(event.kind, event.applicationId !== undefined),
@@ -105,7 +157,7 @@ const record = internalMutation({
 const askJev = async (
   mail: typeof Received.infer,
   applications: Candidate[]
-): Promise<{ application?: Candidate; kind: Kind }> => {
+): Promise<{ application?: Candidate; kind: Kind; sureOfKind: number }> => {
   const options = Object.fromEntries(
     applications.map((a, i) => [`a${i}`, `${a.company}: ${a.role}`])
   )
@@ -144,6 +196,7 @@ const askJev = async (
   return {
     application: picked?.startsWith("a") ? applications[Number(picked.slice(1))] : undefined,
     kind: kinds.find((k) => k === kind) ?? "other",
+    sureOfKind: kind ? (answers.kind?.probabilities?.[kind] ?? 0) : 0,
   }
 }
 
@@ -158,14 +211,28 @@ const sortMail = internalAction({
     const mail = await openJson(k, context.payload, aad.email(userId), Received)
     if (!mail) return null
     const text = mail.text ?? ""
-    let application: Candidate | undefined = ruleMatch(mail, context.applications)
+    // A reply goes where the email it answers went: the thread decides first.
+    const parents = await Promise.all(
+      [...messageIdsIn(mail.references), ...messageIdsIn(mail.inReplyTo)].map((id) =>
+        threadKeyOf(userId, id)
+      )
+    )
+    const threadApp = parents.length
+      ? await ctx.runQuery(internal.email.threadOf, { userId, keys: parents })
+      : null
+    const inThread = context.applications.find((a) => a.id === threadApp)
+    let application: Candidate | undefined = inThread ?? ruleMatch(mail, context.applications)
     let kind = kindOf(mail.subject, text)
-    let by: "rules" | "jev" = "rules"
+    // Typed this way so TypeScript doesn't narrow it to "rules": Jev sets it in a callback.
+    let by = "rules" as "rules" | "jev"
+    let sureOfKind = 0
     if (context.read && context.applications.length)
       // If Jev can't be reached, the rules' answer stands.
       await askJev(mail, context.applications).then(
         (answer) => {
-          ;({ application, kind } = answer)
+          ;({ kind, sureOfKind } = answer)
+          // The thread already knows the application; Jev only says what the email means.
+          if (!inThread) application = answer.application
           by = "jev"
         },
         () => null
@@ -173,18 +240,23 @@ const sortMail = internalAction({
     const chosen = context.applications.find((a) => a.id === application?.id)
     const portalUrl = portalOf(kind, text, mail.html)
     await ctx.runMutation(internal.email.record, {
-      userId,
-      emailId,
-      applicationId: chosen?.id,
-      kind,
-      at: Date.now(),
-      note: await seal(
-        k,
-        JSON.stringify({ from: mail.fromName || mail.from, subject: mail.subject, portalUrl }),
-        aad.email(userId)
-      ),
-      suggest: chosen && suggestionOf(kind, chosen.status),
-      by,
+      event: {
+        userId,
+        emailId,
+        applicationId: chosen?.id,
+        kind,
+        at: Date.now(),
+        note: await seal(
+          k,
+          JSON.stringify({ from: mail.fromName || mail.from, subject: mail.subject, portalUrl }),
+          aad.email(userId)
+        ),
+        suggest: chosen && suggestionOf(kind, chosen.status),
+        ...(mail.messageId && { messageKey: await threadKeyOf(userId, mail.messageId) }),
+        by: inThread && by === "rules" ? "thread" : by,
+      },
+      // Only Jev moves cards, only when allowed, and only when it's clearly sure.
+      move: context.move && by === "jev" && sureOfKind >= 0.8,
     })
     return null
   },
@@ -204,6 +276,7 @@ const timeline = authedQuery({
       portalUrl: v.optional(v.string()),
       at: v.number(),
       suggest: v.optional(v.union(...statuses.map((s) => v.literal(s)))),
+      moved: v.optional(arkOutputToConvex(Moved)),
     })
   ),
   handler: async (ctx) => {
@@ -227,6 +300,7 @@ const timeline = authedQuery({
             portalUrl: note.portalUrl,
             at: e.at,
             suggest: e.suggest,
+            moved: e.moved,
           }
         )
       })
@@ -257,6 +331,44 @@ const resolveSuggestion = arkMutation({
   },
 })
 
+// One email's body, as postal-mime parsed it when it arrived, opened for its owner only.
+// Plain text when the sender included it, else the HTML as text.
+const mailBody = authedQuery({
+  args: { eventId: v.id("mailEvents") },
+  returns: v.union(
+    v.null(),
+    v.object({ text: v.string(), to: v.string(), attachments: v.array(v.string()) })
+  ),
+  handler: async (ctx, { eventId }) => {
+    const event = await ctx.db.get("mailEvents", eventId)
+    if (event?.userId !== ctx.userId) return null
+    const email = await ctx.runQuery(components.cloudflareEmail.lib.get, { emailId: event.emailId })
+    const k = await keys().catch(() => null)
+    const mail = email && k && (await openJson(k, email.payload, aad.email(ctx.userId), Received))
+    if (!mail) return null
+    return {
+      text: (mail.text?.trim() || textOfHtml(mail.html ?? "")).slice(0, 20_000),
+      to: mail.to.join(", "),
+      attachments: mail.attachments,
+    }
+  },
+})
+
+// Puts an application back where it was before Jev moved it.
+const undoMove = arkMutation({
+  args: type({ eventId: arkId("mailEvents") }),
+  returns: v.null(),
+  handler: async (ctx, { eventId }) => {
+    const event = await ownEvent(ctx, ctx.userId, eventId)
+    const application =
+      event.applicationId && (await ctx.db.get("applications", event.applicationId))
+    if (event.moved && application?.userId === ctx.userId)
+      await changeStatus(ctx, application, event.moved.from, "Undid Jev's move")
+    await ctx.db.patch("mailEvents", eventId, { moved: undefined })
+    return null
+  },
+})
+
 // Moves an email to another application, or back to Unsorted.
 const assign = arkMutation({
   args: type({ eventId: arkId("mailEvents"), "applicationId?": arkId("applications") }),
@@ -275,4 +387,14 @@ const assign = arkMutation({
   },
 })
 
-export const sortApi = { sortContext, record, sortMail, timeline, resolveSuggestion, assign }
+export const sortApi = {
+  mailBody,
+  sortContext,
+  threadOf,
+  record,
+  sortMail,
+  timeline,
+  resolveSuggestion,
+  undoMove,
+  assign,
+}

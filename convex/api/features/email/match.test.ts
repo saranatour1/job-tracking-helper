@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vite-plus/test"
 
-import { kindOf, portalOf, ruleMatch, suggestionOf } from "./match"
+import { kindOf, messageIdsIn, portalOf, ruleMatch, suggestionOf, textOfHtml } from "./match"
 
 const apps = [
   { id: "a", company: "Acme", role: "Frontend Engineer", at: 1 },
@@ -61,5 +61,23 @@ describe("ruleMatch", () => {
     expect(
       ruleMatch({ from: "x@example.com", subject: "Acme and Globex Corp" }, apps)
     ).toBeUndefined()
+  })
+})
+
+describe("messageIdsIn", () => {
+  it("reads every Message-ID from a References header", () => {
+    expect(messageIdsIn("<a1@acme.example> <b2@mail.acme.example>")).toEqual([
+      "<a1@acme.example>",
+      "<b2@mail.acme.example>",
+    ])
+    expect(messageIdsIn(undefined)).toEqual([])
+  })
+})
+
+describe("textOfHtml", () => {
+  it("keeps the words and line breaks, drops styles and tags", () => {
+    expect(
+      textOfHtml("<style>p{color:red}</style><p>Hi &amp; welcome</p><p>Next<br>line</p>")
+    ).toBe("Hi & welcome\nNext\nline")
   })
 })

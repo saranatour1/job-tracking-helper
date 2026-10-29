@@ -39,6 +39,8 @@ export type Source = {
   answerMail: (eventId: MailEvent["id"], accept: boolean) => void
   // Files an email under an application.
   fileMail: (eventId: MailEvent["id"], applicationId: string) => void
+  // Puts an application back where it was before Jev moved it.
+  undoMove: (eventId: MailEvent["id"]) => void
 }
 
 const SourceContext = createContext<Source | null>(null)
@@ -64,6 +66,7 @@ const useSampleSource = (): Source => {
     mail: [],
     answerMail: () => undefined,
     fileMail: () => undefined,
+    undoMove: () => undefined,
   }
 }
 
@@ -108,6 +111,7 @@ export const ConvexSource = ({ children }: { children: React.ReactNode }) => {
   const mail = useQuery(api.email.timeline)
   const answer = useMutation(api.email.resolveSuggestion)
   const file = useMutation(api.email.assign)
+  const undo = useMutation(api.email.undoMove)
   const id = (s: string) => s as Id<"applications">
   const source: Source = {
     real: true,
@@ -121,6 +125,7 @@ export const ConvexSource = ({ children }: { children: React.ReactNode }) => {
     mail: mail ?? [],
     answerMail: (eventId, accept) => void answer({ eventId, accept }),
     fileMail: (eventId, s) => void file({ eventId, applicationId: id(s) }),
+    undoMove: (eventId) => void undo({ eventId }),
   }
   return <SourceContext value={source}>{children}</SourceContext>
 }

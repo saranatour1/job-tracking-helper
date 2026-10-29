@@ -162,7 +162,12 @@ export const receive = httpAction(async (ctx, req) => {
   const email: typeof Received.infer = {
     from: mail.from?.address || req.headers.get("X-Envelope-From") || "",
     fromName: mail.from?.name || undefined,
-    to: [req.headers.get("X-Envelope-To") || ""],
+    // The envelope says which of the person's addresses got it; the To header is a fallback.
+    to: [
+      req.headers.get("X-Envelope-To") ||
+        mail.to?.flatMap((a) => (a.address ? [a.address] : [])).join(", ") ||
+        "",
+    ],
     subject: cap(mail.subject, 500) ?? "",
     // Sized so a sealed message stays well under Convex's 1 MiB document limit.
     text: cap(mail.text, 100_000),

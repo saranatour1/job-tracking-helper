@@ -1,7 +1,9 @@
-import type { api } from "@convex/_generated/api"
+import { api } from "@convex/_generated/api"
 import { Mail01Icon } from "@hugeicons/core-free-icons"
 import { HugeiconsIcon } from "@hugeicons/react"
 import type { FunctionReturnType } from "convex/server"
+import { useQuery } from "convex-helpers/react/cache/hooks"
+import { useState } from "react"
 
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
@@ -35,36 +37,83 @@ const iso = (at: number) => new Date(at).toISOString()
 /** An application's mail, newest first. */
 export const useMailFor = (id: string) => useSource().mail.filter((e) => e.applicationId === id)
 
-/** One email as a line in an application's activity. */
-export const MailLine = ({ e }: { e: MailEvent }) => (
-  <>
-    <HugeiconsIcon icon={Mail01Icon} className="text-muted-foreground mt-0.5 size-3.5 shrink-0" />
-    <span className="flex min-w-0 flex-col gap-0.5">
-      <span className="flex min-w-0 items-center gap-1.5">
-        <Badge variant={kindVariant(e.kind)} size="sm">
-          {kindNames[e.kind]}
-        </Badge>
-        <span className="truncate font-medium">{e.subject}</span>
-      </span>
-      <span className="text-muted-foreground text-xs">
-        From {e.from}
-        {e.portalUrl && (
-          <>
-            {" · "}
-            <a href={e.portalUrl} target="_blank" rel="noreferrer" className="underline">
-              Check status
-            </a>
-          </>
-        )}
-      </span>
+// The email itself, fetched only once someone opens it.
+const MailBody = ({ id }: { id: MailEvent["id"] }) => {
+  const body = useQuery(api.email.mailBody, { eventId: id })
+  if (body === undefined) return <span className="text-muted-foreground text-xs">Opening…</span>
+  if (body === null)
+    return <span className="text-muted-foreground text-xs">This email can't be read anymore.</span>
+  return (
+    <span className="bg-muted/40 mt-1 flex max-h-80 flex-col gap-2 overflow-y-auto rounded-md border p-3 text-xs">
+      {body.to && <span className="text-muted-foreground">To {body.to}</span>}
+      <span className="leading-relaxed whitespace-pre-wrap">{body.text || "(no text)"}</span>
+      {body.attachments.length > 0 && (
+        <span className="text-muted-foreground">Attached: {body.attachments.join(", ")}</span>
+      )}
     </span>
-    <span className="text-muted-foreground ms-auto shrink-0 text-xs">{formatDate(iso(e.at))}</span>
-  </>
-)
+  )
+}
 
-/** The newest status an email suggests, until it's accepted or dismissed. */
+/** One email as a line in an application's activity, with its body a click away. */
+export const MailLine = ({ e }: { e: MailEvent }) => {
+  const [open, setOpen] = useState(false)
+  return (
+    <>
+      <HugeiconsIcon icon={Mail01Icon} className="text-muted-foreground mt-0.5 size-3.5 shrink-0" />
+      <span className="flex min-w-0 flex-1 flex-col gap-0.5">
+        <span className="flex min-w-0 items-center gap-1.5">
+          <Badge variant={kindVariant(e.kind)} size="sm">
+            {kindNames[e.kind]}
+          </Badge>
+          <span className="truncate font-medium">{e.subject}</span>
+        </span>
+        <span className="text-muted-foreground text-xs">
+          From {e.from}
+          {e.portalUrl && (
+            <>
+              {" · "}
+              <a href={e.portalUrl} target="_blank" rel="noreferrer" className="underline">
+                Check status
+              </a>
+            </>
+          )}
+          {" · "}
+          <button
+            type="button"
+            aria-expanded={open}
+            className="hover:text-foreground underline"
+            onClick={() => setOpen(!open)}
+          >
+            {open ? "Hide" : "Read"}
+          </button>
+        </span>
+        {open && <MailBody id={e.id} />}
+      </span>
+      <span className="text-muted-foreground ms-auto shrink-0 text-xs">
+        {formatDate(iso(e.at))}
+      </span>
+    </>
+  )
+}
+
+/** The newest status an email suggests, until it's accepted or dismissed, or the move
+ * Jev made from one, with an undo. */
 export const Suggestion = ({ mail }: { mail: MailEvent[] }) => {
-  const { answerMail } = useSource()
+  const { answerMail, undoMove } = useSource()
+  const moved = mail.find((m) => m.moved)
+  if (moved?.moved)
+    return (
+      <div className="bg-muted/40 flex flex-wrap items-center gap-2 rounded-lg border px-3 py-2 text-[13px]">
+        <HugeiconsIcon icon={Mail01Icon} className="text-muted-foreground size-3.5" />
+        <span className="min-w-0 flex-1">
+          Jev moved this to <span className="font-medium">{statusLabels[moved.moved.to]}</span>{" "}
+          after “{moved.subject}”.
+        </span>
+        <Button size="xs" variant="outline" onClick={() => undoMove(moved.id)}>
+          Undo
+        </Button>
+      </div>
+    )
   const e = mail.find((m) => m.suggest)
   if (!e?.suggest) return null
   return (

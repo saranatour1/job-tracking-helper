@@ -92,3 +92,22 @@ export const ruleMatch = (
     [...named].sort((a, b) => b.at - a.at)[0]
   )
 }
+
+/** Message-IDs as postal-mime reads them, from a reply's In-Reply-To or References. */
+export const messageIdsIn = (header: string | undefined) => header?.match(/<[^<>\s]+>/g) ?? []
+
+/** Readable text from an HTML-only email: no styles or scripts, tags gone, spacing kept sane. */
+export const textOfHtml = (html: string) =>
+  html
+    .replace(/<(style|script)[\s\S]*?<\/\1>/gi, "")
+    .replace(/<br\s*\/?>|<\/(p|div|li|tr|h\d)>/gi, "\n")
+    .replace(/<[^>]+>/g, "")
+    .replace(/&nbsp;/g, " ")
+    .replace(/&amp;/g, "&")
+    .replace(/&lt;/g, "<")
+    .replace(/&gt;/g, ">")
+    .replace(/&quot;/g, '"')
+    .replace(/&#39;/g, "'")
+    .replace(/[ \t]+/g, " ")
+    .replace(/\n\s*\n\s*\n+/g, "\n\n")
+    .trim()

@@ -53,14 +53,22 @@ export const Access = type({ "sending?": "boolean", workers: "boolean", routing:
 
 // What the person lets the app do for them: send mail, change their Cloudflare setup,
 // keep mail sent to them, and let Jev read it. All off until they turn one on.
-export const allowKeys = ["send", "setup", "receive", "read"] as const
+export const allowKeys = ["send", "setup", "receive", "read", "move"] as const
+// `move` came later, so connections from before it lack it; missing reads as off.
 export const Allow = type({
   send: "boolean",
   setup: "boolean",
   receive: "boolean",
   read: "boolean",
+  "move?": "boolean",
 })
-export const nothingAllowed = { send: false, setup: false, receive: false, read: false }
+export const nothingAllowed = {
+  send: false,
+  setup: false,
+  receive: false,
+  read: false,
+  move: false,
+}
 
 // One Cloudflare account per person, for sending from their own domain. Everything
 // they typed is sealed with lib/secrets; only the dates and permissions are plain.
@@ -85,6 +93,9 @@ export const emailConnectionsTable = defineTable(arkOutputToConvex(EmailConnecti
 // What a mail event's sealed `note` holds: enough for one timeline line.
 export const MailNote = type({ from: "string", subject: "string", "portalUrl?": "string" })
 
+// Where Jev moved an application from and to, so the move can be undone.
+export const Moved = type({ from: type.enumerated(...statuses), to: type.enumerated(...statuses) })
+
 // One incoming email, sorted: the application it's about, if any, and what it says.
 // The kind and suggested status are plain, like the application's own status; who
 // wrote, the subject and any portal link are sealed in `note`.
@@ -98,9 +109,15 @@ export const MailEvent = type({
   at: "number",
   // A status the email suggests, until the person accepts or dismisses it.
   "suggest?": type.enumerated(...statuses),
-  by: "'rules' | 'jev' | 'you'",
+  // Set when Jev moved the application itself, so the person can undo it.
+  "moved?": Moved,
+  // A one-way hash of the email's Message-ID, bound to its owner, so a reply can find
+  // the thread it belongs to without the ID being stored. See threadKeyOf.
+  "messageKey?": "string",
+  by: "'rules' | 'jev' | 'you' | 'thread'",
 })
 
 export const mailEventsTable = defineTable(arkOutputToConvex(MailEvent))
   .index("by_userId_and_applicationId", ["userId", "applicationId"])
   .index("by_emailId", ["emailId"])
+  .index("by_userId_and_messageKey", ["userId", "messageKey"])

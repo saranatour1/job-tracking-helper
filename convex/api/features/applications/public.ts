@@ -5,7 +5,8 @@ import type { Doc, Id } from "../../../_generated/dataModel"
 import type { MutationCtx } from "../../../_generated/server"
 import { arkId } from "../../../lib/ark"
 import { arkMutation, authedQuery } from "../../../lib/functions"
-import { Application, Details, limits, type Status, statuses } from "./validators"
+import { internal } from "../../../_generated/api"
+import { Application, Details, limits, priorityFor, type Status, statuses } from "./validators"
 
 const list = authedQuery({
   args: {},
@@ -60,16 +61,45 @@ export const changeStatus = async (
   })
 }
 
+// Fills an application's empty details from the job Jev checked for it: priority from
+// the match, location, a Remote label and a description. What the person set stays.
+export const fillFromJob = async (
+  ctx: MutationCtx,
+  userId: Id<"users">,
+  applicationId: Id<"applications">,
+  job: { fit: number; location?: string; snippet?: string }
+) => {
+  const application = await ctx.db.get("applications", applicationId)
+  if (application?.userId !== userId) return
+  const labels = application.labels ?? []
+  const remote = /remote/i.test(job.location ?? "") && !labels.includes("Remote")
+  await ctx.db.patch("applications", applicationId, {
+    ...((application.priority ?? "none") === "none" && { priority: priorityFor(job.fit) }),
+    ...(!application.location && job.location && { location: job.location }),
+    ...(!application.description && job.snippet && { description: job.snippet }),
+    ...(remote && { labels: [...labels, "Remote"] }),
+  })
+}
+
+// Added with a link, Jev checks the job in the background and fills in the rest.
 const add = arkMutation({
   args: Application,
   returns: v.id("applications"),
-  handler: async (ctx, application) =>
-    ctx.db.insert("applications", {
+  handler: async (ctx, application) => {
+    const applicationId = await ctx.db.insert("applications", {
       ...application,
       userId: ctx.userId,
       number: await nextNumber(ctx, ctx.userId),
       history: [{ status: application.status, at: Date.now() }],
-    }),
+    })
+    if (application.url)
+      await ctx.scheduler.runAfter(0, internal.loops.enrichApplication, {
+        userId: ctx.userId,
+        applicationId,
+        url: application.url,
+      })
+    return applicationId
+  },
 })
 
 // Sets any of the details. Status has its own mutation, so its history stays right.
