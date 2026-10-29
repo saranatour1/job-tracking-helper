@@ -80,7 +80,11 @@ const save = authedMutation({
       attendees: event.attendees?.slice(0, 50),
     }
     if (existing) {
-      await ctx.db.replace("calendarEvents", existing._id, { ...row, userId: ctx.userId })
+      await ctx.db.replace("calendarEvents", existing._id, {
+        ...row,
+        userId: ctx.userId,
+        bookingPageId: existing.bookingPageId,
+      })
       return null
     }
     const count = await ctx.db

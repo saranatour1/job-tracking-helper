@@ -29,7 +29,7 @@ const inbox = authedQuery({
       message: v.string(),
       at: v.number(),
       unread: v.boolean(),
-      link: v.union(v.literal("/"), v.literal("/loops")),
+      link: v.union(v.literal("/"), v.literal("/loops"), v.literal("/calendar")),
       company: v.optional(v.string()),
       status: v.optional(v.union(...statuses.map((s) => v.literal(s)))),
     })
@@ -56,6 +56,31 @@ const inbox = authedQuery({
               status: undefined,
             }
           )
+        }
+        const bookingId =
+          n.kind === "booking.new" && n.ref && ctx.db.normalizeId("calendarEvents", n.ref)
+        if (bookingId) {
+          const booking = await ctx.db.get("calendarEvents", bookingId)
+          if (booking?.userId !== ctx.userId || booking.hidden) return null
+          const application =
+            booking.applicationId && (await ctx.db.get("applications", booking.applicationId))
+          const when = new Intl.DateTimeFormat("en-US", {
+            timeZone: booking.timeZone,
+            weekday: "short",
+            month: "short",
+            day: "numeric",
+            hour: "numeric",
+            minute: "2-digit",
+            timeZoneName: "short",
+          }).format(Date.parse(booking.start))
+          return {
+            ...base,
+            title: "New booking",
+            message: `${booking.title}, ${when}`,
+            link: "/calendar" as const,
+            company: application ? application.company : undefined,
+            status: application ? application.status : undefined,
+          }
         }
         const eventId = n.ref && ctx.db.normalizeId("mailEvents", n.ref)
         const event = eventId && (await ctx.db.get("mailEvents", eventId))

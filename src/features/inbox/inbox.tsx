@@ -243,7 +243,11 @@ export const Inbox = () => {
               )}
               <div className="flex gap-2">
                 <Button variant="outline" size="sm" render={<Link to={note.link} />}>
-                  {note.link === "/loops" ? "Open loops" : "Open applications"}
+                  {note.link === "/loops"
+                    ? "Open loops"
+                    : note.link === "/calendar"
+                      ? "Open calendar"
+                      : "Open applications"}
                 </Button>
                 <Button variant="ghost" size="sm" onClick={() => toggle(note)}>
                   Mark as {note.unread ? "read" : "unread"}
