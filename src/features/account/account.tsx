@@ -6,17 +6,42 @@ import { useForm } from "@tanstack/react-form"
 import type { FunctionReturnType } from "convex/server"
 import { ConvexError } from "convex/values"
 import { useMutation, useQuery } from "convex/react"
-import { useState } from "react"
+import { startTransition, useActionState, useRef } from "react"
 
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
+import { ScrollArea } from "@/components/ui/scroll-area"
+import { PageIntro, pageBody } from "@/features/shell/page-body"
 import { PageHeader } from "@/features/shell/page-header"
+import { ThemeSwitch } from "@/features/shell/theme"
+import { cn } from "@/lib/utils"
+
+type Me = FunctionReturnType<typeof api.users.me>
 
 const fields = [
-  { name: "name", label: "Name", type: "text", autoComplete: "name" },
-  { name: "email", label: "Email", type: "email", autoComplete: "email" },
-  { name: "userName", label: "Username", type: "text", autoComplete: "username" },
+  {
+    name: "name",
+    label: "Full name",
+    description: "Shown in the sidebar and on your applications.",
+    type: "text",
+    autoComplete: "name",
+  },
+  {
+    name: "userName",
+    label: "Username",
+    description: "What you sign in with.",
+    type: "text",
+    autoComplete: "username",
+  },
+  {
+    name: "email",
+    label: "Email",
+    description: "Where application forms can reach you.",
+    type: "email",
+    autoComplete: "email",
+  },
 ] as const
 
 const messageOf = (error: unknown) =>
@@ -24,164 +49,262 @@ const messageOf = (error: unknown) =>
     ? error.data
     : "Something went wrong. Try again."
 
-const ProfileForm = ({ profile }: { profile: typeof Profile.inferIn }) => {
-  const updateProfile = useMutation(api.users.updateProfile)
-  const [status, setStatus] = useState<string>()
-  const form = useForm({
-    defaultValues: profile,
-    validators: { onSubmit: Profile },
-    onSubmit: async ({ value }) => {
-      setStatus(undefined)
-      await updateProfile(value).then(
-        () => setStatus("Saved."),
-        (error: unknown) => setStatus(messageOf(error))
-      )
-    },
-  })
+// A titled group of rows on one card, like a settings page.
+const Section = ({
+  title,
+  status,
+  children,
+}: {
+  title: string
+  status?: React.ReactNode
+  children: React.ReactNode
+}) => (
+  <section className="flex flex-col gap-3">
+    <div className="flex items-center justify-between gap-2 px-1">
+      <h3 className="font-heading font-medium">{title}</h3>
+      {status}
+    </div>
+    <div className="bg-card divide-y rounded-xl border">{children}</div>
+  </section>
+)
 
-  return (
-    <form
-      noValidate
-      className="grid max-w-sm gap-4"
-      onSubmit={(e) => {
-        e.preventDefault()
-        void form.handleSubmit()
-      }}
-    >
-      {fields.map(({ name, label, type, autoComplete }) => (
-        <form.Field key={name} name={name}>
-          {(field) => (
-            <div className="grid gap-1.5">
-              <Label htmlFor={name}>{label}</Label>
-              <Input
-                id={name}
-                type={type}
-                autoComplete={autoComplete}
-                value={field.state.value}
-                onBlur={field.handleBlur}
-                onChange={(e) => field.handleChange(e.target.value)}
-                aria-invalid={field.state.meta.errors.length > 0}
-              />
-              {field.state.meta.errors.map((error) => (
-                <p key={error?.message} className="text-destructive text-xs">
-                  {error?.message}
-                </p>
-              ))}
-            </div>
-          )}
-        </form.Field>
-      ))}
-      {status && (
-        <p role="status" className="text-sm">
-          {status}
-        </p>
+// A setting's name and what it does on the left, its control on the right. On narrow
+// screens the control wraps under the text.
+const Row = ({
+  label,
+  description,
+  htmlFor,
+  children,
+}: {
+  label: string
+  description: React.ReactNode
+  htmlFor?: string
+  children: React.ReactNode
+}) => (
+  <div className="flex flex-wrap items-center justify-between gap-x-6 gap-y-2 px-4 py-3">
+    <div className="grid min-w-48 flex-1 gap-0.5">
+      {htmlFor ? (
+        <Label htmlFor={htmlFor}>{label}</Label>
+      ) : (
+        <span className="text-sm font-medium">{label}</span>
       )}
-      <Button type="submit" className="justify-self-start">
-        Save
-      </Button>
-    </form>
-  )
-}
+      <p className="text-muted-foreground text-xs">{description}</p>
+    </div>
+    <div className="flex w-full items-center justify-end gap-2 sm:w-auto">{children}</div>
+  </div>
+)
 
-const ProfileImage = ({ imageUrl }: { imageUrl: string | null }) => {
+const initialsOf = (me: Me) =>
+  (me.name || me.userName || "Guest")
+    .split(/\s+/)
+    .slice(0, 2)
+    .map((word) => word[0]?.toUpperCase())
+    .join("")
+
+const ProfileImage = ({ me }: { me: Me }) => {
   const generateUploadUrl = useMutation(api.users.generateUploadUrl)
   const setImage = useMutation(api.users.setImage)
-  const [error, setError] = useState<string>()
-
-  const upload = async (file: File) => {
+  const picker = useRef<HTMLInputElement>(null)
+  // The upload's result is the error under the picture, if there is one.
+  const [error, upload] = useActionState(async (_: string | undefined, file: File) => {
     // The server checks too; this keeps an obviously wrong file out of storage.
-    if (!file.type.startsWith("image/")) return setError("Upload an image file.")
-    if (file.size > maxImageBytes) return setError("Images must be 5 MB or smaller.")
-    const response = await fetch(await generateUploadUrl(), {
-      method: "POST",
-      headers: { "Content-Type": file.type },
-      body: file,
-    })
-    const { storageId } = (await response.json()) as { storageId: Id<"_storage"> }
-    await setImage({ imageId: storageId })
-  }
+    if (!file.type.startsWith("image/")) return "Upload an image file."
+    if (file.size > maxImageBytes) return "Images must be 5 MB or smaller."
+    try {
+      const response = await fetch(await generateUploadUrl(), {
+        method: "POST",
+        headers: { "Content-Type": file.type },
+        body: file,
+      })
+      const { storageId } = (await response.json()) as { storageId: Id<"_storage"> }
+      await setImage({ imageId: storageId })
+    } catch (cause) {
+      return messageOf(cause)
+    }
+  }, undefined)
 
   return (
-    <div className="flex items-center gap-4">
-      {imageUrl ? (
-        <img src={imageUrl} alt="Profile" className="size-16 rounded-full object-cover" />
-      ) : (
-        <div aria-label="No profile image" className="bg-muted size-16 rounded-full" />
-      )}
-      <div className="grid gap-1.5">
-        <Label htmlFor="image">Profile image</Label>
-        <Input
-          id="image"
-          type="file"
-          accept="image/*"
-          onChange={(e) => {
-            const file = e.target.files?.[0]
-            e.target.value = ""
-            if (file) {
-              setError(undefined)
-              upload(file).catch((cause: unknown) => setError(messageOf(cause)))
-            }
-          }}
-        />
-        {error && (
-          <p role="alert" className="text-destructive text-xs">
+    <Row
+      label="Profile picture"
+      description={
+        error ? (
+          <span role="alert" className="text-destructive">
             {error}
-          </p>
-        )}
-      </div>
-      {imageUrl && (
-        <Button type="button" variant="outline" onClick={() => void setImage({})}>
+          </span>
+        ) : (
+          "An image up to 5 MB."
+        )
+      }
+    >
+      <Avatar className="size-9">
+        {me.imageUrl && <AvatarImage src={me.imageUrl} alt="Profile" />}
+        <AvatarFallback>{initialsOf(me)}</AvatarFallback>
+      </Avatar>
+      <input
+        ref={picker}
+        type="file"
+        accept="image/*"
+        aria-label="Profile picture"
+        className="sr-only"
+        tabIndex={-1}
+        onChange={(e) => {
+          const file = e.target.files?.[0]
+          e.target.value = ""
+          if (file) startTransition(() => upload(file))
+        }}
+      />
+      <Button type="button" size="sm" variant="outline" onClick={() => picker.current?.click()}>
+        {me.imageUrl ? "Change" : "Upload"}
+      </Button>
+      {me.imageUrl && (
+        <Button type="button" size="sm" variant="ghost" onClick={() => void setImage({})}>
           Remove
         </Button>
       )}
-    </div>
+    </Row>
   )
 }
 
-const DeleteAccount = () => {
+// Each field saves when you leave it, so there's no Save button to forget.
+const ProfileSection = ({ me }: { me: Me }) => {
+  const updateProfile = useMutation(api.users.updateProfile)
+  const [status, save] = useActionState(
+    (_: string | undefined, value: typeof Profile.inferIn) =>
+      updateProfile(value).then(() => "Saved", messageOf),
+    undefined
+  )
+  const profile = { name: me.name, email: me.email, userName: me.userName }
+  const form = useForm({
+    defaultValues: profile,
+    validators: { onSubmit: Profile },
+    onSubmit: ({ value }) => startTransition(() => save(value)),
+  })
+
+  return (
+    <Section
+      title="Profile"
+      status={
+        // Hidden while a field is invalid, so an old "Saved" doesn't cover an unsaved edit.
+        <form.Subscribe selector={(s) => s.isValid}>
+          {(isValid) =>
+            isValid &&
+            status && (
+              <p
+                role="status"
+                className={cn(
+                  "text-xs",
+                  status === "Saved" ? "text-muted-foreground" : "text-destructive"
+                )}
+              >
+                {status}
+              </p>
+            )
+          }
+        </form.Subscribe>
+      }
+    >
+      <ProfileImage me={me} />
+      <form
+        noValidate
+        className="divide-y"
+        onSubmit={(e) => {
+          e.preventDefault()
+          void form.handleSubmit()
+        }}
+      >
+        {fields.map(({ name, label, description, type, autoComplete }) => (
+          <form.Field key={name} name={name}>
+            {(field) => (
+              <Row
+                label={label}
+                htmlFor={name}
+                description={
+                  field.state.meta.errors.length ? (
+                    <span className="text-destructive">{field.state.meta.errors[0]?.message}</span>
+                  ) : (
+                    description
+                  )
+                }
+              >
+                <Input
+                  id={name}
+                  type={type}
+                  autoComplete={autoComplete}
+                  className="sm:w-64"
+                  value={field.state.value}
+                  onBlur={() => {
+                    field.handleBlur()
+                    if (field.state.value !== profile[name]) void form.handleSubmit()
+                  }}
+                  onChange={(e) => field.handleChange(e.target.value)}
+                  aria-invalid={field.state.meta.errors.length > 0}
+                />
+              </Row>
+            )}
+          </form.Field>
+        ))}
+        {/* Lets Enter save from any field. */}
+        <button type="submit" hidden />
+      </form>
+    </Section>
+  )
+}
+
+const AccountSection = () => {
   const deleteAccount = useMutation(api.users.deleteAccount)
   const { signOut } = useAuthActions()
 
   return (
-    <section className="grid max-w-sm gap-2">
-      <h2 className="font-heading font-medium">Delete account</h2>
-      <p className="text-muted-foreground text-sm">
-        Deletes your applications, profile and image, frees your sign-in username, and signs you
-        out.
-      </p>
-      <Button
-        type="button"
-        variant="destructive"
-        className="justify-self-start"
-        onClick={async () => {
-          if (!window.confirm("Delete your account? This can't be undone.")) return
-          await deleteAccount()
-          await signOut()
-        }}
+    <Section title="Account">
+      <Row label="Sign out" description="Sign out of Job Tracking Helper on this device.">
+        <Button type="button" size="sm" variant="outline" onClick={() => void signOut()}>
+          Sign out
+        </Button>
+      </Row>
+      <Row
+        label="Delete account"
+        description="Deletes your applications, preferences, loops, profile and picture, frees your username, and signs you out."
       >
-        Delete account
-      </Button>
-    </section>
-  )
-}
-
-const AccountBody = ({ me }: { me: FunctionReturnType<typeof api.users.me> }) => {
-  const { imageUrl, ...profile } = me
-  return (
-    <>
-      <ProfileImage imageUrl={imageUrl} />
-      <ProfileForm profile={profile} />
-      <DeleteAccount />
-    </>
+        <Button
+          type="button"
+          size="sm"
+          variant="destructive"
+          onClick={async () => {
+            if (!window.confirm("Delete your account? This can't be undone.")) return
+            await deleteAccount()
+            await signOut()
+          }}
+        >
+          Delete account
+        </Button>
+      </Row>
+    </Section>
   )
 }
 
 export const Account = () => {
   const me = useQuery(api.users.me)
   return (
-    <>
+    // As tall as the inset, so the page scrolls inside it instead of moving the whole window.
+    <div className="flex h-svh flex-col md:h-[calc(100svh-1rem)]">
       <PageHeader crumbs={[{ label: "Account" }]} />
-      <main className="flex flex-col gap-8 p-6">{me && <AccountBody me={me} />}</main>
-    </>
+      <ScrollArea className="min-h-0 flex-1">
+        <main className={cn(pageBody, "max-w-2xl gap-10")}>
+          <PageIntro
+            title="Account"
+            description="Your profile, how the app looks, and your sign-in."
+          />
+          {me && <ProfileSection me={me} />}
+          <Section title="Interface and theme">
+            <Row label="Theme" description="Light, dark, or follow your system.">
+              <div className="w-32">
+                <ThemeSwitch />
+              </div>
+            </Row>
+          </Section>
+          <AccountSection />
+        </main>
+      </ScrollArea>
+    </div>
   )
 }

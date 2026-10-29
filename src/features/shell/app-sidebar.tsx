@@ -94,15 +94,15 @@ export const AppSidebar = (props: React.ComponentProps<typeof Sidebar>) => {
         />
       </SidebarHeader>
       <SidebarContent>
-        <SidebarGroup>
+        <SidebarGroup className="group-data-[collapsible=icon]:px-0">
           <NavItems items={top} />
         </SidebarGroup>
-        <SidebarGroup>
+        <SidebarGroup className="group-data-[collapsible=icon]:px-0">
           <SidebarGroupLabel>Tracker</SidebarGroupLabel>
           <NavItems items={tracker} />
         </SidebarGroup>
       </SidebarContent>
-      <SidebarFooter>
+      <SidebarFooter className="group-data-[collapsible=icon]:px-0">
         <ThemeSwitch />
         <NavUser />
       </SidebarFooter>
