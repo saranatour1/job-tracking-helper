@@ -5,4 +5,4 @@ import { engineApi } from "./api/features/automations/engine"
 import { publicApi } from "./api/features/automations/public"
 
 export const { list, counts, runs, save, setActive, remove, runNow, stopRun } = publicApi
-export const { run, shapeOf, runStep, startSplit, finishStep, ended, startDue } = engineApi
+export const { run, runPath, shapeOf, runStep, startSplit, finishStep, ended, startDue } = engineApi

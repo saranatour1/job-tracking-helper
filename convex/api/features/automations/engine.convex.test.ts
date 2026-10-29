@@ -188,6 +188,85 @@ describe("a workflow run", () => {
     })
   })
 
+  it("lets one path run on while another waits", async () => {
+    const { t, as } = await setup()
+    const id = await as.mutation(api.automations.save, {
+      name: "Independent",
+      trigger: { kind: "manual" },
+      active: true,
+      steps: [
+        {
+          kind: "parallel",
+          paths: [
+            { label: "Slow", steps: [{ kind: "wait", minutes: 60 }] },
+            {
+              label: "Quick",
+              steps: [
+                { kind: "notify", message: "One" },
+                { kind: "notify", message: "Two" },
+                { kind: "notify", message: "Three" },
+              ],
+            },
+          ],
+        },
+      ],
+    })
+    const runId = await as.mutation(api.automations.runNow, { id })
+    // Move time on by seconds, not the hour the slow path waits.
+    const statusAt = async (at: string) =>
+      (await t.run((ctx) => ctx.db.get("automationRuns", runId)))?.log.find((e) => e.at === at)
+        ?.status
+    for (let i = 0; i < 40 && (await statusAt("0.1.2")) !== "done"; i++) {
+      vi.advanceTimersByTime(1000)
+      await t.finishInProgressScheduledFunctions()
+    }
+    expect(await statusAt("0.1.2")).toBe("done")
+    expect(await statusAt("0.0.0")).toBe("waiting")
+
+    await t.finishAllScheduledFunctions(vi.runAllTimers)
+    const run = await t.run((ctx) => ctx.db.get("automationRuns", runId))
+    expect(run?.status).toBe("done")
+  })
+
+  it("stops every path when a run is stopped mid-split", async () => {
+    const { t, as } = await setup()
+    const id = await as.mutation(api.automations.save, {
+      name: "Stopped",
+      trigger: { kind: "manual" },
+      active: true,
+      steps: [
+        {
+          kind: "parallel",
+          paths: [
+            {
+              label: "Slow",
+              steps: [
+                { kind: "wait", minutes: 60 },
+                { kind: "notify", message: "Late" },
+              ],
+            },
+            { label: "Quick", steps: [{ kind: "notify", message: "Now" }] },
+          ],
+        },
+        { kind: "notify", message: "After" },
+      ],
+    })
+    const runId = await as.mutation(api.automations.runNow, { id })
+    const statusAt = async (at: string) =>
+      (await t.run((ctx) => ctx.db.get("automationRuns", runId)))?.log.find((e) => e.at === at)
+        ?.status
+    for (let i = 0; i < 40 && (await statusAt("0.0.0")) !== "waiting"; i++) {
+      vi.advanceTimersByTime(1000)
+      await t.finishInProgressScheduledFunctions()
+    }
+    await as.mutation(api.automations.stopRun, { runId })
+    await t.finishAllScheduledFunctions(vi.runAllTimers)
+    const run = await t.run((ctx) => ctx.db.get("automationRuns", runId))
+    expect(run?.status).toBe("canceled")
+    expect(run?.log.map((e) => e.at).sort()).not.toContain("0.0.1")
+    expect(run?.log.map((e) => e.at)).not.toContain("1")
+  })
+
   it("starts due schedules even with many manual workflows switched on", async () => {
     const { t, userId } = await setup()
     // More active manual workflows than the cron takes in one batch.
