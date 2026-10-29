@@ -40,6 +40,7 @@ type Env = {
   readonly CONTEXT_DEV_MONTHLY_CREDITS: string | undefined;
   readonly FIRECRAWL_API_KEY: string | undefined;
   readonly FIRECRAWL_MONTHLY_CREDITS: string | undefined;
+  readonly SECRETS_KEYS: string | undefined;
   readonly SITE_URL: string;
 };
 

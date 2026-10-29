@@ -15,6 +15,12 @@ import type * as api_features_applications_validators from "../api/features/appl
 import type * as api_features_auth_index from "../api/features/auth/index.js";
 import type * as api_features_auth_internal from "../api/features/auth/internal.js";
 import type * as api_features_auth_public from "../api/features/auth/public.js";
+import type * as api_features_email_cloudflare from "../api/features/email/cloudflare.js";
+import type * as api_features_email_index from "../api/features/email/index.js";
+import type * as api_features_email_internal from "../api/features/email/internal.js";
+import type * as api_features_email_models from "../api/features/email/models.js";
+import type * as api_features_email_public from "../api/features/email/public.js";
+import type * as api_features_email_validators from "../api/features/email/validators.js";
 import type * as api_features_jobs_actions from "../api/features/jobs/actions.js";
 import type * as api_features_jobs_boards from "../api/features/jobs/boards.js";
 import type * as api_features_jobs_index from "../api/features/jobs/index.js";
@@ -62,10 +68,12 @@ import type * as api_features_workflows_validators from "../api/features/workflo
 import type * as applications from "../applications.js";
 import type * as auth from "../auth.js";
 import type * as crons from "../crons.js";
+import type * as email from "../email.js";
 import type * as jobs from "../jobs.js";
 import type * as lib_ark from "../lib/ark.js";
 import type * as lib_functions from "../lib/functions.js";
 import type * as lib_log from "../lib/log.js";
+import type * as lib_secrets from "../lib/secrets.js";
 import type * as loops from "../loops.js";
 import type * as preferences from "../preferences.js";
 import type * as users from "../users.js";
@@ -85,6 +93,12 @@ declare const fullApi: ApiFromModules<{
   "api/features/auth/index": typeof api_features_auth_index;
   "api/features/auth/internal": typeof api_features_auth_internal;
   "api/features/auth/public": typeof api_features_auth_public;
+  "api/features/email/cloudflare": typeof api_features_email_cloudflare;
+  "api/features/email/index": typeof api_features_email_index;
+  "api/features/email/internal": typeof api_features_email_internal;
+  "api/features/email/models": typeof api_features_email_models;
+  "api/features/email/public": typeof api_features_email_public;
+  "api/features/email/validators": typeof api_features_email_validators;
   "api/features/jobs/actions": typeof api_features_jobs_actions;
   "api/features/jobs/boards": typeof api_features_jobs_boards;
   "api/features/jobs/index": typeof api_features_jobs_index;
@@ -132,10 +146,12 @@ declare const fullApi: ApiFromModules<{
   applications: typeof applications;
   auth: typeof auth;
   crons: typeof crons;
+  email: typeof email;
   jobs: typeof jobs;
   "lib/ark": typeof lib_ark;
   "lib/functions": typeof lib_functions;
   "lib/log": typeof lib_log;
+  "lib/secrets": typeof lib_secrets;
   loops: typeof loops;
   preferences: typeof preferences;
   users: typeof users;
@@ -178,4 +194,5 @@ export declare const components: {
   workflow: import("@convex-dev/workflow/_generated/component.js").ComponentApi<"workflow">;
   readPool: import("@convex-dev/workpool/_generated/component.js").ComponentApi<"readPool">;
   rateLimiter: import("@convex-dev/rate-limiter/_generated/component.js").ComponentApi<"rateLimiter">;
+  cloudflareEmail: import("../cloudflareEmail/_generated/component.js").ComponentApi<"cloudflareEmail">;
 };
