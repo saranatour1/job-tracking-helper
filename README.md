@@ -8,11 +8,11 @@ Jobs lists every open role in a shared catalog, built from the free feeds of com
 
 Loops pick roles from that catalog each morning, for every kind of role you describe in each of your places. Jev judges each one against your Preferences through the Convex AI gateway and says what fits, what could and what doesn't. Only a few fits at a time reach your shortlist; save, favorite, dismiss or add each to your tracker, and tomorrow's runs learn from it. Paste any job's link to have it checked the same way. Jev needs no key, but the gateway needs a paid Convex Cloud plan. To find new boards, a run searches Firecrawl or context.dev when `FIRECRAWL_API_KEY` or `CONTEXT_DEV_API_KEY` is in the Convex env (`pnpm exec convex env set FIRECRAWL_API_KEY ...`); without one, runs judge roles from the boards already known.
 
-Account connects your own Cloudflare account, so emails can go out from your domain. Paste an account ID and an API token: the token is checked with Cloudflare, encrypted with AES-256-GCM under a key only the server holds, and never shown again, only its last 4 characters. Replacing it checks the new one before the old one goes. A test email shows it works. With your OK, the app also sets up incoming mail: it deploys a small Worker and a routing rule for your address (Email Routing must already be on, since it takes over the domain's MX records), and each email arrives at `/email/inbound/<id>`, sealed the same way. Each email is then filed under the application it's about (by company name, or by Jev when you let it read your mail) as one line on Applications: what it said, a portal link to check your status, and a suggested status change you confirm. Mail that matches nothing waits in Unsorted.
+Account connects your own Cloudflare account, so emails can go out from your domain. Paste an account ID and an API token: the token is checked with Cloudflare, encrypted with AES-256-GCM under a key only the server holds, and locked: it never comes back to the browser, and changing the account or address reuses it on the server. Replacing it checks the new one before the old one goes. A test email shows it works. With your OK, the app also sets up incoming mail: it deploys a small Worker and a routing rule for your address (Email Routing must already be on, since it takes over the domain's MX records), and each email arrives at `/email/inbound/<id>`, sealed the same way. Each email is then filed under the application it's about (by company name, or by Jev when you let it read your mail) in that application's timeline: what it said, a portal link to check your status, and a suggested status change you confirm. Mail that matches nothing waits in Unsorted, in the Applications toolbar.
 
 The Inbox shows what happened: new mail about your applications, mail that needs filing, and new roles from loops. Each kind can be turned off under Account → Notifications. It reads from the notifications component in `convex/notifications`.
 
-Pipeline shows your applications from Convex as a board or a list, with a side panel for each one: status with its history, priority, labels, how you applied, location, tasks and notes. New application adds one. Goals and Views use the same board but still run on sample data from `src/features/tracker/data.ts`; they don't save to Convex yet.
+Applications (`/`) shows your applications from Convex as a board or a list. Each card shows its latest email, and its side panel has the details (status, priority, labels, how you applied, location, tasks) and one timeline of status changes, notes and company mail. New application adds one. Goals and Views use the same board but still run on sample data from `src/features/tracker/data.ts`; they don't save to Convex yet.
 
 ## How to run
 
@@ -72,7 +72,7 @@ src/
   routes/                              pages (TanStack Router); they only import a feature
     _app.tsx, _auth.tsx                layouts: signed-in pages, and /sign-in + /sign-up
   features/<feature>/                  the feature's components
-  features/tracker/                    Pipeline on Convex; Goals and Views on sample data for now
+  features/tracker/                    Applications on Convex; Goals and Views on sample data for now
   features/preferences/                Preferences: the form, the assistant prompt and the profile blocks
   features/jobs/                       Jobs: the shared catalog of open roles
   features/loops/                      Loops: morning job searches, their runs and sources

@@ -41,6 +41,7 @@ import {
   statusLabels,
 } from "./data"
 import { PriorityIcon, StatusIcon } from "./icons"
+import { MailLine, Suggestion, useMailFor } from "./mail"
 import { useSource } from "./source"
 
 const icon = (field: FilterField, value: string) =>
@@ -213,8 +214,14 @@ const Content = ({ a, properties }: { a: Application; properties?: React.ReactNo
   const set = (patch: Parameters<typeof source.update>[1]) => source.update(a.id, patch)
   const tasks = a.tasks ?? []
   const notes = a.notes ?? []
-  // Merges status changes and notes into one timeline. The sort is stable, so same-day items keep their order.
-  const activity = [...a.history, ...notes].sort((x, y) => x.at.localeCompare(y.at))
+  const mail = useMailFor(a.id)
+  // Merges status changes, notes and mail into one timeline. The sort is stable, so
+  // same-day items keep their order.
+  const activity = [
+    ...a.history,
+    ...notes,
+    ...mail.map((e) => ({ mail: e, at: new Date(e.at).toISOString() })),
+  ].sort((x, y) => x.at.localeCompare(y.at))
   return (
     <>
       <div className="flex flex-col gap-2">
@@ -286,10 +293,13 @@ const Content = ({ a, properties }: { a: Application; properties?: React.ReactNo
 
       <section aria-label="Activity" className="flex flex-col gap-3 border-t pt-6">
         <h3 className="text-[13px] font-medium">Activity</h3>
+        <Suggestion mail={mail} />
         <ol className="flex flex-col gap-3">
           {activity.map((item, i) => (
             <li key={i} className="flex items-start gap-2.5 text-[13px]">
-              {"status" in item ? (
+              {"mail" in item ? (
+                <MailLine e={item.mail} />
+              ) : "status" in item ? (
                 <>
                   <StatusIcon status={item.status} className="mt-0.5" />
                   <span className="text-muted-foreground min-w-0">
@@ -307,9 +317,12 @@ const Content = ({ a, properties }: { a: Application; properties?: React.ReactNo
                   <span className="min-w-0">{item.text}</span>
                 </>
               )}
-              <span className="text-muted-foreground ms-auto shrink-0 text-xs">
-                {formatDate(item.at)}
-              </span>
+              {/* A mail line shows its own date. */}
+              {!("mail" in item) && (
+                <span className="text-muted-foreground ms-auto shrink-0 text-xs">
+                  {formatDate(item.at)}
+                </span>
+              )}
             </li>
           ))}
         </ol>
@@ -347,7 +360,7 @@ export const ApplicationDetail = ({ id }: { id: string }) => {
   if (!a) {
     return (
       <>
-        <PageHeader crumbs={[{ label: "Pipeline", to: "/pipeline" }, { label: id }]} />
+        <PageHeader crumbs={[{ label: "Applications", to: "/" }, { label: id }]} />
         <p className="text-muted-foreground p-6 text-sm">No application with id {id}.</p>
       </>
     )
@@ -356,7 +369,7 @@ export const ApplicationDetail = ({ id }: { id: string }) => {
     <>
       <PageHeader
         crumbs={[
-          { label: "Pipeline", to: "/pipeline" },
+          { label: "Applications", to: "/" },
           { label: a.code ? `${a.code} ${a.role}` : a.role },
         ]}
       />

@@ -4,6 +4,7 @@ import { useMutation } from "convex/react"
 import { useQuery } from "convex-helpers/react/cache/hooks"
 import { createContext, useContext } from "react"
 
+import type { MailEvent } from "./mail"
 import {
   type Application,
   type Label,
@@ -30,6 +31,12 @@ export type Source = {
   // Goals are still sample data, so only sample applications can join one.
   goals: boolean
   setGoal: (id: string, goalId?: string) => void
+  // Company mail filed under applications, newest first; none in the sample data.
+  mail: MailEvent[]
+  // Accepts or dismisses the status an email suggests.
+  answerMail: (eventId: MailEvent["id"], accept: boolean) => void
+  // Files an email under an application.
+  fileMail: (eventId: MailEvent["id"], applicationId: string) => void
 }
 
 const SourceContext = createContext<Source | null>(null)
@@ -51,6 +58,9 @@ const useSampleSource = (): Source => {
       updateApplication(id, { notes: [...(find(id)?.notes ?? []), { text, at: today }] }),
     goals: true,
     setGoal: (id, goalId) => updateApplication(id, { goalId }),
+    mail: [],
+    answerMail: () => undefined,
+    fileMail: () => undefined,
   }
 }
 
@@ -91,6 +101,9 @@ export const ConvexSource = ({ children }: { children: React.ReactNode }) => {
   const setStatus = useMutation(api.applications.setStatus)
   const update = useMutation(api.applications.update)
   const addNote = useMutation(api.applications.addNote)
+  const mail = useQuery(api.email.timeline)
+  const answer = useMutation(api.email.resolveSuggestion)
+  const file = useMutation(api.email.assign)
   const id = (s: string) => s as Id<"applications">
   const source: Source = {
     applications: (docs ?? []).map(fromDoc),
@@ -100,6 +113,9 @@ export const ConvexSource = ({ children }: { children: React.ReactNode }) => {
     addNote: (s, text) => void addNote({ id: id(s), text }),
     goals: false,
     setGoal: () => undefined,
+    mail: mail ?? [],
+    answerMail: (eventId, accept) => void answer({ eventId, accept }),
+    fileMail: (eventId, s) => void file({ eventId, applicationId: id(s) }),
   }
   return <SourceContext value={source}>{children}</SourceContext>
 }

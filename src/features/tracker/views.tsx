@@ -30,7 +30,7 @@ export const Views = () => (
         return (
           <li key={view.id} className="border-b">
             <Link
-              to="/pipeline"
+              to="/"
               search={{ view: view.id }}
               className="hover:bg-accent/50 flex items-center gap-3 px-4 py-2.5 transition-colors"
             >

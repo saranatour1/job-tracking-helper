@@ -40,6 +40,7 @@ import { type Display, DisplayOptions, defaultDisplay } from "./display-options"
 import { FilterChips, FilterMenu, toggleFilter } from "./filters"
 import { ApplicationPeek } from "./application"
 import { PriorityIcon, StatusIcon } from "./icons"
+import { MailBadge, UnsortedMail } from "./mail"
 import { useSource } from "./source"
 import { NewApplicationDialog } from "./new-application"
 import { useCollapsesSidebar } from "@/features/shell/one-sidebar"
@@ -151,6 +152,7 @@ const Card = ({ a, shown, peek }: { a: Application; shown: Display["shown"]; pee
       </span>
     </span>
     <span className="flex flex-wrap gap-1 empty:hidden">
+      <MailBadge id={a.id} />
       <Properties a={a} shown={shown} />
     </span>
   </Link>
@@ -173,6 +175,7 @@ const Row = ({ a, shown, peek }: { a: Application; shown: Display["shown"]; peek
       <span className="font-medium">{a.role}</span>
       <span className="text-muted-foreground"> · {a.company}</span>
     </span>
+    <MailBadge id={a.id} />
     <span className="hidden min-w-0 items-center justify-end gap-1.5 overflow-hidden @2xl:flex">
       <Properties a={a} shown={shown.filter((s) => s !== "priority")} />
     </span>
@@ -383,7 +386,7 @@ export const Pipeline = ({
       .replace(/[^a-z0-9]+/g, "-")
     const id = savedViews.some((v) => v.id === slug) ? `${slug}-${savedViews.length}` : slug
     addView({ id, name: name.trim(), description: description.trim(), filters, display })
-    void navigate({ to: "/pipeline", search: { view: id } })
+    void navigate({ to: "/", search: { view: id } })
   }
 
   return (
@@ -461,7 +464,7 @@ export const Pipeline = ({
                     key={v.id}
                     value={v.id}
                     nativeButton={false}
-                    render={<Link to="/pipeline" search={{ view: v.id }} />}
+                    render={<Link to="/" search={{ view: v.id }} />}
                   >
                     {v.name}
                   </TabsTab>
@@ -485,11 +488,11 @@ export const Pipeline = ({
             </Tooltip>
           </>
         )}
+        <div className="ms-auto">
+          <UnsortedMail />
+        </div>
         {/* One tab stop for the view controls; arrow keys move between them. */}
-        <Toolbar
-          aria-label="View controls"
-          className="ms-auto shrink-0 gap-1 border-0 bg-transparent p-0"
-        >
+        <Toolbar aria-label="View controls" className="shrink-0 gap-1 border-0 bg-transparent p-0">
           <FilterMenu
             filters={filters}
             onChange={setFilters}
