@@ -539,17 +539,19 @@ export const Pipeline = ({
             }
           />
           {/* The right panel: an open application closes, else insights (or a goal's
-              summary) comes and goes. */}
-          <ToolbarButton
-            render={
-              <IconButton
-                label={peek ? "Close panel" : summary ? "Summary" : "Insights"}
-                icon={SidebarRight01Icon}
-                aria-pressed={Boolean(peek) || panel}
-                onClick={() => (peek ? setPeek(undefined) : setPanel(!panel))}
-              />
-            }
-          />
+              summary) comes and goes. Phones have no room for insights. */}
+          {!isMobile && (
+            <ToolbarButton
+              render={
+                <IconButton
+                  label={peek ? "Close panel" : summary ? "Summary" : "Insights"}
+                  icon={SidebarRight01Icon}
+                  aria-pressed={peek ? undefined : panel}
+                  onClick={() => (peek ? setPeek(undefined) : setPanel(!panel))}
+                />
+              }
+            />
+          )}
         </Toolbar>
       </div>
       {hasFilters && (

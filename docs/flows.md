@@ -121,7 +121,8 @@ pasted links that aren't on a known board. A source without a key is skipped.
 2. The header's sidebar button opens and closes the app sidebar. Side panels (an
    application, insights, a job from a loop) open beside it and leave it alone; on the
    board, the panel button at the right of the toolbar opens insights or closes an open
-   application. On phones a side panel covers the page.
+   application. On phones an application or a loop's job covers the page, and insights
+   isn't shown.
 3. The theme switch in the sidebar's footer (also under Account) is kept in the
    browser, with no server.
 
