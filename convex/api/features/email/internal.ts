@@ -12,7 +12,7 @@ import {
 } from "../../../_generated/server"
 import { arkOutputToConvex } from "../../../lib/ark"
 import { isStale, type Keys, open, parseKeys, seal } from "../../../lib/secrets"
-import { Allow, EmailConnection, nothingAllowed } from "./models"
+import { Allow, EmailConnection, Inbound, nothingAllowed } from "./models"
 
 // Each sealed value is bound to its owner and what it is, so it can't be opened from
 // another person's row or passed off as a different field.
@@ -45,9 +45,9 @@ const connectionOf = (ctx: QueryCtx, userId: Id<"users">) =>
     .unique()
 
 // Adding a token, or replacing it, writes one row: the old token is gone once this
-// commits. A replaced token keeps the switches the person already set.
+// commits. A replaced token keeps the switches and incoming mail already set up.
 const save = internalMutation({
-  args: arkOutputToConvex(EmailConnection.omit("allow")),
+  args: arkOutputToConvex(EmailConnection.omit("allow", "inboundId", "inbound")),
   returns: v.null(),
   handler: async (ctx, connection) => {
     const existing = await connectionOf(ctx, connection.userId)
@@ -55,6 +55,8 @@ const save = internalMutation({
       await ctx.db.replace("emailConnections", existing._id, {
         ...connection,
         allow: existing.allow,
+        inboundId: existing.inboundId,
+        inbound: existing.inbound,
       })
     else await ctx.db.insert("emailConnections", { ...connection, allow: nothingAllowed })
     return null
@@ -71,6 +73,7 @@ const sealed = internalQuery({
       token: v.string(),
       tokenAddedAt: v.number(),
       allow: arkOutputToConvex(Allow),
+      inbound: v.optional(arkOutputToConvex(Inbound)),
       userEmail: v.optional(v.string()),
     })
   ),
@@ -78,8 +81,55 @@ const sealed = internalQuery({
     const connection = await connectionOf(ctx, userId)
     if (!connection) return null
     const user = await ctx.db.get("users", userId)
-    const { details, token, tokenAddedAt, allow } = connection
-    return { details, token, tokenAddedAt, allow, userEmail: user?.email }
+    const { details, token, tokenAddedAt, allow, inbound } = connection
+    return { details, token, tokenAddedAt, allow, inbound, userEmail: user?.email }
+  },
+})
+
+// Records incoming mail as set up, or clears it when both are left out.
+const setInbound = internalMutation({
+  args: {
+    userId: v.id("users"),
+    inboundId: v.optional(v.string()),
+    inbound: v.optional(arkOutputToConvex(Inbound)),
+  },
+  returns: v.null(),
+  handler: async (ctx, { userId, inboundId, inbound }) => {
+    const connection = await connectionOf(ctx, userId)
+    if (connection) await ctx.db.patch("emailConnections", connection._id, { inboundId, inbound })
+    return null
+  },
+})
+
+// Who an inbound URL belongs to, for the HTTP endpoint to check the Worker's secret.
+const inboundTarget = internalQuery({
+  args: { inboundId: v.string() },
+  returns: v.union(
+    v.null(),
+    v.object({ userId: v.id("users"), secretHash: v.string(), receive: v.boolean() })
+  ),
+  handler: async (ctx, { inboundId }) => {
+    const connection = await ctx.db
+      .query("emailConnections")
+      .withIndex("by_inboundId", (q) => q.eq("inboundId", inboundId))
+      .unique()
+    return connection?.inbound
+      ? {
+          userId: connection.userId,
+          secretHash: connection.inbound.secretHash,
+          receive: connection.allow.receive,
+        }
+      : null
+  },
+})
+
+const remove = internalMutation({
+  args: { userId: v.id("users") },
+  returns: v.null(),
+  handler: async (ctx, { userId }) => {
+    const connection = await connectionOf(ctx, userId)
+    if (connection) await ctx.db.delete("emailConnections", connection._id)
+    return null
   },
 })
 
@@ -190,6 +240,9 @@ export const deleteEmail = async (ctx: MutationCtx, userId: Id<"users">) => {
 export const internalApi = {
   save,
   sealed,
+  setInbound,
+  inboundTarget,
+  remove,
   connectionsPage,
   resealConnection,
   resealAll,

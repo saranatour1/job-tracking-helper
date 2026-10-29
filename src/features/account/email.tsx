@@ -251,8 +251,16 @@ const testOf = (connection: Connection) => {
 
 const Connected = ({ connection }: { connection: Connection }) => {
   const sendTest = useAction(api.email.sendTest)
-  const disconnect = useMutation(api.email.disconnect)
+  const disconnect = useAction(api.email.disconnect)
+  const setUp = useAction(api.email.setUpInbound)
+  const stop = useAction(api.email.stopInbound)
   const [error, test] = useActionState(() => sendTest().then(() => undefined, messageOf), undefined)
+  const [inboundError, inbound] = useActionState(
+    (_: string | undefined, start: boolean) =>
+      (start ? setUp() : stop()).then(() => undefined, messageOf),
+    undefined
+  )
+  const canSetUp = connection.allow.setup && connection.allow.receive
   return (
     <>
       <Row label="Token can" description="Setting up incoming mail needs Workers and Routing.">
@@ -275,7 +283,39 @@ const Connected = ({ connection }: { connection: Connection }) => {
           Send test
         </Button>
       </Row>
-      <Row label="Disconnect" description="Deletes the saved token and details. Sent emails stay.">
+      <Row
+        label="Incoming mail"
+        description={
+          inboundError ? (
+            <span className="text-destructive">{inboundError}</span>
+          ) : connection.receivingSince ? (
+            `Receiving at ${connection.fromAddress} since ${dateOf(connection.receivingSince)}.`
+          ) : canSetUp ? (
+            `Adds a Worker and a routing rule for ${connection.fromAddress}. Email Routing must already be on for the domain.`
+          ) : (
+            "Turn on “Set up Cloudflare for you” and “Keep incoming mail” below first."
+          )
+        }
+      >
+        {connection.receivingSince ? (
+          <Button size="sm" variant="outline" onClick={() => startTransition(() => inbound(false))}>
+            Stop
+          </Button>
+        ) : (
+          <Button
+            size="sm"
+            variant="outline"
+            disabled={!canSetUp}
+            onClick={() => startTransition(() => inbound(true))}
+          >
+            Set up
+          </Button>
+        )}
+      </Row>
+      <Row
+        label="Disconnect"
+        description="Removes the Worker and routing rule, then deletes the saved token and details. Emails stay."
+      >
         <Button
           size="sm"
           variant="outline"
@@ -312,7 +352,8 @@ const switches: {
   {
     key: "receive",
     label: "Keep incoming mail",
-    description: "Store mail sent to your address, encrypted, and match it to your applications.",
+    description:
+      "Store mail sent to your address, encrypted. Off, mail to your address is turned away.",
   },
   {
     key: "read",
@@ -351,6 +392,21 @@ const OnYourBehalf = ({ connection }: { connection: Connection }) => {
   )
 }
 
+// Mail that came in, newest first. Grouping it under applications comes next.
+const RecentMail = () => {
+  const mail = useQuery(api.email.recentMail)
+  if (!mail?.length) return null
+  return (
+    <Section title="Recent mail">
+      {mail.map((m) => (
+        <Row key={m.id} label={m.subject} description={`${m.from} · ${m.snippet}`}>
+          <span className="text-muted-foreground text-xs whitespace-nowrap">{dateOf(m.at)}</span>
+        </Row>
+      ))}
+    </Section>
+  )
+}
+
 export const EmailSection = () => {
   const connection = useQuery(api.email.connection)
   if (connection === undefined) return null
@@ -365,6 +421,7 @@ export const EmailSection = () => {
         {connection && <Connected connection={connection} />}
       </Section>
       {connection && <OnYourBehalf connection={connection} />}
+      {connection && <RecentMail />}
     </>
   )
 }
