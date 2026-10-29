@@ -1,14 +1,27 @@
-// The Cloudflare API calls that check a pasted token. Sending lives in the
-// cloudflareEmail component.
+// The Cloudflare API calls that check a pasted token and set up incoming mail.
+// Sending lives in the cloudflareEmail component.
 const base = "https://api.cloudflare.com/client/v4"
 
+type Answer = { success?: boolean; result?: unknown; errors?: { message: string }[] }
+
+const request = async (path: string, token: string, init: RequestInit = {}) => {
+  const headers = new Headers(init.headers)
+  headers.set("Authorization", `Bearer ${token}`)
+  const res = await fetch(base + path, { ...init, headers })
+  const body = (await res.json().catch(() => null)) as Answer | null
+  return { ok: res.ok && !!body?.success, body }
+}
+
 const call = async (path: string, token: string) => {
-  const res = await fetch(base + path, { headers: { Authorization: `Bearer ${token}` } })
-  const body = (await res.json().catch(() => null)) as {
-    success?: boolean
-    result?: unknown
-  } | null
-  return res.ok && body?.success ? (body.result ?? null) : undefined
+  const { ok, body } = await request(path, token)
+  return ok ? (body?.result ?? null) : undefined
+}
+
+// Throws Cloudflare's own reason, which never includes the token.
+const must = async (path: string, token: string, init: RequestInit) => {
+  const { ok, body } = await request(path, token, init)
+  if (!ok) throw new Error(body?.errors?.map((e) => e.message).join("; ") || "Cloudflare said no.")
+  return body?.result
 }
 
 /** "active", "disabled", "expired", or "invalid" when Cloudflare doesn't know the token. */
@@ -59,4 +72,87 @@ export const accessOf = async (accountId: string, token: string, domain: string)
       routing: routing !== undefined,
     },
   }
+}
+
+/** Whether Email Routing is on for the zone, or undefined when the token can't tell. */
+export const routingEnabled = async (zoneId: string, token: string) =>
+  ((await call(`/zones/${zoneId}/email/routing`, token)) as { enabled?: boolean } | undefined)
+    ?.enabled
+
+// The Worker that receives mail: it hands each raw message to Convex and nothing else.
+// A 403 means the person turned receiving off, so the sender hears it was turned away;
+// anything else throws, so Cloudflare treats it as a temporary failure.
+export const inboundWorker = `export default {
+  async email(message, env) {
+    const res = await fetch(env.INBOUND_URL, {
+      method: "POST",
+      headers: {
+        Authorization: "Bearer " + env.SECRET,
+        "Content-Type": "message/rfc822",
+        "X-Envelope-From": message.from,
+        "X-Envelope-To": message.to,
+      },
+      body: await new Response(message.raw).arrayBuffer(),
+    })
+    if (res.status === 403) return message.setReject("This address isn't accepting mail right now.")
+    if (!res.ok) throw new Error("Job Tracking Helper didn't take the message: " + res.status)
+  },
+}
+`
+
+export const uploadWorker = (
+  accountId: string,
+  token: string,
+  name: string,
+  vars: { inboundUrl: string; secret: string }
+) => {
+  const form = new FormData()
+  form.append(
+    "metadata",
+    JSON.stringify({
+      main_module: "worker.js",
+      compatibility_date: "2026-10-01",
+      bindings: [
+        { type: "plain_text", name: "INBOUND_URL", text: vars.inboundUrl },
+        { type: "secret_text", name: "SECRET", text: vars.secret },
+      ],
+    })
+  )
+  form.append(
+    "worker.js",
+    new Blob([inboundWorker], { type: "application/javascript+module" }),
+    "worker.js"
+  )
+  return must(`/accounts/${accountId}/workers/scripts/${name}`, token, {
+    method: "PUT",
+    body: form,
+  })
+}
+
+/** Sends mail for `address` to the Worker and returns the rule's id. */
+export const createRule = async (zoneId: string, token: string, address: string, worker: string) =>
+  (
+    (await must(`/zones/${zoneId}/email/routing/rules`, token, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        name: "Job Tracking Helper",
+        enabled: true,
+        matchers: [{ type: "literal", field: "to", value: address }],
+        actions: [{ type: "worker", value: [worker] }],
+      }),
+    })) as { id: string }
+  ).id
+
+// Teardown is best effort: a rule or Worker someone already deleted is fine.
+export const removeInbound = async (
+  accountId: string,
+  zoneId: string,
+  token: string,
+  worker: string,
+  ruleId: string
+) => {
+  if (ruleId)
+    await request(`/zones/${zoneId}/email/routing/rules/${ruleId}`, token, { method: "DELETE" })
+  await request(`/accounts/${accountId}/workers/scripts/${worker}`, token, { method: "DELETE" })
 }

@@ -20,6 +20,31 @@ export const Sent = type({
   "messageId?": "string",
 })
 
+// An email as it arrives, parsed and sealed into the component.
+export const Received = type({
+  from: "string",
+  "fromName?": "string",
+  to: "string[]",
+  subject: "string",
+  "text?": "string",
+  "html?": "string",
+  "messageId?": "string",
+  "inReplyTo?": "string",
+  "references?": "string",
+  "date?": "string",
+  attachments: "string[]",
+})
+
+// Incoming mail, once the app has set it up: the Worker it deployed, the routing rule
+// that feeds it, and a hash of the secret the Worker sends, so checking each email
+// needs no decryption.
+export const Inbound = type({
+  secretHash: "string",
+  worker: "string",
+  ruleId: "string",
+  at: "number",
+})
+
 // What the token was allowed to do when it was added. Sending is unknown when the
 // token can't list the domain's sending settings; a test send tells for sure.
 export const Access = type({ "sending?": "boolean", workers: "boolean", routing: "boolean" })
@@ -46,9 +71,11 @@ export const EmailConnection = type({
   access: Access,
   // Checked on the server before the app does any of these.
   allow: Allow,
+  // Random and public: it names this person's inbound URL, nothing else.
+  "inboundId?": "string",
+  "inbound?": Inbound,
 })
 
-export const emailConnectionsTable = defineTable(arkOutputToConvex(EmailConnection)).index(
-  "by_userId",
-  ["userId"]
-)
+export const emailConnectionsTable = defineTable(arkOutputToConvex(EmailConnection))
+  .index("by_userId", ["userId"])
+  .index("by_inboundId", ["inboundId"])
