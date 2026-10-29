@@ -19,8 +19,10 @@ import type * as api_features_email_cloudflare from "../api/features/email/cloud
 import type * as api_features_email_inbound from "../api/features/email/inbound.js";
 import type * as api_features_email_index from "../api/features/email/index.js";
 import type * as api_features_email_internal from "../api/features/email/internal.js";
+import type * as api_features_email_match from "../api/features/email/match.js";
 import type * as api_features_email_models from "../api/features/email/models.js";
 import type * as api_features_email_public from "../api/features/email/public.js";
+import type * as api_features_email_sort from "../api/features/email/sort.js";
 import type * as api_features_email_validators from "../api/features/email/validators.js";
 import type * as api_features_jobs_actions from "../api/features/jobs/actions.js";
 import type * as api_features_jobs_boards from "../api/features/jobs/boards.js";
@@ -99,8 +101,10 @@ declare const fullApi: ApiFromModules<{
   "api/features/email/inbound": typeof api_features_email_inbound;
   "api/features/email/index": typeof api_features_email_index;
   "api/features/email/internal": typeof api_features_email_internal;
+  "api/features/email/match": typeof api_features_email_match;
   "api/features/email/models": typeof api_features_email_models;
   "api/features/email/public": typeof api_features_email_public;
+  "api/features/email/sort": typeof api_features_email_sort;
   "api/features/email/validators": typeof api_features_email_validators;
   "api/features/jobs/actions": typeof api_features_jobs_actions;
   "api/features/jobs/boards": typeof api_features_jobs_boards;

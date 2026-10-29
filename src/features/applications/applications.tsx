@@ -16,6 +16,7 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table"
+import { MailCell, UnsortedMail } from "@/features/applications/mail"
 import { PageHeader } from "@/features/shell/page-header"
 
 const features = tableFeatures({})
@@ -24,6 +25,11 @@ const columns = helper.columns([
   helper.accessor("company", { header: "Company" }),
   helper.accessor("role", { header: "Role" }),
   helper.accessor("status", { header: "Status" }),
+  helper.display({
+    id: "mail",
+    header: "Mail",
+    cell: ({ row }) => <MailCell applicationId={row.original._id} />,
+  }),
 ])
 
 const emptyApplication: typeof Application.inferIn = { company: "", role: "", status: "applied" }
@@ -97,6 +103,8 @@ export const Applications = () => {
           </form.Field>
           <Button type="submit">Add</Button>
         </form>
+
+        <UnsortedMail applications={rows ?? noRows} />
 
         <Table>
           <TableHeader>

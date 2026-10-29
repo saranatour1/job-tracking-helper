@@ -4,6 +4,7 @@ import { type } from "arktype"
 // convex/server imports so the frontend can import it without bundling them.
 // "saved" is a job someone added to track before applying, often from a loop.
 export const statuses = ["saved", "applied", "interviewing", "offer", "rejected"] as const
+export type Status = (typeof statuses)[number]
 
 const filled = type("string.trim").to("string > 0")
 

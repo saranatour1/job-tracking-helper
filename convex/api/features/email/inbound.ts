@@ -174,10 +174,11 @@ export const receive = httpAction(async (ctx, req) => {
     attachments: mail.attachments.flatMap((a) => (a.filename ? [a.filename] : [])),
   }
   const k = await secretKeys()
-  await ctx.runMutation(components.cloudflareEmail.lib.receive, {
+  const emailId = await ctx.runMutation(components.cloudflareEmail.lib.receive, {
     owner: target.userId,
     payload: await seal(k, JSON.stringify(email), aad.email(target.userId)),
   })
+  await ctx.scheduler.runAfter(0, internal.email.sortMail, { userId: target.userId, emailId })
   return new Response(null, { status: 204 })
 })
 

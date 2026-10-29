@@ -234,6 +234,10 @@ const removeEmails = internalMutation({
 export const deleteEmail = async (ctx: MutationCtx, userId: Id<"users">) => {
   const connection = await connectionOf(ctx, userId)
   if (connection) await ctx.db.delete("emailConnections", connection._id)
+  for await (const event of ctx.db
+    .query("mailEvents")
+    .withIndex("by_userId_and_applicationId", (q) => q.eq("userId", userId)))
+    await ctx.db.delete("mailEvents", event._id)
   await ctx.scheduler.runAfter(0, internal.email.removeEmails, { owner: userId })
 }
 
