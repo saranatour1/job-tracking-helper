@@ -8,7 +8,8 @@ export const AppShell = ({ children }: { children: React.ReactNode }) => {
   const path = useRouterState({ select: (s) => s.location.pathname })
   return (
     <TooltipProvider>
-      <SidebarProvider>
+      {/* Collapsed, the icon column is as wide as one icon button; app-sidebar drops the side padding to match. */}
+      <SidebarProvider style={{ "--sidebar-width-icon": "2rem" } as React.CSSProperties}>
         <AppSidebar variant="inset" />
         {/* Each page renders its own PageHeader, which holds the sidebar toggle. */}
         {/* min-w-0 keeps a wide board scrolling inside the page instead of widening it. */}
