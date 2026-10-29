@@ -75,6 +75,28 @@ describe("paths", () => {
     const long = { label: "p", steps: Array.from({ length: 11 }, () => notify("a")) }
     expect(problemOf("x", manual, [split([long, long])])).toBeDefined()
   })
+  it("lets an Ask Jev answer do nothing, but wants a question and different answers", () => {
+    const manual = { kind: "manual" as const }
+    const decide = (question: string, ...labels: string[]) => ({
+      kind: "decide" as const,
+      question,
+      paths: labels.map((label, i) => ({ label, steps: i === 0 ? [notify("a")] : [] })),
+    })
+    expect(problemOf("x", manual, [decide("Worth it?", "Yes", "No")])).toBeUndefined()
+    expect(problemOf("x", manual, [decide(" ", "Yes", "No")])).toBeDefined()
+    expect(problemOf("x", manual, [decide("Worth it?", "Yes", "yes ")])).toBe(
+      "Give each of Jev's answers a different name."
+    )
+  })
+})
+
+describe("the trigger's application", () => {
+  const move = { kind: "move" as const, to: "offer" as const }
+  it("needs one picked unless the trigger brings one", () => {
+    expect(problemOf("x", { kind: "manual" }, [move])).toBeDefined()
+    expect(problemOf("x", { kind: "status", to: [] }, [move])).toBeUndefined()
+    expect(problemOf("x", { kind: "mail", kinds: [] }, [move])).toBeUndefined()
+  })
 })
 
 describe("nextScheduledAt", () => {

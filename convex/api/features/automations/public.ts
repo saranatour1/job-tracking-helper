@@ -4,7 +4,7 @@ import type { Doc, Id } from "../../../_generated/dataModel"
 import type { MutationCtx } from "../../../_generated/server"
 import { authedMutation, authedQuery } from "../../../lib/functions"
 import { limits as rates } from "../workflows/manager"
-import { countsOf, deleteRuns } from "./counts"
+import { choicesOf, countsOf, deleteRuns } from "./counts"
 import { cancelRun, startRun } from "./engine"
 import {
   blocksOf,
@@ -51,6 +51,20 @@ const counts = authedQuery({
   },
 })
 
+/** How often Jev gave each answer at each Ask Jev step, by place then answer. */
+const choices = authedQuery({
+  args: { automationId: v.id("automations") },
+  returns: v.record(v.string(), v.record(v.string(), v.number())),
+  handler: async (ctx, { automationId }) => {
+    const automation = await ctx.db.get("automations", automationId)
+    if (automation?.userId !== ctx.userId) return {}
+    const asked = automation.steps.flatMap((step, i) =>
+      step.kind === "decide" ? [{ at: String(i), answers: step.paths.map((p) => p.label) }] : []
+    )
+    return asked.length ? choicesOf(ctx, automationId, asked) : {}
+  },
+})
+
 /** A workflow's latest runs, newest first. */
 const runs = authedQuery({
   args: { automationId: v.id("automations") },
@@ -81,10 +95,10 @@ const save = authedMutation({
     const problem = problemOf(name, automation.trigger, automation.steps)
     if (problem) throw new ConvexError(problem)
     for (const step of blocksOf(automation.steps))
-      if (step.kind === "addNote") {
+      if ((step.kind === "addNote" || step.kind === "move") && step.applicationId) {
         const application = await ctx.db.get("applications", step.applicationId)
         if (application?.userId !== ctx.userId)
-          throw new ConvexError("That application isn't yours.")
+          throw new ConvexError("That application isn't yours, or it's gone.")
       }
     const row = { ...automation, name, nextRunAt: nextRunOf(automation.trigger, automation.active) }
     if (id) {
@@ -172,4 +186,4 @@ export const deleteAutomations = async (ctx: MutationCtx, userId: Id<"users">) =
     await deleteWorkflow(ctx, automation)
 }
 
-export const publicApi = { list, counts, runs, save, setActive, remove, runNow, stopRun }
+export const publicApi = { list, counts, choices, runs, save, setActive, remove, runNow, stopRun }

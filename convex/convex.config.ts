@@ -69,6 +69,8 @@ app.use(rateLimiter)
 
 // Counters: each workflow's runs bucketed by how they ended (see automations/counts).
 app.use(aggregate, { name: "automationRunCounts" })
+// Buckets for Ask Jev's answers: how often each was given, per step.
+app.use(aggregate, { name: "automationChoices" })
 
 // Email: each person sends from their own Cloudflare account, with their token
 // sealed in emailConnections. The component keeps the emails themselves.

@@ -1,7 +1,7 @@
 import type { Step } from "@convex/api/features/automations/validators"
 import { describe, expect, it } from "vite-plus/test"
 
-import { insert, layout, remove, splitAt, update } from "./tree"
+import { branchAt, insert, layout, remove, update } from "./tree"
 
 const notify = (message: string) => ({ kind: "notify" as const, message })
 const split = (...paths: string[][]): Step => ({
@@ -42,10 +42,38 @@ describe("editing steps", () => {
     ])
   })
   it("starts a split with two paths", () => {
-    expect(splitAt([notify("a")], 1, notify("x"))[1]).toMatchObject({
+    expect(branchAt([notify("a")], 1, "parallel", notify("x"))[1]).toMatchObject({
       kind: "parallel",
       paths: [{ steps: [notify("x")] }, { steps: [notify("x")] }],
     })
+  })
+  it("starts Ask Jev with Yes going on and No doing nothing", () => {
+    expect(branchAt([], 0, "decide", notify("x"))[0]).toMatchObject({
+      kind: "decide",
+      paths: [
+        { label: "Yes", steps: [notify("x")] },
+        { label: "No", steps: [] },
+      ],
+    })
+  })
+  it("keeps an Ask Jev answer when its last step goes", () => {
+    const decide: Step = {
+      kind: "decide",
+      question: "?",
+      paths: [
+        { label: "Yes", steps: [notify("x")] },
+        { label: "No", steps: [] },
+      ],
+    }
+    expect(remove([decide], "0.0.0")).toEqual([
+      {
+        ...decide,
+        paths: [
+          { label: "Yes", steps: [] },
+          { label: "No", steps: [] },
+        ],
+      },
+    ])
   })
 })
 
@@ -73,5 +101,21 @@ describe("layout", () => {
       split: 0,
       path: 1,
     })
+  })
+  it("names an empty Ask Jev answer on its line to the join", () => {
+    const { edges } = layout([
+      {
+        kind: "decide",
+        question: "?",
+        paths: [
+          { label: "Yes", steps: [notify("x")] },
+          { label: "No", steps: [] },
+        ],
+      },
+    ])
+    expect(edges.filter((e) => e.label).map((e) => [e.label, e.to])).toEqual([
+      ["Yes", "0.0.0"],
+      ["No", "0.join"],
+    ])
   })
 })

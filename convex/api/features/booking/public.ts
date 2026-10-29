@@ -5,6 +5,7 @@ import type { Id } from "../../../_generated/dataModel"
 import { type MutationCtx, mutation, query, type QueryCtx } from "../../../_generated/server"
 import { authedMutation, authedQuery } from "../../../lib/functions"
 import { aad, keys, openJson } from "../email/internal"
+import { fireEvent } from "../automations/fire"
 import { ruleMatch } from "../email/match"
 import { MailNote } from "../email/models"
 import { vPageFields } from "./models"
@@ -271,6 +272,11 @@ const book = mutation({
       owner: found.userId,
       kind: "booking.new",
       ref: id,
+    })
+    await fireEvent(ctx, found.userId, {
+      kind: "booking",
+      bookingId: id,
+      ...(applicationId && { applicationId }),
     })
     return booking
   },

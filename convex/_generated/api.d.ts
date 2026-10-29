@@ -15,8 +15,10 @@ import type * as api_features_applications_validators from "../api/features/appl
 import type * as api_features_auth_index from "../api/features/auth/index.js";
 import type * as api_features_auth_internal from "../api/features/auth/internal.js";
 import type * as api_features_auth_public from "../api/features/auth/public.js";
+import type * as api_features_automations_actions from "../api/features/automations/actions.js";
 import type * as api_features_automations_counts from "../api/features/automations/counts.js";
 import type * as api_features_automations_engine from "../api/features/automations/engine.js";
+import type * as api_features_automations_fire from "../api/features/automations/fire.js";
 import type * as api_features_automations_models from "../api/features/automations/models.js";
 import type * as api_features_automations_public from "../api/features/automations/public.js";
 import type * as api_features_automations_validators from "../api/features/automations/validators.js";
@@ -116,8 +118,10 @@ declare const fullApi: ApiFromModules<{
   "api/features/auth/index": typeof api_features_auth_index;
   "api/features/auth/internal": typeof api_features_auth_internal;
   "api/features/auth/public": typeof api_features_auth_public;
+  "api/features/automations/actions": typeof api_features_automations_actions;
   "api/features/automations/counts": typeof api_features_automations_counts;
   "api/features/automations/engine": typeof api_features_automations_engine;
+  "api/features/automations/fire": typeof api_features_automations_fire;
   "api/features/automations/models": typeof api_features_automations_models;
   "api/features/automations/public": typeof api_features_automations_public;
   "api/features/automations/validators": typeof api_features_automations_validators;
@@ -241,6 +245,7 @@ export declare const components: {
   readPool: import("@convex-dev/workpool/_generated/component.js").ComponentApi<"readPool">;
   rateLimiter: import("@convex-dev/rate-limiter/_generated/component.js").ComponentApi<"rateLimiter">;
   automationRunCounts: import("@convex-dev/aggregate/_generated/component.js").ComponentApi<"automationRunCounts">;
+  automationChoices: import("@convex-dev/aggregate/_generated/component.js").ComponentApi<"automationChoices">;
   cloudflareEmail: import("../cloudflareEmail/_generated/component.js").ComponentApi<"cloudflareEmail">;
   notifications: import("../notifications/_generated/component.js").ComponentApi<"notifications">;
 };

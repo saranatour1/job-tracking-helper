@@ -7,20 +7,45 @@ import {
 import { ConvexError, type Infer, v } from "convex/values"
 import { components, internal } from "../../../_generated/api"
 import type { Doc, Id } from "../../../_generated/dataModel"
-import { internalMutation, internalQuery, type MutationCtx } from "../../../_generated/server"
-import { limits as applicationLimits } from "../applications/validators"
-import { workflow } from "../workflows/manager"
-import { deleteRuns, insertRun, patchRun } from "./counts"
+import {
+  internalMutation,
+  internalQuery,
+  type MutationCtx,
+  type QueryCtx,
+} from "../../../_generated/server"
+import { changeStatus } from "../applications/public"
+import { limits as applicationLimits, statusLabels } from "../applications/validators"
+import { fromWall, instantOf, wallOf } from "../booking/slots"
+import { kindOf } from "../calendar/public"
+import { aad, keys, openJson } from "../email/internal"
+import { MailNote } from "../email/models"
+import { limits as rates, workflow } from "../workflows/manager"
+import { deleteRuns, insertRun, patchRun, recordChoice } from "./counts"
+import { vAutomationEvent } from "./fire"
 import type { vLogEntry } from "./models"
-import { type Block, fill, nextScheduledAt, stepAt } from "./validators"
+import {
+  type Block,
+  fill,
+  isBranch,
+  nextScheduledAt,
+  type RunContext,
+  stepAt,
+  type Trigger,
+} from "./validators"
 
 type LogEntry = Infer<typeof vLogEntry>
 
 // Runs one block; returns why it couldn't run, if it couldn't. A wait sleeps inside
-// whichever workflow called it, so it costs nothing while it waits.
+// whichever workflow called it, so it costs nothing while it waits; an email goes out
+// from an action, since it calls Cloudflare.
 const runBlock = async (step: WorkflowCtx, runId: Id<"automationRuns">, at: string) => {
-  const { waitMs, error } = await step.runMutation(internal.automations.runStep, { runId, at })
-  if (error) return error
+  const done = await step.runMutation(internal.automations.runStep, { runId, at })
+  if (done.error) return done.error
+  const { waitMs } = done
+  if ("email" in done && done.email) {
+    const failed = await step.runAction(internal.automations.emailMe, { runId, at })
+    if (failed) return failed
+  }
   if (waitMs > 0) {
     await step.sleep(waitMs, { name: `wait ${at}` })
     await step.runMutation(internal.automations.finishStep, { runId, at })
@@ -29,31 +54,41 @@ const runBlock = async (step: WorkflowCtx, runId: Id<"automationRuns">, at: stri
 }
 
 // One interpreter runs every workflow anyone builds. It walks the run's copy of the
-// steps: a block is one mutation, and a split starts each path as its own child
-// workflow, going on once every path is done. A step that can't run records why, and
-// the run stops there.
+// steps: a block is one mutation; a split starts each path as its own child workflow and
+// goes on once every path is done; Ask Jev asks, then runs the one path Jev picked. A
+// step that can't run records why, and the run stops there.
 const run = workflow.define({
   args: { runId: v.id("automationRuns") },
   handler: async (step, { runId }): Promise<void> => {
     const shape = await step.runQuery(internal.automations.shapeOf, { runId })
-    for (const [i, paths] of shape.entries()) {
-      if (paths === null) {
-        const error = await runBlock(step, runId, String(i))
+    for (const [i, branch] of shape.entries()) {
+      const at = String(i)
+      if (branch === null) {
+        const error = await runBlock(step, runId, at)
         if (error) throw new Error(error)
         continue
       }
-      await step.runMutation(internal.automations.startSplit, { runId, at: String(i) })
-      // Each path has its own journal, so a wait on one never holds back the others (in
-      // one workflow, steps started together advance together). A path that fails stops
-      // there and says why; the others still finish first.
-      const errors = await Promise.all(
-        paths.map((length, path) =>
-          step.runWorkflow(internal.automations.runPath, { runId, split: i, path, length })
+      await step.runMutation(internal.automations.startBranch, { runId, at, kind: branch.kind })
+      if (branch.kind === "decide") {
+        const { path, error } = await step.runAction(internal.automations.askJev, { runId, at })
+        if (error || path === null) throw new Error(error ?? "Jev didn't answer.")
+        for (let j = 0; j < (branch.lengths[path] ?? 0); j++) {
+          const failed = await runBlock(step, runId, `${i}.${path}.${j}`)
+          if (failed) throw new Error(failed)
+        }
+      } else {
+        // Each path has its own journal, so a wait on one never holds back the others (in
+        // one workflow, steps started together advance together). A path that fails stops
+        // there and says why; the others still finish first.
+        const errors = await Promise.all(
+          branch.lengths.map((length, path) =>
+            step.runWorkflow(internal.automations.runPath, { runId, split: i, path, length })
+          )
         )
-      )
-      const error = errors.find((e) => e !== null)
-      if (error) throw new Error(error)
-      await step.runMutation(internal.automations.finishStep, { runId, at: String(i) })
+        const error = errors.find((e) => e !== null)
+        if (error) throw new Error(error)
+      }
+      await step.runMutation(internal.automations.finishStep, { runId, at })
     }
   },
 })
@@ -83,13 +118,15 @@ export const keptRuns = 50
 export const startRun = async (
   ctx: MutationCtx,
   automation: Doc<"automations">,
-  trigger: "manual" | "schedule"
+  trigger: "manual" | "schedule" | "event",
+  context?: RunContext
 ) => {
   const runId = await insertRun(ctx, {
     automationId: automation._id,
     userId: automation.userId,
     name: automation.name,
     trigger,
+    ...(context && { context }),
     steps: automation.steps,
     status: "running",
     startedAt: Date.now(),
@@ -115,13 +152,22 @@ export const startRun = async (
   return runId
 }
 
-/** The run's steps as the interpreter needs them: null for a block, or each path's length. */
+/** The run's steps as the interpreter needs them: null for a block, or a branch's kind
+ * and each path's length. */
 const shapeOf = internalQuery({
   args: { runId: v.id("automationRuns") },
-  returns: v.array(v.union(v.null(), v.array(v.number()))),
+  returns: v.array(
+    v.union(
+      v.null(),
+      v.object({
+        kind: v.union(v.literal("parallel"), v.literal("decide")),
+        lengths: v.array(v.number()),
+      })
+    )
+  ),
   handler: async (ctx, { runId }) =>
     ((await ctx.db.get("automationRuns", runId))?.steps ?? []).map((s) =>
-      s.kind === "parallel" ? s.paths.map((p) => p.steps.length) : null
+      isBranch(s) ? { kind: s.kind, lengths: s.paths.map((p) => p.steps.length) } : null
     ),
 })
 
@@ -135,8 +181,10 @@ const setLog = async (ctx: MutationCtx, runId: Doc<"automationRuns">["_id"], ent
   })
 }
 
-// What a step's text can name. Only these, filled in as plain text.
-const valuesOf = async (ctx: MutationCtx, found: Doc<"automationRuns">) => {
+// What a step's text can name, from the run and the event that started it. Only these,
+// filled in as plain text. An email's words are opened here, when a step needs them, so
+// they never sit unsealed in a run.
+export const factsOf = async (ctx: QueryCtx, found: Doc<"automationRuns">) => {
   const settings = await ctx.db
     .query("calendarSettings")
     .withIndex("by_userId", (q) => q.eq("userId", found.userId))
@@ -150,34 +198,89 @@ const valuesOf = async (ctx: MutationCtx, found: Doc<"automationRuns">) => {
       day: "numeric",
       ...(time && { hour: "numeric", minute: "2-digit", timeZoneName: "short" }),
     }).format(ms)
-  return { values: { "workflow.name": found.name, "run.date": date(Date.now()) }, date }
+  const values: Record<string, string> = {
+    "workflow.name": found.name,
+    "run.date": date(Date.now()),
+  }
+  const context = found.context ?? {}
+  const application = context.applicationId
+    ? await ctx.db.get("applications", context.applicationId)
+    : null
+  if (application?.userId === found.userId) {
+    values["application.company"] = application.company
+    values["application.role"] = application.role
+    values["application.status"] = statusLabels[application.status]
+  }
+  if (context.from) values["status.from"] = statusLabels[context.from]
+  if (context.to) values["status.to"] = statusLabels[context.to]
+  if (context.mailEventId) {
+    const mail = await ctx.db.get("mailEvents", context.mailEventId)
+    const k = await keys().catch(() => null)
+    const note =
+      mail?.userId === found.userId && k
+        ? await openJson(k, mail.note, aad.email(found.userId), MailNote)
+        : null
+    if (note) {
+      values["email.subject"] = note.subject
+      values["email.from"] = note.from
+    }
+    if (mail) values["email.kind"] = mail.kind
+  }
+  if (context.bookingId) {
+    const booking = await ctx.db.get("calendarEvents", context.bookingId)
+    if (booking?.userId === found.userId) {
+      values["booking.title"] = booking.title
+      values["booking.when"] = date(Date.parse(booking.start), true)
+    }
+  }
+  return {
+    values,
+    date,
+    zone,
+    application: application?.userId === found.userId ? application : null,
+  }
 }
 
-/** Does one block. Returns what it said or did, and how long to wait after it. */
+// The application a step acts on: the one it names, or else the one the event is about.
+const applicationFor = async (
+  ctx: MutationCtx,
+  found: Doc<"automationRuns">,
+  picked: Id<"applications"> | undefined
+) => {
+  const id = picked ?? found.context?.applicationId
+  if (!id) throw new ConvexError("This run isn't about an application, so there was none to use.")
+  const application = await ctx.db.get("applications", id)
+  if (application?.userId !== found.userId) throw new ConvexError("That application is gone.")
+  return application
+}
+
+/** Does one block. Returns what it said or did, how long to wait after it, and whether
+ * an email still has to go out. */
 const doBlock = async (
   ctx: MutationCtx,
   found: Doc<"automationRuns">,
   at: string,
   block: Block
-): Promise<{ output: string; waitMs: number }> => {
-  const { values, date } = await valuesOf(ctx, found)
+): Promise<{ output: string; waitMs: number; email?: boolean }> => {
+  const { values, date, zone } = await factsOf(ctx, found)
   switch (block.kind) {
     case "notify": {
-      await ctx.runMutation(components.notifications.lib.notify, {
-        owner: found.userId,
-        kind: "automation.notify",
-        ref: `${found._id}#${at}`,
-      })
-      return { output: fill(block.message, values), waitMs: 0 }
+      const send = block.send ?? "inbox"
+      if (send !== "email")
+        await ctx.runMutation(components.notifications.lib.notify, {
+          owner: found.userId,
+          kind: "automation.notify",
+          ref: `${found._id}#${at}`,
+        })
+      return { output: fill(block.message, values), waitMs: 0, email: send !== "inbox" }
     }
     case "addNote": {
-      const application = await ctx.db.get("applications", block.applicationId)
-      if (application?.userId !== found.userId) throw new ConvexError("That application is gone.")
+      const application = await applicationFor(ctx, found, block.applicationId)
       const text = fill(block.text, {
         ...values,
         "application.company": application.company,
         "application.role": application.role,
-        "application.status": application.status,
+        "application.status": statusLabels[application.status],
       })
       await ctx.db.patch("applications", application._id, {
         notes: [...(application.notes ?? []), { text, at: Date.now() }].slice(
@@ -188,6 +291,40 @@ const doBlock = async (
         output: `Added to ${application.role} at ${application.company}: ${text}`,
         waitMs: 0,
       }
+    }
+    case "move": {
+      const application = await applicationFor(ctx, found, block.applicationId)
+      // Quietly: a workflow's own move never starts workflows, so none can set off another.
+      await changeStatus(ctx, application, block.to, `Moved by the workflow “${found.name}”`, {
+        quiet: true,
+      })
+      return {
+        output: `Moved ${application.role} at ${application.company} to ${statusLabels[block.to]}`,
+        waitMs: 0,
+      }
+    }
+    case "addEvent": {
+      const where = zone ?? "UTC"
+      const [y, m, d] = wallOf(Date.now(), where).date.split("-").map(Number) as [
+        number,
+        number,
+        number,
+      ]
+      const [h, min] = block.at.split(":").map(Number) as [number, number]
+      const start = fromWall(Date.UTC(y, m - 1, d + block.inDays, h, min), where)
+      const title = fill(block.title, values).slice(0, 200)
+      await ctx.db.insert("calendarEvents", {
+        userId: found.userId,
+        key: `workflow:${found._id}:${at}`,
+        title,
+        start: instantOf(start),
+        end: instantOf(start + block.minutes * 60_000),
+        allDay: false,
+        kind: kindOf(title),
+        timeZone: where,
+        ...(found.context?.applicationId && { applicationId: found.context.applicationId }),
+      })
+      return { output: `On your calendar: ${title}, ${date(start, true)}`, waitMs: 0 }
     }
     case "wait": {
       const waitMs = block.minutes * 60_000
@@ -202,23 +339,28 @@ const doBlock = async (
  */
 const runStep = internalMutation({
   args: { runId: v.id("automationRuns"), at: v.string() },
-  returns: v.object({ waitMs: v.number(), error: v.optional(v.string()) }),
+  returns: v.object({
+    waitMs: v.number(),
+    error: v.optional(v.string()),
+    email: v.optional(v.boolean()),
+  }),
   handler: async (ctx, { runId, at }) => {
     const found = await ctx.db.get("automationRuns", runId)
     const block = found && stepAt(found.steps, at)
-    if (!found || found.status !== "running" || !block || block.kind === "parallel")
-      return { waitMs: 0 }
+    if (!found || found.status !== "running" || !block || isBranch(block)) return { waitMs: 0 }
     const startedAt = Date.now()
     try {
-      const { output, waitMs } = await doBlock(ctx, found, at, block)
+      const { output, waitMs, email } = await doBlock(ctx, found, at, block)
       await setLog(ctx, runId, {
         at,
         kind: block.kind,
         startedAt,
         output,
-        ...(waitMs > 0 ? { status: "waiting" } : { status: "done", finishedAt: Date.now() }),
+        ...(waitMs > 0 || email
+          ? { status: email ? "running" : "waiting" }
+          : { status: "done", finishedAt: Date.now() }),
       })
-      return { waitMs }
+      return { waitMs, ...(email && { email }) }
     } catch (cause) {
       if (!(cause instanceof ConvexError)) throw cause
       const error = String(cause.data)
@@ -235,16 +377,20 @@ const runStep = internalMutation({
   },
 })
 
-const startSplit = internalMutation({
-  args: { runId: v.id("automationRuns"), at: v.string() },
+const startBranch = internalMutation({
+  args: {
+    runId: v.id("automationRuns"),
+    at: v.string(),
+    kind: v.union(v.literal("parallel"), v.literal("decide")),
+  },
   returns: v.null(),
-  handler: async (ctx, { runId, at }) => {
-    await setLog(ctx, runId, { at, kind: "parallel", status: "running", startedAt: Date.now() })
+  handler: async (ctx, { runId, at, kind }) => {
+    await setLog(ctx, runId, { at, kind, status: "running", startedAt: Date.now() })
     return null
   },
 })
 
-/** Marks a wait or a split done. */
+/** Marks a wait, an email or a branch done. */
 const finishStep = internalMutation({
   args: { runId: v.id("automationRuns"), at: v.string() },
   returns: v.null(),
@@ -289,6 +435,122 @@ const ended = internalMutation({
       log,
     })
     return null
+  },
+})
+
+/** What Ask Jev needs: the question, the answers, and the facts the run knows. */
+const decisionOf = internalQuery({
+  args: { runId: v.id("automationRuns"), at: v.string() },
+  returns: v.union(
+    v.null(),
+    v.object({
+      question: v.string(),
+      answers: v.array(v.string()),
+      facts: v.record(v.string(), v.string()),
+    })
+  ),
+  handler: async (ctx, { runId, at }) => {
+    const found = await ctx.db.get("automationRuns", runId)
+    const step = found && stepAt(found.steps, at)
+    if (!found || found.status !== "running" || step?.kind !== "decide") return null
+    const { values } = await factsOf(ctx, found)
+    return {
+      question: step.question,
+      answers: step.paths.map((p) => p.label),
+      facts: values,
+    }
+  },
+})
+
+/** Records Jev's answer, or why there wasn't one, and counts it. */
+const answered = internalMutation({
+  args: {
+    runId: v.id("automationRuns"),
+    at: v.string(),
+    choice: v.optional(v.string()),
+    error: v.optional(v.string()),
+  },
+  returns: v.null(),
+  handler: async (ctx, { runId, at, choice, error }) => {
+    const found = await ctx.db.get("automationRuns", runId)
+    const entry = found?.log.find((e) => e.at === at)
+    if (!found || !entry) return null
+    if (error) {
+      await setLog(ctx, runId, { ...entry, status: "failed", finishedAt: Date.now(), error })
+      return null
+    }
+    await setLog(ctx, runId, { ...entry, choice, output: `Jev answered “${choice}”` })
+    if (choice) await recordChoice(ctx, found, at, choice)
+    return null
+  },
+})
+
+/** What an email from a Notify me step says, and who it goes to. */
+const emailOf = internalQuery({
+  args: { runId: v.id("automationRuns"), at: v.string() },
+  returns: v.union(
+    v.null(),
+    v.object({ userId: v.id("users"), subject: v.string(), text: v.string() })
+  ),
+  handler: async (ctx, { runId, at }) => {
+    const found = await ctx.db.get("automationRuns", runId)
+    const entry = found?.log.find((e) => e.at === at)
+    if (!found || found.status !== "running" || !entry?.output) return null
+    return { userId: found.userId, subject: found.name, text: entry.output }
+  },
+})
+
+/** Marks an email step done, or failed with the reason. */
+const emailed = internalMutation({
+  args: { runId: v.id("automationRuns"), at: v.string(), error: v.optional(v.string()) },
+  returns: v.null(),
+  handler: async (ctx, { runId, at, error }) => {
+    const entry = (await ctx.db.get("automationRuns", runId))?.log.find((e) => e.at === at)
+    if (!entry) return null
+    await setLog(ctx, runId, {
+      ...entry,
+      status: error ? "failed" : "done",
+      finishedAt: Date.now(),
+      ...(error ? { error } : { output: `${entry.output} (also emailed)` }),
+    })
+    return null
+  },
+})
+
+const matches = (trigger: Trigger, event: typeof vAutomationEvent.type) =>
+  (trigger.kind === "mail" &&
+    event.kind === "mail" &&
+    (!trigger.kinds.length || trigger.kinds.includes(event.mailKind))) ||
+  (trigger.kind === "status" &&
+    event.kind === "status" &&
+    (!trigger.to.length || trigger.to.includes(event.to))) ||
+  (trigger.kind === "booking" && event.kind === "booking")
+
+/** Starts the person's workflows an event matches, with what the event was about. */
+const onEvent = internalMutation({
+  args: { userId: v.id("users"), event: vAutomationEvent },
+  returns: v.number(),
+  handler: async (ctx, { userId, event }) => {
+    const automations = await ctx.db
+      .query("automations")
+      .withIndex("by_userId", (q) => q.eq("userId", userId))
+      .take(30)
+    let started = 0
+    for (const automation of automations) {
+      if (!automation.active || !matches(automation.trigger, event)) continue
+      // A flood of mail can't start runs without end.
+      const { ok } = await rates.limit(ctx, "automationEvent", { key: userId })
+      if (!ok) break
+      const { kind: _kind, ...rest } = event
+      await startRun(ctx, automation, "event", {
+        ...("applicationId" in rest && rest.applicationId && { applicationId: rest.applicationId }),
+        ...("mailEventId" in rest && { mailEventId: rest.mailEventId }),
+        ...("bookingId" in rest && { bookingId: rest.bookingId }),
+        ...("from" in rest && { from: rest.from, to: rest.to }),
+      })
+      started++
+    }
+    return started
   },
 })
 
@@ -354,10 +616,15 @@ export const cancelRun = async (ctx: MutationCtx, found: Doc<"automationRuns">) 
 export const engineApi = {
   run,
   runPath,
+  decisionOf,
+  answered,
+  emailOf,
+  emailed,
+  onEvent,
+  startBranch,
   forgetWorkflow,
   shapeOf,
   runStep,
-  startSplit,
   finishStep,
   ended,
   startDue,

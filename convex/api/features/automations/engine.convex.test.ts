@@ -7,6 +7,16 @@ import { convexTest } from "convex-test"
 import { afterEach, beforeEach, describe, expect, it, vi } from "vite-plus/test"
 
 import { api, components, internal } from "../../../_generated/api"
+
+// Jev, answered from the test: the path key it picks ("p0", "p1"), or a throw.
+const jev = vi.hoisted(() => ({ choice: "p0" as string | Error }))
+vi.mock("ai", async (actual) => ({
+  ...(await actual<typeof import("ai")>()),
+  experimental_decide: async () => {
+    if (jev.choice instanceof Error) throw jev.choice
+    return { answers: { answer: { choice: jev.choice } } }
+  },
+}))
 import notificationsSchema from "../../../notifications/schema"
 import { insertRun, patchRun } from "./counts"
 import schema from "../../../schema"
@@ -29,6 +39,7 @@ const setup = async () => {
   workflow.register(t as never)
   rateLimiter.register(t as never)
   aggregate.register(t as never, "automationRunCounts")
+  aggregate.register(t as never, "automationChoices")
   t.registerComponent(
     "notifications",
     notificationsSchema,
@@ -380,6 +391,108 @@ describe("a workflow run", () => {
         active: true,
         steps: [{ kind: "addNote", applicationId, text: "Hi" }],
       })
-    ).rejects.toThrow("That application isn't yours.")
+    ).rejects.toThrow("That application isn't yours, or it's gone.")
+  })
+
+  it("starts on a status change, about that application", async () => {
+    const { t, as, applicationId } = await setup()
+    await as.mutation(api.automations.save, {
+      name: "Prep",
+      trigger: { kind: "status", to: ["interviewing"] },
+      active: true,
+      steps: [{ kind: "addNote", text: "{status.from} → {status.to} at {application.company}" }],
+    })
+    await as.mutation(api.applications.setStatus, { id: applicationId, status: "rejected" })
+    await as.mutation(api.applications.setStatus, { id: applicationId, status: "interviewing" })
+    await t.finishAllScheduledFunctions(vi.runAllTimers)
+
+    const runs = await t.run((ctx) => ctx.db.query("automationRuns").collect())
+    expect(runs.map((r) => [r.trigger, r.context?.to])).toEqual([["event", "interviewing"]])
+    const application = await t.run((ctx) => ctx.db.get("applications", applicationId))
+    expect(application?.notes?.map((n) => n.text)).toEqual(["Rejected → Interviewing at Hooli"])
+  })
+
+  it("moves an application without starting itself again", async () => {
+    const { t, as, applicationId } = await setup()
+    await as.mutation(api.automations.save, {
+      name: "Bounce",
+      trigger: { kind: "status", to: [] },
+      active: true,
+      steps: [{ kind: "move", to: "offer" }],
+    })
+    await as.mutation(api.applications.setStatus, { id: applicationId, status: "interviewing" })
+    await t.finishAllScheduledFunctions(vi.runAllTimers)
+
+    const runs = await t.run((ctx) => ctx.db.query("automationRuns").collect())
+    expect(runs.map((r) => r.status)).toEqual(["done"])
+    const application = await t.run((ctx) => ctx.db.get("applications", applicationId))
+    expect(application?.status).toBe("offer")
+  })
+
+  it("runs only the path Jev picks, and counts its answers", async () => {
+    const { t, as, userId } = await setup()
+    const id = await as.mutation(api.automations.save, {
+      name: "Ask",
+      trigger: { kind: "manual" },
+      active: true,
+      steps: [
+        {
+          kind: "decide",
+          question: "Worth it?",
+          paths: [
+            { label: "Yes", steps: [{ kind: "notify", message: "yes" }] },
+            { label: "No", steps: [] },
+          ],
+        },
+        { kind: "notify", message: "after" },
+      ],
+    })
+    jev.choice = "p0"
+    await as.mutation(api.automations.runNow, { id })
+    await t.finishAllScheduledFunctions(vi.runAllTimers)
+    jev.choice = "p1"
+    await as.mutation(api.automations.runNow, { id })
+    await t.finishAllScheduledFunctions(vi.runAllTimers)
+
+    const runs = await t.run((ctx) => ctx.db.query("automationRuns").collect())
+    expect(runs.map((r) => r.status)).toEqual(["done", "done"])
+    expect(byPlace(runs[0]?.log).map((e) => [e.at, e.status, e.choice])).toEqual([
+      ["0", "done", "Yes"],
+      ["0.0.0", "done", undefined],
+      ["1", "done", undefined],
+    ])
+    expect(byPlace(runs[1]?.log).map((e) => e.at)).toEqual(["0", "1"])
+    const inbox = await t.run((ctx) =>
+      ctx.runQuery(components.notifications.lib.list, { owner: userId })
+    )
+    expect(inbox).toHaveLength(3)
+    expect(await as.query(api.automations.choices, { automationId: id })).toEqual({
+      "0": { Yes: 1, No: 1 },
+    })
+  })
+
+  it("stops with Jev's reason when it can't answer", async () => {
+    const { t, as } = await setup()
+    const id = await as.mutation(api.automations.save, {
+      name: "Ask",
+      trigger: { kind: "manual" },
+      active: true,
+      steps: [
+        {
+          kind: "decide",
+          question: "Worth it?",
+          paths: [
+            { label: "Yes", steps: [{ kind: "notify", message: "yes" }] },
+            { label: "No", steps: [] },
+          ],
+        },
+      ],
+    })
+    jev.choice = new Error("offline")
+    const runId = await as.mutation(api.automations.runNow, { id })
+    await t.finishAllScheduledFunctions(vi.runAllTimers)
+    const run = await t.run((ctx) => ctx.db.get("automationRuns", runId))
+    expect(run?.status).toBe("failed")
+    expect(run?.log.find((e) => e.at === "0")?.error).toBe("Jev couldn't answer: offline")
   })
 })

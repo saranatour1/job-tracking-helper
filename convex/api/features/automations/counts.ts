@@ -1,4 +1,4 @@
-import { TableAggregate } from "@convex-dev/aggregate"
+import { DirectAggregate, TableAggregate } from "@convex-dev/aggregate"
 import { components } from "../../../_generated/api"
 import type { DataModel, Doc, Id } from "../../../_generated/dataModel"
 import type { MutationCtx, QueryCtx } from "../../../_generated/server"
@@ -16,6 +16,48 @@ export const runCounts = new TableAggregate<{
   namespace: (run) => run.automationId,
   sortKey: (run) => run.status,
 })
+
+// Ask Jev's answers, bucketed per workflow by step and answer, for "Yes · 12" on the
+// canvas. One entry per run and step.
+export const choiceCounts = new DirectAggregate<{
+  Namespace: Id<"automations">
+  Key: [string, string]
+  Id: string
+}>(components.automationChoices)
+
+/** Counts the answer Jev gave at a run's step. */
+export const recordChoice = (
+  ctx: MutationCtx,
+  run: Doc<"automationRuns">,
+  at: string,
+  choice: string
+) =>
+  choiceCounts.insertIfDoesNotExist(ctx, {
+    namespace: run.automationId,
+    key: [at, choice],
+    id: `${run._id}#${at}`,
+  })
+
+/** How often Jev gave each answer at each Ask Jev step, by place then answer. */
+export const choicesOf = async (
+  ctx: QueryCtx,
+  automationId: Id<"automations">,
+  asked: { at: string; answers: string[] }[]
+) => {
+  const pairs = asked.flatMap(({ at, answers }) => answers.map((answer) => [at, answer] as const))
+  const counts = await choiceCounts.countBatch(
+    ctx,
+    pairs.map(([at, answer]) => ({
+      namespace: automationId,
+      bounds: { prefix: [at, answer] as [string, string] },
+    }))
+  )
+  const out: Record<string, Record<string, number>> = {}
+  pairs.forEach(([at, answer], i) => {
+    out[at] = { ...out[at], [answer]: counts[i] ?? 0 }
+  })
+  return out
+}
 
 /** Inserts a run and counts it. */
 export const insertRun = async (
@@ -42,6 +84,13 @@ export const patchRun = async (
 export const deleteRuns = async (ctx: MutationCtx, runs: Doc<"automationRuns">[]) => {
   for (const run of runs) {
     await runCounts.deleteIfExists(ctx, run)
+    for (const entry of run.log)
+      if (entry.choice)
+        await choiceCounts.deleteIfExists(ctx, {
+          namespace: run.automationId,
+          key: [entry.at, entry.choice],
+          id: `${run._id}#${entry.at}`,
+        })
     await ctx.db.delete("automationRuns", run._id)
   }
   const owner = runs[0]?.userId

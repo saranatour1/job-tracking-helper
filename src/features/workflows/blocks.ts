@@ -1,8 +1,14 @@
-import type { Block, Step, Trigger } from "@convex/api/features/automations/validators"
+import { statusLabels } from "@convex/api/features/applications/validators"
+import type { Block, Branch, Step, Trigger } from "@convex/api/features/automations/validators"
 import {
+  AiBrain01Icon,
   Calendar03Icon,
+  CalendarAdd01Icon,
+  CalendarCheckIn01Icon,
   GitForkIcon,
   HourglassIcon,
+  Mail01Icon,
+  ArrowMoveUpRightIcon,
   NoteEditIcon,
   Notification03Icon,
   PlayIcon,
@@ -23,14 +29,36 @@ export const blocks = {
     color: "violet",
     make: (): Block => ({ kind: "notify", message: "{workflow.name} ran on {run.date}" }),
   },
+  move: {
+    label: "Move application",
+    group: "Do",
+    hint: "To another status",
+    icon: ArrowMoveUpRightIcon,
+    color: "emerald",
+    make: (): Block => ({ kind: "move", to: "interviewing" }),
+  },
+  addEvent: {
+    label: "Add calendar event",
+    group: "Do",
+    hint: "Some days later",
+    icon: CalendarAdd01Icon,
+    color: "rose",
+    make: (): Block => ({
+      kind: "addEvent",
+      title: "Follow up",
+      inDays: 3,
+      at: "09:00",
+      minutes: 30,
+    }),
+  },
   addNote: {
     label: "Add note",
     group: "Do",
     hint: "On one application",
     icon: NoteEditIcon,
     color: "blue",
-    // A note needs an application; the builder asks for one before it saves.
-    make: (): Block => ({ kind: "addNote", applicationId: "" as never, text: "" }),
+    // With no application picked, it goes on the one the trigger is about.
+    make: (): Block => ({ kind: "addNote", text: "" }),
   },
   wait: {
     label: "Wait",
@@ -52,11 +80,21 @@ export const blocks = {
   }
 >
 
-export const split = {
-  label: "Split into paths",
-  hint: "Run steps side by side",
-  icon: GitForkIcon,
-}
+// The two kinds of branch: every path runs, or Jev picks one.
+export const branches = {
+  parallel: {
+    label: "Split into paths",
+    short: "Split",
+    hint: "Run steps side by side",
+    icon: GitForkIcon,
+  },
+  decide: {
+    label: "Ask Jev",
+    short: "Ask Jev",
+    hint: "Jev picks a path",
+    icon: AiBrain01Icon,
+  },
+} satisfies Record<Branch["kind"], { label: string; short: string; hint: string; icon: Icon }>
 
 export const blockKinds = Object.keys(blocks) as Block["kind"][]
 
@@ -73,29 +111,60 @@ export const durationOf = (minutes: number) =>
     .map(([n, word]) => plural(n as number, word as string))
     .join(" ") || "0 minutes"
 
+const sendLabels = { inbox: "", email: " · by email", both: " · Inbox and email" }
+
 /** A card's second line. */
 export const summaryOf = (step: Step, companyOf: (id: string) => string | undefined) => {
+  const which = (id: string | undefined) =>
+    id ? (companyOf(id) ?? "Pick an application") : "The trigger's application"
   switch (step.kind) {
     case "notify":
-      return step.message || "No message yet"
-    case "addNote": {
-      const company = step.applicationId ? companyOf(step.applicationId) : undefined
-      return company ? `${company}: ${step.text || "no text yet"}` : "Pick an application"
-    }
+      return (step.message || "No message yet") + sendLabels[step.send ?? "inbox"]
+    case "addNote":
+      return `${which(step.applicationId)}: ${step.text || "no text yet"}`
+    case "move":
+      return `${which(step.applicationId)} to ${statusLabels[step.to]}`
+    case "addEvent":
+      return `${step.title || "No title yet"}, ${step.inDays === 0 ? "same day" : `${plural(step.inDays, "day")} later`} at ${step.at}`
     case "wait":
       return `For ${durationOf(step.minutes)}`
     case "parallel":
       return `${plural(step.paths.length, "path")} side by side`
+    case "decide":
+      return step.question || "No question yet"
   }
 }
 
 const weekdays = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"]
 
-export const triggerInfo = (trigger: Trigger) =>
-  trigger.kind === "manual"
-    ? { label: "Run now", summary: "When you press Run now", icon: PlayIcon }
-    : {
-        label: "On a schedule",
+export const mailKindLabels = {
+  confirmation: "Confirmation",
+  interview: "Interview",
+  rejection: "Rejection",
+  offer: "Offer",
+  portal: "Check a portal",
+  other: "Other",
+} as const
+
+/** "any" for an empty list, else the names joined. */
+const anyOf = (names: string[], any: string) => (names.length === 0 ? any : names.join(", "))
+
+export const triggerKinds = {
+  manual: "Run now",
+  schedule: "On a schedule",
+  mail: "An email comes in",
+  status: "An application moves",
+  booking: "Someone books time",
+} satisfies Record<Trigger["kind"], string>
+
+export const triggerInfo = (trigger: Trigger) => {
+  const label = triggerKinds[trigger.kind]
+  switch (trigger.kind) {
+    case "manual":
+      return { label, summary: "When you press Run now", icon: PlayIcon }
+    case "schedule":
+      return {
+        label,
         summary: `${trigger.at}, ${
           trigger.days.length === 7
             ? "every day"
@@ -106,15 +175,41 @@ export const triggerInfo = (trigger: Trigger) =>
         }`,
         icon: Calendar03Icon,
       }
+    case "mail":
+      return {
+        label,
+        summary: `When an email is sorted: ${anyOf(
+          trigger.kinds.map((k) => mailKindLabels[k]),
+          "any kind"
+        )}`,
+        icon: Mail01Icon,
+      }
+    case "status":
+      return {
+        label,
+        summary: `When an application moves to ${anyOf(
+          trigger.to.map((s) => statusLabels[s]),
+          "any status"
+        )}`,
+        icon: ArrowMoveUpRightIcon,
+      }
+    case "booking":
+      return { label, summary: "When someone books time with you", icon: CalendarCheckIn01Icon }
+  }
+}
 
-/** Placeholders a step's text can use, by block. */
-export const placeholders: Record<"notify" | "addNote", string[]> = {
-  notify: ["{workflow.name}", "{run.date}"],
-  addNote: [
-    "{workflow.name}",
-    "{run.date}",
-    "{application.company}",
-    "{application.role}",
-    "{application.status}",
-  ],
+/** Placeholders a step's text can use: the run's, plus what its trigger brings. */
+export const placeholdersFor = (trigger: Trigger, picked = false) => {
+  const application = ["{application.company}", "{application.role}", "{application.status}"]
+  const base = ["{workflow.name}", "{run.date}"]
+  switch (trigger.kind) {
+    case "mail":
+      return [...base, "{email.subject}", "{email.from}", "{email.kind}", ...application]
+    case "status":
+      return [...base, "{status.from}", "{status.to}", ...application]
+    case "booking":
+      return [...base, "{booking.title}", "{booking.when}", ...application]
+    default:
+      return picked ? [...base, ...application] : base
+  }
 }

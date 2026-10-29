@@ -1,4 +1,9 @@
-import type { Step, Trigger } from "@convex/api/features/automations/validators"
+import {
+  type Branch,
+  type Step,
+  stepAt,
+  type Trigger,
+} from "@convex/api/features/automations/validators"
 import {
   Delete02Icon,
   MinusSignIcon,
@@ -38,11 +43,12 @@ import {
 } from "@/components/ui/menu"
 import { cn } from "@/lib/utils"
 
-import { blockKinds, blocks, split, summaryOf, triggerInfo } from "./blocks"
+import { blockKinds, blocks, branches, summaryOf, triggerInfo } from "./blocks"
 import { layout, sizes, type Slot } from "./tree"
 
 export type StepStatus = "running" | "waiting" | "done" | "failed"
-export type InsertKind = (typeof blockKinds)[number] | "split"
+export type InsertKind = (typeof blockKinds)[number] | Branch["kind"]
+const branchKinds = Object.keys(branches) as Branch["kind"][]
 
 // Everything the cards and lines need, passed once rather than through every node.
 type Actions = {
@@ -59,7 +65,8 @@ type CardData = Actions & {
   icon: typeof Delete02Icon
   color?: string
 }
-type LineData = Actions & { slot: Slot; label?: string }
+// `count`: how often Jev took this path, on an Ask Jev step.
+type LineData = Actions & { slot: Slot; label?: string; count?: number }
 
 const statusDot: Record<StepStatus, string> = {
   running: "bg-info animate-pulse",
@@ -160,6 +167,9 @@ const Line = (props: EdgeProps<Edge<LineData>>) => {
           {data.label && (
             <span className="bg-muted text-muted-foreground rounded-full px-2 py-0.5 text-[11px] font-medium">
               {data.label}
+              {data.count !== undefined && (
+                <span className="text-muted-foreground/70 ms-1 tabular-nums">{data.count}</span>
+              )}
             </span>
           )}
           {data.editable && (
@@ -169,7 +179,7 @@ const Line = (props: EdgeProps<Edge<LineData>>) => {
                 onDragOver={(e) => e.preventDefault()}
                 onDrop={(e) => {
                   const kind = e.dataTransfer.getData("text/workflow-block") as InsertKind
-                  if (kind && (kind !== "split" || topLevel)) data.onInsert(data.slot, kind)
+                  if (kind && (!(kind in branches) || topLevel)) data.onInsert(data.slot, kind)
                 }}
                 className="bg-background text-muted-foreground hover:text-foreground hover:border-ring/40 flex size-5 items-center justify-center rounded-full border transition-colors"
               >
@@ -188,10 +198,12 @@ const Line = (props: EdgeProps<Edge<LineData>>) => {
                 {topLevel && (
                   <>
                     <MenuSeparator />
-                    <MenuItem onClick={() => data.onInsert(data.slot, "split")}>
-                      <HugeiconsIcon icon={split.icon} />
-                      {split.label}
-                    </MenuItem>
+                    {branchKinds.map((kind) => (
+                      <MenuItem key={kind} onClick={() => data.onInsert(data.slot, kind)}>
+                        <HugeiconsIcon icon={branches[kind].icon} />
+                        {branches[kind].label}
+                      </MenuItem>
+                    ))}
                   </>
                 )}
               </MenuPopup>
@@ -252,18 +264,16 @@ export const Canvas = ({
   trigger,
   steps,
   companyOf,
+  choices,
   ...actions
 }: Actions & {
   trigger: Trigger
   steps: Step[]
   companyOf: (id: string) => string | undefined
+  // Jev's answers so far, by Ask Jev step then answer.
+  choices?: Record<string, Record<string, number>>
 }) => {
   const { nodes, edges } = layout(steps)
-  const stepOf = (at: string) => {
-    const [i, p, j] = at.split(".").map(Number)
-    const step = steps[i!]
-    return p === undefined || step?.kind !== "parallel" ? step : step.paths[p]?.steps[j!]
-  }
   const flowNodes: Node[] = nodes.map((n) => {
     const position = {
       x: n.x - widths[n.kind] / 2,
@@ -280,9 +290,11 @@ export const Canvas = ({
         data: { ...actions, title: info.label, summary: info.summary, icon: info.icon },
       }
     }
-    const step = stepOf(n.id)!
+    const step = stepAt(steps, n.id)!
     const info =
-      step.kind === "parallel" ? { ...split, color: undefined, label: "Split" } : blocks[step.kind]
+      step.kind === "parallel" || step.kind === "decide"
+        ? { ...branches[step.kind], color: undefined, label: branches[step.kind].short }
+        : blocks[step.kind]
     return {
       id: n.id,
       type: "card",
@@ -301,7 +313,15 @@ export const Canvas = ({
     source: e.from,
     target: e.to,
     type: "line",
-    data: { ...actions, slot: e.slot, label: e.label },
+    data: {
+      ...actions,
+      slot: e.slot,
+      label: e.label,
+      count:
+        e.label && e.slot.split !== undefined
+          ? choices?.[String(e.slot.split)]?.[e.label]
+          : undefined,
+    },
   }))
   return (
     <ReactFlowProvider>
