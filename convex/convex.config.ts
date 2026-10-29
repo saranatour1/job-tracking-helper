@@ -9,6 +9,7 @@ import authAnonymous from "@convex-dev/auth/components/anonymous/convex.config.j
 import rateLimiter from "@convex-dev/rate-limiter/convex.config.js"
 import workflow from "@convex-dev/workflow/convex.config.js"
 import workpool from "@convex-dev/workpool/convex.config.js"
+import cloudflareEmail from "./cloudflareEmail/convex.config"
 
 const app = defineApp({
   env: {
@@ -25,6 +26,9 @@ const app = defineApp({
     CONTEXT_DEV_API_KEY: v.optional(v.string()),
     FIRECRAWL_MONTHLY_CREDITS: v.optional(v.string()),
     CONTEXT_DEV_MONTHLY_CREDITS: v.optional(v.string()),
+    // Encrypts the API tokens people paste in (see lib/secrets): "v1:<base64 32 bytes>",
+    // with newer keys appended for rotation.
+    SECRETS_KEYS: v.optional(v.string()),
   },
 })
 
@@ -60,5 +64,9 @@ app.use(authGithub, {
 app.use(workflow)
 app.use(workpool, { name: "readPool" })
 app.use(rateLimiter)
+
+// Email: each person sends from their own Cloudflare account, with their token
+// sealed in emailConnections. The component keeps the emails themselves.
+app.use(cloudflareEmail)
 
 export default app

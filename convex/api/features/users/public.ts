@@ -3,6 +3,7 @@ import { ConvexError, v } from "convex/values"
 import { components } from "../../../_generated/api"
 import { arkId } from "../../../lib/ark"
 import { arkMutation, authedMutation, authedQuery } from "../../../lib/functions"
+import { deleteEmail } from "../email/internal"
 import { deleteLoops } from "../loops/internal"
 import { deletePreferences } from "../preferences/public"
 import { maxImageBytes, Profile } from "./validators"
@@ -92,6 +93,7 @@ const deleteAccount = authedMutation({
     if (user?.imageId) await ctx.storage.delete(user.imageId)
     await deletePreferences(ctx, ctx.userId)
     await deleteLoops(ctx, ctx.userId)
+    await deleteEmail(ctx, ctx.userId)
     await ctx.runMutation(components.authUsername.public.deleteUsername, { userId: ctx.userId })
     await ctx.db.replace("users", ctx.userId, {})
     return null

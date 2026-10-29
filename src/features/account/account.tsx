@@ -4,15 +4,15 @@ import type { Id } from "@convex/_generated/dataModel"
 import { maxImageBytes, Profile } from "@convex/api/features/users/validators"
 import { useForm } from "@tanstack/react-form"
 import type { FunctionReturnType } from "convex/server"
-import { ConvexError } from "convex/values"
 import { useMutation, useQuery } from "convex/react"
 import { startTransition, useActionState, useRef } from "react"
 
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
-import { Label } from "@/components/ui/label"
 import { ScrollArea } from "@/components/ui/scroll-area"
+import { EmailSection } from "@/features/account/email"
+import { messageOf, Row, Section } from "@/features/account/settings"
 import { PageIntro, pageBody } from "@/features/shell/page-body"
 import { PageHeader } from "@/features/shell/page-header"
 import { ThemeSwitch } from "@/features/shell/theme"
@@ -43,56 +43,6 @@ const fields = [
     autoComplete: "email",
   },
 ] as const
-
-const messageOf = (error: unknown) =>
-  error instanceof ConvexError && typeof error.data === "string"
-    ? error.data
-    : "Something went wrong. Try again."
-
-// A titled group of rows on one card, like a settings page.
-const Section = ({
-  title,
-  status,
-  children,
-}: {
-  title: string
-  status?: React.ReactNode
-  children: React.ReactNode
-}) => (
-  <section className="flex flex-col gap-3">
-    <div className="flex items-center justify-between gap-2 px-1">
-      <h3 className="font-heading font-medium">{title}</h3>
-      {status}
-    </div>
-    <div className="bg-card divide-y rounded-xl border">{children}</div>
-  </section>
-)
-
-// A setting's name and what it does on the left, its control on the right. On narrow
-// screens the control wraps under the text.
-const Row = ({
-  label,
-  description,
-  htmlFor,
-  children,
-}: {
-  label: string
-  description: React.ReactNode
-  htmlFor?: string
-  children: React.ReactNode
-}) => (
-  <div className="flex flex-wrap items-center justify-between gap-x-6 gap-y-2 px-4 py-3">
-    <div className="grid min-w-48 flex-1 gap-0.5">
-      {htmlFor ? (
-        <Label htmlFor={htmlFor}>{label}</Label>
-      ) : (
-        <span className="text-sm font-medium">{label}</span>
-      )}
-      <p className="text-muted-foreground text-xs">{description}</p>
-    </div>
-    <div className="flex w-full items-center justify-end gap-2 sm:w-auto">{children}</div>
-  </div>
-)
 
 const initialsOf = (me: Me) =>
   (me.name || me.userName || "Guest")
@@ -292,9 +242,10 @@ export const Account = () => {
         <main className={cn(pageBody, "max-w-2xl gap-10")}>
           <PageIntro
             title="Account"
-            description="Your profile, how the app looks, and your sign-in."
+            description="Your profile, your email, how the app looks, and your sign-in."
           />
           {me && <ProfileSection me={me} />}
+          <EmailSection />
           <Section title="Interface and theme">
             <Row label="Theme" description="Light, dark, or follow your system.">
               <div className="w-32">
