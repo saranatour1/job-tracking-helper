@@ -7,6 +7,7 @@ import { useQuery } from "convex-helpers/react/cache/hooks"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { Breakdown } from "@/features/loops/shortlist"
+import { bodyOf, Markdown } from "@/components/markdown"
 
 import type { Application } from "./data"
 import { useSource } from "./source"
@@ -58,7 +59,7 @@ export const JobContext = ({ a }: { a: Application }) => {
             <summary className="text-muted-foreground hover:text-foreground cursor-pointer text-xs">
               The posting
             </summary>
-            <p className="mt-2 leading-relaxed whitespace-pre-line">{data.text}</p>
+            <Markdown className="mt-2">{bodyOf(data.text)}</Markdown>
           </details>
         </>
       ) : (

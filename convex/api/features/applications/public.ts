@@ -25,6 +25,8 @@ const list = authedQuery({
 const own = async (ctx: MutationCtx, userId: Id<"users">, id: Id<"applications">) => {
   const application = await ctx.db.get("applications", id)
   if (application?.userId !== userId) throw new ConvexError("That application isn't yours.")
+  if (application.trashedAt !== undefined)
+    throw new ConvexError("That application is in the Trash.")
   return application
 }
 

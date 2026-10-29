@@ -4,6 +4,7 @@ import { jobsApi } from "./api/features/jobs"
 export const {
   search,
   stats,
+  companies,
   refreshDue,
   board,
   addBoards,

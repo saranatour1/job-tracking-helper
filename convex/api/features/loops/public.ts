@@ -176,7 +176,7 @@ const lead = authedQuery({
     if (!lead || lead.userId !== ctx.userId) return null
     const job = lead.jobId && (await ctx.db.get("jobs", lead.jobId))
     const loop = lead.loopId && (await ctx.db.get("loops", lead.loopId))
-    return { lead, text: lead.text ?? job?.text ?? lead.snippet, loopName: loop?.name }
+    return { lead, text: job?.text ?? lead.text ?? lead.snippet, loopName: loop?.name }
   },
 })
 
@@ -196,7 +196,35 @@ const leadForApplication = authedQuery({
     if (!lead || lead.userId !== ctx.userId) return null
     const job = lead.jobId && (await ctx.db.get("jobs", lead.jobId))
     const loop = lead.loopId && (await ctx.db.get("loops", lead.loopId))
-    return { lead, text: lead.text ?? job?.text ?? lead.snippet, loopName: loop?.name }
+    return { lead, text: job?.text ?? lead.text ?? lead.snippet, loopName: loop?.name }
+  },
+})
+
+// How well each of the person's applications fit, for the badges on the board: the
+// first lead tied to each one, if a loop found it or Jev checked its link. It reads
+// leads only, so editing an application doesn't re-run it.
+const fits = authedQuery({
+  args: {},
+  returns: v.array(
+    v.object({ applicationId: v.id("applications"), fit: v.number(), isFit: v.boolean() })
+  ),
+  handler: async (ctx) => {
+    // A missing applicationId sorts before any string, so this skips leads without one.
+    const leads = await ctx.db
+      .query("jobLeads")
+      .withIndex("by_userId_and_applicationId", (q) =>
+        q.eq("userId", ctx.userId).gte("applicationId", "" as Id<"applications">)
+      )
+      .take(1000)
+    const seen = new Set<Id<"applications">>()
+    const out = []
+    for (const { applicationId, fit, verdict } of leads) {
+      if (!applicationId || seen.has(applicationId)) continue
+      seen.add(applicationId)
+      // Leads from before Jev have no verdict, and aren't "not a fit".
+      out.push({ applicationId, fit, isFit: verdict !== "notFit" })
+    }
+    return out
   },
 })
 
@@ -248,7 +276,17 @@ const track = authedMutation({
   returns: v.id("applications"),
   handler: async (ctx, { leadId }) => {
     const lead = await ownLead(ctx, ctx.userId, leadId)
-    if (lead.applicationId) return lead.applicationId
+    const linked = lead.applicationId && (await ctx.db.get("applications", lead.applicationId))
+    if (linked) {
+      // Tracking a role again brings its application back out of the Trash or Archive.
+      if (linked.trashedAt !== undefined || linked.archivedAt !== undefined)
+        await ctx.db.patch("applications", linked._id, {
+          trashedAt: undefined,
+          archivedAt: undefined,
+          purgeAt: undefined,
+        })
+      return linked._id
+    }
     const applicationId = await ctx.db.insert("applications", {
       userId: ctx.userId,
       company: lead.company,
@@ -310,6 +348,7 @@ const sourceStatus = authedQuery({
 export const publicApi = {
   list,
   leadForApplication,
+  fits,
   create,
   update,
   setActive,

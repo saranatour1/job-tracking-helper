@@ -110,7 +110,7 @@ pasted links that aren't on a known board. A source without a key is skipped.
 **Stories**
 
 - As anyone, I want one sidebar to every page, with how many Inbox lines I haven't read.
-- As someone on a small screen, I want side panels to take the room the sidebar had.
+- As anyone, I want the sidebar to stay as I left it when I open an application or a job.
 - As anyone, I want light, dark, or my system's theme.
 
 **Flows**
@@ -118,8 +118,11 @@ pasted links that aren't on a known board. A source without a key is skipped.
 1. The sidebar lists Inbox (with its unread count), Applications, Calendar,
    Preferences, Jobs, Loops, Workflows, then Goals and Views under Tracker. The pencil
    opens New application.
-2. Opening a side panel (an application, a job from a loop) collapses the sidebar;
-   closing it brings the sidebar back if it was open.
+2. The header's sidebar button opens and closes the app sidebar. Side panels (an
+   application, insights, a job from a loop) open beside it and leave it alone; on the
+   board, the panel button at the right of the toolbar opens insights or closes an open
+   application. On phones an application or a loop's job covers the page, and insights
+   isn't shown.
 3. The theme switch in the sidebar's footer (also under Account) is kept in the
    browser, with no server.
 
@@ -190,6 +193,10 @@ of 50 fields, with no names twice.
    priority, date or company, with Active, Saved and All tabs. Filters, display and the
    open application live in the address (`?tab=`, `?filters=`, `?display=`, `?app=`), so
    a link opens the same view.
+   Each card shows the company, the role, and badges: its status, how well it fits
+   (when a loop found it or Jev checked its link, from `api.loops.fits`), Active or
+   Quiet for open applications (no news in two weeks), then priority, labels,
+   location, mail and tasks done.
 3. **Move one.** Drag a card to another column, use "Move to" on right-click, or the
    Status picker. All go through `api.applications.setStatus`, which adds to the
    history and may start workflows.
@@ -214,7 +221,7 @@ of 50 fields, with no names twice.
 11. **Delete one:** Move to Trash (or the bin icon in its panel) puts it in the **Trash**
     tab, out of everything else: the board, mail matching, bookings and workflows
     (`api.applications.trash`). In the Trash, Restore puts it back on the board, Delete
-    forever removes it now, and Empty the Trash removes them all.
+    forever removes it now, and Empty the Trash removes them all, a batch at a time.
 
 **By itself:** a status change fires the `status` event for workflows; a sorted email
 can suggest a move, or make it when you let Jev (see [Email](#email)). Each day
@@ -260,15 +267,28 @@ applications can't join a goal.
 **Flows**
 
 1. `/jobs` says how many roles are in the shared catalog, from how many boards.
-2. Search by words (`?q=`) or show remote only (`api.jobs.search`), 25 at a time. Roles
-   a loop judged show "Fits you · N%" or "Not a fit".
-3. "More like this" on a role searches by its title. Applications link here too.
+2. Search by words (`?q=`), or pick a "Try" chip from your Preferences (interests,
+   places, companies). Narrow it down with Remote only, Fits me (only roles Jev said fit
+   you, best first), Posted (past day, week or month) and a company (`api.jobs.companies`,
+   the boards with the most roles). Every filter is in the address, so a link opens the
+   same list; Clear filters resets them (`api.jobs.search`, 25 at a time).
+3. Each role shows its company, title, where, how long ago it was posted, and badges:
+   Jev's verdict for you ("Fits you · 69%", "Not a fit"), New (posted in the last two
+   days) and Remote. Compact turns them into one line each.
+4. "More like this" searches by a role's title; the link icon opens the posting.
+   Applications link here too.
 
 **By itself:** every hour (`internal.jobs.refreshDue`) up to 25 boards not fetched in 20
 hours go to the batch worker (`internal.jobs.fetchBoard`). It reads each public feed
 (Greenhouse, Lever, Ashby, Personio), saves the roles, and drops ones the board no
 longer lists. A board that answers 4xx is noted and not retried. Loops and pasted links
 add new boards.
+
+**Postings:** a board's HTML is parsed with rehype, cleaned with rehype-sanitize (no
+scripts, styles, event handlers, `javascript:` links or images) and kept as Markdown, at
+most 3,500 characters (`convex/lib/markdown.ts`). The app draws it with react-markdown,
+which never draws raw HTML and sanitizes the tree again (`src/components/markdown.tsx`).
+Previews are the same text as plain words.
 
 **Rules:** the catalog is shared by everyone; what Jev thought of a role is yours alone.
 
@@ -509,7 +529,8 @@ Interface and theme, Account)
    an image up to 5 MB.
 2. **Notifications:** a switch per kind; a kind that's off isn't recorded.
 3. **Applications:** how long the Trash keeps applications before deleting them: 30, 90
-   (the default), 180 or 365 days, or never (`api.applications.setTrashDays`).
+   (the default), 180 or 365 days, or never (`api.applications.setTrashDays`). Changing it
+   moves the date for what's already in the Trash.
 4. **Delete account:** confirm, then everything goes: applications, Preferences and
    resume, loops and their runs and roles, email connection and mail, notifications,
    views, calendar, booking pages and workflows. Your username is freed.

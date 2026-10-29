@@ -13,6 +13,7 @@ export const {
   restore,
   deleteForever,
   emptyTrash,
+  emptyTrashFor,
   setTrashDays,
   trashSettings,
   sweep,

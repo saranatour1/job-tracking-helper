@@ -29,6 +29,7 @@ import {
 } from "@/components/ui/menu"
 import { ScrollArea } from "@/components/ui/scroll-area"
 import { PageHeader } from "@/features/shell/page-header"
+import { Markdown } from "@/components/markdown"
 
 import {
   type Application,
@@ -43,6 +44,7 @@ import {
   priorityLabels,
   statusLabels,
 } from "./data"
+import { PriorityBadge, TopBadges } from "./badges"
 import { PriorityIcon, StatusIcon } from "./icons"
 import { JobContext } from "./job"
 import { MailLine, Suggestion, useMailFor } from "./mail"
@@ -230,10 +232,19 @@ const Content = ({ a, properties }: { a: Application; properties?: React.ReactNo
     <>
       <div className="flex flex-col gap-2">
         <div>
-          <h2 className="font-heading text-xl font-semibold">{a.role}</h2>
-          <p className="text-muted-foreground text-sm">{a.company}</p>
+          <h2 className="font-heading text-xl leading-tight font-semibold text-balance">
+            {a.role}
+          </h2>
+          <p className="text-muted-foreground text-sm">
+            {a.company}
+            {a.location.trim() && ` · ${a.location}`}
+          </p>
         </div>
-        <p className="text-foreground/90 text-[13px] leading-relaxed">{a.description}</p>
+        <div className="flex flex-wrap gap-1">
+          <TopBadges a={a} />
+          <PriorityBadge a={a} />
+        </div>
+        {a.description.trim() && <Markdown>{a.description}</Markdown>}
       </div>
       {properties}
       <section aria-label="Tasks" className="flex flex-col">
@@ -400,36 +411,60 @@ export const ApplicationDetail = ({ id }: { id: string }) => {
 export const ApplicationPeek = ({ id, onClose }: { id: string; onClose: () => void }) => {
   const source = useSource()
   const a = source.applications.find((x) => x.id === id)
-  if (!a) return null
+  // Trashed, deleted, or a link to someone else's: say so, and keep a way out.
+  if (!a)
+    return (
+      <div className="flex h-full flex-col">
+        <header className="flex h-10 shrink-0 items-center border-b px-3">
+          <Button
+            variant="ghost"
+            size="icon-xs"
+            className="ms-auto"
+            aria-label="Close panel"
+            onClick={onClose}
+          >
+            <HugeiconsIcon icon={Cancel01Icon} />
+          </Button>
+        </header>
+        <p className="text-muted-foreground p-5 text-sm">
+          This application isn't on the board anymore.
+        </p>
+      </div>
+    )
   return (
     <div className="flex h-full flex-col">
       <header className="flex h-10 shrink-0 items-center gap-1 border-b px-3">
         <span className="text-muted-foreground text-xs">{a.code ?? a.company}</span>
+        {source.real && (
+          <>
+            <Button
+              variant="ghost"
+              size="xs"
+              className="ms-auto"
+              aria-label={a.archived ? "Back to the board" : "Archive"}
+              title={a.archived ? "Back to the board" : "Archive"}
+              onClick={() => source.archive(a.id, !a.archived)}
+            >
+              <HugeiconsIcon icon={a.archived ? ArchiveArrowUpIcon : Archive02Icon} />
+            </Button>
+            <Button
+              variant="ghost"
+              size="xs"
+              aria-label="Move to Trash"
+              title="Move to Trash"
+              onClick={() => {
+                source.trash(a.id)
+                onClose()
+              }}
+            >
+              <HugeiconsIcon icon={Delete02Icon} />
+            </Button>
+          </>
+        )}
         <Button
           variant="ghost"
           size="xs"
-          className="ms-auto"
-          aria-label={a.archived ? "Back to the board" : "Archive"}
-          title={a.archived ? "Back to the board" : "Archive"}
-          onClick={() => source.archive(a.id, !a.archived)}
-        >
-          <HugeiconsIcon icon={a.archived ? ArchiveArrowUpIcon : Archive02Icon} />
-        </Button>
-        <Button
-          variant="ghost"
-          size="xs"
-          aria-label="Move to Trash"
-          title="Move to Trash"
-          onClick={() => {
-            source.trash(a.id)
-            onClose()
-          }}
-        >
-          <HugeiconsIcon icon={Delete02Icon} />
-        </Button>
-        <Button
-          variant="ghost"
-          size="xs"
+          className={source.real ? undefined : "ms-auto"}
           render={<Link to="/pipeline/$id" params={{ id: a.id }} />}
         >
           <HugeiconsIcon icon={ArrowExpand01Icon} /> Open

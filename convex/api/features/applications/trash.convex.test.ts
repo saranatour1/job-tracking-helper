@@ -120,6 +120,62 @@ describe("archive and trash", () => {
     )
   })
 
+  it("takes an archived one out of the Archive when it's trashed", async () => {
+    const { t, as, add } = await setup()
+    const id = await add("Acme")
+    await as.mutation(api.applications.archive, { id, archived: true })
+    await as.mutation(api.applications.trash, { id })
+    const doc = await t.run((ctx) => ctx.db.get("applications", id))
+    expect(doc?.archivedAt).toBeUndefined()
+    expect(doc!.purgeAt! - doc!.trashedAt!).toBe(90 * day)
+    await expect(as.mutation(api.applications.setStatus, { id, status: "offer" })).rejects.toThrow(
+      "That application is in the Trash."
+    )
+  })
+
+  it("moves what's in the Trash to a new date when the setting changes", async () => {
+    const { t, as, add } = await setup()
+    const id = await add("Acme")
+    await as.mutation(api.applications.trash, { id })
+    await as.mutation(api.applications.setTrashDays, { days: 30 })
+    vi.setSystemTime(Date.now() + 31 * day)
+    expect(await t.mutation(internal.applications.sweep, {})).toEqual({ trashed: 0, deleted: 1 })
+  })
+
+  it("deletes one person's due Trash whatever others keep", async () => {
+    const { t, as, add } = await setup()
+    const other = await t.run((ctx) => ctx.db.insert("users", { name: "Alex", trashDays: 0 }))
+    const theirs = await t.run((ctx) =>
+      ctx.db.insert("applications", {
+        userId: other,
+        role: "Engineer",
+        company: "Kept",
+        status: "applied",
+        priority: "none",
+        labels: [],
+        method: "Company site",
+        location: "",
+        description: "",
+        trashedAt: Date.now(),
+      } as never)
+    )
+    const mine = await add("Acme")
+    await as.mutation(api.applications.trash, { id: mine })
+    vi.setSystemTime(Date.now() + 100 * day)
+    await t.mutation(internal.applications.sweep, {})
+    expect(await t.run((ctx) => ctx.db.get("applications", mine))).toBeNull()
+    expect(await t.run((ctx) => ctx.db.get("applications", theirs))).not.toBeNull()
+  })
+
+  it("empties a big Trash in batches", async () => {
+    const { t, as, add } = await setup()
+    for (let i = 0; i < 30; i++)
+      await as.mutation(api.applications.trash, { id: await add(`Co ${i}`) })
+    expect(await as.mutation(api.applications.emptyTrash, {})).toBe(30)
+    await t.finishAllScheduledFunctions(vi.runAllTimers)
+    expect(await as.query(api.applications.trashed, {})).toEqual([])
+  })
+
   it("won't touch someone else's application", async () => {
     const { t, add } = await setup()
     const id = await add("Acme")

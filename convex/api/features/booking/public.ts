@@ -237,7 +237,9 @@ const book = mutation({
       throw new ConvexError("You already have a time booked here.")
     if (upcoming.length >= maxUpcoming) throw new ConvexError("This page is fully booked for now.")
 
-    let applicationId = found.applicationId
+    // The page's application, unless it's gone to the Trash.
+    const linked = found.applicationId && (await ctx.db.get("applications", found.applicationId))
+    let applicationId = linked && linked.trashedAt === undefined ? linked._id : undefined
     if (!applicationId) {
       // Like mail: a guest from acme.com books under the Acme application.
       const applications = (

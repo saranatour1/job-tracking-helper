@@ -134,10 +134,12 @@ const record = internalMutation({
       .withIndex("by_emailId", (q) => q.eq("emailId", event.emailId))
       .first()
     if (done) return null
-    const application =
+    const found =
       move && event.suggest && event.applicationId
         ? await ctx.db.get("applications", event.applicationId)
         : null
+    // One moved to the Trash while Jev was reading isn't moved again.
+    const application = found?.trashedAt === undefined ? found : null
     if (application && event.suggest)
       await changeStatus(ctx, application, event.suggest, "Moved by Jev from an email")
     const id = await ctx.db.insert("mailEvents", {

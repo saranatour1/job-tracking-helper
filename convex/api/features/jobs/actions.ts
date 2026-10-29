@@ -39,7 +39,12 @@ const fetchBoard = internalAction({
           jobs: jobs.slice(i, i + 100),
           seenAt: startedAt,
         })
-      await ctx.runMutation(internal.jobs.boardFetched, { boardId, startedAt, jobs: jobs.length })
+      await ctx.runMutation(internal.jobs.boardFetched, {
+        boardId,
+        startedAt,
+        jobs: jobs.length,
+        company: jobs[0]?.company,
+      })
       log.set({ jobs: jobs.length })
       return null
     } catch (error) {

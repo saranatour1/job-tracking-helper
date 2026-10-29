@@ -57,6 +57,9 @@ export type Application = {
   history: Event[]
   tasks?: Task[]
   notes?: Note[]
+  // Jev's fit score, 0 to 100, when a loop found the role or its link was checked.
+  fit?: number
+  isFit?: boolean
   // Off the board, in the Archived tab.
   archived?: boolean
 }

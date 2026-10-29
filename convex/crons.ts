@@ -15,7 +15,7 @@ crons.interval("refresh job boards", { hours: 1 }, internal.jobs.refreshDue, {})
 // of what's older than they keep.
 crons.daily(
   "sweep archive and trash",
-  { hourUTC: 3, minuteUTC: 0 },
+  { hourUTC: 3, minuteUTC: 17 },
   internal.applications.sweep,
   {}
 )
