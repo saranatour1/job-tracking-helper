@@ -1,4 +1,6 @@
 import { paginationOptsValidator, paginationResultValidator } from "convex/server"
+import { nextNumber } from "../applications/public"
+import { priorityFor } from "../applications/validators"
 import { ConvexError, v } from "convex/values"
 import type { Id } from "../../../_generated/dataModel"
 import type { MutationCtx } from "../../../_generated/server"
@@ -203,7 +205,8 @@ const respond = authedMutation({
   },
 })
 
-// Adds the job to Applications as saved, with its link, ready to apply.
+// Adds the job to Applications as saved, with what the loop already knows about it: its
+// link, location, a Remote label, the posting's summary, and a priority from Jev's match.
 const track = authedMutation({
   args: { leadId: v.id("jobLeads") },
   returns: v.id("applications"),
@@ -216,6 +219,12 @@ const track = authedMutation({
       role: lead.title,
       status: "saved",
       url: lead.url,
+      number: await nextNumber(ctx, ctx.userId),
+      ...(lead.location && { location: lead.location }),
+      labels: /remote/i.test(lead.location ?? "") ? ["Remote"] : [],
+      ...(lead.snippet && { description: lead.snippet.slice(0, 5000) }),
+      method: "Company site",
+      priority: priorityFor(lead.fit),
       history: [{ status: "saved", at: Date.now() }],
     })
     await ctx.db.patch("jobLeads", leadId, { status: "applied", applicationId })

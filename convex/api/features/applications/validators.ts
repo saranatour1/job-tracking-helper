@@ -49,6 +49,10 @@ export const Application = type({
 }).and(Details)
 export type Application = typeof Application.infer
 
+// How much a role is worth chasing, from how well Jev judged it fits (0–100).
+export const priorityFor = (fit: number): Priority =>
+  fit >= 90 ? "high" : fit >= 75 ? "medium" : "low"
+
 // Kept on the application by the server: each status it moved to, and notes, with when.
 export const Event = type({ status: type.enumerated(...statuses), at: "number", "note?": "string" })
 export const Note = type({ text: "string", at: "number" })

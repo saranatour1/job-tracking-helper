@@ -431,24 +431,29 @@ export const matches = (a: Application, filters: Filters) =>
       !values?.length || fieldValues(a, field as FilterField).some((v) => values.includes(v))
   )
 
-// Every value a filter field can take, with its display label.
-export const fieldOptions = (field: FilterField): { value: string; label: string }[] => {
+// Every value a filter field can take, with its display label. Companies and labels come
+// from the applications on screen, real or sample.
+export const fieldOptions = (
+  field: FilterField,
+  from: Application[] = applications
+): { value: string; label: string }[] => {
   switch (field) {
     case "status":
       return statuses.map((s) => ({ value: s, label: statusLabels[s] }))
     case "priority":
       return priorities.map((p) => ({ value: p, label: priorityLabels[p] }))
     case "label":
-      return labels.map((l) => ({ value: l, label: l }))
+      return [...new Set([...labels, ...from.flatMap((a) => a.labels)])].map((l) => ({
+        value: l,
+        label: l,
+      }))
     case "goal":
       return [
         ...goals.map((g) => ({ value: g.id, label: g.name })),
         { value: "none", label: "No goal" },
       ]
     case "company":
-      return [...new Set(applications.map((a) => a.company))]
-        .sort()
-        .map((c) => ({ value: c, label: c }))
+      return [...new Set(from.map((a) => a.company))].sort().map((c) => ({ value: c, label: c }))
     case "method":
       return methods.map((m) => ({ value: m, label: m }))
   }
