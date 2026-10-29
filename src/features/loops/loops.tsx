@@ -46,11 +46,12 @@ import { Switch } from "@/components/ui/switch"
 import { Textarea } from "@/components/ui/textarea"
 import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group"
 import { chip, PageIntro, pageBody, Tile, tileGrid } from "@/features/shell/page-body"
+import { useCollapsesSidebar } from "@/features/shell/one-sidebar"
 import { PageHeader } from "@/features/shell/page-header"
 import { cn } from "@/lib/utils"
 
 import { IconAction, messageOf, Status } from "./parts"
-import { JobSheet, PasteLink, Shortlist, type ShortlistView } from "./shortlist"
+import { JobPanel, PasteLink, Shortlist, type ShortlistView } from "./shortlist"
 
 type Loop = Doc<"loops">
 type Run = Doc<"loopRuns">
@@ -289,11 +290,13 @@ const LoopsOverview = ({
   loops,
   runs,
   list,
+  open,
   prefs,
 }: {
   loops: Loop[]
   runs: Run[]
   list: ShortlistView
+  open: Id<"jobLeads"> | undefined
   prefs: Prefs | undefined
 }) => (
   <>
@@ -324,7 +327,7 @@ const LoopsOverview = ({
       description="A few at a time, each checked by Jev against your Preferences. Save one for later, favorite it for more like it, dismiss it for less, or add it to your tracker."
     />
     <PasteLink />
-    <Shortlist view={list} />
+    <Shortlist view={list} open={open} />
     <Heading
       title="Start from a template"
       description="Each one is filled in from your Preferences. Open it to change any answer."
@@ -968,6 +971,9 @@ export const Loops = () => {
   const navigate = useNavigate()
   const tab = search.tab ?? "loops"
   const template = templateById(search.template)
+  const collapsesSidebar = useCollapsesSidebar()
+  const closeJob = () =>
+    void navigate({ from: "/loops", to: "/loops", search: (prev) => ({ ...prev, job: undefined }) })
   const loops = useQuery(api.loops.list) ?? []
   const runs = usePaginatedQuery(api.loops.runs, {}, { initialNumItems: 30 })
   const sources = useQuery(api.loops.sourceStatus, {
@@ -984,6 +990,8 @@ export const Loops = () => {
     <div className="soft-theme bg-background text-foreground flex h-svh flex-col rounded-[inherit] md:h-[calc(100svh-1rem)]">
       <PageHeader
         crumbs={[{ label: "Loops" }]}
+        // With a job open, the sidebar button closes it rather than opening a second sidebar.
+        onSidebar={search.job ? closeJob : undefined}
         actions={
           <Button
             variant="ghost"
@@ -995,74 +1003,79 @@ export const Loops = () => {
           </Button>
         }
       />
-      <Tabs
-        value={tab}
-        onValueChange={(v) =>
-          void navigate({
-            from: "/loops",
-            to: "/loops",
-            search: (prev) => ({ ...prev, tab: v as LoopsTab }),
-          })
-        }
-        className="flex min-h-0 flex-1 flex-col gap-0"
-      >
-        <div className="border-b px-4 py-1.5">
-          <TabsList size="sm">
-            <TabsTab value="loops">Loops</TabsTab>
-            <TabsTab value="runs">Runs</TabsTab>
-            <TabsTab value="sources">Sources</TabsTab>
-          </TabsList>
-        </div>
-        {(
-          [
+      <div className="flex min-h-0 flex-1">
+        <Tabs
+          value={tab}
+          onValueChange={(v) =>
+            void navigate({
+              from: "/loops",
+              to: "/loops",
+              search: (prev) => ({ ...prev, tab: v as LoopsTab }),
+            })
+          }
+          className="flex min-h-0 min-w-0 flex-1 flex-col gap-0"
+        >
+          <div className="border-b px-4 py-1.5">
+            <TabsList size="sm">
+              <TabsTab value="loops">Loops</TabsTab>
+              <TabsTab value="runs">Runs</TabsTab>
+              <TabsTab value="sources">Sources</TabsTab>
+            </TabsList>
+          </div>
+          {(
             [
-              "loops",
-              template ? (
-                <Setup key={template.id} template={template} tags={tags.results} />
-              ) : (
-                <LoopsOverview
-                  loops={loops}
+              [
+                "loops",
+                template ? (
+                  <Setup key={template.id} template={template} tags={tags.results} />
+                ) : (
+                  <LoopsOverview
+                    loops={loops}
+                    runs={runs.results}
+                    list={search.list === "saved" ? "saved" : "today"}
+                    open={search.job}
+                    prefs={prefs}
+                  />
+                ),
+              ],
+              [
+                "runs",
+                <RunsTab
+                  key="runs"
                   runs={runs.results}
-                  list={search.list === "saved" ? "saved" : "today"}
-                  prefs={prefs}
-                />
-              ),
-            ],
-            [
-              "runs",
-              <RunsTab
-                key="runs"
-                runs={runs.results}
-                more={runs.status === "CanLoadMore" ? () => runs.loadMore(30) : undefined}
-              />,
-            ],
-            ["sources", <SourcesTab key="sources" rows={sources ?? []} />],
-          ] as const
-        ).map(([value, content]) => (
-          <TabsPanel key={value} value={value} className="flex min-h-0">
-            <ScrollArea className="min-h-0 flex-1">
-              <div
-                className={cn(
-                  pageBody,
-                  "animate-in fade-in duration-300 motion-reduce:animate-none"
-                )}
-              >
-                {content}
-              </div>
-            </ScrollArea>
-          </TabsPanel>
-        ))}
-      </Tabs>
-      <JobSheet
-        leadId={search.job}
-        onClose={() =>
-          void navigate({
-            from: "/loops",
-            to: "/loops",
-            search: (prev) => ({ ...prev, job: undefined }),
-          })
-        }
-      />
+                  more={runs.status === "CanLoadMore" ? () => runs.loadMore(30) : undefined}
+                />,
+              ],
+              ["sources", <SourcesTab key="sources" rows={sources ?? []} />],
+            ] as const
+          ).map(([value, content]) => (
+            <TabsPanel key={value} value={value} className="flex min-h-0">
+              <ScrollArea className="min-h-0 flex-1">
+                <div
+                  className={cn(
+                    pageBody,
+                    "animate-in fade-in duration-300 motion-reduce:animate-none"
+                  )}
+                >
+                  {content}
+                </div>
+              </ScrollArea>
+            </TabsPanel>
+          ))}
+        </Tabs>
+        {/* One sidebar at a time: the job takes the app sidebar's place while it's open.
+          On phones it covers the page. Esc closes it. */}
+        {search.job && (
+          <aside
+            ref={collapsesSidebar}
+            aria-label="Job"
+            onKeyDown={(e) => e.key === "Escape" && closeJob()}
+            className="bg-background fixed inset-0 z-20 md:static md:z-auto md:w-[28rem] md:shrink-0 md:border-s"
+          >
+            <JobPanel key={search.job} leadId={search.job} onClose={closeJob} />
+          </aside>
+        )}
+      </div>
     </div>
   )
 }
