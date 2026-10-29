@@ -17,7 +17,7 @@ export default defineConfig({
   },
   plugins: [tailwindcss(), tanstackStart(), viteReact()],
   lint: {
-    ignorePatterns: ["src/routeTree.gen.ts", "convex/_generated"],
+    ignorePatterns: ["src/routeTree.gen.ts", "convex/_generated", "convex/*/_generated"],
     options: { typeAware: true, typeCheck: true },
     jsPlugins: ["@convex-dev/eslint-plugin"],
     rules: {
@@ -86,6 +86,7 @@ export default defineConfig({
   fmt: {
     semi: false,
     trailingComma: "es5",
-    ignorePatterns: ["src/routeTree.gen.ts", "convex/_generated"],
+    // Convex writes these, for the app and for each local component.
+    ignorePatterns: ["src/routeTree.gen.ts", "convex/_generated", "convex/*/_generated"],
   },
 })
