@@ -22,5 +22,7 @@
     "types": ["node"]
   },
   "include": ["./**/*"],
-  "exclude": ["./_generated"]
+  // Tests on convex-test are left to Vitest: the components' test helpers ship
+  // TypeScript source typed against another copy of convex.
+  "exclude": ["./_generated", "./**/*.convex.test.ts"]
 }

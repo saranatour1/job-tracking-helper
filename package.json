@@ -12,6 +12,7 @@
   },
   "dependencies": {
     "@base-ui/react": "^1.9.0",
+    "@convex-dev/aggregate": "^0.3.4",
     "@convex-dev/ai-sdk-provider": "^0.3.0",
     "@convex-dev/auth": "2.0.0-beta.0",
     "@convex-dev/rate-limiter": "^0.4.2",
@@ -45,11 +46,13 @@
   },
   "devDependencies": {
     "@convex-dev/eslint-plugin": "^5.0.1",
+    "@edge-runtime/vm": "^5.0.0",
     "@tailwindcss/vite": "^4.3.3",
     "@types/node": "^22",
     "@types/react": "^19",
     "@types/react-dom": "^19",
     "@vitejs/plugin-react": "^6.1.2",
+    "convex-test": "^0.0.66",
     "tailwindcss": "^4.3.3",
     "tsrs": "0.20.0-ts7.1.0-beta",
     "typescript": "~6.0.3",

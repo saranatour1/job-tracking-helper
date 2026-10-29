@@ -29,7 +29,8 @@ const inbox = authedQuery({
       message: v.string(),
       at: v.number(),
       unread: v.boolean(),
-      link: v.union(v.literal("/"), v.literal("/loops"), v.literal("/calendar")),
+      // Where its button goes; none for a line with nowhere better to go.
+      link: v.union(v.literal("/"), v.literal("/loops"), v.literal("/calendar"), v.null()),
       company: v.optional(v.string()),
       status: v.optional(v.union(...statuses.map((s) => v.literal(s)))),
     })
@@ -52,6 +53,25 @@ const inbox = authedQuery({
               title: run.loopName,
               message: `${run.kept ?? 0} new ${run.kept === 1 ? "role fits" : "roles fit"}. They're on your shortlist.`,
               link: "/loops" as const,
+              company: undefined,
+              status: undefined,
+            }
+          )
+        }
+        // "Notify me" keeps its words in the run's history; the ref is "<runId>#<step>".
+        const [runPart, stepPart] = (n.ref ?? "").split("#")
+        const runId =
+          n.kind === "automation.notify" && runPart && ctx.db.normalizeId("automationRuns", runPart)
+        if (runId) {
+          const found = await ctx.db.get("automationRuns", runId)
+          const said = found?.log.find((e) => e.at === stepPart)?.output
+          return (
+            found?.userId === ctx.userId &&
+            said !== undefined && {
+              ...base,
+              title: found.name,
+              message: said,
+              link: null,
               company: undefined,
               status: undefined,
             }

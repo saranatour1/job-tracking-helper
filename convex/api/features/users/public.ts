@@ -9,6 +9,7 @@ import { deleteNotifications } from "../notifications/public"
 import { deleteViews } from "../views/public"
 import { deleteCalendar } from "../calendar/public"
 import { deleteBookingPages } from "../booking/public"
+import { deleteAutomations } from "../automations/public"
 import { deletePreferences } from "../preferences/public"
 import { maxImageBytes, Profile } from "./validators"
 
@@ -102,6 +103,7 @@ const deleteAccount = authedMutation({
     await deleteViews(ctx, ctx.userId)
     await deleteCalendar(ctx, ctx.userId)
     await deleteBookingPages(ctx, ctx.userId)
+    await deleteAutomations(ctx, ctx.userId)
     await ctx.runMutation(components.authUsername.public.deleteUsername, { userId: ctx.userId })
     await ctx.db.replace("users", ctx.userId, {})
     return null

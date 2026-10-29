@@ -17,6 +17,8 @@ export const limits = new RateLimiter(components.rateLimiter, {
   contextDev: { kind: "token bucket", rate: 60, period: MINUTE, capacity: 2 },
   runNow: { kind: "fixed window", rate: 3, period: DAY },
   checkLink: { kind: "fixed window", rate: 10, period: DAY },
+  // Workflows people build, started by hand.
+  automationRun: { kind: "fixed window", rate: 50, period: DAY },
 })
 
 // The batch worker: it fetches job boards for the catalog, and every run hands it the

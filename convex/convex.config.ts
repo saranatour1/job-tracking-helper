@@ -8,6 +8,7 @@ import authGithub from "@convex-dev/auth/components/github/convex.config.js"
 import authAnonymous from "@convex-dev/auth/components/anonymous/convex.config.js"
 import rateLimiter from "@convex-dev/rate-limiter/convex.config.js"
 import workflow from "@convex-dev/workflow/convex.config.js"
+import aggregate from "@convex-dev/aggregate/convex.config.js"
 import workpool from "@convex-dev/workpool/convex.config.js"
 import cloudflareEmail from "./cloudflareEmail/convex.config"
 import notifications from "./notifications/convex.config"
@@ -65,6 +66,9 @@ app.use(authGithub, {
 app.use(workflow)
 app.use(workpool, { name: "readPool" })
 app.use(rateLimiter)
+
+// Counters: each workflow's runs bucketed by how they ended (see automations/counts).
+app.use(aggregate, { name: "automationRunCounts" })
 
 // Email: each person sends from their own Cloudflare account, with their token
 // sealed in emailConnections. The component keeps the emails themselves.
