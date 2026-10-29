@@ -24,6 +24,7 @@ import {
   CheckmarkCircle02Icon,
   Delete02Icon,
   PauseIcon,
+  PencilEdit02Icon,
   PlayIcon,
   PlusSignIcon,
   RepeatIcon,
@@ -63,16 +64,24 @@ type RunTime = (typeof runTimes)[number]
 const loopsTabs = ["loops", "runs", "sources"] as const
 export type LoopsTab = (typeof loopsTabs)[number]
 
-// Reads `?tab=` and `?template=` for the route, dropping anything it doesn't know.
+// Reads the route's search, dropping anything it doesn't know.
 export const loopsSearch = (
   search: Record<string, unknown>
-): { tab?: LoopsTab; template?: string; job?: Id<"jobLeads">; list?: "saved" } => ({
+): {
+  tab?: LoopsTab
+  template?: string
+  edit?: Id<"loops">
+  job?: Id<"jobLeads">
+  list?: "saved"
+} => ({
   tab: loopsTabs.find((t) => t === search.tab),
   template:
     typeof search.template === "string" && templateById(search.template)
       ? search.template
       : undefined,
-  // The job sheet's lead; the server checks it belongs to the person.
+  // The loop being edited, and the job sheet's lead; the server checks both are the
+  // person's.
+  edit: typeof search.edit === "string" && search.edit ? (search.edit as Id<"loops">) : undefined,
   job: typeof search.job === "string" && search.job ? (search.job as Id<"jobLeads">) : undefined,
   list: search.list === "saved" ? "saved" : undefined,
 })
@@ -277,6 +286,11 @@ const LoopTile = ({ loop, runs, prefs }: { loop: Loop; runs: Run[]; prefs: Prefs
           />
         )}
         <IconAction
+          label="Edit loop"
+          icon={PencilEdit02Icon}
+          onClick={() => void navigate({ to: "/loops", search: { tab: "loops", edit: loop._id } })}
+        />
+        <IconAction
           label="Use in a workflow"
           icon={WorkflowSquare03Icon}
           onClick={() =>
@@ -441,26 +455,40 @@ type Where = "anywhere" | "remote" | "near"
 // Setting up a loop is going through its run, step by step: each step asks a few yes or
 // no questions and shows what the answers make the run do, with the person's own
 // Preferences and the actual search words.
+// Sets up a new loop from a template, or, given `loop`, changes that one.
 const Setup = ({
   template,
+  loop,
   tags,
 }: {
   template: LoopTemplate
+  loop?: Loop
   tags: { kind: TagKind; value: string }[]
 }) => {
   const create = useMutation(api.loops.create)
+  const update = useMutation(api.loops.update)
   const navigate = useNavigate()
-  const timeZone = Intl.DateTimeFormat().resolvedOptions().timeZone
+  const timeZone = loop?.timeZone ?? Intl.DateTimeFormat().resolvedOptions().timeZone
   const form = useForm({
-    defaultValues: {
-      name: template.name,
-      prompt: "",
-      answers: template.answers,
-      daily: template.daily as DailySize,
-      show: defaultShow as ShowSize,
-      at: template.at as RunTime,
-      auto: true,
-    },
+    defaultValues: loop
+      ? {
+          name: loop.name,
+          prompt: loop.prompt ?? "",
+          answers: loop.answers,
+          daily: loop.daily as DailySize,
+          show: (loop.show ?? defaultShow) as ShowSize,
+          at: loop.at as RunTime,
+          auto: loop.active,
+        }
+      : {
+          name: template.name,
+          prompt: "",
+          answers: template.answers,
+          daily: template.daily as DailySize,
+          show: defaultShow as ShowSize,
+          at: template.at as RunTime,
+          auto: true,
+        },
   })
   const values = useStore(form.store, (s) => s.values)
   const answers = values.answers
@@ -471,7 +499,7 @@ const Setup = ({
   const [status, start] = useActionState(async () => {
     try {
       const { name, prompt, answers, daily, show, at, auto } = form.state.values
-      await create({
+      const fields = {
         name,
         template: template.id,
         prompt,
@@ -481,7 +509,8 @@ const Setup = ({
         at,
         auto,
         timeZone,
-      })
+      }
+      await (loop ? update({ loopId: loop._id, ...fields }) : create(fields))
       await navigate({ to: "/loops", search: { tab: "loops" } })
       return undefined
     } catch (error) {
@@ -512,8 +541,18 @@ const Setup = ({
 
   return (
     <>
+      {/* Setup opens from partway down the list; start it at the top, after the click's own
+          scrolling settles. */}
+      <span
+        ref={(top) => {
+          if (top)
+            requestAnimationFrame(() =>
+              top.closest("[data-slot=scroll-area-viewport]")?.scrollTo({ top: 0 })
+            )
+        }}
+      />
       <PageIntro
-        title={template.name}
+        title={loop ? `Edit ${loop.name}` : template.name}
         description="This is what the loop does each morning. Answer each step; the box under it shows what your answers make it do."
       >
         <Button variant="ghost" size="sm" render={<Link to="/loops" search={{ tab: "loops" }} />}>
@@ -744,7 +783,7 @@ const Setup = ({
           </p>
         )}
         <Button type="button" onClick={() => startTransition(() => start())}>
-          Start loop
+          {loop ? "Save changes" : "Start loop"}
         </Button>
       </div>
     </>
@@ -988,6 +1027,7 @@ export const Loops = () => {
   const closeJob = () =>
     void navigate({ from: "/loops", to: "/loops", search: (prev) => ({ ...prev, job: undefined }) })
   const loops = useQuery(api.loops.list) ?? []
+  const editing = loops.find((l) => l._id === search.edit)
   const runs = usePaginatedQuery(api.loops.runs, {}, { initialNumItems: 30 })
   const sources = useQuery(api.loops.sourceStatus, {
     month: new Date().toISOString().slice(0, 7),
@@ -1039,7 +1079,14 @@ export const Loops = () => {
             [
               [
                 "loops",
-                template ? (
+                editing ? (
+                  <Setup
+                    key={editing._id}
+                    template={templateById(editing.template) ?? blankTemplate}
+                    loop={editing}
+                    tags={tags.results}
+                  />
+                ) : template ? (
                   <Setup key={template.id} template={template} tags={tags.results} />
                 ) : (
                   <LoopsOverview

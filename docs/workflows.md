@@ -108,6 +108,11 @@ and the rules both go by. For the rest of the app, see [flows.md](flows.md).
    marked failed with "Stopped.", and a loop run that Find roles started stops too.
 5. A Notify me line in the **Inbox** opens its run.
 
+### Change it
+
+- **Edit** on a workflow's row (or its name) opens it in the builder. Changes apply from
+  the next run; a run already going keeps the steps it started with.
+
 ### Turn it off or delete it
 
 - The switch on the list or in the builder turns a workflow off. It then never starts on

@@ -268,6 +268,7 @@ add new boards.
 - As a job seeker, I want a loop that each morning finds roles and has Jev keep only the
   ones that fit me, a few at a time.
 - As a job seeker, I want to tell it "more like this" or "less like this".
+- As a job seeker, I want to change a loop's answers without starting a new one.
 - As someone who found a role myself, I want to paste its link and have Jev check it.
 - As a job seeker, I want a role I like to go straight onto my board.
 - As someone paying for search credits, I want to see what each run cost.
@@ -280,17 +281,21 @@ add new boards.
    how many it checks and shows, and what it leaves out. "Start loop"
    (`api.loops.create`). Up to 3 loops.
 2. **Each loop's tile:** Run now (`api.loops.runNow`, 3 a day), Stop this run, Pause or
-   Resume daily runs, Use in a workflow (opens Morning job search with this loop), and
-   Remove (its runs and roles stay).
-3. **Your shortlist** ("For you", "Saved"): open a role for its fit, Jev's checks and the
+   Resume daily runs, Edit, Use in a workflow (opens Morning job search with this loop),
+   and Remove (its runs and roles stay).
+3. **Edit a loop:** Edit opens the same setup with the loop's answers filled in
+   (`?edit=<loopId>`). "Save changes" (`api.loops.update`) runs the same checks as
+   starting one and moves its next run to the new time; a run already going keeps the
+   answers it started with.
+4. **Your shortlist** ("For you", "Saved"): open a role for its fit, Jev's checks and the
    posting. Save it, favorite it ("Tomorrow's runs will look for more like it."), dismiss
    it ("…less like it."), or add it to Applications as Saved (`api.loops.track`).
-4. **Check a link.** Paste a posting's link and press "Check it" (`api.loops.checkLink`).
+5. **Check a link.** Paste a posting's link and press "Check it" (`api.loops.checkLink`).
    A known board is read for free; another page costs one Firecrawl credit. Jev judges
    it and it opens on your shortlist. 10 a day; a link you checked before opens straight
    away.
-5. **Runs tab:** each run's source, judged, fit, saved and credits, and totals.
-6. **Sources tab:** each search source's credits this month, and when runs move on to
+6. **Runs tab:** each run's source, judged, fit, saved and credits, and totals.
+7. **Sources tab:** each search source's credits this month, and when runs move on to
    the next one.
 
 **By itself**
