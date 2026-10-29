@@ -39,11 +39,9 @@ import {
   goalName,
   priorityLabels,
   statusLabels,
-  today,
-  updateApplication,
-  useApplications,
 } from "./data"
 import { PriorityIcon, StatusIcon } from "./icons"
+import { useSource } from "./source"
 
 const icon = (field: FilterField, value: string) =>
   field === "status" ? (
@@ -112,12 +110,10 @@ const Static = ({ children }: { children: React.ReactNode }) => (
 
 const muted = "text-muted-foreground size-3.5"
 
-const setStatus = (a: Application, status: Status) =>
-  status !== a.status &&
-  updateApplication(a.id, { status, history: [...a.history, { status, at: today }] })
-
 const Properties = ({ a }: { a: Application }) => {
-  const set = (patch: Partial<Application>) => updateApplication(a.id, patch)
+  const source = useSource()
+  const set = (patch: Parameters<typeof source.update>[1]) => source.update(a.id, patch)
+  const setStatus = (_: Application, status: Status) => source.setStatus(a.id, status)
   return (
     <dl className="grid grid-cols-[5.5rem_minmax(0,1fr)] gap-x-1 gap-y-0.5 text-[13px]">
       <Row label="Status">
@@ -140,17 +136,19 @@ const Properties = ({ a }: { a: Application }) => {
           <PriorityIcon priority={a.priority} /> {priorityLabels[a.priority]}
         </Pick>
       </Row>
-      <Row label="Goal">
-        <Pick
-          label="Goal"
-          field="goal"
-          value={a.goalId ?? "none"}
-          onChange={(v) => set({ goalId: v === "none" ? undefined : v })}
-        >
-          <HugeiconsIcon icon={Target02Icon} className={muted} />
-          <span className="truncate">{goalName(a.goalId)}</span>
-        </Pick>
-      </Row>
+      {source.goals && (
+        <Row label="Goal">
+          <Pick
+            label="Goal"
+            field="goal"
+            value={a.goalId ?? "none"}
+            onChange={(v) => source.setGoal(a.id, v === "none" ? undefined : v)}
+          >
+            <HugeiconsIcon icon={Target02Icon} className={muted} />
+            <span className="truncate">{goalName(a.goalId)}</span>
+          </Pick>
+        </Row>
+      )}
       <Row label="Labels">
         <Menu>
           <Trigger label="Labels">
@@ -211,7 +209,8 @@ const Content = ({ a, properties }: { a: Application; properties?: React.ReactNo
   const [draft, setDraft] = useState("")
   const [note, setNote] = useState("")
   const [adding, setAdding] = useState(false)
-  const set = (patch: Partial<Application>) => updateApplication(a.id, patch)
+  const source = useSource()
+  const set = (patch: Parameters<typeof source.update>[1]) => source.update(a.id, patch)
   const tasks = a.tasks ?? []
   const notes = a.notes ?? []
   // Merges status changes and notes into one timeline. The sort is stable, so same-day items keep their order.
@@ -319,7 +318,7 @@ const Content = ({ a, properties }: { a: Application; properties?: React.ReactNo
           onSubmit={(e) => {
             e.preventDefault()
             if (!note.trim()) return
-            set({ notes: [...notes, { text: note.trim(), at: today }] })
+            source.addNote(a.id, note.trim())
             setNote("")
           }}
         >
@@ -342,7 +341,9 @@ const Content = ({ a, properties }: { a: Application; properties?: React.ReactNo
 }
 
 export const ApplicationDetail = ({ id }: { id: string }) => {
-  const a = useApplications().find((x) => x.id === id)
+  const { applications, loaded } = useSource()
+  const a = applications.find((x) => x.id === id)
+  if (!loaded) return null
   if (!a) {
     return (
       <>
@@ -354,7 +355,10 @@ export const ApplicationDetail = ({ id }: { id: string }) => {
   return (
     <>
       <PageHeader
-        crumbs={[{ label: "Pipeline", to: "/pipeline" }, { label: `${a.id} ${a.role}` }]}
+        crumbs={[
+          { label: "Pipeline", to: "/pipeline" },
+          { label: a.code ? `${a.code} ${a.role}` : a.role },
+        ]}
       />
       <div className="flex min-h-0 flex-1 flex-col lg:flex-row">
         <ScrollArea render={<main />} className="min-w-0 flex-1">
@@ -375,12 +379,12 @@ export const ApplicationDetail = ({ id }: { id: string }) => {
 
 // The same application in the pipeline's side panel, with a link to the full page.
 export const ApplicationPeek = ({ id, onClose }: { id: string; onClose: () => void }) => {
-  const a = useApplications().find((x) => x.id === id)
+  const a = useSource().applications.find((x) => x.id === id)
   if (!a) return null
   return (
     <div className="flex h-full flex-col">
       <header className="flex h-10 shrink-0 items-center gap-1 border-b px-3">
-        <span className="text-muted-foreground text-xs">{a.id}</span>
+        <span className="text-muted-foreground text-xs">{a.code ?? a.company}</span>
         <Button
           variant="ghost"
           size="xs"

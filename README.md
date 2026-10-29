@@ -12,7 +12,7 @@ Account connects your own Cloudflare account, so emails can go out from your dom
 
 The Inbox shows what happened: new mail about your applications, mail that needs filing, and new roles from loops. Each kind can be turned off under Account → Notifications. It reads from the notifications component in `convex/notifications`.
 
-The Pipeline, Goals and Views pages are a preview built on sample data from `src/features/tracker/data.ts`. They don't read from or save to Convex yet. Edits there last until you reload, and the create buttons do nothing.
+Pipeline shows your applications from Convex as a board or a list, with a side panel for each one: status with its history, priority, labels, how you applied, location, tasks and notes. New application adds one. Goals and Views use the same board but still run on sample data from `src/features/tracker/data.ts`; they don't save to Convex yet.
 
 ## How to run
 
@@ -72,7 +72,7 @@ src/
   routes/                              pages (TanStack Router); they only import a feature
     _app.tsx, _auth.tsx                layouts: signed-in pages, and /sign-in + /sign-up
   features/<feature>/                  the feature's components
-  features/tracker/                    Pipeline, Goals and Views, on sample data for now
+  features/tracker/                    Pipeline on Convex; Goals and Views on sample data for now
   features/preferences/                Preferences: the form, the assistant prompt and the profile blocks
   features/jobs/                       Jobs: the shared catalog of open roles
   features/loops/                      Loops: morning job searches, their runs and sources

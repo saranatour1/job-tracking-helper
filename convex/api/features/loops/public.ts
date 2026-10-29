@@ -216,6 +216,7 @@ const track = authedMutation({
       role: lead.title,
       status: "saved",
       url: lead.url,
+      history: [{ status: "saved", at: Date.now() }],
     })
     await ctx.db.patch("jobLeads", leadId, { status: "applied", applicationId })
     await countOnRun(ctx, lead.runId, "applied")

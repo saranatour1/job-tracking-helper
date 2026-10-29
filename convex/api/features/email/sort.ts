@@ -16,6 +16,7 @@ import {
 import { arkId, arkOutputToConvex } from "../../../lib/ark"
 import { arkMutation, authedQuery } from "../../../lib/functions"
 import { seal } from "../../../lib/secrets"
+import { changeStatus } from "../applications/public"
 import { statuses } from "../applications/validators"
 import { mailNotificationKind } from "../notifications/kinds"
 import { jevModel } from "../workflows/judge"
@@ -249,7 +250,7 @@ const resolveSuggestion = arkMutation({
     if (accept && event.suggest && event.applicationId) {
       const application = await ctx.db.get("applications", event.applicationId)
       if (application?.userId === ctx.userId)
-        await ctx.db.patch("applications", application._id, { status: event.suggest })
+        await changeStatus(ctx, application, event.suggest, "From an email")
     }
     await ctx.db.patch("mailEvents", eventId, { suggest: undefined })
     return null
