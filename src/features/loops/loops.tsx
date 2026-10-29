@@ -48,7 +48,6 @@ import { Switch } from "@/components/ui/switch"
 import { Textarea } from "@/components/ui/textarea"
 import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group"
 import { chip, PageIntro, pageBody, Tile, tileGrid } from "@/features/shell/page-body"
-import { useCollapsesSidebar } from "@/features/shell/one-sidebar"
 import { PageHeader } from "@/features/shell/page-header"
 import { cn } from "@/lib/utils"
 
@@ -1023,7 +1022,6 @@ export const Loops = () => {
   const navigate = useNavigate()
   const tab = search.tab ?? "loops"
   const template = templateById(search.template)
-  const collapsesSidebar = useCollapsesSidebar()
   const closeJob = () =>
     void navigate({ from: "/loops", to: "/loops", search: (prev) => ({ ...prev, job: undefined }) })
   const loops = useQuery(api.loops.list) ?? []
@@ -1043,8 +1041,6 @@ export const Loops = () => {
     <div className="soft-theme bg-background text-foreground flex h-svh flex-col rounded-[inherit] md:h-[calc(100svh-1rem)]">
       <PageHeader
         crumbs={[{ label: "Loops" }]}
-        // With a job open, the sidebar button closes it rather than opening a second sidebar.
-        onSidebar={search.job ? closeJob : undefined}
         actions={
           <Button
             variant="ghost"
@@ -1123,11 +1119,9 @@ export const Loops = () => {
             </TabsPanel>
           ))}
         </Tabs>
-        {/* One sidebar at a time: the job takes the app sidebar's place while it's open.
-          On phones it covers the page. Esc closes it. */}
+        {/* On phones the job covers the page. Esc closes it. */}
         {search.job && (
           <aside
-            ref={collapsesSidebar}
             aria-label="Job"
             onKeyDown={(e) => e.key === "Escape" && closeJob()}
             className="bg-background fixed inset-0 z-20 md:static md:z-auto md:w-[28rem] md:shrink-0 md:border-s"
