@@ -1,4 +1,4 @@
-import { useNavigate, useSearch } from "@tanstack/react-router"
+import { Link, useNavigate, useSearch } from "@tanstack/react-router"
 import { useCallback, useMemo, useRef } from "react"
 
 import {
@@ -267,7 +267,12 @@ export const CalendarPage = () => {
           >
             <KloqToolbar>
               <KloqNav />
-              <IcsButtons />
+              <div className="flex items-center gap-1">
+                <Button variant="ghost" size="xs" render={<Link to="/account" hash="booking" />}>
+                  Booking pages
+                </Button>
+                <IcsButtons />
+              </div>
             </KloqToolbar>
           </Kloq>
         </div>

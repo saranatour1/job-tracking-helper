@@ -61,6 +61,8 @@ export const calendarEventsTable = defineTable({
   userId: v.id("users"),
   ...vEventFields,
   kind: v.union(...eventKinds.map((k) => v.literal(k))),
+  // Set by the server when a guest books it on one of your booking pages.
+  bookingPageId: v.optional(v.id("bookingPages")),
 }).index("by_userId_and_key", ["userId", "key"])
 
 // How someone reads their calendar. Unset fields follow the browser and kloq's defaults.

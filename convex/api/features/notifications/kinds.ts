@@ -19,6 +19,10 @@ export const notificationKinds = {
     label: "Mail that needs filing",
     description: "When an email doesn't match any of your applications.",
   },
+  "booking.new": {
+    label: "New bookings",
+    description: "When someone books time on one of your booking pages.",
+  },
   "loop.found": {
     label: "New roles from loops",
     description: "When a morning run puts new roles on your shortlist.",
