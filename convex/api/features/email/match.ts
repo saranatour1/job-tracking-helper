@@ -111,3 +111,75 @@ export const textOfHtml = (html: string) =>
     .replace(/[ \t]+/g, " ")
     .replace(/\n\s*\n\s*\n+/g, "\n\n")
     .trim()
+
+const monthNames = [
+  "jan",
+  "feb",
+  "mar",
+  "apr",
+  "may",
+  "jun",
+  "jul",
+  "aug",
+  "sep",
+  "oct",
+  "nov",
+  "dec",
+]
+const dayNames = ["sun", "mon", "tue", "wed", "thu", "fri", "sat"]
+
+const hourOf = (hour: string | undefined, minute: string | undefined, half: string | undefined) => {
+  if (!hour) return { h: 0, m: 0 }
+  let h = Number(hour) % 12
+  if (!half) h = Number(hour)
+  else if (half.toLowerCase() === "pm") h += 12
+  return { h, m: Number(minute ?? 0) }
+}
+
+/**
+ * The time an interview email proposes, as written: "Tue, Nov 4 at 10:00 AM",
+ * "November 4, 2026 2pm", "2026-11-04 10:00" or "Tuesday at 10:00" (the next one
+ * after it arrived). Returned as that wall-clock time in UTC milliseconds, since the
+ * email rarely says its time zone; read it back with UTC getters. Undefined when the
+ * email names no date.
+ */
+export const slotOf = (text: string, receivedAt: number): number | undefined => {
+  const received = new Date(receivedAt)
+  const time = String.raw`(?:,?\s*(?:at|@|from)?\s*(\d{1,2})(?::(\d{2}))?\s*(am|pm)?)?`
+  const iso = new RegExp(String.raw`\b(\d{4})-(\d{2})-(\d{2})(?:[ T](\d{2}):(\d{2}))?`).exec(text)
+  if (iso) {
+    const [, y, mo, d, h, mi] = iso
+    return Date.UTC(Number(y), Number(mo) - 1, Number(d), Number(h ?? 0), Number(mi ?? 0))
+  }
+  const named = new RegExp(
+    String.raw`\b(${monthNames.join("|")})[a-z]*\.?\s+(\d{1,2})(?:st|nd|rd|th)?(?:,?\s+(\d{4}))?` +
+      time,
+    "i"
+  ).exec(text)
+  if (named) {
+    const [, month, day, year, hour, minute, half] = named
+    const { h, m } = hourOf(hour, minute, half)
+    const mo = monthNames.indexOf(month!.toLowerCase().slice(0, 3))
+    let y = year ? Number(year) : received.getUTCFullYear()
+    // No year and already past: it's next year's.
+    if (!year && Date.UTC(y, mo, Number(day)) < receivedAt - 86_400_000) y++
+    return Date.UTC(y, mo, Number(day), h, m)
+  }
+  const weekday = new RegExp(
+    String.raw`\b(${dayNames.join("|")})[a-z]*\s*(?:at|@)\s*(\d{1,2})(?::(\d{2}))?\s*(am|pm)?`,
+    "i"
+  ).exec(text)
+  if (weekday) {
+    const [, name, hour, minute, half] = weekday
+    const { h, m } = hourOf(hour, minute, half)
+    const ahead =
+      (dayNames.indexOf(name!.toLowerCase().slice(0, 3)) - received.getUTCDay() + 7) % 7 || 7
+    return Date.UTC(
+      received.getUTCFullYear(),
+      received.getUTCMonth(),
+      received.getUTCDate() + ahead,
+      h,
+      m
+    )
+  }
+}

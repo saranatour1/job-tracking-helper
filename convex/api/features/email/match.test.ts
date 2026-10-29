@@ -1,6 +1,14 @@
 import { describe, expect, it } from "vite-plus/test"
 
-import { kindOf, messageIdsIn, portalOf, ruleMatch, suggestionOf, textOfHtml } from "./match"
+import {
+  kindOf,
+  messageIdsIn,
+  portalOf,
+  ruleMatch,
+  slotOf,
+  suggestionOf,
+  textOfHtml,
+} from "./match"
 
 const apps = [
   { id: "a", company: "Acme", role: "Frontend Engineer", at: 1 },
@@ -79,5 +87,28 @@ describe("textOfHtml", () => {
     expect(
       textOfHtml("<style>p{color:red}</style><p>Hi &amp; welcome</p><p>Next<br>line</p>")
     ).toBe("Hi & welcome\nNext\nline")
+  })
+})
+
+describe("slotOf", () => {
+  // Thursday, October 29 2026.
+  const received = Date.UTC(2026, 9, 29, 9)
+  const at = (slot: number | undefined) => slot && new Date(slot).toISOString().slice(0, 16)
+
+  it("reads a named date and time", () => {
+    expect(at(slotOf("Can you do Tue, Nov 3 at 10:30 AM?", received))).toBe("2026-11-03T10:30")
+    expect(at(slotOf("November 4, 2026 2pm works", received))).toBe("2026-11-04T14:00")
+  })
+  it("reads an ISO time", () => {
+    expect(at(slotOf("Slot: 2026-11-05 15:00", received))).toBe("2026-11-05T15:00")
+  })
+  it("takes the next weekday for 'Tuesday at 10:00'", () => {
+    expect(at(slotOf("Your slot is Tuesday at 10:00.", received))).toBe("2026-11-03T10:00")
+  })
+  it("rolls a past date with no year into next year", () => {
+    expect(at(slotOf("Jan 6 at 9am", received))).toBe("2027-01-06T09:00")
+  })
+  it("finds nothing without a date", () => {
+    expect(slotOf("We'd love to talk next week.", received)).toBeUndefined()
   })
 })

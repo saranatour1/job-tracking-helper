@@ -91,7 +91,13 @@ export const emailConnectionsTable = defineTable(arkOutputToConvex(EmailConnecti
   .index("by_inboundId", ["inboundId"])
 
 // What a mail event's sealed `note` holds: enough for one timeline line.
-export const MailNote = type({ from: "string", subject: "string", "portalUrl?": "string" })
+export const MailNote = type({
+  from: "string",
+  subject: "string",
+  "portalUrl?": "string",
+  // An interview's proposed time, as written, in UTC milliseconds (see slotOf).
+  "slot?": "number",
+})
 
 // Where Jev moved an application from and to, so the move can be undone.
 export const Moved = type({ from: type.enumerated(...statuses), to: type.enumerated(...statuses) })

@@ -66,6 +66,7 @@ export default defineConfig({
           "src/features/jobs/**",
           "src/features/account/**",
           "src/features/inbox/**",
+          "src/features/calendar/**",
         ],
         rules: {
           "no-restricted-imports": [
