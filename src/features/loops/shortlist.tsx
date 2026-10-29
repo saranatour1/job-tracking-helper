@@ -16,17 +16,7 @@ import { startTransition, useActionState } from "react"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
-import {
-  Sheet,
-  SheetDescription,
-  SheetFooter,
-  SheetHeader,
-  SheetPanel,
-  SheetPopup,
-  SheetTitle,
-} from "@/components/ui/sheet"
-import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group"
-import { Tile } from "@/features/shell/page-body"
+import { ScrollArea } from "@/components/ui/scroll-area"
 import { cn } from "@/lib/utils"
 
 import { IconAction, messageOf, Status } from "./parts"
@@ -81,19 +71,34 @@ const results = {
   notFit: { title: "Doesn't fit", mark: "✕", tone: "text-destructive-foreground" },
 } as const
 
-// The breakdown in one line, for a row on the shortlist.
-const CheckLine = ({ checks }: { checks: Check[] }) =>
-  checks.length ? (
-    <span className="flex flex-wrap gap-x-3 gap-y-0.5 text-xs">
-      {checks.map((c) => (
-        <span key={c.label} className={results[c.result].tone}>
-          {results[c.result].mark} {c.label}
+// How many checks fit, could fit and don't, in one short line for a row.
+const CheckCounts = ({ checks }: { checks: Check[] }) => {
+  const count = (result: Check["result"]) => checks.filter((c) => c.result === result).length
+  const parts = (
+    [
+      ["fits", "fit"],
+      ["maybe", "unclear"],
+      ["notFit", "don't fit"],
+    ] as const
+  ).filter(([result]) => count(result) > 0)
+  return parts.length ? (
+    <span className="flex shrink-0 items-center gap-1.5 text-xs">
+      {parts.map(([result, word], i) => (
+        <span key={result} className="flex items-center gap-1.5">
+          {i > 0 && <span className="text-muted-foreground">·</span>}
+          <span className={results[result].tone}>
+            {count(result)} {word}
+          </span>
         </span>
       ))}
     </span>
   ) : null
+}
 
-// The breakdown in groups, for the job sheet.
+const matchTone = (fit: number) =>
+  fit >= 85 ? "text-success-foreground" : fit >= 70 ? "text-foreground" : "text-muted-foreground"
+
+// The breakdown in groups, for the job panel.
 const Breakdown = ({ checks }: { checks: Check[] }) => (
   <div className="flex flex-col gap-3">
     {(Object.keys(results) as Check["result"][]).map((result) => {
@@ -117,112 +122,154 @@ const Breakdown = ({ checks }: { checks: Check[] }) => (
   </div>
 )
 
-// What a loop picked for the person this morning, best first, or what they saved.
-// Each row opens the job sheet; the icons decide without opening it.
-export const Shortlist = ({ view }: { view: ShortlistView }) => {
+const metaOf = (lead: Lead) =>
+  [
+    lead.company,
+    lead.location,
+    lead.feedback === "more" && "★ favorite",
+    !lead.loopId && "you added this",
+    lead.applicationId && "in your tracker",
+  ]
+    .filter(Boolean)
+    .join(" · ")
+
+const tabs = { today: "For you", saved: "Saved" } as const
+
+// What a loop picked for the person this morning, best first, or what they saved: one
+// line per job, like the Inbox. A row opens the job panel; the icons decide without
+// opening it.
+export const Shortlist = ({ view, open }: { view: ShortlistView; open?: Id<"jobLeads"> }) => {
   const leads = useQuery(api.loops.shortlist, { status: view === "today" ? "new" : "saved" })
   const [status, act] = useDecide()
   const navigate = useNavigate({ from: "/loops" })
   return (
-    <Tile
-      title="Your shortlist"
-      className="gap-1 p-1.5"
-      actions={
-        <ToggleGroup
-          variant="outline"
-          size="sm"
-          aria-label="Which jobs"
-          value={[view]}
-          onValueChange={(v) =>
-            v[0] &&
-            void navigate({
-              search: (prev) => ({ ...prev, list: v[0] === "saved" ? "saved" : undefined }),
-            })
-          }
-        >
-          <ToggleGroupItem value="today">For you</ToggleGroupItem>
-          <ToggleGroupItem value="saved">Saved</ToggleGroupItem>
-        </ToggleGroup>
-      }
-    >
+    <section aria-label="Your shortlist" className="bg-card overflow-hidden rounded-xl border">
+      <header className="flex items-center gap-1 border-b px-3 py-1.5">
+        <h3 className="me-2 text-[13px] font-medium">Your shortlist</h3>
+        {(Object.keys(tabs) as ShortlistView[]).map((t) => (
+          <Button
+            key={t}
+            size="xs"
+            variant={view === t ? "secondary" : "ghost"}
+            aria-pressed={view === t}
+            className="rounded-full"
+            onClick={() =>
+              void navigate({
+                search: (prev) => ({ ...prev, list: t === "saved" ? "saved" : undefined }),
+              })
+            }
+          >
+            {tabs[t]}
+            {t === view && leads?.length ? (
+              <Badge variant="secondary" size="sm">
+                {leads.length}
+              </Badge>
+            ) : null}
+          </Button>
+        ))}
+        <Status text={status} />
+      </header>
       {leads?.length === 0 && (
-        <p className="text-muted-foreground px-2.5 py-2 text-[13px]">
+        <p className="text-muted-foreground p-6 text-center text-[13px]">
           {view === "today"
             ? "Nothing waiting. Your loops add jobs that fit each morning, a few at a time."
             : "Nothing kept yet. Save, favorite or track a job to keep it here."}
         </p>
       )}
-      {leads?.map((lead) => (
-        <div
-          key={lead._id}
-          className="hover:bg-accent/30 grid grid-cols-[minmax(0,1fr)_auto] items-start gap-3 rounded-md px-2.5 py-2 text-[13px]"
-        >
-          <Link
-            from="/loops"
-            to="/loops"
-            search={(prev) => ({ ...prev, job: lead._id })}
-            className="flex min-w-0 flex-col gap-1"
-          >
-            <span className="truncate font-medium">{lead.title}</span>
-            <span className="text-muted-foreground truncate text-xs">
-              {[lead.company, lead.location, `${lead.fit}% match`].filter(Boolean).join(" · ")}
-              {lead.feedback === "more" && " · ★ favorite"}
-              {!lead.loopId && " · you added this"}
-              {lead.applicationId && " · in your tracker"}
-            </span>
-            <CheckLine checks={lead.checks ?? []} />
-          </Link>
-          <div className="flex items-center">
-            {decisions
-              .filter(([action]) => !(action === "track" && lead.applicationId))
-              .filter(([action]) => !(view === "saved" && action === "save"))
-              .map(([action, label, icon]) => (
-                <IconAction
-                  key={action}
-                  label={label}
-                  icon={icon}
-                  onClick={() => startTransition(() => act({ leadId: lead._id, action }))}
-                />
-              ))}
-          </div>
-        </div>
-      ))}
-      <Status text={status} />
-    </Tile>
+      <ul>
+        {leads?.map((lead) => (
+          <li key={lead._id} className="group relative border-b last:border-b-0">
+            <Link
+              from="/loops"
+              to="/loops"
+              search={(prev) => ({ ...prev, job: lead._id })}
+              aria-current={open === lead._id || undefined}
+              className="hover:bg-accent/50 aria-[current=true]:bg-accent flex items-center gap-3 px-3 py-2 transition-colors duration-150"
+            >
+              <span
+                className={cn("w-9 shrink-0 text-xs font-medium tabular-nums", matchTone(lead.fit))}
+              >
+                {lead.fit}%
+              </span>
+              <span className="flex min-w-0 flex-1 flex-col">
+                <span className="truncate text-[13px] font-medium">{lead.title}</span>
+                <span className="text-muted-foreground truncate text-xs">{metaOf(lead)}</span>
+              </span>
+              <span className="hidden group-focus-within:invisible group-hover:invisible sm:flex">
+                <CheckCounts checks={lead.checks ?? []} />
+              </span>
+            </Link>
+            <div className="absolute end-2 top-1/2 flex -translate-y-1/2 items-center opacity-0 transition-opacity group-focus-within:opacity-100 group-hover:opacity-100">
+              {decisions
+                .filter(([action]) => !(action === "track" && lead.applicationId))
+                .filter(([action]) => !(view === "saved" && action === "save"))
+                .map(([action, label, icon]) => (
+                  <IconAction
+                    key={action}
+                    label={label}
+                    icon={icon}
+                    onClick={() => startTransition(() => act({ leadId: lead._id, action }))}
+                  />
+                ))}
+            </div>
+          </li>
+        ))}
+      </ul>
+    </section>
   )
 }
 
-// One job in full: why it's here, what fits and what doesn't, the posting itself, and
-// the four decisions. Opened from `?job=`.
-export const JobSheet = ({
-  leadId,
-  onClose,
-}: {
-  leadId: Id<"jobLeads"> | undefined
-  onClose: () => void
-}) => {
-  const data = useQuery(api.loops.lead, leadId ? { leadId } : "skip")
+// One job in full, in the page's side panel: why it's here, what fits and what doesn't,
+// the posting itself, and the four decisions. Opened from `?job=`.
+export const JobPanel = ({ leadId, onClose }: { leadId: Id<"jobLeads">; onClose: () => void }) => {
+  const data = useQuery(api.loops.lead, { leadId })
   const [status, act] = useDecide()
   const lead = data?.lead
   return (
-    <Sheet open={Boolean(leadId)} onOpenChange={(open) => !open && onClose()}>
-      <SheetPopup className="max-w-xl">
+    <div className="flex h-full flex-col">
+      <header className="flex h-10 shrink-0 items-center gap-1 border-b px-3">
+        <span className="text-muted-foreground truncate text-xs">
+          {data ? (data.loopName ? `Found by ${data.loopName}` : "You added this") : ""}
+        </span>
         {lead && (
-          <>
-            <SheetHeader>
-              <SheetTitle className="pe-8 text-lg leading-snug">{lead.title}</SheetTitle>
-              <SheetDescription>
-                {[lead.company, lead.location, `${lead.fit}% match`].filter(Boolean).join(" · ")}
-                {data.loopName ? ` · found by ${data.loopName}` : " · you added this"}
-              </SheetDescription>
-            </SheetHeader>
-            <SheetPanel className="flex flex-col gap-4">
+          <Button
+            variant="ghost"
+            size="xs"
+            className="ms-auto"
+            render={<a href={lead.url} target="_blank" rel="noreferrer" />}
+          >
+            <HugeiconsIcon icon={LinkSquare02Icon} /> Posting
+          </Button>
+        )}
+        <Button
+          variant="ghost"
+          size="icon-xs"
+          aria-label="Close panel"
+          className={lead ? "" : "ms-auto"}
+          onClick={onClose}
+        >
+          <HugeiconsIcon icon={Cancel01Icon} />
+        </Button>
+      </header>
+      {data === null && (
+        <p className="text-muted-foreground p-5 text-sm">That job isn't here anymore.</p>
+      )}
+      {lead && (
+        <>
+          <ScrollArea className="min-h-0 flex-1">
+            <div className="flex flex-col gap-5 p-5">
+              <div className="flex flex-col gap-1">
+                <h2 className="font-heading text-xl font-semibold">{lead.title}</h2>
+                <p className="text-muted-foreground text-sm">
+                  {[lead.company, lead.location].filter(Boolean).join(" · ")}
+                </p>
+              </div>
               <div className="flex flex-wrap items-center gap-2">
                 <Badge
                   variant={lead.verdict === "notFit" ? "outline" : "success"}
                   className="font-normal"
                 >
-                  {lead.verdict === "notFit" ? "Not a fit" : "A fit for you"}
+                  {lead.fit}% · {lead.verdict === "notFit" ? "Not a fit" : "A fit for you"}
                 </Badge>
                 {lead.feedback === "more" && (
                   <Badge variant="warning" className="font-normal">
@@ -235,7 +282,7 @@ export const JobSheet = ({
                   </Badge>
                 )}
               </div>
-              <p className="text-[13px]">{lead.reasons.join(" ")}</p>
+              <p className="text-[13px] leading-relaxed">{lead.reasons.join(" ")}</p>
               {lead.checks?.length ? (
                 <Breakdown checks={lead.checks} />
               ) : (
@@ -243,44 +290,31 @@ export const JobSheet = ({
                   Judged before the breakdown existed, so there's no line-by-line check.
                 </p>
               )}
-              <section className="flex flex-col gap-1">
+              <section className="flex flex-col gap-1 border-t pt-5">
                 <h4 className="text-muted-foreground text-xs">The posting</h4>
                 <p className="text-[13px] leading-relaxed whitespace-pre-line">{data.text}</p>
               </section>
-            </SheetPanel>
-            <SheetFooter className="flex-wrap justify-start gap-2">
-              {decisions
-                .filter(([action]) => !(action === "track" && lead.applicationId))
-                .map(([action, label, icon]) => (
-                  <Button
-                    key={action}
-                    size="sm"
-                    variant={action === "track" ? "default" : "outline"}
-                    onClick={() => startTransition(() => act({ leadId: lead._id, action }))}
-                  >
-                    <HugeiconsIcon icon={icon} />
-                    {label.split(":")[0]}
-                  </Button>
-                ))}
-              <Button
-                size="sm"
-                variant="ghost"
-                render={<a href={lead.url} target="_blank" rel="noreferrer" />}
-              >
-                <HugeiconsIcon icon={LinkSquare02Icon} />
-                Open posting
-              </Button>
-              <Status text={status} />
-            </SheetFooter>
-          </>
-        )}
-        {data === null && (
-          <SheetPanel>
-            <p className="text-muted-foreground text-sm">That job isn't here anymore.</p>
-          </SheetPanel>
-        )}
-      </SheetPopup>
-    </Sheet>
+            </div>
+          </ScrollArea>
+          <footer className="flex flex-wrap items-center gap-2 border-t p-3">
+            {decisions
+              .filter(([action]) => !(action === "track" && lead.applicationId))
+              .map(([action, label, icon]) => (
+                <Button
+                  key={action}
+                  size="sm"
+                  variant={action === "track" ? "default" : "outline"}
+                  onClick={() => startTransition(() => act({ leadId: lead._id, action }))}
+                >
+                  <HugeiconsIcon icon={icon} />
+                  {label.split(":")[0]}
+                </Button>
+              ))}
+            <Status text={status} />
+          </footer>
+        </>
+      )}
+    </div>
   )
 }
 
