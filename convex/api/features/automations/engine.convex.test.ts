@@ -1,0 +1,203 @@
+// @vitest-environment edge-runtime
+/// <reference types="vite/client" />
+import aggregate from "@convex-dev/aggregate/test"
+import rateLimiter from "@convex-dev/rate-limiter/test"
+import workflow from "@convex-dev/workflow/test"
+import { convexTest } from "convex-test"
+import { afterEach, beforeEach, describe, expect, it, vi } from "vite-plus/test"
+
+import { api, components } from "../../../_generated/api"
+import notificationsSchema from "../../../notifications/schema"
+import schema from "../../../schema"
+
+// A run's history, in step order.
+const byPlace = <T extends { at: string }>(log: T[] | undefined) =>
+  [...(log ?? [])].sort((a, b) => a.at.localeCompare(b.at))
+
+// The app's functions, without the local components' own folders or the tests.
+const modules = import.meta.glob([
+  "../../../**/*.ts",
+  "!../../../notifications/**",
+  "!../../../cloudflareEmail/**",
+  "!../../../**/*.test.ts",
+])
+
+const setup = async () => {
+  const t = convexTest(schema, modules)
+  // The helpers are typed against another copy of convex in the pnpm store.
+  workflow.register(t as never)
+  rateLimiter.register(t as never)
+  aggregate.register(t as never, "automationRunCounts")
+  t.registerComponent(
+    "notifications",
+    notificationsSchema,
+    import.meta.glob("../../../notifications/**/*.ts")
+  )
+  const { userId, applicationId } = await t.run(async (ctx) => {
+    const userId = await ctx.db.insert("users", { name: "Sam" })
+    const applicationId = await ctx.db.insert("applications", {
+      userId,
+      role: "UI Engineer",
+      company: "Hooli",
+      status: "applied",
+      priority: "none",
+      labels: [],
+      method: "Company site",
+      location: "",
+      description: "",
+      history: [],
+    } as never)
+    return { userId, applicationId }
+  })
+  const as = t.withIdentity({ subject: userId })
+  return { t, as, userId, applicationId }
+}
+
+describe("a workflow run", () => {
+  beforeEach(() => vi.useFakeTimers())
+  afterEach(() => vi.useRealTimers())
+
+  it("runs each step in order, waits, and keeps a history", async () => {
+    const { t, as, userId, applicationId } = await setup()
+    const id = await as.mutation(api.automations.save, {
+      name: "Nudge",
+      trigger: { kind: "manual" },
+      active: true,
+      steps: [
+        { kind: "addNote", applicationId, text: "Follow up with {application.company}" },
+        { kind: "wait", minutes: 60 },
+        { kind: "notify", message: "{workflow.name} is done" },
+      ],
+    })
+    const runId = await as.mutation(api.automations.runNow, { id })
+    await t.finishAllScheduledFunctions(vi.runAllTimers)
+
+    const run = await t.run((ctx) => ctx.db.get("automationRuns", runId))
+    expect(run?.status).toBe("done")
+    expect(byPlace(run?.log).map((e) => [e.at, e.kind, e.status])).toEqual([
+      ["0", "addNote", "done"],
+      ["1", "wait", "done"],
+      ["2", "notify", "done"],
+    ])
+    expect(byPlace(run?.log)[2]?.output).toBe("Nudge is done")
+    const application = await t.run((ctx) => ctx.db.get("applications", applicationId))
+    expect(application?.notes?.map((n) => n.text)).toEqual(["Follow up with Hooli"])
+    const inbox = await t.run((ctx) =>
+      ctx.runQuery(components.notifications.lib.list, { owner: userId })
+    )
+    expect(inbox.map((n) => n.kind)).toEqual(["automation.notify"])
+  })
+
+  it("fails the run, with a reason, when a step can't run", async () => {
+    const { t, as, applicationId } = await setup()
+    const id = await as.mutation(api.automations.save, {
+      name: "Note",
+      trigger: { kind: "manual" },
+      active: true,
+      steps: [{ kind: "addNote", applicationId, text: "Hi" }],
+    })
+    await t.run((ctx) => ctx.db.delete("applications", applicationId))
+    const runId = await as.mutation(api.automations.runNow, { id })
+    await t.finishAllScheduledFunctions(vi.runAllTimers)
+
+    const run = await t.run((ctx) => ctx.db.get("automationRuns", runId))
+    expect(run?.status).toBe("failed")
+    expect(run?.error).toBe("That application is gone.")
+    expect(run?.log[0]).toMatchObject({ at: "0", kind: "addNote", status: "failed" })
+  })
+
+  it("keeps a run's steps when the workflow is edited, and stops on request", async () => {
+    const { t, as } = await setup()
+    const steps = [
+      { kind: "wait" as const, minutes: 60 },
+      { kind: "notify" as const, message: "Late" },
+    ]
+    const id = await as.mutation(api.automations.save, {
+      name: "Slow",
+      trigger: { kind: "manual" },
+      active: true,
+      steps,
+    })
+    const runId = await as.mutation(api.automations.runNow, { id })
+    await as.mutation(api.automations.save, {
+      id,
+      name: "Slow",
+      trigger: { kind: "manual" },
+      active: true,
+      steps: [{ kind: "notify", message: "Edited" }],
+    })
+    // Let it reach the wait, then stop it there.
+    for (let i = 0; i < 10; i++) {
+      vi.runOnlyPendingTimers()
+      await t.finishInProgressScheduledFunctions()
+      const waiting = await t.run((ctx) => ctx.db.get("automationRuns", runId))
+      if (waiting?.log.some((e) => e.status === "waiting")) break
+    }
+    await as.mutation(api.automations.stopRun, { runId })
+    await t.finishAllScheduledFunctions(vi.runAllTimers)
+    const run = await t.run((ctx) => ctx.db.get("automationRuns", runId))
+    expect(run?.steps).toEqual(steps)
+    expect(run?.status).toBe("canceled")
+    expect(run?.log).toMatchObject([{ at: "0", kind: "wait", status: "failed", error: "Stopped." }])
+  })
+
+  it("runs paths side by side, then goes on, and counts how runs ended", async () => {
+    const { t, as, applicationId } = await setup()
+    const id = await as.mutation(api.automations.save, {
+      name: "Split",
+      trigger: { kind: "manual" },
+      active: true,
+      steps: [
+        {
+          kind: "parallel",
+          paths: [
+            { label: "Note", steps: [{ kind: "addNote", applicationId, text: "A" }] },
+            {
+              label: "Later",
+              steps: [
+                { kind: "wait", minutes: 5 },
+                { kind: "notify", message: "B" },
+              ],
+            },
+          ],
+        },
+        { kind: "notify", message: "After" },
+      ],
+    })
+    const runId = await as.mutation(api.automations.runNow, { id })
+    await t.finishAllScheduledFunctions(vi.runAllTimers)
+    const run = await t.run((ctx) => ctx.db.get("automationRuns", runId))
+    expect(run?.status).toBe("done")
+    expect(byPlace(run?.log).map((e) => [e.at, e.status])).toEqual([
+      ["0", "done"],
+      ["0.0.0", "done"],
+      ["0.1.0", "done"],
+      ["0.1.1", "done"],
+      ["1", "done"],
+    ])
+
+    await t.run((ctx) => ctx.db.delete("applications", applicationId))
+    await as.mutation(api.automations.runNow, { id })
+    await t.finishAllScheduledFunctions(vi.runAllTimers)
+    expect(await as.query(api.automations.counts, { automationId: id })).toEqual({
+      running: 0,
+      done: 1,
+      failed: 1,
+      canceled: 0,
+    })
+  })
+
+  it("won't save someone else's application into a step", async () => {
+    const { t, applicationId } = await setup()
+    const otherId = await t.run((ctx) => ctx.db.insert("users", { name: "Alex" }))
+    const other = t.withIdentity({ subject: otherId })
+    await expect(
+      other.mutation(api.automations.save, {
+        name: "Snoop",
+        trigger: { kind: "manual" },
+        active: true,
+        steps: [{ kind: "addNote", applicationId, text: "Hi" }],
+      })
+    ).rejects.toThrow("That application isn't yours.")
+  })
+})

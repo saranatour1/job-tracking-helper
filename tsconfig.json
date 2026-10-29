@@ -1,5 +1,8 @@
 {
   "include": ["**/*.ts", "**/*.tsx"],
+  // Tests on convex-test: its helpers ship TypeScript source typed against another
+  // copy of convex, so they're left to Vitest, which runs them.
+  "exclude": ["**/*.convex.test.ts", "node_modules"],
   "compilerOptions": {
     "target": "ES2022",
     "jsx": "react-jsx",

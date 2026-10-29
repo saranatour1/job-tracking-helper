@@ -23,6 +23,10 @@ export const notificationKinds = {
     label: "New bookings",
     description: "When someone books time on one of your booking pages.",
   },
+  "automation.notify": {
+    label: "Messages from your workflows",
+    description: "When a workflow's Notify me step runs.",
+  },
   "loop.found": {
     label: "New roles from loops",
     description: "When a morning run puts new roles on your shortlist.",

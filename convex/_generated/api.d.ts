@@ -15,6 +15,11 @@ import type * as api_features_applications_validators from "../api/features/appl
 import type * as api_features_auth_index from "../api/features/auth/index.js";
 import type * as api_features_auth_internal from "../api/features/auth/internal.js";
 import type * as api_features_auth_public from "../api/features/auth/public.js";
+import type * as api_features_automations_counts from "../api/features/automations/counts.js";
+import type * as api_features_automations_engine from "../api/features/automations/engine.js";
+import type * as api_features_automations_models from "../api/features/automations/models.js";
+import type * as api_features_automations_public from "../api/features/automations/public.js";
+import type * as api_features_automations_validators from "../api/features/automations/validators.js";
 import type * as api_features_booking_models from "../api/features/booking/models.js";
 import type * as api_features_booking_public from "../api/features/booking/public.js";
 import type * as api_features_booking_slots from "../api/features/booking/slots.js";
@@ -79,6 +84,7 @@ import type * as api_features_workflows_sources_source from "../api/features/wor
 import type * as api_features_workflows_validators from "../api/features/workflows/validators.js";
 import type * as applications from "../applications.js";
 import type * as auth from "../auth.js";
+import type * as automations from "../automations.js";
 import type * as booking from "../booking.js";
 import type * as calendar from "../calendar.js";
 import type * as crons from "../crons.js";
@@ -110,6 +116,11 @@ declare const fullApi: ApiFromModules<{
   "api/features/auth/index": typeof api_features_auth_index;
   "api/features/auth/internal": typeof api_features_auth_internal;
   "api/features/auth/public": typeof api_features_auth_public;
+  "api/features/automations/counts": typeof api_features_automations_counts;
+  "api/features/automations/engine": typeof api_features_automations_engine;
+  "api/features/automations/models": typeof api_features_automations_models;
+  "api/features/automations/public": typeof api_features_automations_public;
+  "api/features/automations/validators": typeof api_features_automations_validators;
   "api/features/booking/models": typeof api_features_booking_models;
   "api/features/booking/public": typeof api_features_booking_public;
   "api/features/booking/slots": typeof api_features_booking_slots;
@@ -174,6 +185,7 @@ declare const fullApi: ApiFromModules<{
   "api/features/workflows/validators": typeof api_features_workflows_validators;
   applications: typeof applications;
   auth: typeof auth;
+  automations: typeof automations;
   booking: typeof booking;
   calendar: typeof calendar;
   crons: typeof crons;
@@ -228,6 +240,7 @@ export declare const components: {
   workflow: import("@convex-dev/workflow/_generated/component.js").ComponentApi<"workflow">;
   readPool: import("@convex-dev/workpool/_generated/component.js").ComponentApi<"readPool">;
   rateLimiter: import("@convex-dev/rate-limiter/_generated/component.js").ComponentApi<"rateLimiter">;
+  automationRunCounts: import("@convex-dev/aggregate/_generated/component.js").ComponentApi<"automationRunCounts">;
   cloudflareEmail: import("../cloudflareEmail/_generated/component.js").ComponentApi<"cloudflareEmail">;
   notifications: import("../notifications/_generated/component.js").ComponentApi<"notifications">;
 };
