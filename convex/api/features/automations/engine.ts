@@ -1,7 +1,12 @@
-import { vResultValidator, vWorkflowId, type WorkflowId } from "@convex-dev/workflow"
+import {
+  vResultValidator,
+  vWorkflowId,
+  type WorkflowCtx,
+  type WorkflowId,
+} from "@convex-dev/workflow"
 import { ConvexError, type Infer, v } from "convex/values"
 import { components, internal } from "../../../_generated/api"
-import type { Doc } from "../../../_generated/dataModel"
+import type { Doc, Id } from "../../../_generated/dataModel"
 import { internalMutation, internalQuery, type MutationCtx } from "../../../_generated/server"
 import { limits as applicationLimits } from "../applications/validators"
 import { workflow } from "../workflows/manager"
@@ -11,46 +16,63 @@ import { type Block, fill, nextScheduledAt, stepAt } from "./validators"
 
 type LogEntry = Infer<typeof vLogEntry>
 
+// Runs one block; returns why it couldn't run, if it couldn't. A wait sleeps inside
+// whichever workflow called it, so it costs nothing while it waits.
+const runBlock = async (step: WorkflowCtx, runId: Id<"automationRuns">, at: string) => {
+  const { waitMs, error } = await step.runMutation(internal.automations.runStep, { runId, at })
+  if (error) return error
+  if (waitMs > 0) {
+    await step.sleep(waitMs, { name: `wait ${at}` })
+    await step.runMutation(internal.automations.finishStep, { runId, at })
+  }
+  return null
+}
+
 // One interpreter runs every workflow anyone builds. It walks the run's copy of the
-// steps: a block is one mutation, a wait sleeps inside the workflow (free while it
-// waits), and a split runs its paths side by side, going on once every path is done.
-// A step that can't run records why, and the run stops there.
+// steps: a block is one mutation, and a split starts each path as its own child
+// workflow, going on once every path is done. A step that can't run records why, and
+// the run stops there.
 const run = workflow.define({
   args: { runId: v.id("automationRuns") },
   handler: async (step, { runId }): Promise<void> => {
     const shape = await step.runQuery(internal.automations.shapeOf, { runId })
-    // Runs one block; returns why it couldn't run, if it couldn't.
-    const runAt = async (at: string) => {
-      const { waitMs, error } = await step.runMutation(internal.automations.runStep, { runId, at })
-      if (error) return error
-      if (waitMs > 0) {
-        await step.sleep(waitMs, { name: `wait ${at}` })
-        await step.runMutation(internal.automations.finishStep, { runId, at })
-      }
-      return undefined
-    }
     for (const [i, paths] of shape.entries()) {
       if (paths === null) {
-        const error = await runAt(String(i))
+        const error = await runBlock(step, runId, String(i))
         if (error) throw new Error(error)
         continue
       }
       await step.runMutation(internal.automations.startSplit, { runId, at: String(i) })
-      // A path that fails stops there, but the others finish first: a step left running
-      // would try to wake a run that's already over.
+      // Each path has its own journal, so a wait on one never holds back the others (in
+      // one workflow, steps started together advance together). A path that fails stops
+      // there and says why; the others still finish first.
       const errors = await Promise.all(
-        paths.map(async (length, p) => {
-          for (let j = 0; j < length; j++) {
-            const error = await runAt(`${i}.${p}.${j}`)
-            if (error) return error
-          }
-          return undefined
-        })
+        paths.map((length, path) =>
+          step.runWorkflow(internal.automations.runPath, { runId, split: i, path, length })
+        )
       )
-      const error = errors.find((e) => e !== undefined)
+      const error = errors.find((e) => e !== null)
       if (error) throw new Error(error)
       await step.runMutation(internal.automations.finishStep, { runId, at: String(i) })
     }
+  },
+})
+
+/** One path of a split: its blocks in order. Returns why it stopped early, or null. */
+const runPath = workflow.define({
+  args: {
+    runId: v.id("automationRuns"),
+    split: v.number(),
+    path: v.number(),
+    length: v.number(),
+  },
+  returns: v.union(v.string(), v.null()),
+  handler: async (step, { runId, split, path, length }): Promise<string | null> => {
+    for (let j = 0; j < length; j++) {
+      const error = await runBlock(step, runId, `${split}.${path}.${j}`)
+      if (error) return error
+    }
+    return null
   },
 })
 
@@ -303,4 +325,4 @@ export const cancelRun = async (ctx: MutationCtx, found: Doc<"automationRuns">) 
   }
 }
 
-export const engineApi = { run, shapeOf, runStep, startSplit, finishStep, ended, startDue }
+export const engineApi = { run, runPath, shapeOf, runStep, startSplit, finishStep, ended, startDue }
