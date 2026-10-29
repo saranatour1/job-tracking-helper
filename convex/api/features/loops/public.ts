@@ -176,7 +176,7 @@ const lead = authedQuery({
     if (!lead || lead.userId !== ctx.userId) return null
     const job = lead.jobId && (await ctx.db.get("jobs", lead.jobId))
     const loop = lead.loopId && (await ctx.db.get("loops", lead.loopId))
-    return { lead, text: lead.text ?? job?.text ?? lead.snippet, loopName: loop?.name }
+    return { lead, text: job?.text ?? lead.text ?? lead.snippet, loopName: loop?.name }
   },
 })
 
@@ -196,7 +196,7 @@ const leadForApplication = authedQuery({
     if (!lead || lead.userId !== ctx.userId) return null
     const job = lead.jobId && (await ctx.db.get("jobs", lead.jobId))
     const loop = lead.loopId && (await ctx.db.get("loops", lead.loopId))
-    return { lead, text: lead.text ?? job?.text ?? lead.snippet, loopName: loop?.name }
+    return { lead, text: job?.text ?? lead.text ?? lead.snippet, loopName: loop?.name }
   },
 })
 

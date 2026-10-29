@@ -26,6 +26,7 @@ import {
 } from "@/components/ui/menu"
 import { ScrollArea } from "@/components/ui/scroll-area"
 import { PageHeader } from "@/features/shell/page-header"
+import { Markdown } from "@/components/markdown"
 
 import {
   type Application,
@@ -230,7 +231,7 @@ const Content = ({ a, properties }: { a: Application; properties?: React.ReactNo
           <h2 className="font-heading text-xl font-semibold">{a.role}</h2>
           <p className="text-muted-foreground text-sm">{a.company}</p>
         </div>
-        <p className="text-foreground/90 text-[13px] leading-relaxed">{a.description}</p>
+        {a.description.trim() && <Markdown>{a.description}</Markdown>}
       </div>
       {properties}
       <section aria-label="Tasks" className="flex flex-col">

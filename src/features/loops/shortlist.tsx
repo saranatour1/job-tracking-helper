@@ -18,6 +18,7 @@ import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { ScrollArea } from "@/components/ui/scroll-area"
 import { cn } from "@/lib/utils"
+import { bodyOf, Markdown } from "@/components/markdown"
 
 import { IconAction, messageOf, Status } from "./parts"
 
@@ -292,7 +293,7 @@ export const JobPanel = ({ leadId, onClose }: { leadId: Id<"jobLeads">; onClose:
               )}
               <section className="flex flex-col gap-1 border-t pt-5">
                 <h4 className="text-muted-foreground text-xs">The posting</h4>
-                <p className="text-[13px] leading-relaxed whitespace-pre-line">{data.text}</p>
+                <Markdown>{bodyOf(data.text)}</Markdown>
               </section>
             </div>
           </ScrollArea>
