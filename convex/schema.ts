@@ -1,6 +1,6 @@
 import { defineSchema } from "convex/server"
 import { applicationsTable } from "./api/features/applications/models"
-import { emailConnectionsTable } from "./api/features/email/models"
+import { emailConnectionsTable, mailEventsTable } from "./api/features/email/models"
 import { jobBoardsTable, jobsTable } from "./api/features/jobs/models"
 import {
   jobLeadsTable,
@@ -28,4 +28,5 @@ export default defineSchema({
   jobs: jobsTable,
   jobBoards: jobBoardsTable,
   emailConnections: emailConnectionsTable,
+  mailEvents: mailEventsTable,
 })

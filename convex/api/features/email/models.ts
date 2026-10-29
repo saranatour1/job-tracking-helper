@@ -1,6 +1,8 @@
 import { type } from "arktype"
 import { defineTable } from "convex/server"
 import { arkId, arkOutputToConvex } from "../../../lib/ark"
+import { statuses } from "../applications/validators"
+import { kinds } from "./match"
 
 // What `details` holds once opened. Shown to its owner, never to anyone else.
 export const Details = type({
@@ -79,3 +81,26 @@ export const EmailConnection = type({
 export const emailConnectionsTable = defineTable(arkOutputToConvex(EmailConnection))
   .index("by_userId", ["userId"])
   .index("by_inboundId", ["inboundId"])
+
+// What a mail event's sealed `note` holds: enough for one timeline line.
+export const MailNote = type({ from: "string", subject: "string", "portalUrl?": "string" })
+
+// One incoming email, sorted: the application it's about, if any, and what it says.
+// The kind and suggested status are plain, like the application's own status; who
+// wrote, the subject and any portal link are sealed in `note`.
+export const MailEvent = type({
+  userId: arkId("users"),
+  // The email in the cloudflareEmail component.
+  emailId: "string",
+  "applicationId?": arkId("applications"),
+  kind: type.enumerated(...kinds),
+  note: "string",
+  at: "number",
+  // A status the email suggests, until the person accepts or dismisses it.
+  "suggest?": type.enumerated(...statuses),
+  by: "'rules' | 'jev' | 'you'",
+})
+
+export const mailEventsTable = defineTable(arkOutputToConvex(MailEvent))
+  .index("by_userId_and_applicationId", ["userId", "applicationId"])
+  .index("by_emailId", ["emailId"])
