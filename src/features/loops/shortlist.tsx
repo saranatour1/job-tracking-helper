@@ -98,8 +98,8 @@ const CheckCounts = ({ checks }: { checks: Check[] }) => {
 const matchTone = (fit: number) =>
   fit >= 85 ? "text-success-foreground" : fit >= 70 ? "text-foreground" : "text-muted-foreground"
 
-// The breakdown in groups, for the job panel.
-const Breakdown = ({ checks }: { checks: Check[] }) => (
+// The breakdown in groups, for the job panel and an application's panel.
+export const Breakdown = ({ checks }: { checks: Check[] }) => (
   <div className="flex flex-col gap-3">
     {(Object.keys(results) as Check["result"][]).map((result) => {
       const group = checks.filter((c) => c.result === result)
