@@ -36,7 +36,8 @@ export const defaultDisplay: Display = {
   layout: "board",
   groupBy: "status",
   orderBy: "priority",
-  showEmpty: false,
+  // Every status keeps its column, so a card always has somewhere to be dragged.
+  showEmpty: true,
   shown: ["id", "priority", "goal", "labels", "created"],
 }
 

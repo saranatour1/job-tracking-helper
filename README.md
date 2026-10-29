@@ -12,7 +12,7 @@ Account connects your own Cloudflare account, so emails can go out from your dom
 
 The Inbox shows what happened: new mail about your applications, mail that needs filing, and new roles from loops. Each kind can be turned off under Account → Notifications. It reads from the notifications component in `convex/notifications`.
 
-Applications (`/`) shows your applications from Convex as a board or a list. Each card shows its latest email, and its side panel has the details (status, priority, labels, how you applied, location, tasks) and one timeline of status changes, notes and company mail. New application adds one. Goals and Views use the same board but still run on sample data from `src/features/tracker/data.ts`; they don't save to Convex yet.
+Applications (`/`) shows your applications from Convex as a board or a list, one column per status; drag a card to another column to move it. Each has a code like APP-12. Jobs added from a loop arrive with their location, a Remote label, the posting's summary and a priority from Jev's match. Each card shows its latest email, and its side panel has the details (status, priority, labels, how you applied, location, tasks) and one timeline of status changes, notes and company mail. New application adds one. Goals and Views use the same board but still run on sample data from `src/features/tracker/data.ts`; they don't save to Convex yet.
 
 ## How to run
 

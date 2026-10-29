@@ -17,6 +17,7 @@ import {
 import { cn } from "@/lib/utils"
 
 import { type FilterField, type Filters, fieldOptions, filterFields, optionLabel } from "./data"
+import { useSource } from "./source"
 
 export const fieldLabels: Record<FilterField, string> = {
   status: "Status",
@@ -42,32 +43,35 @@ export const FilterMenu = ({
   filters: Filters
   onChange: (filters: Filters) => void
   trigger: React.ReactElement
-}) => (
-  <Menu>
-    <MenuTrigger render={trigger} />
-    <MenuPopup align="end" className="min-w-48">
-      <MenuGroup>
-        <MenuGroupLabel>Filter by</MenuGroupLabel>
-        {filterFields.map((field) => (
-          <MenuSub key={field}>
-            <MenuSubTrigger>{fieldLabels[field]}</MenuSubTrigger>
-            <MenuSubPopup>
-              {fieldOptions(field).map((option) => (
-                <MenuCheckboxItem
-                  key={option.value}
-                  checked={filters[field]?.includes(option.value) ?? false}
-                  onCheckedChange={() => onChange(toggleFilter(filters, field, option.value))}
-                >
-                  {option.label}
-                </MenuCheckboxItem>
-              ))}
-            </MenuSubPopup>
-          </MenuSub>
-        ))}
-      </MenuGroup>
-    </MenuPopup>
-  </Menu>
-)
+}) => {
+  const { applications } = useSource()
+  return (
+    <Menu>
+      <MenuTrigger render={trigger} />
+      <MenuPopup align="end" className="min-w-48">
+        <MenuGroup>
+          <MenuGroupLabel>Filter by</MenuGroupLabel>
+          {filterFields.map((field) => (
+            <MenuSub key={field}>
+              <MenuSubTrigger>{fieldLabels[field]}</MenuSubTrigger>
+              <MenuSubPopup>
+                {fieldOptions(field, applications).map((option) => (
+                  <MenuCheckboxItem
+                    key={option.value}
+                    checked={filters[field]?.includes(option.value) ?? false}
+                    onCheckedChange={() => onChange(toggleFilter(filters, field, option.value))}
+                  >
+                    {option.label}
+                  </MenuCheckboxItem>
+                ))}
+              </MenuSubPopup>
+            </MenuSub>
+          ))}
+        </MenuGroup>
+      </MenuPopup>
+    </Menu>
+  )
+}
 
 // The coss group joins the segments into one chip with shared borders.
 const segment = "h-6 rounded-md px-2 text-xs font-medium sm:text-xs"

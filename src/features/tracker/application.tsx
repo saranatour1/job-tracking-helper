@@ -157,7 +157,7 @@ const Properties = ({ a }: { a: Application }) => {
             <span className="truncate">{a.labels.join(", ") || "Add labels"}</span>
           </Trigger>
           <MenuPopup align="start" className="min-w-44">
-            {fieldOptions("label").map((o) => (
+            {fieldOptions("label", source.applications).map((o) => (
               <MenuCheckboxItem
                 key={o.value}
                 checked={a.labels.includes(o.value as Label)}

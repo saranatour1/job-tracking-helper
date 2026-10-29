@@ -132,10 +132,18 @@ const peekOnClick = (peek: Peek, id: string) => (e: React.MouseEvent) => {
   peek.open(id)
 }
 
+// Cards carry their id when dragged, for a status column to drop them into.
+const dragType = "application/x-tracker-id"
+
 const Card = ({ a, shown, peek }: { a: Application; shown: Display["shown"]; peek: Peek }) => (
   <Link
     to="/pipeline/$id"
     params={{ id: a.id }}
+    draggable
+    onDragStart={(e) => {
+      e.dataTransfer.setData(dragType, a.id)
+      e.dataTransfer.effectAllowed = "move"
+    }}
     onClick={peekOnClick(peek, a.id)}
     aria-current={peek.id === a.id || undefined}
     className="bg-card hover:border-ring/40 aria-[current=true]:border-ring/70 flex flex-col transition-colors duration-150 gap-1.5 rounded-md border px-2.5 py-2 text-[13px] shadow-xs/5"
@@ -371,8 +379,11 @@ export const Pipeline = ({
     else setPanel(true)
   }
 
-  const visible = useSource()
-    .applications.filter((a) => tabs[tab].includes(a.status) && matches(a, filters))
+  const source = useSource()
+  // The status column a dragged card is over, to highlight it.
+  const [dropOn, setDropOn] = useState<string>()
+  const visible = source.applications
+    .filter((a) => tabs[tab].includes(a.status) && matches(a, filters))
     .sort(order[display.orderBy])
   const groups = groupsFor(visible, display.groupBy).filter(
     (g) => display.showEmpty || g.items.length > 0
@@ -553,7 +564,27 @@ export const Pipeline = ({
                 <section
                   key={g.key}
                   aria-label={g.label}
-                  className="bg-muted/40 flex w-64 shrink-0 flex-col gap-1.5 rounded-lg p-1.5"
+                  data-drop={dropOn === g.key || undefined}
+                  // Dropping a card on a status column moves it there, history and all. Other
+                  // groupings have no single value to set, so they don't take drops.
+                  {...(display.groupBy === "status" && {
+                    onDragOver: (e: React.DragEvent) => {
+                      if (!e.dataTransfer.types.includes(dragType)) return
+                      e.preventDefault()
+                      e.dataTransfer.dropEffect = "move"
+                      setDropOn(g.key)
+                    },
+                    onDragLeave: (e: React.DragEvent) => {
+                      if (!e.currentTarget.contains(e.relatedTarget as Node)) setDropOn(undefined)
+                    },
+                    onDrop: (e: React.DragEvent) => {
+                      e.preventDefault()
+                      setDropOn(undefined)
+                      const id = e.dataTransfer.getData(dragType)
+                      if (id) source.setStatus(id, g.key as Status)
+                    },
+                  })}
+                  className="bg-muted/40 data-[drop]:bg-accent data-[drop]:ring-ring/40 flex w-64 shrink-0 flex-col gap-1.5 rounded-lg p-1.5 transition-colors data-[drop]:ring-2"
                 >
                   <header className="flex h-7 items-center gap-1.5 px-1 text-[13px]">
                     {g.icon}

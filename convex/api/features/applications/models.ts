@@ -10,6 +10,8 @@ export const applicationsTable = defineTable(
       // applications from before history was kept.
       "history?": Event.array(),
       "notes?": Note.array(),
+      // Numbered 1, 2, 3… per person, shown as APP-1. Set by the server.
+      "number?": "number",
     })
   )
 ).index("by_userId", ["userId"])

@@ -25,6 +25,20 @@ const own = async (ctx: MutationCtx, userId: Id<"users">, id: Id<"applications">
 
 const capped = <T>(items: T[], max: number) => items.slice(-max)
 
+// The next APP number for someone. Applications from before numbers existed get theirs
+// here, oldest first, so every code stays unique and in order.
+export const nextNumber = async (ctx: MutationCtx, userId: Id<"users">) => {
+  // shortcut: reads all of a person's applications; keep a counter on users past a few thousand.
+  const all = await ctx.db
+    .query("applications")
+    .withIndex("by_userId", (q) => q.eq("userId", userId))
+    .collect()
+  let next = Math.max(0, ...all.map((a) => a.number ?? 0)) + 1
+  for (const a of all)
+    if (a.number === undefined) await ctx.db.patch("applications", a._id, { number: next++ })
+  return next
+}
+
 // Every status change goes through here, so history stays complete: the tracker, a
 // suggestion from an email, anything later.
 export const changeStatus = async (
@@ -49,10 +63,11 @@ export const changeStatus = async (
 const add = arkMutation({
   args: Application,
   returns: v.id("applications"),
-  handler: (ctx, application) =>
+  handler: async (ctx, application) =>
     ctx.db.insert("applications", {
       ...application,
       userId: ctx.userId,
+      number: await nextNumber(ctx, ctx.userId),
       history: [{ status: application.status, at: Date.now() }],
     }),
 })
