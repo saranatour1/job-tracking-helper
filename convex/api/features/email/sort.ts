@@ -30,6 +30,7 @@ import {
   kinds,
   messageIdsIn,
   portalOf,
+  slotOf,
   textOfHtml,
   ruleMatch,
   suggestionOf,
@@ -248,7 +249,12 @@ const sortMail = internalAction({
         at: Date.now(),
         note: await seal(
           k,
-          JSON.stringify({ from: mail.fromName || mail.from, subject: mail.subject, portalUrl }),
+          JSON.stringify({
+            from: mail.fromName || mail.from,
+            subject: mail.subject,
+            portalUrl,
+            ...(kind === "interview" && { slot: slotOf(`${mail.subject}\n${text}`, Date.now()) }),
+          }),
           aad.email(userId)
         ),
         suggest: chosen && suggestionOf(kind, chosen.status),
@@ -274,6 +280,7 @@ const timeline = authedQuery({
       from: v.string(),
       subject: v.string(),
       portalUrl: v.optional(v.string()),
+      slot: v.optional(v.number()),
       at: v.number(),
       suggest: v.optional(v.union(...statuses.map((s) => v.literal(s)))),
       moved: v.optional(arkOutputToConvex(Moved)),
@@ -298,6 +305,7 @@ const timeline = authedQuery({
             from: note.from,
             subject: note.subject || "(no subject)",
             portalUrl: note.portalUrl,
+            slot: note.slot,
             at: e.at,
             suggest: e.suggest,
             moved: e.moved,

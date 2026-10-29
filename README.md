@@ -10,6 +10,8 @@ Loops pick roles from that catalog each morning, for every kind of role you desc
 
 Account connects your own Cloudflare account, so emails can go out from your domain. Paste an account ID and an API token: the token is checked with Cloudflare, encrypted with AES-256-GCM under a key only the server holds, and locked: it never comes back to the browser, and changing the account or address reuses it on the server. Replacing it checks the new one before the old one goes. A test email shows it works. With your OK, the app also sets up incoming mail: it deploys a small Worker and a routing rule for your address (Email Routing must already be on, since it takes over the domain's MX records), and each email arrives at `/email/inbound/<id>`, sealed the same way. Each email is then filed under the application it's about (by company name, or by Jev when you let it read your mail) in that application's timeline: what it said, a portal link to check your status, a suggested status change you confirm, and the email itself to read. A reply follows its thread: it goes under the same application as the email it answers, matched by a hash of the Message-ID postal-mime reads, never the ID itself. Mail that matches nothing waits in Unsorted, in the Applications toolbar.
 
+Calendar (`/calendar`) puts every date in one place: when you applied, each status change and email, interview slots read from invites ("Tue, Nov 3 at 10:30"), and a follow-up a week after an application last heard anything. A month grid marks busy days; the agenda shows the chosen day and the next two weeks.
+
 The Inbox shows what happened: new mail about your applications, mail that needs filing, and new roles from loops. Each kind can be turned off under Account → Notifications. It reads from the notifications component in `convex/notifications`.
 
 Applications (`/`) shows your applications from Convex as a board or a list, one column per status; drag a card to another column to move it. Each has a code like APP-12. Jobs added from a loop arrive with their location, a Remote label, the posting's summary and a priority from Jev's match; add one yourself with its link and Jev checks it the same way, filling in only what you left empty. With "Let Jev move cards" on (Account, off by default), a clear interview, offer or rejection email moves the card itself, with an undo. Each card shows its latest email, and its side panel has the details (status, priority, labels, how you applied, location, tasks) and one timeline of status changes, notes and company mail. New application adds one. Goals and Views use the same board but still run on sample data from `src/features/tracker/data.ts`; they don't save to Convex yet.
@@ -78,6 +80,7 @@ src/
   features/loops/                      Loops: morning job searches, their runs and sources
   features/account/                    Account: profile, email connection, notifications, theme, sign-out
   features/inbox/                      Inbox: notifications from mail and loops
+  features/calendar/                   Calendar: dates from applications and mail
   components/ui/                       shadcn/coss components, managed by the shadcn CLI
 scripts/                               dev and secrets scripts
 docs/database-design.md                planned tables, status flow and build order
