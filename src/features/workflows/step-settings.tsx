@@ -1,7 +1,12 @@
 import type { Doc } from "@convex/_generated/dataModel"
 import { statusLabels, statuses } from "@convex/api/features/applications/validators"
 import type { Block, Branch, Step, Trigger } from "@convex/api/features/automations/validators"
-import { limits, stepAt, triggerHasApplication } from "@convex/api/features/automations/validators"
+import {
+  limits,
+  onlyIfFacts,
+  stepAt,
+  triggerHasApplication,
+} from "@convex/api/features/automations/validators"
 import { Delete02Icon, PlusSignIcon } from "@hugeicons/core-free-icons"
 import { HugeiconsIcon } from "@hugeicons/react"
 
@@ -13,7 +18,14 @@ import { Textarea } from "@/components/ui/textarea"
 import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group"
 import { ZonePick } from "@/features/calendar/settings"
 
-import { blocks, branches, mailKindLabels, placeholdersFor, triggerKinds } from "./blocks"
+import {
+  blocks,
+  branches,
+  mailKindLabels,
+  placeholdersFor,
+  testLabels,
+  triggerKinds,
+} from "./blocks"
 import { remove, update } from "./tree"
 
 const Field = ({ label, children }: { label: string; children: React.ReactNode }) => (
@@ -436,6 +448,48 @@ const BlockSettings = ({
           <p className="text-muted-foreground text-xs">In your Calendar's time zone.</p>
         </div>
       )
+    case "onlyIf": {
+      const known = placeholdersFor(trigger, steps, true)
+      const offered = onlyIfFacts.filter((f) => known.includes(`{${f}}`) || f === block.fact)
+      const needsValue = block.test !== "set" && block.test !== "notSet"
+      return (
+        <div className="grid gap-4">
+          <Field label="Check">
+            <Pick
+              label="What to check"
+              value={block.fact}
+              items={offered.map((f) => ({ value: f, label: `{${f}}` }))}
+              onChange={(fact) => onChange({ ...block, fact })}
+            />
+          </Field>
+          <Field label="Goes on if it">
+            <Pick
+              label="Test"
+              value={block.test}
+              items={(Object.keys(testLabels) as (keyof typeof testLabels)[]).map((t) => ({
+                value: t,
+                label: testLabels[t],
+              }))}
+              onChange={(test) => onChange({ ...block, test: test as keyof typeof testLabels })}
+            />
+          </Field>
+          {needsValue && (
+            <Field label={block.test === "atLeast" ? "Number" : "Value"}>
+              <Input
+                inputMode={block.test === "atLeast" ? "numeric" : undefined}
+                maxLength={120}
+                value={block.value}
+                onChange={(e) => onChange({ ...block, value: e.target.value })}
+              />
+            </Field>
+          )}
+          <p className="text-muted-foreground text-xs">
+            If it doesn't hold, the run ends here, done. On a split's path, only that path ends.
+            Words match without case.
+          </p>
+        </div>
+      )
+    }
     case "wait": {
       // Days, hours and minutes side by side, so nothing changes unit as you type.
       const parts = [

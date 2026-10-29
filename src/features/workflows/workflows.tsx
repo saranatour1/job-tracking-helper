@@ -2,7 +2,7 @@ import { api } from "@convex/_generated/api"
 import type { Doc } from "@convex/_generated/dataModel"
 import { blocksOf } from "@convex/api/features/automations/validators"
 import { Link, useNavigate } from "@tanstack/react-router"
-import { useMutation } from "convex/react"
+import { useAction, useMutation } from "convex/react"
 import { useQuery } from "convex-helpers/react/cache/hooks"
 import { startTransition, useActionState } from "react"
 
@@ -17,6 +17,7 @@ import {
   MenuTrigger,
 } from "@/components/ui/menu"
 import { ScrollArea } from "@/components/ui/scroll-area"
+import { Textarea } from "@/components/ui/textarea"
 import { Switch } from "@/components/ui/switch"
 import { messageOf, Section } from "@/features/account/settings"
 import { PageHeader } from "@/features/shell/page-header"
@@ -106,6 +107,50 @@ const Row = ({ automation }: { automation: Doc<"automations"> }) => {
   )
 }
 
+const browserZone = Intl.DateTimeFormat().resolvedOptions().timeZone
+
+const Describe = () => {
+  const describe = useAction(api.automations.describe)
+  const navigate = useNavigate()
+  const [error, draft, drafting] = useActionState(async (_: string | undefined, form: FormData) => {
+    try {
+      const said = form.get("request")
+      const request = typeof said === "string" ? said : ""
+      const draft = await describe({ request, zone: browserZone })
+      void navigate({ to: "/workflows/$id", params: { id: "new" }, search: { draft } })
+      return undefined
+    } catch (cause) {
+      return messageOf(cause)
+    }
+  }, undefined)
+  return (
+    <Section title="Describe one">
+      <form action={draft} className="grid gap-2 px-4 py-3">
+        <Textarea
+          name="request"
+          rows={2}
+          maxLength={300}
+          aria-label="What should the workflow do?"
+          placeholder="When an interview email comes in, move it to Interviewing and put prep time on my calendar the next day."
+        />
+        <div className="flex flex-wrap items-center justify-between gap-2">
+          <p className="text-muted-foreground text-xs">
+            Jev drafts it from the blocks; you check it before it's saved.
+          </p>
+          <Button size="sm" type="submit" disabled={drafting}>
+            {drafting ? "Drafting…" : "Draft it"}
+          </Button>
+        </div>
+        {error && (
+          <p role="alert" className="text-destructive text-xs">
+            {error}
+          </p>
+        )}
+      </form>
+    </Section>
+  )
+}
+
 // Workflows you build from blocks: what starts each one, and how its runs went.
 export const Workflows = () => {
   const automations = useQuery(api.automations.list)
@@ -116,31 +161,37 @@ export const Workflows = () => {
         actions={
           <Menu>
             <MenuTrigger render={<Button size="sm" />}>New workflow</MenuTrigger>
-            <MenuPopup align="end" className="min-w-64">
+            <MenuPopup align="end" className="max-h-[70svh] w-80 overflow-y-auto">
               <MenuItem render={<Link to="/workflows/$id" params={{ id: "new" }} />}>
                 Start from scratch
               </MenuItem>
-              <MenuSeparator />
-              <MenuGroup>
-                <MenuGroupLabel>Templates</MenuGroupLabel>
-                {templateNames.map((name) => (
-                  <MenuItem
-                    key={name}
-                    render={
-                      <Link
-                        to="/workflows/$id"
-                        params={{ id: "new" }}
-                        search={{ template: name }}
-                      />
-                    }
-                  >
-                    <span className="flex flex-col">
-                      <span>{templates[name].label}</span>
-                      <span className="text-muted-foreground text-xs">{templates[name].hint}</span>
-                    </span>
-                  </MenuItem>
-                ))}
-              </MenuGroup>
+              {[...new Set(templateNames.map((name) => templates[name].group))].map((group) => (
+                <MenuGroup key={group}>
+                  <MenuSeparator />
+                  <MenuGroupLabel>{group}</MenuGroupLabel>
+                  {templateNames
+                    .filter((name) => templates[name].group === group)
+                    .map((name) => (
+                      <MenuItem
+                        key={name}
+                        render={
+                          <Link
+                            to="/workflows/$id"
+                            params={{ id: "new" }}
+                            search={{ template: name }}
+                          />
+                        }
+                      >
+                        <span className="flex flex-col">
+                          <span>{templates[name].label}</span>
+                          <span className="text-muted-foreground text-xs">
+                            {templates[name].hint}
+                          </span>
+                        </span>
+                      </MenuItem>
+                    ))}
+                </MenuGroup>
+              ))}
             </MenuPopup>
           </Menu>
         }
@@ -151,6 +202,7 @@ export const Workflows = () => {
             title="Workflows"
             description="Steps that run for you: on a schedule, when an email or a booking comes in, when an application moves, or when you press Run now. Build one from blocks, or start from a template; it never runs code."
           />
+          <Describe />
           {automations && (
             <Section title="Yours">
               {automations.length === 0 ? (

@@ -11,6 +11,7 @@ import {
   Calendar03Icon,
   CalendarAdd01Icon,
   CalendarCheckIn01Icon,
+  FilterIcon,
   GitForkIcon,
   HourglassIcon,
   JobSearchIcon,
@@ -90,6 +91,19 @@ export const blocks = {
     // With no application picked, it goes on the one the trigger is about.
     make: (): Block => ({ kind: "addNote", text: "" }),
   },
+  onlyIf: {
+    label: "Only go on if",
+    group: "Decide",
+    hint: "A quick check, no Jev",
+    icon: FilterIcon,
+    color: "emerald",
+    make: (): Block => ({
+      kind: "onlyIf",
+      fact: "application.status",
+      test: "is",
+      value: "Applied",
+    }),
+  },
   wait: {
     label: "Wait",
     group: "Wait",
@@ -141,6 +155,14 @@ export const durationOf = (minutes: number) =>
     .map(([n, word]) => plural(n as number, word as string))
     .join(" ") || "0 minutes"
 
+export const testLabels = {
+  set: "has a value",
+  notSet: "is empty",
+  is: "is",
+  isNot: "isn't",
+  atLeast: "is at least",
+} as const
+
 const sendLabels = { inbox: "", email: " · by email", both: " · Inbox and email" }
 
 /** A card's second line. `nameOf` names an application (its company) or a loop. */
@@ -160,6 +182,10 @@ export const summaryOf = (step: Step, nameOf: (id: string) => string | undefined
       return (step.loopId && nameOf(step.loopId)) || "Pick a loop"
     case "sendEmail":
       return `To ${step.to || "no one yet"}: ${step.subject || "no subject"}`
+    case "onlyIf":
+      return `If {${step.fact}} ${testLabels[step.test]}${
+        step.test === "set" || step.test === "notSet" ? "" : ` ${step.value || "…"}`
+      }`
     case "wait":
       return `For ${durationOf(step.minutes)}`
     case "parallel":

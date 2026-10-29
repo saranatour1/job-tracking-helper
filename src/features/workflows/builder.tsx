@@ -1,12 +1,14 @@
 import { api } from "@convex/_generated/api"
 import type { Doc, Id } from "@convex/_generated/dataModel"
+import { vDraft } from "@convex/api/features/automations/describe"
 import { problemOf, type Step } from "@convex/api/features/automations/validators"
 import { HugeiconsIcon } from "@hugeicons/react"
 import { useForm, useStore } from "@tanstack/react-form"
+import { validate } from "convex-helpers/validators"
 import { useNavigate, useSearch } from "@tanstack/react-router"
 import { useMutation } from "convex/react"
 import { useQuery } from "convex-helpers/react/cache/hooks"
-import { startTransition, useActionState } from "react"
+import { startTransition, useActionState, useRef } from "react"
 
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -22,7 +24,7 @@ import { cn } from "@/lib/utils"
 import { blockKinds, blocks, branches } from "./blocks"
 import { Canvas, type InsertKind, type StepStatus } from "./canvas"
 import { StepSettings } from "./step-settings"
-import { blank, type Draft, type TemplateName, templates } from "./templates"
+import { blank, type Draft, draftOf, type TemplateName, templates } from "./templates"
 import { branchAt, insert, remove, type Slot } from "./tree"
 
 // `template` and `loop` only matter for a new workflow: what it starts as. A top-level
@@ -34,6 +36,7 @@ export type WorkflowSearch = {
   run?: string
   template?: TemplateName
   loop?: string
+  draft?: Draft
 }
 export const workflowSearch = (search: Record<string, unknown>): WorkflowSearch => ({
   step:
@@ -45,6 +48,7 @@ export const workflowSearch = (search: Record<string, unknown>): WorkflowSearch 
       ? (search.template as TemplateName)
       : undefined,
   loop: typeof search.loop === "string" ? search.loop : undefined,
+  draft: validate(vDraft, search.draft) ? (search.draft as Draft) : undefined,
 })
 
 // The browser's zone, not the Calendar's: the Calendar's arrives later, and a draft that
@@ -166,11 +170,15 @@ const Editor = ({ saved }: { saved?: Doc<"automations"> }) => {
   const loops = useQuery(api.loops.list) ?? []
   const zone = useCalendarSettings()?.timeZone ?? Intl.DateTimeFormat().resolvedOptions().timeZone
 
+  const unsaved = useRef<Draft>(null)
+  unsaved.current ??= search.draft
+    ? search.draft
+    : search.template
+      ? draftOf(search.template, browserZone, search.loop)
+      : blank
   const initial: Draft = saved
     ? { name: saved.name, trigger: saved.trigger, steps: saved.steps, active: saved.active }
-    : search.template
-      ? templates[search.template].make(browserZone, search.loop)
-      : blank
+    : unsaved.current
   const form = useForm({ defaultValues: initial })
   const draft = useStore(form.store, (s) => s.values)
   const dirty = stable(draft) !== stable(initial)

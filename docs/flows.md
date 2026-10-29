@@ -44,7 +44,7 @@ Workflows have their own page, [workflows.md](workflows.md).
 | A guest on a booking page     | Books time with you, signed in or not                                                                  | `/book/$slug`                                                                       |
 | Crons                         | Start due loops (every 15 minutes), start due workflows (every 5 minutes), refresh job boards (hourly) | `convex/crons.ts`                                                                   |
 | The inbound email hook        | Takes mail your Cloudflare Worker forwards                                                             | `POST /email/inbound/<id>`, `convex/http.ts`                                        |
-| Jev                           | Judges roles for loops and pasted links, sorts mail, answers Ask Jev                                   | `convex/api/features/workflows/judge.ts`, `email/sort.ts`, `automations/actions.ts` |
+| Jev                           | Judges roles for loops and pasted links, sorts mail, answers Ask Jev, drafts workflows from a sentence | `convex/api/features/workflows/judge.ts`, `email/sort.ts`, `automations/actions.ts` |
 | The batch worker (`readPool`) | Fetches job boards and runs Jev's judgments, 8 at a time, retrying each up to 3 times                  | `convex/api/features/workflows/manager.ts`                                          |
 | Workflows                     | Runs the steps people build                                                                            | `convex/api/features/automations/engine.ts`                                         |
 
@@ -499,8 +499,9 @@ Interface and theme, Account)
 ## Workflows
 
 Steps you build from blocks that run for you: on a schedule, when an email or a booking
-comes in, when an application moves, or when you press Run now. Templates include
-Morning job search, which runs one of your loops. The full story is in
+comes in, when an application moves, or when you press Run now. Start from scratch,
+from one of eleven templates (job search, follow-ups, each kind of email, bookings), or
+describe it in a sentence and let Jev draft it. The full story is in
 [workflows.md](workflows.md).
 
 ## Known gaps

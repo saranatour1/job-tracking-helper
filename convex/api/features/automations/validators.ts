@@ -44,6 +44,18 @@ const blocks = [
   v.object({ kind: v.literal("sendEmail"), to: v.string(), subject: v.string(), text: v.string() }),
   // Waits before the next step; free while it waits.
   v.object({ kind: v.literal("wait"), minutes: v.number() }),
+  v.object({
+    kind: v.literal("onlyIf"),
+    fact: v.string(),
+    test: v.union(
+      v.literal("set"),
+      v.literal("notSet"),
+      v.literal("is"),
+      v.literal("isNot"),
+      v.literal("atLeast")
+    ),
+    value: v.string(),
+  }),
 ] as const
 export const vBlock = v.union(...blocks)
 export type Block = Infer<typeof vBlock>
@@ -147,6 +159,52 @@ const isZone = (zone: string) => {
 
 const time = /^([01]\d|2[0-3]):[0-5]\d$/
 
+export const onlyIfFacts = [
+  "application.company",
+  "application.role",
+  "application.status",
+  "status.from",
+  "status.to",
+  "email.subject",
+  "email.from",
+  "email.kind",
+  "booking.title",
+  "loop.name",
+  "roles.judged",
+  "roles.fits",
+] as const
+
+export type OnlyIf = Extract<Block, { kind: "onlyIf" }>
+
+export const onlyIfMatched: OnlyIf = {
+  kind: "onlyIf",
+  fact: "application.company",
+  test: "set",
+  value: "",
+}
+export const onlyIfStillAt = (statusLabel: string): OnlyIf => ({
+  kind: "onlyIf",
+  fact: "application.status",
+  test: "is",
+  value: statusLabel,
+})
+
+export const holds = ({ test, value }: Pick<OnlyIf, "test" | "value">, actual?: string) => {
+  const matchesIgnoringCase = (actual ?? "").trim().toLowerCase() === value.trim().toLowerCase()
+  switch (test) {
+    case "set":
+      return Boolean(actual?.trim())
+    case "notSet":
+      return !actual?.trim()
+    case "is":
+      return matchesIgnoringCase
+    case "isNot":
+      return !matchesIgnoringCase
+    case "atLeast":
+      return actual !== undefined && Number(actual) >= Number(value)
+  }
+}
+
 // One plain address: no names, no lists. Checked again once placeholders are filled.
 export const emailAddress = /^[^\s@<>,;"]+@[^\s@<>,;"]+\.[^\s@<>,;"]+$/
 
@@ -162,6 +220,14 @@ const blockProblem = (step: Block, trigger: Trigger) => {
   )
     return "Pick an application, or start the workflow from an email, a status change or a booking."
   if (step.kind === "findRoles" && !step.loopId) return "Pick a loop to find roles with."
+  if (step.kind === "onlyIf") {
+    if (!(onlyIfFacts as readonly string[]).includes(step.fact)) return "Pick what to check."
+    if ((step.test === "is" || step.test === "isNot") && !step.value.trim())
+      return "Say what it should be."
+    if (step.test === "atLeast" && !Number.isFinite(Number(step.value || "x")))
+      return "“At least” needs a number."
+    if (step.value.length > limits.label * 4) return "Keep what it checks short."
+  }
   if (step.kind === "sendEmail") {
     if (!step.to.trim() || (!step.to.includes("{") && !emailAddress.test(step.to.trim())))
       return "Send it to one email address, or a placeholder like {email.from}."
