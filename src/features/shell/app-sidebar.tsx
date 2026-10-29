@@ -9,6 +9,7 @@ import {
   RepeatIcon,
   Target02Icon,
   UserCircleIcon,
+  WorkflowSquare03Icon,
 } from "@hugeicons/core-free-icons"
 import { HugeiconsIcon } from "@hugeicons/react"
 
@@ -70,6 +71,7 @@ export const AppSidebar = (props: React.ComponentProps<typeof Sidebar>) => {
     { title: "Preferences", to: "/preferences", icon: UserCircleIcon },
     { title: "Jobs", to: "/jobs", icon: JobSearchIcon },
     { title: "Loops", to: "/loops", icon: RepeatIcon },
+    { title: "Workflows", to: "/workflows", icon: WorkflowSquare03Icon },
   ]
   return (
     <Sidebar collapsible="icon" {...props}>

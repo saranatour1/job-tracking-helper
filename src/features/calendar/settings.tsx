@@ -54,7 +54,7 @@ const Pick = ({
 )
 
 // Over 400 zones, so you type to find one ("berlin", "new_york").
-const ZonePick = ({
+export const ZonePick = ({
   label,
   value,
   options,
