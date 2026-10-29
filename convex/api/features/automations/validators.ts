@@ -38,6 +38,10 @@ const blocks = [
     at: v.string(),
     minutes: v.number(),
   }),
+  // Runs one of your loops now: a search, Jev's judgments, and fits on your shortlist.
+  v.object({ kind: v.literal("findRoles"), loopId: v.id("loops") }),
+  // Emails someone from your Cloudflare address, like the person who wrote to you.
+  v.object({ kind: v.literal("sendEmail"), to: v.string(), subject: v.string(), text: v.string() }),
   // Waits before the next step; free while it waits.
   v.object({ kind: v.literal("wait"), minutes: v.number() }),
 ] as const
@@ -101,6 +105,8 @@ export const vRunContext = v.object({
   bookingId: v.optional(v.id("calendarEvents")),
   from: v.optional(vStatus),
   to: v.optional(vStatus),
+  // Set by Find roles, for the steps after it.
+  loopRunId: v.optional(v.id("loopRuns")),
 })
 export type RunContext = Infer<typeof vRunContext>
 
@@ -115,6 +121,8 @@ export const limits = {
   note: 2000,
   question: 300,
   title: 120,
+  subject: 200,
+  emailText: 5000,
   // A wait is at most 30 days.
   waitMinutes: 30 * 24 * 60,
   // A calendar event is 5 minutes to 8 hours, up to 60 days ahead.
@@ -133,6 +141,9 @@ const isZone = (zone: string) => {
 
 const time = /^([01]\d|2[0-3]):[0-5]\d$/
 
+// One plain address: no names, no lists. Checked again once placeholders are filled.
+export const emailAddress = /^[^\s@<>,;"]+@[^\s@<>,;"]+\.[^\s@<>,;"]+$/
+
 const blockProblem = (step: Block, trigger: Trigger) => {
   if (step.kind === "notify" && (!step.message.trim() || step.message.length > limits.message))
     return `A message is 1 to ${limits.message} characters.`
@@ -144,6 +155,15 @@ const blockProblem = (step: Block, trigger: Trigger) => {
     !triggerHasApplication(trigger)
   )
     return "Pick an application, or start the workflow from an email, a status change or a booking."
+  if (step.kind === "findRoles" && !step.loopId) return "Pick a loop to find roles with."
+  if (step.kind === "sendEmail") {
+    if (!step.to.trim() || (!step.to.includes("{") && !emailAddress.test(step.to.trim())))
+      return "Send it to one email address, or a placeholder like {email.from}."
+    if (!step.subject.trim() || step.subject.length > limits.subject)
+      return `A subject is 1 to ${limits.subject} characters.`
+    if (!step.text.trim() || step.text.length > limits.emailText)
+      return `An email is 1 to ${limits.emailText} characters.`
+  }
   if (step.kind === "addEvent") {
     if (!step.title.trim() || step.title.length > limits.title)
       return `An event title is 1 to ${limits.title} characters.`

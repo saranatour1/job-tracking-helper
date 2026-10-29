@@ -225,15 +225,71 @@ const sends = { inbox: "Inbox", email: "Email", both: "Both" } as const
 const BlockSettings = ({
   block,
   trigger,
+  steps,
   applications,
+  loops,
   onChange,
 }: {
   block: Block
   trigger: Trigger
+  steps: Step[]
   applications: Doc<"applications">[]
+  loops: Doc<"loops">[]
   onChange: (block: Block) => void
 }) => {
   switch (block.kind) {
+    case "findRoles":
+      return (
+        <div className="grid gap-4">
+          <Field label="Loop">
+            <Pick
+              label="Pick a loop"
+              value={block.loopId || null}
+              items={loops.map((l) => ({ value: l._id, label: l.name }))}
+              onChange={(loopId) => onChange({ ...block, loopId: loopId as Doc<"loops">["_id"] })}
+            />
+          </Field>
+          <p className="text-muted-foreground text-xs">
+            Runs the loop now: it searches, Jev judges what it finds, and fits go on your shortlist.
+            Steps after it can name {"{roles.fits}"} and {"{roles.judged}"}. A few a day.
+          </p>
+        </div>
+      )
+    case "sendEmail":
+      return (
+        <div className="grid gap-4">
+          <Field label="To">
+            <Input
+              value={block.to}
+              placeholder="name@example.com"
+              onChange={(e) => onChange({ ...block, to: e.target.value })}
+            />
+          </Field>
+          <Field label="Subject">
+            <Input
+              maxLength={limits.subject}
+              value={block.subject}
+              onChange={(e) => onChange({ ...block, subject: e.target.value })}
+            />
+          </Field>
+          <Field label="Email">
+            <Textarea
+              rows={6}
+              maxLength={limits.emailText}
+              value={block.text}
+              onChange={(e) => onChange({ ...block, text: e.target.value })}
+            />
+            <Tokens
+              names={placeholdersFor(trigger, steps)}
+              onPick={(name) => onChange({ ...block, text: `${block.text} ${name}`.trim() })}
+            />
+          </Field>
+          <p className="text-muted-foreground text-xs">
+            Sent as you, from your Cloudflare address, once “Send email” is on under Account. Up to
+            20 a day.
+          </p>
+        </div>
+      )
     case "notify":
       return (
         <div className="grid gap-4">
@@ -245,7 +301,7 @@ const BlockSettings = ({
               onChange={(e) => onChange({ ...block, message: e.target.value })}
             />
             <Tokens
-              names={placeholdersFor(trigger)}
+              names={placeholdersFor(trigger, steps)}
               onPick={(name) => onChange({ ...block, message: `${block.message} ${name}`.trim() })}
             />
           </Field>
@@ -291,7 +347,7 @@ const BlockSettings = ({
               onChange={(e) => onChange({ ...block, text: e.target.value })}
             />
             <Tokens
-              names={placeholdersFor(trigger, true)}
+              names={placeholdersFor(trigger, steps, true)}
               onPick={(name) => onChange({ ...block, text: `${block.text} ${name}`.trim() })}
             />
           </Field>
@@ -326,7 +382,7 @@ const BlockSettings = ({
               onChange={(e) => onChange({ ...block, title: e.target.value })}
             />
             <Tokens
-              names={placeholdersFor(trigger)}
+              names={placeholdersFor(trigger, steps)}
               onPick={(name) => onChange({ ...block, title: `${block.title} ${name}`.trim() })}
             />
           </Field>
@@ -415,10 +471,12 @@ const BlockSettings = ({
 const BranchSettings = ({
   step,
   trigger,
+  steps,
   onChange,
 }: {
   step: Branch
   trigger: Trigger
+  steps: Step[]
   onChange: (step: Step) => void
 }) => (
   <div className="grid gap-3">
@@ -432,7 +490,7 @@ const BranchSettings = ({
             onChange={(e) => onChange({ ...step, question: e.target.value })}
           />
           <Tokens
-            names={placeholdersFor(trigger)}
+            names={placeholdersFor(trigger, steps)}
             onPick={(name) => onChange({ ...step, question: `${step.question} ${name}`.trim() })}
           />
         </Field>
@@ -502,6 +560,7 @@ export const StepSettings = ({
   steps,
   zone,
   applications,
+  loops,
   onTrigger,
   onSteps,
   onDone,
@@ -511,6 +570,7 @@ export const StepSettings = ({
   steps: Step[]
   zone: string
   applications: Doc<"applications">[]
+  loops: Doc<"loops">[]
   onTrigger: (trigger: Trigger) => void
   onSteps: (steps: Step[]) => void
   onDone: () => void
@@ -548,13 +608,16 @@ export const StepSettings = ({
         <BranchSettings
           step={step}
           trigger={trigger}
+          steps={steps}
           onChange={(next) => onSteps(update(steps, at, next))}
         />
       ) : (
         <BlockSettings
           block={step}
           trigger={trigger}
+          steps={steps}
           applications={applications}
+          loops={loops}
           onChange={(next) => onSteps(update(steps, at, next))}
         />
       )}

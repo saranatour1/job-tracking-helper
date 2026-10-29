@@ -1,5 +1,11 @@
 import { statusLabels } from "@convex/api/features/applications/validators"
-import type { Block, Branch, Step, Trigger } from "@convex/api/features/automations/validators"
+import {
+  type Block,
+  blocksOf,
+  type Branch,
+  type Step,
+  type Trigger,
+} from "@convex/api/features/automations/validators"
 import {
   AiBrain01Icon,
   Calendar03Icon,
@@ -7,7 +13,9 @@ import {
   CalendarCheckIn01Icon,
   GitForkIcon,
   HourglassIcon,
+  JobSearchIcon,
   Mail01Icon,
+  MailSend01Icon,
   ArrowMoveUpRightIcon,
   NoteEditIcon,
   Notification03Icon,
@@ -49,6 +57,28 @@ export const blocks = {
       inDays: 3,
       at: "09:00",
       minutes: 30,
+    }),
+  },
+  findRoles: {
+    label: "Find roles",
+    group: "Find",
+    hint: "Run one of your loops",
+    icon: JobSearchIcon,
+    color: "amber",
+    // A loop has to be picked; the builder says so before it saves.
+    make: (): Block => ({ kind: "findRoles", loopId: "" as never }),
+  },
+  sendEmail: {
+    label: "Send email",
+    group: "Do",
+    hint: "From your address",
+    icon: MailSend01Icon,
+    color: "blue",
+    make: (): Block => ({
+      kind: "sendEmail",
+      to: "{email.from}",
+      subject: "Re: {email.subject}",
+      text: "",
     }),
   },
   addNote: {
@@ -113,10 +143,10 @@ export const durationOf = (minutes: number) =>
 
 const sendLabels = { inbox: "", email: " · by email", both: " · Inbox and email" }
 
-/** A card's second line. */
-export const summaryOf = (step: Step, companyOf: (id: string) => string | undefined) => {
+/** A card's second line. `nameOf` names an application (its company) or a loop. */
+export const summaryOf = (step: Step, nameOf: (id: string) => string | undefined) => {
   const which = (id: string | undefined) =>
-    id ? (companyOf(id) ?? "Pick an application") : "The trigger's application"
+    id ? (nameOf(id) ?? "Pick an application") : "The trigger's application"
   switch (step.kind) {
     case "notify":
       return (step.message || "No message yet") + sendLabels[step.send ?? "inbox"]
@@ -126,6 +156,10 @@ export const summaryOf = (step: Step, companyOf: (id: string) => string | undefi
       return `${which(step.applicationId)} to ${statusLabels[step.to]}`
     case "addEvent":
       return `${step.title || "No title yet"}, ${step.inDays === 0 ? "same day" : `${plural(step.inDays, "day")} later`} at ${step.at}`
+    case "findRoles":
+      return (step.loopId && nameOf(step.loopId)) || "Pick a loop"
+    case "sendEmail":
+      return `To ${step.to || "no one yet"}: ${step.subject || "no subject"}`
     case "wait":
       return `For ${durationOf(step.minutes)}`
     case "parallel":
@@ -198,10 +232,17 @@ export const triggerInfo = (trigger: Trigger) => {
   }
 }
 
-/** Placeholders a step's text can use: the run's, plus what its trigger brings. */
-export const placeholdersFor = (trigger: Trigger, picked = false) => {
+/** Placeholders a step's text can use: the run's, what its trigger brings, and what a
+ * Find roles step found. */
+export const placeholdersFor = (trigger: Trigger, steps: Step[], picked = false) => {
   const application = ["{application.company}", "{application.role}", "{application.status}"]
-  const base = ["{workflow.name}", "{run.date}"]
+  const base = [
+    "{workflow.name}",
+    "{run.date}",
+    ...(blocksOf(steps).some((b) => b.kind === "findRoles")
+      ? ["{loop.name}", "{roles.judged}", "{roles.fits}"]
+      : []),
+  ]
   switch (trigger.kind) {
     case "mail":
       return [...base, "{email.subject}", "{email.from}", "{email.kind}", ...application]

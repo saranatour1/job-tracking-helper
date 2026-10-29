@@ -19,14 +19,18 @@ import { fromWall, instantOf, wallOf } from "../booking/slots"
 import { kindOf } from "../calendar/public"
 import { aad, keys, openJson } from "../email/internal"
 import { MailNote } from "../email/models"
+import { insertLoopRun, stopRunNow } from "../loops/internal"
+import { lastRunOf } from "../loops/public"
 import { limits as rates, workflow } from "../workflows/manager"
 import { deleteRuns, insertRun, patchRun, recordChoice } from "./counts"
 import { vAutomationEvent } from "./fire"
 import type { vLogEntry } from "./models"
 import {
   type Block,
+  emailAddress,
   fill,
   isBranch,
+  limits,
   nextScheduledAt,
   type RunContext,
   stepAt,
@@ -37,13 +41,28 @@ type LogEntry = Infer<typeof vLogEntry>
 
 // Runs one block; returns why it couldn't run, if it couldn't. A wait sleeps inside
 // whichever workflow called it, so it costs nothing while it waits; an email goes out
-// from an action, since it calls Cloudflare.
+// from an action, since it calls Cloudflare; Find roles runs the loop's own workflow
+// inside this one.
 const runBlock = async (step: WorkflowCtx, runId: Id<"automationRuns">, at: string) => {
   const done = await step.runMutation(internal.automations.runStep, { runId, at })
   if (done.error) return done.error
   const { waitMs } = done
   if ("email" in done && done.email) {
-    const failed = await step.runAction(internal.automations.emailMe, { runId, at })
+    const failed = await step.runAction(internal.automations.sendMail, { runId, at })
+    if (failed) return failed
+  }
+  if ("loopRunId" in done && done.loopRunId) {
+    const loopRunId = done.loopRunId
+    const error = await step
+      .runWorkflow(internal.workflows.findJobs, { runId: loopRunId })
+      .then(() => undefined)
+      .catch((cause: unknown) => (cause instanceof Error ? cause.message : "it failed"))
+    const failed = await step.runMutation(internal.automations.foundRoles, {
+      runId,
+      at,
+      loopRunId,
+      error,
+    })
     if (failed) return failed
   }
   if (waitMs > 0) {
@@ -226,6 +245,14 @@ export const factsOf = async (ctx: QueryCtx, found: Doc<"automationRuns">) => {
     }
     if (mail) values["email.kind"] = mail.kind
   }
+  if (context.loopRunId) {
+    const loopRun = await ctx.db.get("loopRuns", context.loopRunId)
+    if (loopRun?.userId === found.userId) {
+      values["loop.name"] = loopRun.loopName
+      values["roles.judged"] = String(loopRun.scanned)
+      values["roles.fits"] = String(loopRun.kept)
+    }
+  }
   if (context.bookingId) {
     const booking = await ctx.db.get("calendarEvents", context.bookingId)
     if (booking?.userId === found.userId) {
@@ -261,7 +288,7 @@ const doBlock = async (
   found: Doc<"automationRuns">,
   at: string,
   block: Block
-): Promise<{ output: string; waitMs: number; email?: boolean }> => {
+): Promise<{ output: string; waitMs: number; email?: boolean; loopRunId?: Id<"loopRuns"> }> => {
   const { values, date, zone } = await factsOf(ctx, found)
   switch (block.kind) {
     case "notify": {
@@ -326,6 +353,29 @@ const doBlock = async (
       })
       return { output: `On your calendar: ${title}, ${date(start, true)}`, waitMs: 0 }
     }
+    case "findRoles": {
+      const loop = await ctx.db.get("loops", block.loopId)
+      if (loop?.userId !== found.userId) throw new ConvexError("That loop is gone.")
+      const last = await lastRunOf(ctx, loop._id)
+      if (last && (last.status === "queued" || last.status === "running"))
+        throw new ConvexError(`“${loop.name}” is already running.`)
+      // Each search spends credits and Jev's time, so a few a day.
+      const { ok } = await rates.limit(ctx, "automationFind", { key: found.userId })
+      if (!ok) throw new ConvexError("Workflows found roles 5 times today. Try again tomorrow.")
+      const loopRunId = await insertLoopRun(ctx, loop)
+      await ctx.db.patch("automationRuns", found._id, {
+        context: { ...found.context, loopRunId },
+      })
+      return { output: `Looking for roles with “${loop.name}”`, waitMs: 0, loopRunId }
+    }
+    case "sendEmail": {
+      const to = fill(block.to, values).trim()
+      if (!emailAddress.test(to))
+        throw new ConvexError(`“${to.slice(0, 80)}” isn't one email address.`)
+      const { ok } = await rates.limit(ctx, "automationEmail", { key: found.userId })
+      if (!ok) throw new ConvexError("Workflows sent 20 emails today. Try again tomorrow.")
+      return { output: `To ${to}: ${fill(block.subject, values)}`, waitMs: 0, email: true }
+    }
     case "wait": {
       const waitMs = block.minutes * 60_000
       return { output: `Until ${date(Date.now() + waitMs, true)}`, waitMs }
@@ -343,6 +393,7 @@ const runStep = internalMutation({
     waitMs: v.number(),
     error: v.optional(v.string()),
     email: v.optional(v.boolean()),
+    loopRunId: v.optional(v.id("loopRuns")),
   }),
   handler: async (ctx, { runId, at }) => {
     const found = await ctx.db.get("automationRuns", runId)
@@ -350,17 +401,19 @@ const runStep = internalMutation({
     if (!found || found.status !== "running" || !block || isBranch(block)) return { waitMs: 0 }
     const startedAt = Date.now()
     try {
-      const { output, waitMs, email } = await doBlock(ctx, found, at, block)
+      const { output, waitMs, email, loopRunId } = await doBlock(ctx, found, at, block)
       await setLog(ctx, runId, {
         at,
         kind: block.kind,
         startedAt,
         output,
-        ...(waitMs > 0 || email
-          ? { status: email ? "running" : "waiting" }
-          : { status: "done", finishedAt: Date.now() }),
+        ...(waitMs > 0
+          ? { status: "waiting" }
+          : email || loopRunId
+            ? { status: "running" }
+            : { status: "done", finishedAt: Date.now() }),
       })
-      return { waitMs, ...(email && { email }) }
+      return { waitMs, ...(email && { email }), ...(loopRunId && { loopRunId }) }
     } catch (cause) {
       if (!(cause instanceof ConvexError)) throw cause
       const error = String(cause.data)
@@ -485,18 +538,75 @@ const answered = internalMutation({
   },
 })
 
-/** What an email from a Notify me step says, and who it goes to. */
+/** Records how a Find roles step's loop run went. Returns why it failed, or null. */
+const foundRoles = internalMutation({
+  args: {
+    runId: v.id("automationRuns"),
+    at: v.string(),
+    loopRunId: v.id("loopRuns"),
+    error: v.optional(v.string()),
+  },
+  returns: v.union(v.string(), v.null()),
+  handler: async (ctx, { runId, at, loopRunId, error }) => {
+    const entry = (await ctx.db.get("automationRuns", runId))?.log.find((e) => e.at === at)
+    const loopRun = await ctx.db.get("loopRuns", loopRunId)
+    const failed =
+      error !== undefined
+        ? `The search failed: ${error}`.slice(0, 300)
+        : loopRun?.status !== "done"
+          ? "The loop is gone, so there was nothing to search."
+          : null
+    // A run that ended early on the workflow's side ends on the loop's side too.
+    if (failed && loopRun && (loopRun.status === "queued" || loopRun.status === "running"))
+      await ctx.db.patch("loopRuns", loopRunId, {
+        status: "failed",
+        finishedAt: Date.now(),
+        note: failed,
+      })
+    if (!entry) return failed
+    await setLog(ctx, runId, {
+      ...entry,
+      finishedAt: Date.now(),
+      ...(failed
+        ? { status: "failed", error: failed }
+        : {
+            status: "done",
+            output: `Jev judged ${loopRun!.scanned} roles: ${loopRun!.kept} fit.${
+              loopRun!.note ? ` ${loopRun!.note}` : ""
+            }`,
+          }),
+    })
+    return failed
+  },
+})
+
+/** What an email step says, and who it goes to: you, for Notify me, or whoever Send
+ * email names. */
 const emailOf = internalQuery({
   args: { runId: v.id("automationRuns"), at: v.string() },
   returns: v.union(
     v.null(),
-    v.object({ userId: v.id("users"), subject: v.string(), text: v.string() })
+    v.object({
+      userId: v.id("users"),
+      to: v.optional(v.string()),
+      subject: v.string(),
+      text: v.string(),
+    })
   ),
   handler: async (ctx, { runId, at }) => {
     const found = await ctx.db.get("automationRuns", runId)
     const entry = found?.log.find((e) => e.at === at)
+    const block = found && stepAt(found.steps, at)
     if (!found || found.status !== "running" || !entry?.output) return null
-    return { userId: found.userId, subject: found.name, text: entry.output }
+    if (block?.kind !== "sendEmail")
+      return { userId: found.userId, subject: found.name, text: entry.output }
+    const { values } = await factsOf(ctx, found)
+    return {
+      userId: found.userId,
+      to: fill(block.to, values).trim(),
+      subject: fill(block.subject, values).slice(0, limits.subject),
+      text: fill(block.text, values),
+    }
   },
 })
 
@@ -511,7 +621,9 @@ const emailed = internalMutation({
       ...entry,
       status: error ? "failed" : "done",
       finishedAt: Date.now(),
-      ...(error ? { error } : { output: `${entry.output} (also emailed)` }),
+      ...(error
+        ? { error }
+        : entry.kind === "notify" && { output: `${entry.output} (also emailed)` }),
     })
     return null
   },
@@ -591,6 +703,11 @@ const startDue = internalMutation({
 /** Stops a run that's still going. */
 export const cancelRun = async (ctx: MutationCtx, found: Doc<"automationRuns">) => {
   if (found.status !== "running") return
+  // A loop run it started stops too, with its pending judgments.
+  const loopRun =
+    found.context?.loopRunId && (await ctx.db.get("loopRuns", found.context.loopRunId))
+  if (loopRun && (loopRun.status === "queued" || loopRun.status === "running"))
+    await stopRunNow(ctx, loopRun)
   // Marked first: canceling calls `ended` straight away, which leaves a stopped run be.
   const finishedAt = Date.now()
   await patchRun(ctx, found, {
@@ -618,6 +735,7 @@ export const engineApi = {
   runPath,
   decisionOf,
   answered,
+  foundRoles,
   emailOf,
   emailed,
   onEvent,

@@ -21,6 +21,9 @@ export const limits = new RateLimiter(components.rateLimiter, {
   automationRun: { kind: "fixed window", rate: 50, period: DAY },
   // Workflows started by emails, status changes and bookings.
   automationEvent: { kind: "fixed window", rate: 200, period: DAY },
+  // Find roles and Send email steps: each spends search credits, Jev or someone's inbox.
+  automationFind: { kind: "fixed window", rate: 5, period: DAY },
+  automationEmail: { kind: "fixed window", rate: 20, period: DAY },
 })
 
 // The batch worker: it fetches job boards for the catalog, and every run hands it the

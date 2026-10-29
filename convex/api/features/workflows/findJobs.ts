@@ -10,7 +10,10 @@ import { workflow } from "./manager"
 const findJobs = workflow.define({
   args: { runId: v.id("loopRuns") },
   handler: async (step, { runId }): Promise<void> => {
-    const plan = await step.runMutation(internal.loops.beginRun, { runId })
+    const plan = await step.runMutation(internal.loops.beginRun, {
+      runId,
+      workflowId: step.workflowId,
+    })
     if (!plan) return
     const spent: { provider: Provider; credits: number }[] = []
     const exhausted: Provider[] = []

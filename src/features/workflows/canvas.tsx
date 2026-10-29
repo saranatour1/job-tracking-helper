@@ -263,13 +263,13 @@ const ZoomBar = () => {
 export const Canvas = ({
   trigger,
   steps,
-  companyOf,
+  nameOf,
   choices,
   ...actions
 }: Actions & {
   trigger: Trigger
   steps: Step[]
-  companyOf: (id: string) => string | undefined
+  nameOf: (id: string) => string | undefined
   // Jev's answers so far, by Ask Jev step then answer.
   choices?: Record<string, Record<string, number>>
 }) => {
@@ -302,7 +302,7 @@ export const Canvas = ({
       data: {
         ...actions,
         title: info.label,
-        summary: summaryOf(step, companyOf),
+        summary: summaryOf(step, nameOf),
         icon: info.icon,
         color: info.color,
       },

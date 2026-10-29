@@ -495,4 +495,116 @@ describe("a workflow run", () => {
     expect(run?.status).toBe("failed")
     expect(run?.log.find((e) => e.at === "0")?.error).toBe("Jev couldn't answer: offline")
   })
+
+  it("finds roles with a loop, and later steps say what it found", async () => {
+    const { t, as, userId } = await setup()
+    const loopId = await t.run((ctx) =>
+      ctx.db.insert("loops", {
+        userId,
+        name: "Frontend",
+        template: "custom",
+        answers: {
+          usePreferences: true,
+          stretch: false,
+          remoteOnly: false,
+          nearMe: false,
+          listedCompanies: false,
+          skipRedFlags: true,
+          postedToday: false,
+        },
+        daily: 10,
+        at: "08:00",
+        timeZone: "UTC",
+        active: false,
+        nextRunAt: 0,
+      })
+    )
+    const id = await as.mutation(api.automations.save, {
+      name: "Search",
+      trigger: { kind: "manual" },
+      active: true,
+      steps: [
+        { kind: "findRoles", loopId },
+        { kind: "notify", message: "{roles.fits} of {roles.judged} from {loop.name}" },
+      ],
+    })
+    const runId = await as.mutation(api.automations.runNow, { id })
+    await t.finishAllScheduledFunctions(vi.runAllTimers)
+
+    const run = await t.run((ctx) => ctx.db.get("automationRuns", runId))
+    expect(run?.status).toBe("done")
+    expect(byPlace(run?.log).map((e) => [e.at, e.status])).toEqual([
+      ["0", "done"],
+      ["1", "done"],
+    ])
+    expect(byPlace(run?.log)[0]?.output).toMatch(/^Jev judged 0 roles: 0 fit\./)
+    expect(byPlace(run?.log)[1]?.output).toBe("0 of 0 from Frontend")
+    // The loop's own Runs tab shows it too.
+    const loopRuns = await t.run((ctx) => ctx.db.query("loopRuns").collect())
+    expect(loopRuns.map((r) => [r.loopId, r.status])).toEqual([[loopId, "done"]])
+  })
+
+  it("won't save someone else's loop into Find roles", async () => {
+    const { t, userId } = await setup()
+    const loopId = await t.run((ctx) =>
+      ctx.db.insert("loops", {
+        userId,
+        name: "Mine",
+        template: "custom",
+        answers: {
+          usePreferences: true,
+          stretch: false,
+          remoteOnly: false,
+          nearMe: false,
+          listedCompanies: false,
+          skipRedFlags: true,
+          postedToday: false,
+        },
+        daily: 10,
+        at: "08:00",
+        timeZone: "UTC",
+        active: false,
+        nextRunAt: 0,
+      })
+    )
+    const otherId = await t.run((ctx) => ctx.db.insert("users", { name: "Alex" }))
+    await expect(
+      t.withIdentity({ subject: otherId }).mutation(api.automations.save, {
+        name: "Snoop",
+        trigger: { kind: "manual" },
+        active: true,
+        steps: [{ kind: "findRoles", loopId }],
+      })
+    ).rejects.toThrow("That loop isn't yours, or it's gone.")
+  })
+
+  it("stops Send email when a placeholder doesn't fill in to one address", async () => {
+    const { t, as } = await setup()
+    const id = await as.mutation(api.automations.save, {
+      name: "Mail",
+      trigger: { kind: "manual" },
+      active: true,
+      steps: [{ kind: "sendEmail", to: "{email.from}", subject: "Hi", text: "Hello" }],
+    })
+    const runId = await as.mutation(api.automations.runNow, { id })
+    await t.finishAllScheduledFunctions(vi.runAllTimers)
+    const run = await t.run((ctx) => ctx.db.get("automationRuns", runId))
+    expect(run?.status).toBe("failed")
+    expect(run?.log[0]?.error).toBe("“{email.from}” isn't one email address.")
+  })
+
+  it("won't send email without a Cloudflare connection", async () => {
+    const { t, as } = await setup()
+    const id = await as.mutation(api.automations.save, {
+      name: "Mail",
+      trigger: { kind: "manual" },
+      active: true,
+      steps: [{ kind: "sendEmail", to: "sam@example.com", subject: "Hi", text: "Hello" }],
+    })
+    const runId = await as.mutation(api.automations.runNow, { id })
+    await t.finishAllScheduledFunctions(vi.runAllTimers)
+    const run = await t.run((ctx) => ctx.db.get("automationRuns", runId))
+    expect(run?.status).toBe("failed")
+    expect(run?.log[0]).toMatchObject({ output: "To sam@example.com: Hi", status: "failed" })
+  })
 })
