@@ -6,6 +6,7 @@ import { arkMutation, authedMutation, authedQuery } from "../../../lib/functions
 import { deleteEmail } from "../email/internal"
 import { deleteLoops } from "../loops/internal"
 import { deleteNotifications } from "../notifications/public"
+import { deleteViews } from "../views/public"
 import { deletePreferences } from "../preferences/public"
 import { maxImageBytes, Profile } from "./validators"
 
@@ -96,6 +97,7 @@ const deleteAccount = authedMutation({
     await deleteLoops(ctx, ctx.userId)
     await deleteEmail(ctx, ctx.userId)
     await deleteNotifications(ctx, ctx.userId)
+    await deleteViews(ctx, ctx.userId)
     await ctx.runMutation(components.authUsername.public.deleteUsername, { userId: ctx.userId })
     await ctx.db.replace("users", ctx.userId, {})
     return null

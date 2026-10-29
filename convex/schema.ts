@@ -14,6 +14,7 @@ import {
   profileEntriesTable,
 } from "./api/features/preferences/models"
 import { usersTable } from "./api/features/users/models"
+import { viewsTable } from "./api/features/views/models"
 
 export default defineSchema({
   users: usersTable,
@@ -29,4 +30,5 @@ export default defineSchema({
   jobBoards: jobBoardsTable,
   emailConnections: emailConnectionsTable,
   mailEvents: mailEventsTable,
+  views: viewsTable,
 })

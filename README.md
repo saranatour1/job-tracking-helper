@@ -14,7 +14,7 @@ Calendar (`/calendar`) puts every date in one place: when you applied, each stat
 
 The Inbox shows what happened: new mail about your applications, mail that needs filing, and new roles from loops. Each kind can be turned off under Account → Notifications. It reads from the notifications component in `convex/notifications`.
 
-Applications (`/`) shows your applications from Convex as a board or a list, one column per status; drag a card to another column to move it. Each has a code like APP-12. Jobs added from a loop arrive with their location, a Remote label, the posting's summary and a priority from Jev's match; add one yourself with its link and Jev checks it the same way, filling in only what you left empty. With "Let Jev move cards" on (Account, off by default), a clear interview, offer or rejection email moves the card itself, with an undo. Each card shows its latest email, and its side panel has the details (status, priority, labels, how you applied, location, tasks) and one timeline of status changes, notes and company mail. New application adds one. Goals and Views use the same board but still run on sample data from `src/features/tracker/data.ts`; they don't save to Convex yet.
+Applications (`/`) shows your applications from Convex as a board or a list, one column per status; drag a card to another column to move it. Each has a code like APP-12. Jobs added from a loop arrive with their location, a Remote label, the posting's summary and a priority from Jev's match; add one yourself with its link and Jev checks it the same way, filling in only what you left empty. With "Let Jev move cards" on (Account, off by default), a clear interview, offer or rejection email moves the card itself, with an undo. Each card shows its latest email, and its side panel has the details (status, priority, labels, how you applied, location, tasks) and one timeline of status changes, notes and company mail. New application adds one. Everything about the board lives in the URL (the view, tab, filters, display options and the open application), so a reload or a shared link opens it as it was. Right-click a card to open it, move it or find related roles in Jobs; right-click a view's tab to copy or delete it; right-click the board to save what's on screen as a view or jump to Jobs, Preferences, Calendar or Inbox. Views save to Convex. Goals use the same board but still run on sample data from `src/features/tracker/data.ts`.
 
 ## How to run
 
@@ -74,7 +74,7 @@ src/
   routes/                              pages (TanStack Router); they only import a feature
     _app.tsx, _auth.tsx                layouts: signed-in pages, and /sign-in + /sign-up
   features/<feature>/                  the feature's components
-  features/tracker/                    Applications on Convex; Goals and Views on sample data for now
+  features/tracker/                    Applications and Views on Convex; Goals on sample data for now
   features/preferences/                Preferences: the form, the assistant prompt and the profile blocks
   features/jobs/                       Jobs: the shared catalog of open roles
   features/loops/                      Loops: morning job searches, their runs and sources
