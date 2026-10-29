@@ -1,6 +1,7 @@
 import { type } from "arktype"
 import type { Infer } from "convex/values"
 import { v } from "convex/values"
+import { statuses } from "../api/features/applications/validators"
 import { describe, expect, expectTypeOf, it } from "vite-plus/test"
 
 import type { Doc, Id } from "../_generated/dataModel"
@@ -53,24 +54,32 @@ describe("arkToConvex", () => {
 
 describe("applications table", () => {
   it("is built from the arktype Application plus the owner id", () => {
-    expect(schema.tables.applications.validator).toEqual(
-      v.object({
-        company: v.string(),
-        role: v.string(),
-        status: v.union(
-          v.literal("applied"),
-          v.literal("interviewing"),
-          v.literal("offer"),
-          v.literal("rejected"),
-          v.literal("saved")
-        ),
-        url: v.optional(v.string()),
-        userId: v.id("users"),
-      })
+    const { fields } = schema.tables.applications.validator as unknown as {
+      fields: Record<string, { isOptional: string }>
+    }
+    expect(Object.keys(fields).sort()).toEqual(
+      [
+        "company",
+        "role",
+        "status",
+        "url",
+        "priority",
+        "labels",
+        "method",
+        "location",
+        "description",
+        "tasks",
+        "userId",
+        "history",
+        "notes",
+      ].sort()
     )
+    const status = fields.status as unknown as { members: { value: string }[] }
+    expect(status.members.map((m) => m.value).sort()).toEqual([...statuses].sort())
+    // Applications from before these existed must still read.
+    for (const name of ["priority", "labels", "history", "notes", "tasks"])
+      expect(fields[name]?.isOptional).toBe("optional")
     expectTypeOf<Doc<"applications">["userId"]>().toEqualTypeOf<Id<"users">>()
-    expectTypeOf<Doc<"applications">["status"]>().toEqualTypeOf<
-      "saved" | "applied" | "interviewing" | "offer" | "rejected"
-    >()
+    expectTypeOf<Doc<"applications">["status"]>().toEqualTypeOf<(typeof statuses)[number]>()
   })
 })

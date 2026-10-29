@@ -34,13 +34,13 @@ import {
   statusLabels,
   statuses,
   addView,
-  useApplications,
   useViews,
 } from "./data"
 import { type Display, DisplayOptions, defaultDisplay } from "./display-options"
 import { FilterChips, FilterMenu, toggleFilter } from "./filters"
 import { ApplicationPeek } from "./application"
 import { PriorityIcon, StatusIcon } from "./icons"
+import { useSource } from "./source"
 import { NewApplicationDialog } from "./new-application"
 import { useCollapsesSidebar } from "@/features/shell/one-sidebar"
 import { type Crumb, PageHeader } from "@/features/shell/page-header"
@@ -140,7 +140,7 @@ const Card = ({ a, shown, peek }: { a: Application; shown: Display["shown"]; pee
     className="bg-card hover:border-ring/40 aria-[current=true]:border-ring/70 flex flex-col transition-colors duration-150 gap-1.5 rounded-md border px-2.5 py-2 text-[13px] shadow-xs/5"
   >
     <span className="text-muted-foreground flex justify-between text-[11px] empty:hidden">
-      {shown.includes("id") && <span>{a.id}</span>}
+      {shown.includes("id") && a.code && <span>{a.code}</span>}
       {shown.includes("created") && <span>{formatDate(a.createdAt)}</span>}
     </span>
     <span className="flex items-start gap-1.5 leading-snug">
@@ -165,8 +165,8 @@ const Row = ({ a, shown, peek }: { a: Application; shown: Display["shown"]; peek
     className="hover:bg-accent/50 aria-[current=true]:bg-accent flex transition-colors duration-150 h-9 items-center gap-2.5 border-b px-4 text-[13px]"
   >
     {shown.includes("priority") && <PriorityIcon priority={a.priority} />}
-    {shown.includes("id") && (
-      <span className="text-muted-foreground w-14 shrink-0 text-xs">{a.id}</span>
+    {shown.includes("id") && a.code && (
+      <span className="text-muted-foreground w-14 shrink-0 text-xs">{a.code}</span>
     )}
     <StatusIcon status={a.status} />
     <span className="min-w-36 flex-1 truncate">
@@ -368,8 +368,8 @@ export const Pipeline = ({
     else setPanel(true)
   }
 
-  const visible = useApplications()
-    .filter((a) => tabs[tab].includes(a.status) && matches(a, filters))
+  const visible = useSource()
+    .applications.filter((a) => tabs[tab].includes(a.status) && matches(a, filters))
     .sort(order[display.orderBy])
   const groups = groupsFor(visible, display.groupBy).filter(
     (g) => display.showEmpty || g.items.length > 0
