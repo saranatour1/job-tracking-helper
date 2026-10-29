@@ -3,6 +3,7 @@
 @import "shadcn/tailwind.css";
 @import "@fontsource-variable/public-sans";
 @import "@fontsource-variable/figtree";
+@import "./components/kloq/styles/kloq.css";
 
 @custom-variant dark (&:is(.dark *));
 

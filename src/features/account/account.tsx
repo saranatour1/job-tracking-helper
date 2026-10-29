@@ -15,6 +15,7 @@ import { ScrollArea } from "@/components/ui/scroll-area"
 import { EmailSection } from "@/features/account/email"
 import { NotificationsSection } from "@/features/account/notifications"
 import { messageOf, Row, Section } from "@/features/account/settings"
+import { CalendarSection } from "@/features/calendar/settings"
 import { PageIntro, pageBody } from "@/features/shell/page-body"
 import { PageHeader } from "@/features/shell/page-header"
 import { ThemeSwitch } from "@/features/shell/theme"
@@ -244,11 +245,12 @@ export const Account = () => {
         <main className={cn(pageBody, "max-w-2xl gap-10")}>
           <PageIntro
             title="Account"
-            description="Your profile, email, notifications, how the app looks, and your sign-in."
+            description="Your profile, email, notifications, calendar, how the app looks, and your sign-in."
           />
           {me && <ProfileSection me={me} />}
           <EmailSection />
           <NotificationsSection />
+          <CalendarSection />
           <Section title="Interface and theme">
             <Row label="Theme" description="Light, dark, or follow your system.">
               <div className="w-32">

@@ -6,6 +6,7 @@ import {
   portalOf,
   ruleMatch,
   slotOf,
+  zoneOf,
   suggestionOf,
   textOfHtml,
 } from "./match"
@@ -110,5 +111,19 @@ describe("slotOf", () => {
   })
   it("finds nothing without a date", () => {
     expect(slotOf("We'd love to talk next week.", received)).toBeUndefined()
+  })
+})
+
+describe("zoneOf", () => {
+  it("reads the zone right after a time", () => {
+    expect(zoneOf("Tue, Nov 3 at 10:30 AM PT")).toBe("America/Los_Angeles")
+    expect(zoneOf("14:00 CET works")).toBe("Europe/Berlin")
+    expect(zoneOf("2pm (Europe/London)")).toBe("Europe/London")
+  })
+  it("ignores words that only look like zones, and times with none", () => {
+    expect(zoneOf("Tue at 10:30 et merci")).toBeUndefined()
+    expect(zoneOf("Thursday at 9am Eastern")).toBe("America/New_York")
+    expect(zoneOf("See you at 3 to talk")).toBeUndefined()
+    expect(zoneOf("No time here")).toBeUndefined()
   })
 })
