@@ -25,7 +25,8 @@ import {
   rowLimits,
   sectionsOf,
 } from "@convex/api/features/preferences/rows"
-import { useMutation, usePaginatedQuery, useQuery } from "convex/react"
+import { useMutation } from "convex/react"
+import { usePaginatedQuery, useQuery } from "convex-helpers/react/cache/hooks"
 import { ConvexError } from "convex/values"
 import { startTransition, useActionState, useRef } from "react"
 

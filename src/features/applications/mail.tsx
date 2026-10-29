@@ -1,7 +1,8 @@
 import { api } from "@convex/_generated/api"
 import type { Id } from "@convex/_generated/dataModel"
 import type { FunctionReturnType } from "convex/server"
-import { useMutation, useQuery } from "convex/react"
+import { useMutation } from "convex/react"
+import { useQuery } from "convex-helpers/react/cache/hooks"
 
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"

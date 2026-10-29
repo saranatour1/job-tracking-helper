@@ -9,7 +9,8 @@ import {
 import { HugeiconsIcon } from "@hugeicons/react"
 import { Link, useNavigate, useSearch } from "@tanstack/react-router"
 import type { FunctionReturnType } from "convex/server"
-import { useMutation, useQuery } from "convex/react"
+import { useMutation } from "convex/react"
+import { useQuery } from "convex-helpers/react/cache/hooks"
 
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
@@ -100,7 +101,8 @@ const LineRow = ({
 )
 
 export const Inbox = () => {
-  const all = useQuery(api.inbox.inbox) ?? []
+  const loaded = useQuery(api.inbox.inbox)
+  const all = loaded ?? []
   const setRead = useMutation(api.inbox.setRead)
   const search = useSearch({ from: "/_app/inbox" })
   const navigate = useNavigate({ from: "/inbox" })
@@ -190,7 +192,7 @@ export const Inbox = () => {
             </Menu>
           </div>
           <ScrollArea className="min-h-0 flex-1">
-            {shown.length === 0 ? (
+            {!loaded ? null : shown.length === 0 ? (
               <p className="text-muted-foreground p-6 text-center text-[13px]">
                 {tab === "unread" ? "You're all caught up." : "No notifications here yet."}
               </p>

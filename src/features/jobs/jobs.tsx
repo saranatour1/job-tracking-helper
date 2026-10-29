@@ -1,6 +1,6 @@
 import { api } from "@convex/_generated/api"
 import { Link, useNavigate, useSearch } from "@tanstack/react-router"
-import { usePaginatedQuery, useQuery } from "convex/react"
+import { usePaginatedQuery, useQuery } from "convex-helpers/react/cache/hooks"
 import { useId } from "react"
 
 import { Badge } from "@/components/ui/badge"
