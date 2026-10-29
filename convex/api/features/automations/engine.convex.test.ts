@@ -6,8 +6,9 @@ import workflow from "@convex-dev/workflow/test"
 import { convexTest } from "convex-test"
 import { afterEach, beforeEach, describe, expect, it, vi } from "vite-plus/test"
 
-import { api, components } from "../../../_generated/api"
+import { api, components, internal } from "../../../_generated/api"
 import notificationsSchema from "../../../notifications/schema"
+import { patchRun } from "./counts"
 import schema from "../../../schema"
 
 // A run's history, in step order.
@@ -185,6 +186,61 @@ describe("a workflow run", () => {
       failed: 1,
       canceled: 0,
     })
+  })
+
+  it("starts due schedules even with many manual workflows switched on", async () => {
+    const { t, userId } = await setup()
+    // More active manual workflows than the cron takes in one batch.
+    const due = await t.run(async (ctx) => {
+      for (let i = 0; i < 60; i++)
+        await ctx.db.insert("automations", {
+          userId,
+          name: `Manual ${i}`,
+          trigger: { kind: "manual" },
+          steps: [{ kind: "notify", message: "Hi" }],
+          active: true,
+        })
+      return ctx.db.insert("automations", {
+        userId,
+        name: "Morning",
+        trigger: { kind: "schedule", at: "09:00", days: [0, 1, 2, 3, 4, 5, 6], timeZone: "UTC" },
+        steps: [{ kind: "notify", message: "Hi" }],
+        active: true,
+        nextRunAt: Date.now() - 1000,
+      })
+    })
+    expect(await t.mutation(internal.automations.startDue, {})).toBe(1)
+    const runs = await t.run((ctx) =>
+      ctx.db
+        .query("automationRuns")
+        .withIndex("by_automationId_and_startedAt", (q) => q.eq("automationId", due))
+        .collect()
+    )
+    expect(runs.map((r) => r.trigger)).toEqual(["schedule"])
+    const after = await t.run((ctx) => ctx.db.get("automations", due))
+    expect(after?.nextRunAt).toBeGreaterThan(Date.now())
+  })
+
+  it("stops a run whose workflow already ended without a word back", async () => {
+    const { t, as } = await setup()
+    const id = await as.mutation(api.automations.save, {
+      name: "Quick",
+      trigger: { kind: "manual" },
+      active: true,
+      steps: [{ kind: "notify", message: "Hi" }],
+    })
+    const runId = await as.mutation(api.automations.runNow, { id })
+    await t.finishAllScheduledFunctions(vi.runAllTimers)
+    // As if the completion handler had failed: the workflow is over, the run says running.
+    await t.run(async (ctx) => {
+      const run = await ctx.db.get("automationRuns", runId)
+      await patchRun(ctx as never, run!, { status: "running" })
+    })
+    await as.mutation(api.automations.stopRun, { runId })
+    const run = await t.run((ctx) => ctx.db.get("automationRuns", runId))
+    expect(run?.status).toBe("canceled")
+    await as.mutation(api.automations.remove, { id })
+    expect(await t.run((ctx) => ctx.db.get("automations", id))).toBeNull()
   })
 
   it("won't save someone else's application into a step", async () => {
