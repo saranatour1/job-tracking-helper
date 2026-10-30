@@ -1,10 +1,10 @@
 import type { Id } from "@convex/_generated/dataModel"
-import type { Draft } from "@convex/api/features/automations/describe"
+import type { Draft } from "@convex/features/automations/describe"
 import {
   type Block,
   onlyIfMatched as matched,
   onlyIfStillAt as stillAt,
-} from "@convex/api/features/automations/validators"
+} from "@convex/features/automations/validators"
 
 import { blocks } from "./blocks"
 

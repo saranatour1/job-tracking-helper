@@ -1,5 +1,5 @@
 import { httpRouter } from "convex/server"
-import { receive } from "./api/features/email/inbound"
+import { receive } from "./features/email/inbound"
 
 const http = httpRouter()
 

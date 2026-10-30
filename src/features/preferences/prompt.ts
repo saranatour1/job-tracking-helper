@@ -1,4 +1,4 @@
-import { PreferencesDraft, workModes } from "@convex/api/features/preferences/validators"
+import { PreferencesDraft, workModes } from "@convex/features/preferences/validators"
 import { type } from "arktype"
 
 // The prompt someone pastes into their own AI assistant. The assistant interviews

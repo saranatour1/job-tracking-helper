@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vite-plus/test"
 
-import { parseFeed, previewOf } from "../api/features/jobs/boards"
+import { parseFeed, previewOf } from "../features/jobs/boards"
 import { markdownOf, unmark } from "./markdown"
 
 describe("markdownOf", () => {

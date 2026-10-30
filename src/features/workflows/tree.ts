@@ -3,7 +3,7 @@ import {
   type Branch,
   isBranch,
   type Step,
-} from "@convex/api/features/automations/validators"
+} from "@convex/features/automations/validators"
 
 // Edits to a workflow's steps, and where each step sits on the canvas. Pure, so the
 // builder only ever swaps one array for the next.

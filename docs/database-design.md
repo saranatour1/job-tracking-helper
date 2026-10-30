@@ -339,7 +339,7 @@ Reports and rates read all of one user's applications. That works up to a few th
 
 ## Loops: finding jobs every morning
 
-A loop is a saved search that brings back jobs that fit, either by itself each morning (auto) or when the person presses Run now (manual). People set one up by going through the run's steps: they describe the job in their own words, answer yes or no, and pick from a few fixed sizes and start times, so the cost of every loop is known before it runs. The questions, templates, sizes, start times, source order and cost estimates are a catalog in code (`convex/api/features/loops/catalog.ts`) that the page and the backend share.
+A loop is a saved search that brings back jobs that fit, either by itself each morning (auto) or when the person presses Run now (manual). People set one up by going through the run's steps: they describe the job in their own words, answer yes or no, and pick from a few fixed sizes and start times, so the cost of every loop is known before it runs. The questions, templates, sizes, start times, source order and cost estimates are a catalog in code (`convex/features/loops/catalog.ts`) that the page and the backend share.
 
 Roles come from one shared catalog, not from each person's own search. Greenhouse, Lever, Ashby and Personio each publish a free feed of every open role on a company's board, with the full description, so fetching a board costs nothing. The catalog starts from about 20 boards and refreshes each one daily; paid search (Firecrawl, then context.dev) is only used to find boards the catalog doesn't have yet, Google-style: each kind of role the person wants, in each of their places, filtered with `site:` to the boards (`site:jobs.personio.de` and the like). One loop covers several cities and several kinds of role at once. Each run then picks roles from the catalog and has [Jev](https://docs.typesafe.ai/introduction) judge each one for the person, through the Convex AI gateway (`typesafe/jev-1.14`). A 100-role morning costs about half a cent.
 
@@ -476,17 +476,17 @@ Every run is logged as one wide event with [evlog](https://www.evlog.dev/): whic
 The workflow machinery and the shared catalog are their own features; everything else follows the usual feature layout.
 
 ```text
-convex/api/features/loops/          tables and the functions the page calls
+convex/features/loops/          tables and the functions the page calls
   catalog.ts                         questions, templates, sizes, estimates
   models/                            loops.ts, runs.ts, leads.ts, usage.ts, index.ts
   validators.ts, schedule.ts         input checks; the next morning in a time zone
   public.ts, internal.ts             what the page calls; the cron, plan, judging tally, finish and shortlist
   link.ts                            checking a pasted link
-convex/api/features/jobs/           the shared catalog
+convex/features/jobs/           the shared catalog
   boards.ts                          feed URLs, feed parsing (JSON and Personio's XML), starter boards
   models/                            jobs.ts, boards.ts, index.ts
   public.ts, internal.ts, actions.ts search for the Jobs page; refresh, save, pick; fetchBoard
-convex/api/features/workflows/      what runs a loop
+convex/features/workflows/      what runs a loop
   manager.ts                         WorkflowManager, readPool and the rate limits
   findJobs.ts                        the run, step by step
   actions.ts                         search (one batch) and judgeOne (one role, on readPool)

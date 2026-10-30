@@ -128,7 +128,7 @@ and the rules both go by. For the rest of the app, see [flows.md](flows.md).
 
 - **Schedule:** a cron calls `internal.automations.startDue` every 5 minutes, so one set
   for 09:00 starts by 09:05. It starts each workflow that's due and sets its next time.
-- **Events:** five places call `fireEvent` (`convex/api/features/automations/fire.ts`):
+- **Events:** five places call `fireEvent` (`convex/features/automations/fire.ts`):
   - the email sorter, after it files an email (`email/sort.ts`);
   - `changeStatus`, when an application moves (`applications/public.ts`);
   - `book`, when someone books time (`booking/public.ts`);
@@ -226,14 +226,14 @@ text; nothing in them runs.
 
 ## Files
 
-- `convex/api/features/automations/validators.ts`: blocks, triggers, limits and the
+- `convex/features/automations/validators.ts`: blocks, triggers, limits and the
   checks a workflow must pass. Shared with the frontend.
-- `convex/api/features/automations/engine.ts`: the interpreter, each block, events and
+- `convex/features/automations/engine.ts`: the interpreter, each block, events and
   the schedule.
-- `convex/api/features/automations/actions.ts`: Ask Jev, sending email, and Describe one.
-- `convex/api/features/automations/describe.ts`: Describe one's questions, and the draft
+- `convex/features/automations/actions.ts`: Ask Jev, sending email, and Describe one.
+- `convex/features/automations/describe.ts`: Describe one's questions, and the draft
   built from Jev's answers.
-- `convex/api/features/automations/public.ts`: what the app calls.
-- `convex/api/features/automations/counts.ts`: run and answer counts.
-- `convex/api/features/automations/fire.ts`: the event hook.
+- `convex/features/automations/public.ts`: what the app calls.
+- `convex/features/automations/counts.ts`: run and answer counts.
+- `convex/features/automations/fire.ts`: the event hook.
 - `src/features/workflows/`: the list, builder, canvas, settings and templates.

@@ -16,10 +16,10 @@ import {
   showSizes,
   switchAt,
   templateById,
-} from "@convex/api/features/loops/catalog"
-import { nextRunAt } from "@convex/api/features/loops/schedule"
-import { formOf, rowLimits, type TagKind } from "@convex/api/features/preferences/rows"
-import { criteriaOf, queriesOf } from "@convex/api/features/workflows/fit"
+} from "@convex/features/loops/catalog"
+import { nextRunAt } from "@convex/features/loops/schedule"
+import { formOf, rowLimits, type TagKind } from "@convex/features/preferences/rows"
+import { criteriaOf, queriesOf } from "@convex/features/workflows/fit"
 import {
   CheckmarkCircle02Icon,
   Delete02Icon,

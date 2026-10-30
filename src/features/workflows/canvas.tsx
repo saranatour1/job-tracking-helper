@@ -3,7 +3,7 @@ import {
   type Step,
   stepAt,
   type Trigger,
-} from "@convex/api/features/automations/validators"
+} from "@convex/features/automations/validators"
 import {
   Delete02Icon,
   MinusSignIcon,

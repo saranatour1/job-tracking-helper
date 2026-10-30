@@ -1,4 +1,4 @@
-import type { Preferences } from "@convex/api/features/preferences/validators"
+import type { Preferences } from "@convex/features/preferences/validators"
 
 import { cn } from "@/lib/utils"
 

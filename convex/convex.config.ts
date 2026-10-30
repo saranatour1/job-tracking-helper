@@ -10,8 +10,8 @@ import rateLimiter from "@convex-dev/rate-limiter/convex.config.js"
 import workflow from "@convex-dev/workflow/convex.config.js"
 import aggregate from "@convex-dev/aggregate/convex.config.js"
 import workpool from "@convex-dev/workpool/convex.config.js"
-import cloudflareEmail from "./cloudflareEmail/convex.config"
-import notifications from "./notifications/convex.config"
+import cloudflareEmail from "./components/cloudflareEmail/convex.config"
+import notifications from "./components/notifications/convex.config"
 
 const app = defineApp({
   env: {

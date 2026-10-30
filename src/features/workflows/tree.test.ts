@@ -1,4 +1,4 @@
-import type { Step } from "@convex/api/features/automations/validators"
+import type { Step } from "@convex/features/automations/validators"
 import { describe, expect, it } from "vite-plus/test"
 
 import { branchAt, insert, layout, remove, update } from "./tree"

@@ -1,7 +1,7 @@
 import { useAuthActions } from "@convex-dev/auth/react"
 import { api } from "@convex/_generated/api"
 import type { Id } from "@convex/_generated/dataModel"
-import { maxImageBytes, Profile } from "@convex/api/features/users/validators"
+import { maxImageBytes, Profile } from "@convex/features/users/validators"
 import { useForm } from "@tanstack/react-form"
 import type { FunctionReturnType } from "convex/server"
 import { useMutation } from "convex/react"

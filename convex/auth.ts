@@ -1,5 +1,5 @@
-// Registers `api.auth.*` and `internal.auth.*`. Definitions live in ./api/features/auth.
-import { authApi } from "./api/features/auth"
+// Registers `api.auth.*` and `internal.auth.*`. Definitions live in ./features/auth.
+import { authApi } from "./features/auth"
 
 export const {
   signOut,

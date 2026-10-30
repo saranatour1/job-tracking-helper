@@ -1,4 +1,4 @@
-import type { Preferences } from "@convex/api/features/preferences/validators"
+import type { Preferences } from "@convex/features/preferences/validators"
 
 type Values = typeof Preferences.inferIn
 export type Field = { label: string; value: string }
