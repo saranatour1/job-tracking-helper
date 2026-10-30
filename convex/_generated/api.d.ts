@@ -112,6 +112,7 @@ import type * as inbox from "../inbox.js";
 import type * as jobs from "../jobs.js";
 import type * as lib_ark from "../lib/ark.js";
 import type * as lib_functions from "../lib/functions.js";
+import type * as lib_jev from "../lib/jev.js";
 import type * as lib_log from "../lib/log.js";
 import type * as lib_markdown from "../lib/markdown.js";
 import type * as lib_secrets from "../lib/secrets.js";
@@ -233,6 +234,7 @@ declare const fullApi: ApiFromModules<{
   jobs: typeof jobs;
   "lib/ark": typeof lib_ark;
   "lib/functions": typeof lib_functions;
+  "lib/jev": typeof lib_jev;
   "lib/log": typeof lib_log;
   "lib/markdown": typeof lib_markdown;
   "lib/secrets": typeof lib_secrets;

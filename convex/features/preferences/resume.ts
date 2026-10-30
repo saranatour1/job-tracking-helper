@@ -7,6 +7,7 @@ import { extractText } from "unpdf"
 import { internal } from "../../_generated/api"
 import { action } from "../../_generated/server"
 import { arkOutputToConvex } from "../../lib/ark"
+import { type NoulAnswer, readNoul } from "../../lib/jev"
 import { jevModel } from "../workflows/judge"
 import { limits as rates } from "../workflows/manager"
 import {
@@ -78,12 +79,17 @@ const review = action({
       console.error("preferences:review", cause instanceof Error ? cause.message : cause)
       return null
     })
-    const answers = (result?.answers ?? {}) as Record<string, { probability?: number } | undefined>
-    const yes = (key: string) => (answers[key]?.probability ?? 0) >= 0.5
+    // Only a sure answer counts: a sure no becomes advice, an unsure one becomes nothing.
+    const answers = (result?.answers ?? {}) as Record<string, NoulAnswer>
     const writing: WritingAnswers = result
-      ? Object.fromEntries(Object.keys(writingQuestions).map((key) => [key, yes(key)]))
+      ? Object.fromEntries(
+          Object.keys(writingQuestions)
+            .map((key) => [key, readNoul(answers[key])] as const)
+            .filter(([, read]) => read !== "unsure")
+            .map(([key, read]) => [key, read === "yes"])
+        )
       : {}
-    const shows = result ? tags.map((tag, i) => ({ tag, shown: yes(`t${i}`) })) : []
+    const shows = result ? tags.map((tag, i) => ({ tag, shown: readNoul(answers[`t${i}`]) })) : []
 
     const reviewed: Review = {
       at: Date.now(),
