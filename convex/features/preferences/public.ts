@@ -15,7 +15,7 @@ import type { Doc, Id } from "../../_generated/dataModel"
 import schema from "../../schema"
 import { arkId, arkOutputToConvex } from "../../lib/ark"
 import { arkMutation, authedMutation, authedQuery } from "../../lib/functions"
-import { Review } from "./resumeRules"
+import { readReview, Review } from "./resumeRules"
 import { answerRowsOf, entryKinds, fieldRowsOf, rowLimits, tagRowsOf } from "./rows"
 import {
   maxResumeBytes,
@@ -153,7 +153,7 @@ const get = authedQuery({
       resume: row.resumeId
         ? { name: row.resumeName ?? "Resume", url: await ctx.storage.getUrl(row.resumeId) }
         : null,
-      review: row.resumeReview ?? null,
+      review: row.resumeReview ? readReview(row.resumeReview) : null,
     }
   },
 })

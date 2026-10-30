@@ -1,7 +1,7 @@
 import { defineTable } from "convex/server"
 import { type } from "arktype"
 import { arkId, arkOutputToConvex } from "../../../lib/ark"
-import { Review } from "../resumeRules"
+import { StoredReview } from "../resumeRules"
 import { workModes } from "../validators"
 
 // One small row per user: settings that have a single value. Lists and answers live
@@ -14,7 +14,7 @@ export const PreferenceSettings = type({
   // The resume's text and its last review, set by Review on the Resume tab and
   // cleared when the file changes.
   "resumeText?": "string",
-  "resumeReview?": Review,
+  "resumeReview?": StoredReview,
   // Set the first time the Prefilled tab is saved; until then the page suggests fields.
   "prefilledAt?": "number",
 })

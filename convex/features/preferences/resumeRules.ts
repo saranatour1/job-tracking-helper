@@ -33,6 +33,20 @@ export const Review = type({
 })
 export type Review = typeof Review.infer
 
+// How a review is kept. Reviews from before Jev could say unsure hold true or false,
+// until the next review replaces them.
+export const StoredReview = Review.omit("shows").and({
+  shows: type({ tag: "string", shown: "boolean | 'yes' | 'no' | 'unsure'" }).array(),
+})
+
+export const readReview = (stored: typeof StoredReview.infer): Review => ({
+  ...stored,
+  shows: stored.shows.map(({ tag, shown }) => ({
+    tag,
+    shown: shown === true ? "yes" : shown === false ? "no" : shown,
+  })),
+})
+
 // Review at most this much text; a resume is one or two pages.
 export const maxResumeChars = 20_000
 
