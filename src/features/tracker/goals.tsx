@@ -1,44 +1,54 @@
-import {
-  Calendar03Icon,
-  Flag02Icon,
-  PlusSignIcon,
-  Tag01Icon,
-  Target02Icon,
-} from "@hugeicons/core-free-icons"
+import { api } from "@convex/_generated/api"
+import type { Id } from "@convex/_generated/dataModel"
+import { PlusSignIcon, Target02Icon } from "@hugeicons/core-free-icons"
 import { HugeiconsIcon } from "@hugeicons/react"
-import { Link } from "@tanstack/react-router"
+import { Link, useNavigate } from "@tanstack/react-router"
+import { useMutation } from "convex/react"
+import { ConvexError } from "convex/values"
+import { useActionState, useRef } from "react"
 
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import {
   Dialog,
+  DialogClose,
+  DialogCreateHandle,
+  DialogDescription,
   DialogFooter,
+  DialogHeader,
   DialogPanel,
   DialogPopup,
   DialogTitle,
   DialogTrigger,
 } from "@/components/ui/dialog"
+import { Input } from "@/components/ui/input"
+import { Label } from "@/components/ui/label"
 import { Meter, MeterIndicator, MeterTrack } from "@/components/ui/meter"
 import { Textarea } from "@/components/ui/textarea"
 import { PageHeader } from "@/features/shell/page-header"
 import { cn } from "@/lib/utils"
 
 import {
+  type Application,
   type Goal,
-  applications,
+  type Priority,
   formatDate,
   goalProgress,
   goalStatus,
-  goals,
+  priorities,
   priorityLabels,
 } from "./data"
 import { PriorityIcon } from "./icons"
 import { Pipeline } from "./pipeline"
+import { useSource } from "./source"
+
+// Today as YYYY-MM-DD, the form a goal's dates take.
+const todayIso = () => new Date().toISOString().slice(0, 10)
 
 const statusBadge = { Active: "info", Upcoming: "outline", Completed: "success" } as const
 
-const GoalBadge = ({ goal }: { goal: Goal }) => {
-  const status = goalStatus(goal)
+const GoalBadge = ({ goal, on }: { goal: Goal; on: string }) => {
+  const status = goalStatus(goal, on)
   return (
     <Badge variant={statusBadge[status]} className="font-normal">
       {status}
@@ -46,89 +56,175 @@ const GoalBadge = ({ goal }: { goal: Goal }) => {
   )
 }
 
-const GoalMeter = ({ goal, className }: { goal: Goal; className?: string }) => (
-  <Meter value={goalProgress(goal)} aria-label={`${goal.name} progress`} className={className}>
+const GoalMeter = ({ goal, on, className }: { goal: Goal; on: string; className?: string }) => (
+  <Meter value={goalProgress(goal, on)} aria-label={`${goal.name} progress`} className={className}>
     <MeterTrack className="h-1.5 rounded-full">
       <MeterIndicator className="rounded-full" />
     </MeterTrack>
   </Meter>
 )
 
-const stats = (goal: Goal) => {
+const stats = (goal: Goal, applications: Application[]) => {
   const items = applications.filter((a) => a.goalId === goal.id)
   const reached = (s: string) => items.filter((a) => a.history.some((e) => e.status === s)).length
   return { items: items.length, interviews: reached("interviewing"), offers: reached("offer") }
 }
 
-// shortcut: "Create goal" does nothing until goals are stored in Convex.
-const NewGoalDialog = () => (
-  <Dialog>
-    <DialogTrigger
-      render={
-        <Button variant="ghost" size="sm">
-          <HugeiconsIcon icon={PlusSignIcon} /> New goal
-        </Button>
-      }
-    />
-    <DialogPopup className="sm:max-w-2xl">
-      <DialogPanel className="flex flex-col gap-4 pt-6">
-        <span className="bg-muted flex size-9 items-center justify-center rounded-md">
-          <HugeiconsIcon icon={Target02Icon} className="size-4.5" />
-        </span>
-        <DialogTitle className="sr-only">New goal</DialogTitle>
-        <input
-          aria-label="Goal name"
-          placeholder="Goal name"
-          className="font-heading placeholder:text-muted-foreground/60 bg-transparent text-2xl font-semibold outline-none"
-        />
-        <input
-          aria-label="Summary"
-          placeholder="Add a short summary…"
-          className="placeholder:text-muted-foreground/60 bg-transparent outline-none"
-        />
-        <div className="flex flex-wrap gap-1.5">
-          {(
-            [
-              [Flag02Icon, "No priority"],
-              [Calendar03Icon, "Target date"],
-              [Tag01Icon, "Labels"],
-            ] as const
-          ).map(([icon, label]) => (
-            <Button key={label} variant="outline" size="xs" className="rounded-full">
-              <HugeiconsIcon icon={icon} /> {label}
-            </Button>
-          ))}
-        </div>
-        <Textarea
-          aria-label="Description"
-          placeholder="Why this goal matters, and what done looks like…"
-          className="min-h-32"
-        />
-        <div className="flex items-center justify-between rounded-lg border px-3 py-2 text-sm">
-          <span className="font-medium">Milestones</span>
-          <Button variant="ghost" size="icon-xs" aria-label="Add milestone">
-            <HugeiconsIcon icon={PlusSignIcon} />
-          </Button>
-        </div>
-      </DialogPanel>
-      <DialogFooter>
-        <Button type="button">Create goal</Button>
-      </DialogFooter>
-    </DialogPopup>
-  </Dialog>
-)
+const select = "border-input h-9 w-full rounded-lg border bg-transparent px-2.5 text-sm sm:h-8"
+
+// Creates a goal, or edits the one given. Milestones are one per line; a renamed
+// milestone starts unticked.
+const GoalDialog = ({ goal, trigger }: { goal?: Goal; trigger: React.ReactElement }) => {
+  const create = useMutation(api.goals.create)
+  const update = useMutation(api.goals.update)
+  const handle = useRef(DialogCreateHandle()).current
+  const [error, submit] = useActionState(async (_: string | undefined, form: FormData) => {
+    const text = (name: string) => {
+      const value = form.get(name)
+      return typeof value === "string" ? value.trim() : ""
+    }
+    const fields = {
+      name: text("name"),
+      summary: text("summary"),
+      priority: text("priority") as Priority,
+      start: text("start"),
+      target: text("target"),
+      milestones: text("milestones")
+        .split("\n")
+        .map((line) => line.trim())
+        .filter(Boolean)
+        .map((name) => {
+          const was = goal?.milestones.find((m) => m.name === name)
+          return { name, done: was?.done ?? false, ...(was?.target && { target: was.target }) }
+        }),
+    }
+    if (!fields.name) return "Give the goal a name."
+    if (!fields.start || !fields.target) return "Pick a start and a target date."
+    try {
+      if (goal) await update({ id: goal.id as Id<"goals">, ...fields })
+      else await create(fields)
+      handle.close()
+      return undefined
+    } catch (cause) {
+      return cause instanceof ConvexError ? String(cause.data) : "Something went wrong. Try again."
+    }
+  }, undefined)
+
+  return (
+    <Dialog handle={handle}>
+      <DialogTrigger render={trigger} />
+      <DialogPopup className="sm:max-w-lg">
+        <form action={submit} className="contents">
+          <DialogHeader>
+            <DialogTitle>{goal ? "Edit goal" : "New goal"}</DialogTitle>
+            <DialogDescription>
+              {goal ? "Change what this goal is about." : "Something your search is for."}
+            </DialogDescription>
+          </DialogHeader>
+          <DialogPanel className="grid gap-4">
+            <div className="grid gap-1.5">
+              <Label htmlFor="goal-name">Name</Label>
+              <Input
+                id="goal-name"
+                name="name"
+                defaultValue={goal?.name}
+                placeholder="Land a frontend role"
+              />
+            </div>
+            <div className="grid gap-1.5">
+              <Label htmlFor="goal-summary">Summary</Label>
+              <Input
+                id="goal-summary"
+                name="summary"
+                defaultValue={goal?.summary}
+                placeholder="A full-time frontend role before the end of Q1"
+              />
+            </div>
+            <div className="grid grid-cols-3 gap-3">
+              <div className="grid gap-1.5">
+                <Label htmlFor="goal-start">Start</Label>
+                <Input
+                  id="goal-start"
+                  name="start"
+                  type="date"
+                  defaultValue={goal?.start ?? todayIso()}
+                />
+              </div>
+              <div className="grid gap-1.5">
+                <Label htmlFor="goal-target">Target</Label>
+                <Input id="goal-target" name="target" type="date" defaultValue={goal?.target} />
+              </div>
+              <div className="grid gap-1.5">
+                <Label htmlFor="goal-priority">Priority</Label>
+                <select
+                  id="goal-priority"
+                  name="priority"
+                  defaultValue={goal?.priority ?? "medium"}
+                  className={select}
+                >
+                  {priorities.map((p) => (
+                    <option key={p} value={p}>
+                      {priorityLabels[p]}
+                    </option>
+                  ))}
+                </select>
+              </div>
+            </div>
+            <div className="grid gap-1.5">
+              <Label htmlFor="goal-milestones">Milestones</Label>
+              <Textarea
+                id="goal-milestones"
+                name="milestones"
+                defaultValue={goal?.milestones.map((m) => m.name).join("\n")}
+                placeholder={"One per line, like:\nApply to 30 companies\nReach 5 interviews"}
+                className="min-h-24"
+              />
+            </div>
+            {error && (
+              <p role="alert" className="text-destructive text-sm">
+                {error}
+              </p>
+            )}
+          </DialogPanel>
+          <DialogFooter>
+            <DialogClose render={<Button variant="ghost" />}>Cancel</DialogClose>
+            <Button type="submit">{goal ? "Save" : "Create goal"}</Button>
+          </DialogFooter>
+        </form>
+      </DialogPopup>
+    </Dialog>
+  )
+}
 
 // Goals as a timeline, newest first, like cycles. Each goal opens its applications.
 export const Goals = () => {
+  const { goals, applications, loaded } = useSource()
+  const on = todayIso()
   const sorted = [...goals].sort((a, b) => b.start.localeCompare(a.start))
   return (
     <>
-      <PageHeader crumbs={[{ label: "Tracker" }, { label: "Goals" }]} actions={<NewGoalDialog />} />
+      <PageHeader
+        crumbs={[{ label: "Tracker" }, { label: "Goals" }]}
+        actions={
+          <GoalDialog
+            trigger={
+              <Button variant="ghost" size="sm">
+                <HugeiconsIcon icon={PlusSignIcon} /> New goal
+              </Button>
+            }
+          />
+        }
+      />
       <ol className="flex flex-col py-2">
+        {loaded && goals.length === 0 && (
+          <li className="text-muted-foreground p-6 text-center text-[13px]">
+            No goals yet. Make one, then put applications on it from their Goal property.
+          </li>
+        )}
         {sorted.map((goal, i) => {
-          const status = goalStatus(goal)
-          const progress = goalProgress(goal)
-          const { items } = stats(goal)
+          const status = goalStatus(goal, on)
+          const progress = goalProgress(goal, on)
+          const { items } = stats(goal, applications)
           return (
             <li
               key={goal.id}
@@ -169,9 +265,9 @@ export const Goals = () => {
                   </span>
                 </span>
                 <span className="text-muted-foreground ms-auto hidden shrink-0 items-center gap-4 text-xs sm:flex">
-                  <GoalBadge goal={goal} />
+                  <GoalBadge goal={goal} on={on} />
                   <span className="flex items-center gap-2">
-                    <GoalMeter goal={goal} className="w-16" />
+                    <GoalMeter goal={goal} on={on} className="w-16" />
                     <span className="text-foreground w-8 tabular-nums">{progress}%</span>
                   </span>
                   <span>
@@ -193,15 +289,48 @@ export const Goals = () => {
   )
 }
 
-// The goal's side panel: dates, progress, milestones and how its applications are doing.
+// The goal's side panel: dates, progress, milestones to tick, and how its applications
+// are doing.
 const GoalSummary = ({ goal }: { goal: Goal }) => {
-  const { items, interviews, offers } = stats(goal)
+  const { applications } = useSource()
+  const update = useMutation(api.goals.update)
+  const remove = useMutation(api.goals.remove)
+  const navigate = useNavigate()
+  const on = todayIso()
+  const { items, interviews, offers } = stats(goal, applications)
+  const id = goal.id as Id<"goals">
+  const tick = (name: string) =>
+    update({
+      id,
+      milestones: goal.milestones.map((m) => (m.name === name ? { ...m, done: !m.done } : m)),
+    })
   return (
     <div className="flex flex-col gap-4 border-b pb-4">
       <div className="text-muted-foreground flex items-center gap-2 text-xs">
-        <GoalBadge goal={goal} />
+        <GoalBadge goal={goal} on={on} />
         <span>
           {formatDate(goal.start)} → {formatDate(goal.target)}
+        </span>
+        <span className="ms-auto flex gap-1">
+          <GoalDialog
+            goal={goal}
+            trigger={
+              <Button variant="ghost" size="xs">
+                Edit
+              </Button>
+            }
+          />
+          <Button
+            variant="ghost"
+            size="xs"
+            className="text-destructive"
+            onClick={() => {
+              if (!window.confirm(`Delete “${goal.name}”? Its applications stay.`)) return
+              void remove({ id }).then(() => navigate({ to: "/goals" }))
+            }}
+          >
+            Delete
+          </Button>
         </span>
       </div>
       <div className="flex flex-col gap-1">
@@ -209,13 +338,13 @@ const GoalSummary = ({ goal }: { goal: Goal }) => {
           <HugeiconsIcon icon={Target02Icon} className="text-muted-foreground size-4" />
           {goal.name}
         </h2>
-        <p className="text-muted-foreground text-[13px]">{goal.summary}</p>
+        {goal.summary && <p className="text-muted-foreground text-[13px]">{goal.summary}</p>}
       </div>
-      <GoalMeter goal={goal} />
+      <GoalMeter goal={goal} on={on} />
       <dl className="grid grid-cols-3 gap-2 text-xs">
         {(
           [
-            ["Progress", `${goalProgress(goal)}%`],
+            ["Progress", `${goalProgress(goal, on)}%`],
             ["Interviews", `${interviews}/${items}`],
             ["Offers", `${offers}`],
           ] as const
@@ -231,21 +360,31 @@ const GoalSummary = ({ goal }: { goal: Goal }) => {
           Milestones · <PriorityIcon priority={goal.priority} className="inline size-3" />{" "}
           {priorityLabels[goal.priority]}
         </span>
+        {goal.milestones.length === 0 && (
+          <p className="text-muted-foreground text-[13px]">None. Edit the goal to add some.</p>
+        )}
         <ol className="flex flex-col">
           {goal.milestones.map((m) => (
-            <li key={m.name} className="flex items-center gap-2 py-1 text-[13px]">
-              <span
-                className={cn(
-                  "size-2 shrink-0 rounded-full border",
-                  m.done ? "bg-primary border-primary" : "border-muted-foreground"
+            <li key={m.name}>
+              <button
+                type="button"
+                aria-pressed={m.done}
+                onClick={() => void tick(m.name)}
+                className="hover:bg-accent flex w-full items-center gap-2 rounded-md px-1 py-1 text-start text-[13px]"
+              >
+                <span
+                  className={cn(
+                    "size-2 shrink-0 rounded-full border",
+                    m.done ? "bg-primary border-primary" : "border-muted-foreground"
+                  )}
+                />
+                <span className={m.done ? "text-muted-foreground line-through" : ""}>{m.name}</span>
+                {m.target && (
+                  <span className="text-muted-foreground ms-auto text-xs">
+                    {formatDate(m.target)}
+                  </span>
                 )}
-              />
-              <span className={m.done ? "text-muted-foreground line-through" : ""}>{m.name}</span>
-              {m.target && (
-                <span className="text-muted-foreground ms-auto text-xs">
-                  {formatDate(m.target)}
-                </span>
-              )}
+              </button>
             </li>
           ))}
         </ol>
@@ -255,12 +394,13 @@ const GoalSummary = ({ goal }: { goal: Goal }) => {
 }
 
 export const GoalDetail = ({ id }: { id: string }) => {
+  const { goals, loaded } = useSource()
   const goal = goals.find((g) => g.id === id)
   if (!goal) {
     return (
       <>
-        <PageHeader crumbs={[{ label: "Goals", to: "/goals" }, { label: id }]} />
-        <p className="text-muted-foreground p-6 text-sm">No goal with id {id}.</p>
+        <PageHeader crumbs={[{ label: "Goals", to: "/goals" }, { label: loaded ? id : "…" }]} />
+        {loaded && <p className="text-muted-foreground p-6 text-sm">No goal with id {id}.</p>}
       </>
     )
   }

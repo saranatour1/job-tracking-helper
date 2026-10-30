@@ -7,6 +7,7 @@ import { deleteEmail } from "../email/internal"
 import { deleteLoops } from "../loops/internal"
 import { deleteNotifications } from "../notifications/public"
 import { deleteViews } from "../views/public"
+import { deleteGoals } from "../goals/public"
 import { deleteCalendar } from "../calendar/public"
 import { deleteBookingPages } from "../booking/public"
 import { deleteAutomations } from "../automations/public"
@@ -101,6 +102,7 @@ const deleteAccount = authedMutation({
     await deleteEmail(ctx, ctx.userId)
     await deleteNotifications(ctx, ctx.userId)
     await deleteViews(ctx, ctx.userId)
+    await deleteGoals(ctx, ctx.userId)
     await deleteCalendar(ctx, ctx.userId)
     await deleteBookingPages(ctx, ctx.userId)
     await deleteAutomations(ctx, ctx.userId)

@@ -248,13 +248,23 @@ application.
    view", name it, and Create view (`api.views.create`). It opens at `/?view=<id>`.
 2. **Open a view:** its tab on Applications, or `/views`.
 3. **Delete a view:** right-click its tab → "Delete view", and confirm.
-4. **Goals** (`/goals`, `/goals/$id`) show a timeline and a goal's applications with its
-   progress.
+4. **Make a goal:** on **Goals** (`/goals`), **New goal**: a name, a summary, a priority,
+   start and target dates, and milestones one per line. Create goal saves it
+   (`api.goals.create`). The timeline lists goals newest first, each with its status
+   (Upcoming, Active or Completed), progress and how many applications count toward it.
+5. **Open a goal** (`/goals/$id`): its applications on the board, with a summary panel
+   showing progress, interviews and offers, and its milestones. Click a milestone to tick
+   it or untick it (`api.goals.update`). **Edit** changes the fields; **Delete** asks
+   first, then removes the goal and its applications leave it (`api.goals.remove`).
+6. **Put an application on a goal:** open it and pick the goal in its properties
+   (`api.applications.setGoal`). The board can filter, group and count by goal.
 
-**Rules:** 50 views. Goals use sample data for now: "Create goal" doesn't save, and real
-applications can't join a goal.
+**Rules:** 50 views, 50 goals, 20 milestones a goal. Progress is the share of milestones
+ticked; a goal with none is complete once its target date has passed. Only your own goals
+can be picked, edited or deleted.
 
-**Files:** `src/features/tracker/views.tsx`, `goals.tsx`, `convex/api/features/views/`.
+**Files:** `src/features/tracker/views.tsx`, `goals.tsx`, `convex/api/features/views/`,
+`convex/api/features/goals/`.
 
 ## Jobs
 
@@ -557,5 +567,4 @@ describe it in a sentence and let Jev draft it. The full story is in
   afterwards is refused.
 - Deleting an account doesn't stop a loop run that's in progress; it finds nothing to
   save and stops.
-- Goals use sample data.
 - A guest with no Calendar time zone gets workflow calendar events in UTC.

@@ -38,6 +38,8 @@ import type * as api_features_email_models from "../api/features/email/models.js
 import type * as api_features_email_public from "../api/features/email/public.js";
 import type * as api_features_email_sort from "../api/features/email/sort.js";
 import type * as api_features_email_validators from "../api/features/email/validators.js";
+import type * as api_features_goals_models from "../api/features/goals/models.js";
+import type * as api_features_goals_public from "../api/features/goals/public.js";
 import type * as api_features_jobs_actions from "../api/features/jobs/actions.js";
 import type * as api_features_jobs_boards from "../api/features/jobs/boards.js";
 import type * as api_features_jobs_index from "../api/features/jobs/index.js";
@@ -93,6 +95,7 @@ import type * as booking from "../booking.js";
 import type * as calendar from "../calendar.js";
 import type * as crons from "../crons.js";
 import type * as email from "../email.js";
+import type * as goals from "../goals.js";
 import type * as http from "../http.js";
 import type * as inbox from "../inbox.js";
 import type * as jobs from "../jobs.js";
@@ -144,6 +147,8 @@ declare const fullApi: ApiFromModules<{
   "api/features/email/public": typeof api_features_email_public;
   "api/features/email/sort": typeof api_features_email_sort;
   "api/features/email/validators": typeof api_features_email_validators;
+  "api/features/goals/models": typeof api_features_goals_models;
+  "api/features/goals/public": typeof api_features_goals_public;
   "api/features/jobs/actions": typeof api_features_jobs_actions;
   "api/features/jobs/boards": typeof api_features_jobs_boards;
   "api/features/jobs/index": typeof api_features_jobs_index;
@@ -199,6 +204,7 @@ declare const fullApi: ApiFromModules<{
   calendar: typeof calendar;
   crons: typeof crons;
   email: typeof email;
+  goals: typeof goals;
   http: typeof http;
   inbox: typeof inbox;
   jobs: typeof jobs;
