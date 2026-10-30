@@ -1,6 +1,6 @@
 import { api } from "@convex/_generated/api"
 import type { Doc } from "@convex/_generated/dataModel"
-import { blocksOf } from "@convex/api/features/automations/validators"
+import { blocksOf } from "@convex/features/automations/validators"
 import { Link, useNavigate } from "@tanstack/react-router"
 import { useAction, useMutation } from "convex/react"
 import { useQuery } from "convex-helpers/react/cache/hooks"

@@ -1,11 +1,11 @@
-import { statusLabels } from "@convex/api/features/applications/validators"
+import { statusLabels } from "@convex/features/applications/validators"
 import {
   type Block,
   blocksOf,
   type Branch,
   type Step,
   type Trigger,
-} from "@convex/api/features/automations/validators"
+} from "@convex/features/automations/validators"
 import {
   AiBrain01Icon,
   Calendar03Icon,

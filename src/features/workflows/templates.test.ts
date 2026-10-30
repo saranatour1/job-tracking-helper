@@ -1,4 +1,4 @@
-import { blocksOf, problemOf } from "@convex/api/features/automations/validators"
+import { blocksOf, problemOf } from "@convex/features/automations/validators"
 import { describe, expect, it } from "vite-plus/test"
 
 import { draftOf, templateNames } from "./templates"

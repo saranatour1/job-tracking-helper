@@ -1,6 +1,6 @@
 // Registers `api.autoApply.*` and `internal.autoApply.*`. Definitions live in
-// ./api/features/autoApply.
-import { autoApplyApi } from "./api/features/autoApply"
+// ./features/autoApply.
+import { autoApplyApi } from "./features/autoApply"
 
 export const {
   settings,

@@ -1,9 +1,9 @@
 // Registers `api.automations.*` and `internal.automations.*`: workflows people build
 // from blocks, and the one workflow that runs them. Definitions live in
-// ./api/features/automations.
-import { actionsApi } from "./api/features/automations/actions"
-import { engineApi } from "./api/features/automations/engine"
-import { publicApi } from "./api/features/automations/public"
+// ./features/automations.
+import { actionsApi } from "./features/automations/actions"
+import { engineApi } from "./features/automations/engine"
+import { publicApi } from "./features/automations/public"
 
 export const { list, counts, choices, runs, save, setActive, remove, runNow, stopRun } = publicApi
 export const {

@@ -1,7 +1,7 @@
 import { type } from "arktype"
 import type { Infer } from "convex/values"
 import { v } from "convex/values"
-import { statuses } from "../api/features/applications/validators"
+import { statuses } from "../features/applications/validators"
 import { describe, expect, expectTypeOf, it } from "vite-plus/test"
 
 import type { Doc, Id } from "../_generated/dataModel"

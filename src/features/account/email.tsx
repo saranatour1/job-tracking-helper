@@ -1,6 +1,6 @@
 import { api } from "@convex/_generated/api"
-import type { allowKeys } from "@convex/api/features/email/models"
-import { Connect } from "@convex/api/features/email/validators"
+import type { allowKeys } from "@convex/features/email/models"
+import { Connect } from "@convex/features/email/validators"
 import { SquareLock02Icon } from "@hugeicons/core-free-icons"
 import { HugeiconsIcon } from "@hugeicons/react"
 import { useForm } from "@tanstack/react-form"

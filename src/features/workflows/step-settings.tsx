@@ -1,14 +1,14 @@
 import { api } from "@convex/_generated/api"
 import type { Doc } from "@convex/_generated/dataModel"
 import { useQuery } from "convex-helpers/react/cache/hooks"
-import { statusLabels, statuses } from "@convex/api/features/applications/validators"
-import type { Block, Branch, Step, Trigger } from "@convex/api/features/automations/validators"
+import { statusLabels, statuses } from "@convex/features/applications/validators"
+import type { Block, Branch, Step, Trigger } from "@convex/features/automations/validators"
 import {
   limits,
   onlyIfFacts,
   stepAt,
   triggerHasApplication,
-} from "@convex/api/features/automations/validators"
+} from "@convex/features/automations/validators"
 import { Delete02Icon, PlusSignIcon } from "@hugeicons/core-free-icons"
 import { HugeiconsIcon } from "@hugeicons/react"
 

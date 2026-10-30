@@ -1,5 +1,5 @@
 import { api } from "@convex/_generated/api"
-import { type NotificationKind, notificationKinds } from "@convex/api/features/notifications/kinds"
+import { type NotificationKind, notificationKinds } from "@convex/features/notifications/kinds"
 import { useMutation } from "convex/react"
 import { useQuery } from "convex-helpers/react/cache/hooks"
 

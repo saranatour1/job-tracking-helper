@@ -15,7 +15,7 @@ export const statuses = [
 ] as const
 export type Status = (typeof statuses)[number]
 
-import { statusLabels } from "@convex/api/features/applications/validators"
+import { statusLabels } from "@convex/features/applications/validators"
 
 export { statusLabels }
 

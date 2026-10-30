@@ -14,7 +14,7 @@ Calendar (`/calendar`) puts every date in one place, in [kloq](https://coss.com/
 
 Booking pages (Account → Booking pages) are links like `/book/<code>` you send a recruiter. Each has a title, a length, the days and hours it's open in your zone, how much notice it needs, and optionally the application it's for. The page shows your free time in the guest's zone, with yours beside it, and hatches the rest: your Calendar events and the interview slots your mail proposed (only the times leave the server). The server checks each booking again, allows one upcoming booking per email, and puts it on your Calendar as an interview, under the page's application or the one matching the guest's email domain, with a note in the Inbox. The guest gets an .ics file for their own calendar.
 
-Workflows you build yourself are data, never code: a trigger (Run now, a schedule, an email being sorted, an application moving, or someone booking time) and up to 20 steps, each a block the app knows (Notify me, Find roles, Send email, Add note, Move application, Add calendar event, Only go on if, Wait), branching one level deep into side-by-side paths or Ask Jev. Start one from scratch, from a template, or by describing it in a sentence for Jev to draft. One workflow on the Convex workflow component (`convex/api/features/automations/engine.ts`) runs them all and keeps each step's outcome; Workflows (`/workflows`) opens each in a React Flow builder with its run history. See [docs/workflows.md](docs/workflows.md) for the details.
+Workflows you build yourself are data, never code: a trigger (Run now, a schedule, an email being sorted, an application moving, or someone booking time) and up to 20 steps, each a block the app knows (Notify me, Find roles, Send email, Add note, Move application, Add calendar event, Only go on if, Wait), branching one level deep into side-by-side paths or Ask Jev. Start one from scratch, from a template, or by describing it in a sentence for Jev to draft. One workflow on the Convex workflow component (`convex/features/automations/engine.ts`) runs them all and keeps each step's outcome; Workflows (`/workflows`) opens each in a React Flow builder with its run history. See [docs/workflows.md](docs/workflows.md) for the details.
 
 The Inbox shows what happened: new mail about your applications, mail that needs filing, new bookings, messages from your workflows, and new roles from loops. Each kind can be turned off under Account → Notifications. It reads from the notifications component in `convex/notifications`.
 
@@ -62,18 +62,19 @@ sh scripts/push-secrets.test.sh
 
 ```
 convex/
-  <feature>.ts                         registers api.<feature>.* (auth.ts, applications.ts)
-  api/features/<feature>/
+  <feature>.ts                         registers api.<feature>.*: one line each, since the file's name is the API's name
+  features/<feature>/
     models.ts                          the feature's tables
     validators.ts                      arktype rules, safe to import from the frontend
     public.ts                          functions the frontend calls
     internal.ts                        functions only this feature calls
     utils.ts                           helpers used only here
     index.ts                           collects public and internal into one object
-  cloudflareEmail/                     local component: sends through Cloudflare and keeps the emails
-  notifications/                       local component: each person's inbox feed and muted kinds
+  components/
+    cloudflareEmail/                   local component: sends through Cloudflare and keeps the emails
+    notifications/                     local component: each person's inbox feed and muted kinds
   lib/                                 shared helpers: arktype to Convex, signed-in builders, secrets
-  schema.ts                            collects each feature's tables
+  schema.ts, convex.config.ts, auth.config.ts, http.ts, crons.ts   Convex needs these at the root
 src/
   routes/                              pages (TanStack Router); they only import a feature
     _app.tsx, _auth.tsx                layouts: signed-in pages, and /sign-in + /sign-up

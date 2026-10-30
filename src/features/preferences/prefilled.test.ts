@@ -1,4 +1,4 @@
-import { emptyPreferences, PrefilledSections } from "@convex/api/features/preferences/validators"
+import { emptyPreferences, PrefilledSections } from "@convex/features/preferences/validators"
 import { describe, expect, it } from "vite-plus/test"
 
 import { fillEmpty, suggestedSections } from "./prefilled"

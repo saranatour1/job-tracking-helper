@@ -1,5 +1,5 @@
 import { api } from "@convex/_generated/api"
-import { instantOf, isOpen, offsetOf, slotProblem } from "@convex/api/features/booking/slots"
+import { instantOf, isOpen, offsetOf, slotProblem } from "@convex/features/booking/slots"
 import { useNavigate, useSearch } from "@tanstack/react-router"
 import { useMutation } from "convex/react"
 import { useQuery } from "convex-helpers/react/cache/hooks"

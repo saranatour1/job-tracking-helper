@@ -1,5 +1,5 @@
-// Registers `api.jobs.*` and `internal.jobs.*`. Definitions live in ./api/features/jobs.
-import { jobsApi } from "./api/features/jobs"
+// Registers `api.jobs.*` and `internal.jobs.*`. Definitions live in ./features/jobs.
+import { jobsApi } from "./features/jobs"
 
 export const {
   search,

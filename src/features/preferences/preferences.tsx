@@ -7,7 +7,7 @@ import {
   PrefilledSections,
   resumeTypes,
   workModes,
-} from "@convex/api/features/preferences/validators"
+} from "@convex/features/preferences/validators"
 import {
   ArrowRight01Icon,
   Cancel01Icon,
@@ -19,12 +19,7 @@ import { HugeiconsIcon } from "@hugeicons/react"
 import { useForm, useStore } from "@tanstack/react-form"
 import { useLocation, useNavigate, useSearch } from "@tanstack/react-router"
 import { type } from "arktype"
-import {
-  builtInAnswers,
-  formOf,
-  rowLimits,
-  sectionsOf,
-} from "@convex/api/features/preferences/rows"
+import { builtInAnswers, formOf, rowLimits, sectionsOf } from "@convex/features/preferences/rows"
 import { useAction, useMutation } from "convex/react"
 import { usePaginatedQuery, useQuery } from "convex-helpers/react/cache/hooks"
 import { ConvexError } from "convex/values"
@@ -50,7 +45,7 @@ import {
 import { PageHeader } from "@/features/shell/page-header"
 import { cn } from "@/lib/utils"
 
-import type { Review } from "@convex/api/features/preferences/resumeRules"
+import type { Review } from "@convex/features/preferences/resumeRules"
 
 import { IdentityBlocks } from "./identity-blocks"
 import { assistantPrompt, parseReply } from "./prompt"

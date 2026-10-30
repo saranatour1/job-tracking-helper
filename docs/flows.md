@@ -40,19 +40,19 @@ Workflows have their own page, [workflows.md](workflows.md).
 
 ### Who acts
 
-| Actor                         | What it does                                                                                                                                | Where                                                                               |
-| ----------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------- |
-| You                           | Everything in the pages below                                                                                                               | `src/features/*`                                                                    |
-| A guest on a booking page     | Books time with you, signed in or not                                                                                                       | `/book/$slug`                                                                       |
-| Crons                         | Start due loops (every 15 minutes), start due workflows (every 5 minutes), refresh job boards (hourly), sweep the Archive and Trash (daily) | `convex/crons.ts`                                                                   |
-| The inbound email hook        | Takes mail your Cloudflare Worker forwards                                                                                                  | `POST /email/inbound/<id>`, `convex/http.ts`                                        |
-| Jev                           | Judges roles for loops and pasted links, sorts mail, answers Ask Jev, drafts workflows from a sentence                                      | `convex/api/features/workflows/judge.ts`, `email/sort.ts`, `automations/actions.ts` |
-| The batch worker (`readPool`) | Fetches job boards and runs Jev's judgments, 8 at a time, retrying each up to 3 times                                                       | `convex/api/features/workflows/manager.ts`                                          |
-| Workflows                     | Runs the steps people build                                                                                                                 | `convex/api/features/automations/engine.ts`                                         |
+| Actor                         | What it does                                                                                                                                | Where                                                                           |
+| ----------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------- |
+| You                           | Everything in the pages below                                                                                                               | `src/features/*`                                                                |
+| A guest on a booking page     | Books time with you, signed in or not                                                                                                       | `/book/$slug`                                                                   |
+| Crons                         | Start due loops (every 15 minutes), start due workflows (every 5 minutes), refresh job boards (hourly), sweep the Archive and Trash (daily) | `convex/crons.ts`                                                               |
+| The inbound email hook        | Takes mail your Cloudflare Worker forwards                                                                                                  | `POST /email/inbound/<id>`, `convex/http.ts`                                    |
+| Jev                           | Judges roles for loops and pasted links, sorts mail, answers Ask Jev, drafts workflows from a sentence                                      | `convex/features/workflows/judge.ts`, `email/sort.ts`, `automations/actions.ts` |
+| The batch worker (`readPool`) | Fetches job boards and runs Jev's judgments, 8 at a time, retrying each up to 3 times                                                       | `convex/features/workflows/manager.ts`                                          |
+| Workflows                     | Runs the steps people build                                                                                                                 | `convex/features/automations/engine.ts`                                         |
 
 ### Events that start workflows
 
-`fireEvent` (`convex/api/features/automations/fire.ts`) is called when:
+`fireEvent` (`convex/features/automations/fire.ts`) is called when:
 
 - the sorter files an email (`internal.email.record`);
 - an application changes status (`changeStatus`), except a move a workflow made;
@@ -105,7 +105,7 @@ pasted links that aren't on a known board. A source without a key is skipped.
 `/sign-in` go to `/`.
 
 **Files:** `src/features/auth/sign-in.tsx`, `src/routes/_auth*.tsx`,
-`src/routes/_app.tsx`, `convex/api/features/auth/`.
+`src/routes/_app.tsx`, `convex/features/auth/`.
 
 ## The shell
 
@@ -175,7 +175,7 @@ fills forms from Prefilled, your custom questions and your account name and emai
 **Rules:** each tag is 1 to 60 characters, 40 per list; Prefilled has up to 20 sections
 of 50 fields, with no names twice.
 
-**Files:** `src/features/preferences/`, `convex/api/features/preferences/`.
+**Files:** `src/features/preferences/`, `convex/features/preferences/`.
 
 ## Resume
 
@@ -205,7 +205,7 @@ of 50 fields, with no names twice.
    The text and the review stay on your preferences until the file changes. 10 reviews
    a day.
 
-**Files:** `src/features/preferences/resume.tsx`, `convex/api/features/preferences/`
+**Files:** `src/features/preferences/resume.tsx`, `convex/features/preferences/`
 (`resumeRules.ts` for the checks and advice, `resume.ts` for the action).
 
 ## Applications
@@ -272,7 +272,7 @@ lead marked tracked, so loops never offer the role again.
 **Rules:** 20 labels, 50 tasks, the last 100 notes and 100 history entries per
 application.
 
-**Files:** `src/features/tracker/`, `convex/api/features/applications/`.
+**Files:** `src/features/tracker/`, `convex/features/applications/`.
 
 ## Views and goals
 
@@ -321,8 +321,8 @@ application.
 ticked; a goal with none is complete once its target date has passed. Only your own goals
 and loops can be picked, edited or deleted.
 
-**Files:** `src/features/tracker/views.tsx`, `goals.tsx`, `convex/api/features/views/`,
-`convex/api/features/goals/`.
+**Files:** `src/features/tracker/views.tsx`, `goals.tsx`, `convex/features/views/`,
+`convex/features/goals/`.
 
 ## Jobs
 
@@ -363,7 +363,7 @@ Previews are the same text as plain words.
 
 **Rules:** the catalog is shared by everyone; what Jev thought of a role is yours alone.
 
-**Files:** `src/features/jobs/`, `convex/api/features/jobs/`.
+**Files:** `src/features/jobs/`, `convex/features/jobs/`.
 
 ## Auto-apply and Activity
 
@@ -422,7 +422,7 @@ most once, even if a run dies mid-way. Answers' values never go in the log, only
 labels.
 
 **Files:** `src/features/activity/`, `src/features/jobs/jobs.tsx`,
-`src/features/account/account.tsx`, `convex/api/features/autoApply/` (`match.ts` the
+`src/features/account/account.tsx`, `convex/features/autoApply/` (`match.ts` the
 matcher and Jev's questions, `firecrawl.ts` the calls and scripts, `actions.ts` the run,
 `public.ts` the queue, `internal.ts` claim, the submit fence and finish).
 
@@ -483,8 +483,8 @@ matcher and Jev's questions, `firecrawl.ts` the calls and scripts, `actions.ts` 
 **Rules:** 3 loops; checks 25, 50 or 100 roles a run and shows 3, 5 or 10; Run now 3 a
 day; links 10 a day; a source moves on at 90% of its monthly credits.
 
-**Files:** `src/features/loops/`, `convex/api/features/loops/`,
-`convex/api/features/workflows/` (the run, Jev's judging, search sources).
+**Files:** `src/features/loops/`, `convex/features/loops/`,
+`convex/features/workflows/` (the run, Jev's judging, search sources).
 
 ## Inbox
 
@@ -519,8 +519,8 @@ day; links 10 a day; a source moves on at 90% of its monthly credits.
 **Rules:** a kind turned off under Account is never recorded. A line whose source is gone
 isn't shown. Email lines are opened from their sealed note only when you look.
 
-**Files:** `src/features/inbox/`, `convex/api/features/notifications/`,
-`convex/notifications/`.
+**Files:** `src/features/inbox/`, `convex/features/notifications/`,
+`convex/components/notifications/`.
 
 ## Email
 
@@ -582,8 +582,8 @@ bounced or is suppressed counts as failed, even though Cloudflare calls that req
 success. An email still "queued" after 15 minutes means its send died, so it's marked
 failed, and Account says it couldn't confirm the email went out.
 
-**Files:** `src/features/account/email.tsx`, `convex/api/features/email/`,
-`convex/cloudflareEmail/`, `convex/lib/secrets.ts`.
+**Files:** `src/features/account/email.tsx`, `convex/features/email/`,
+`convex/components/cloudflareEmail/`, `convex/lib/secrets.ts`.
 
 ## Calendar
 
@@ -616,7 +616,7 @@ failed, and Account says it couldn't confirm the email went out.
 
 **Rules:** 500 events of your own. No live sync with Google or other calendars.
 
-**Files:** `src/features/calendar/`, `convex/api/features/calendar/`.
+**Files:** `src/features/calendar/`, `convex/features/calendar/`.
 
 ## Booking pages
 
@@ -652,7 +652,7 @@ application or one matched by the guest's email domain. It adds an Inbox line
 the quarter hour.
 
 **Files:** `src/features/booking/`, `src/routes/book.$slug.tsx`,
-`convex/api/features/booking/`.
+`convex/features/booking/`.
 
 ## Account
 
@@ -679,7 +679,7 @@ Interface and theme, Account)
    views, goals, auto-apply runs, calendar, booking pages and workflows. Your username is
    freed.
 
-**Files:** `src/features/account/`, `convex/api/features/users/`.
+**Files:** `src/features/account/`, `convex/features/users/`.
 
 ## Workflows
 
