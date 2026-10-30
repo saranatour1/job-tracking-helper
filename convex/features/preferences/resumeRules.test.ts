@@ -44,8 +44,9 @@ describe("resume rules", () => {
   it("turns Jev's no's and the missing tags into advice", () => {
     expect(
       suggestionsFrom({ summaryStatesRole: true, resultsInBullets: false }, [
-        { tag: "React", shown: true },
-        { tag: "Rust", shown: false },
+        { tag: "React", shown: "yes" },
+        { tag: "Rust", shown: "no" },
+        { tag: "Go", shown: "unsure" },
       ])
     ).toEqual([
       "Give each experience bullet a number or an outcome: what changed because of you.",

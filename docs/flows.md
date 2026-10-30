@@ -198,7 +198,8 @@ of 50 fields, with no names twice.
    - **Suggestions**: Jev answers fixed yes-or-no questions about the writing (does the
      summary say the role, do bullets give results, is the newest role first, do bullets
      start with verbs, is it free of filler) and, for up to 12 of your skills and
-     interests, whether the resume shows each. Every "no" becomes one line of advice,
+     interests, whether the resume shows each. A yes needs 0.7 and a no 0.3; between them
+     Jev couldn't tell, and a tag shows as unsure. Every sure "no" becomes one line of advice,
      written in code; Jev never writes the advice or the resume.
    - The contact details and sections found, and which of your tags the resume shows.
 
@@ -310,12 +311,13 @@ application.
    shortlist puts it on the goal (`api.loops.track`). A workflow's **Put on goal** step
    does the same, and **An application joins a goal** can start one; see
    [workflows.md](workflows.md).
-8. **Re-evaluate:** on a goal's page, **Re-evaluate** asks Jev, for each of your
+8. **Re-evaluate:** on a goal's page, **Re-evaluate** asks Jev, in one request, for each of your
    applications, whether it counts toward the goal, from the goal's name, summary and
    milestones and the application's role, company, status, location, labels and
-   description (`api.goals.evaluate`). The panel then lists ones to **Add** and ones to
-   **Take off**; nothing changes until you press one. 10 re-evaluations a day, over your
-   newest 30 applications.
+   description (`api.goals.evaluate`). Only a sure answer counts (0.7 for yes, 0.3 for
+   no); the panel then lists ones to **Add** and ones to **Take off**, and nothing
+   changes until you press one. 10 re-evaluations a day, over your newest 30
+   applications.
 
 **Rules:** 50 views, 50 goals, 20 milestones a goal. Progress is the share of milestones
 ticked; a goal with none is complete once its target date has passed. Only your own goals

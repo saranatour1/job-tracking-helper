@@ -24,8 +24,9 @@ export const Review = type({
   sections: "string[]",
   checks: Check.array(),
   suggestions: "string[]",
-  // Each skill and interest from Preferences, and whether the resume shows it.
-  shows: type({ tag: "string", shown: "boolean" }).array(),
+  // Each skill and interest from Preferences, and whether the resume shows it. Unsure
+  // means Jev couldn't tell, which is neither advice nor a pass.
+  shows: type({ tag: "string", shown: "'yes' | 'no' | 'unsure'" }).array(),
   words: "number",
   // Set when Jev couldn't answer, so the review is the rules alone.
   "note?": "string",
@@ -168,7 +169,7 @@ export const suggestionsFrom = (answers: WritingAnswers, shows: Review["shows"])
     .filter((q) => answers[q] === false)
     .map((q) => writingAdvice[q]),
   ...shows
-    .filter((s) => !s.shown)
+    .filter((s) => s.shown === "no")
     .map(
       (s) =>
         `Your Preferences list “${s.tag}”, but the resume doesn't show it. Add where you used it, or leave it off your Preferences.`

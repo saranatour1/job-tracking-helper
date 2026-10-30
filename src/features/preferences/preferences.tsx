@@ -309,7 +309,7 @@ export const ResumeTab = ({ resume, review }: { resume: Resume; review: Review |
     undefined
   )
   const failed = review?.checks.filter((c) => !c.ok) ?? []
-  const missing = review?.shows.filter((s) => !s.shown) ?? []
+  const shown = review?.shows.filter((s) => s.shown === "yes") ?? []
   return (
     <ScrollArea className="min-h-0 flex-1">
       <div className={pageBody}>
@@ -398,14 +398,16 @@ export const ResumeTab = ({ resume, review }: { resume: Resume; review: Review |
               {review.shows.length > 0 && (
                 <div className="flex flex-col gap-1">
                   <h4 className="text-xs font-medium">
-                    From your Preferences · {review.shows.length - missing.length}/
-                    {review.shows.length} shown
+                    From your Preferences · {shown.length}/{review.shows.length} shown
                   </h4>
                   <div className="flex flex-wrap gap-1.5">
                     {review.shows.map((s) => (
                       <Badge
                         key={s.tag}
-                        variant={s.shown ? "success" : "outline"}
+                        variant={
+                          s.shown === "yes" ? "success" : s.shown === "no" ? "outline" : "secondary"
+                        }
+                        title={s.shown === "unsure" ? "Jev couldn't tell" : undefined}
                         className="font-normal"
                       >
                         {s.tag}
