@@ -18,7 +18,7 @@ import { useSource } from "./source"
 // Saved views. Each opens in Applications with its own filters and layout.
 export const Views = () => {
   const views = useSavedViews()
-  const { applications, loaded } = useSource()
+  const { applications, goals, loaded } = useSource()
   return (
     <>
       <PageHeader
@@ -55,7 +55,7 @@ export const Views = () => {
                       .filter(([, values]) => values?.length)
                       .map(
                         ([field, values]) =>
-                          `${fieldLabels[field as FilterField]} is ${values!.map((v) => optionLabel(field as FilterField, v)).join(" or ")}`
+                          `${fieldLabels[field as FilterField]} is ${values!.map((v) => optionLabel(field as FilterField, v, goals)).join(" or ")}`
                       )
                       .join(" · ") || "No filters"}
                   </span>

@@ -146,6 +146,19 @@ const setStatus = arkMutation({
   },
 })
 
+const setGoal = arkMutation({
+  args: type({ id: arkId("applications"), "goalId?": arkId("goals") }),
+  returns: v.null(),
+  handler: async (ctx, { id, goalId }) => {
+    await own(ctx, ctx.userId, id)
+    if (goalId && (await ctx.db.get("goals", goalId))?.userId !== ctx.userId)
+      throw new ConvexError("That goal isn't yours.")
+    // Leaving `goalId` out clears it.
+    await ctx.db.patch("applications", id, { goalId })
+    return null
+  },
+})
+
 const addNote = arkMutation({
   args: type({ id: arkId("applications"), text: type("string.trim").to("0 < string <= 5000") }),
   returns: v.null(),
@@ -158,4 +171,4 @@ const addNote = arkMutation({
   },
 })
 
-export const publicApi = { list, add, update, setStatus, addNote }
+export const publicApi = { list, add, update, setStatus, addNote, setGoal }

@@ -7,6 +7,7 @@ export const {
   update,
   setStatus,
   addNote,
+  setGoal,
   trashed,
   archive,
   trash,

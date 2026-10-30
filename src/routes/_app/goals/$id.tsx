@@ -1,10 +1,14 @@
 import { createFileRoute } from "@tanstack/react-router"
 
-import { pipelineSearch } from "@/features/tracker/search"
-
 import { GoalDetail } from "@/features/tracker/goals"
+import { pipelineSearch } from "@/features/tracker/search"
+import { ConvexSource } from "@/features/tracker/source"
 
-const GoalPage = () => <GoalDetail id={Route.useParams().id} />
+const GoalPage = () => (
+  <ConvexSource>
+    <GoalDetail id={Route.useParams().id} />
+  </ConvexSource>
+)
 
 export const Route = createFileRoute("/_app/goals/$id")({
   validateSearch: pipelineSearch,

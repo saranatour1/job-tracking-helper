@@ -44,7 +44,7 @@ export const FilterMenu = ({
   onChange: (filters: Filters) => void
   trigger: React.ReactElement
 }) => {
-  const { applications } = useSource()
+  const { applications, goals } = useSource()
   return (
     <Menu>
       <MenuTrigger render={trigger} />
@@ -55,7 +55,7 @@ export const FilterMenu = ({
             <MenuSub key={field}>
               <MenuSubTrigger>{fieldLabels[field]}</MenuSubTrigger>
               <MenuSubPopup>
-                {fieldOptions(field, applications).map((option) => (
+                {fieldOptions(field, applications, goals).map((option) => (
                   <MenuCheckboxItem
                     key={option.value}
                     checked={filters[field]?.includes(option.value) ?? false}
@@ -83,8 +83,9 @@ export const FilterChips = ({
 }: {
   filters: Filters
   onChange: (filters: Filters) => void
-}) =>
-  filterFields
+}) => {
+  const { goals } = useSource()
+  return filterFields
     .filter((field) => filters[field]?.length)
     .map((field) => (
       <Group key={field} aria-label={`${fieldLabels[field]} filter`}>
@@ -94,7 +95,7 @@ export const FilterChips = ({
         </GroupText>
         <GroupText className={cn(segment, "text-foreground max-w-56 bg-transparent")}>
           <span className="truncate">
-            {filters[field]!.map((v) => optionLabel(field, v)).join(", ")}
+            {filters[field]!.map((v) => optionLabel(field, v, goals)).join(", ")}
           </span>
         </GroupText>
         <Button
@@ -108,3 +109,4 @@ export const FilterChips = ({
         </Button>
       </Group>
     ))
+}

@@ -23,10 +23,10 @@ import {
   type Application,
   type FilterField,
   type Filters,
+  type Goal,
   type Status,
   formatDate,
   goalName,
-  goals,
   matches,
   priorities,
   priorityLabels,
@@ -58,7 +58,7 @@ const tabs: Record<Exclude<Tab, "trash">, readonly Status[]> = {
 
 type Group = { key: string; label: string; icon: React.ReactNode; items: Application[] }
 
-const groupsFor = (items: Application[], by: Display["groupBy"]): Group[] => {
+const groupsFor = (items: Application[], by: Display["groupBy"], goals: Goal[]): Group[] => {
   switch (by) {
     case "status":
       return statuses.map((s) => ({
@@ -77,7 +77,7 @@ const groupsFor = (items: Application[], by: Display["groupBy"]): Group[] => {
     case "goal":
       return [...goals.map((g) => g.id), undefined].map((id) => ({
         key: id ?? "none",
-        label: goalName(id),
+        label: goalName(goals, id),
         icon: <HugeiconsIcon icon={Target02Icon} className="text-muted-foreground size-3.5" />,
         items: items.filter((a) => a.goalId === id),
       }))
@@ -93,6 +93,7 @@ const order: Record<Display["orderBy"], (a: Application, b: Application) => numb
 }
 
 const Properties = ({ a, shown }: { a: Application; shown: Display["shown"] }) => {
+  const { goals } = useSource()
   const tasks = a.tasks ?? []
   return (
     <>
@@ -100,7 +101,7 @@ const Properties = ({ a, shown }: { a: Application; shown: Display["shown"] }) =
       {shown.includes("goal") && a.goalId && (
         <Pill>
           <HugeiconsIcon icon={Target02Icon} className="size-3" />
-          <span className="max-w-28 truncate">{goalName(a.goalId)}</span>
+          <span className="max-w-28 truncate">{goalName(goals, a.goalId)}</span>
         </Pill>
       )}
       {shown.includes("labels") &&
@@ -290,6 +291,7 @@ const InsightsPanel = ({
   header?: React.ReactNode
 }) => {
   const [field, setField] = useState<keyof typeof panelFields>("company")
+  const { goals } = useSource()
   const counts = new Map<string, number>()
   for (const a of items) {
     const values =
@@ -298,7 +300,7 @@ const InsightsPanel = ({
   }
   const label = (v: string) =>
     field === "goal"
-      ? goalName(v === "none" ? undefined : v)
+      ? goalName(goals, v === "none" ? undefined : v)
       : field === "priority"
         ? priorityLabels[v as Application["priority"]]
         : v
@@ -415,7 +417,7 @@ export const Pipeline = ({
         matches(a, filters)
     )
     .sort(order[display.orderBy])
-  const groups = groupsFor(visible, display.groupBy).filter(
+  const groups = groupsFor(visible, display.groupBy, source.goals).filter(
     (g) => display.showEmpty || g.items.length > 0
   )
   const hasFilters = Object.values(filters).some((v) => v?.length)

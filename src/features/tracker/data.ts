@@ -367,7 +367,8 @@ export const useApplications = () =>
     () => sample
   )
 
-export const goalName = (id?: string) => goals.find((g) => g.id === id)?.name ?? "No goal"
+export const goalName = (from: Goal[], id?: string) =>
+  from.find((g) => g.id === id)?.name ?? "No goal"
 
 export const findApplication = (id: string) => applications.find((a) => a.id === id)
 
@@ -389,11 +390,12 @@ export const matches = (a: Application, filters: Filters) =>
       !values?.length || fieldValues(a, field as FilterField).some((v) => values.includes(v))
   )
 
-// Every value a filter field can take, with its display label. Companies and labels come
-// from the applications on screen, real or sample.
+// Every value a filter field can take, with its display label. Companies, labels and goals
+// come from what's on screen, real or sample.
 export const fieldOptions = (
   field: FilterField,
-  from: Application[] = applications
+  from: Application[] = applications,
+  goalList: Goal[] = goals
 ): { value: string; label: string }[] => {
   switch (field) {
     case "status":
@@ -407,7 +409,7 @@ export const fieldOptions = (
       }))
     case "goal":
       return [
-        ...goals.map((g) => ({ value: g.id, label: g.name })),
+        ...goalList.map((g) => ({ value: g.id, label: g.name })),
         { value: "none", label: "No goal" },
       ]
     case "company":
@@ -417,8 +419,8 @@ export const fieldOptions = (
   }
 }
 
-export const optionLabel = (field: FilterField, value: string) =>
-  fieldOptions(field).find((o) => o.value === value)?.label ?? value
+export const optionLabel = (field: FilterField, value: string, goalList: Goal[] = goals) =>
+  fieldOptions(field, applications, goalList).find((o) => o.value === value)?.label ?? value
 
 const dateFormat = new Intl.DateTimeFormat("en-US", {
   month: "short",
@@ -435,8 +437,27 @@ export const ago = (iso: string) => {
   return `${Math.floor(days / 30)}mo`
 }
 
-export const goalProgress = (goal: Goal) =>
-  Math.round((goal.milestones.filter((m) => m.done).length / goal.milestones.length) * 100)
+// Milestones as the goal form writes them: one per line, with a YYYY-MM-DD at the end as
+// its target date. A milestone keeps its tick while its name stays the same.
+export const milestoneLine = (m: Milestone) => (m.target ? `${m.name} ${m.target}` : m.name)
+export const parseMilestones = (text: string, was: Milestone[] = []): Milestone[] =>
+  text
+    .split("\n")
+    .map((line) => line.trim())
+    .filter(Boolean)
+    .map((line) => {
+      const [, name = line, target] = /^(.*?)\s*(\d{4}-\d{2}-\d{2})?$/.exec(line) ?? []
+      const done = was.find((m) => m.name === name)?.done ?? false
+      return { name: name || line, done, ...(target && { target }) }
+    })
 
-export const goalStatus = (goal: Goal) =>
-  goalProgress(goal) === 100 ? "Completed" : goal.start > today ? "Upcoming" : "Active"
+// A goal with no milestones is done when its target date has passed.
+export const goalProgress = (goal: Goal, on = today) =>
+  goal.milestones.length
+    ? Math.round((goal.milestones.filter((m) => m.done).length / goal.milestones.length) * 100)
+    : goal.target < on
+      ? 100
+      : 0
+
+export const goalStatus = (goal: Goal, on = today) =>
+  goalProgress(goal, on) === 100 ? "Completed" : goal.start > on ? "Upcoming" : "Active"

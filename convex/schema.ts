@@ -4,6 +4,7 @@ import { automationRunsTable, automationsTable } from "./api/features/automation
 import { bookingPagesTable } from "./api/features/booking/models"
 import { calendarEventsTable, calendarSettingsTable } from "./api/features/calendar/models"
 import { emailConnectionsTable, mailEventsTable } from "./api/features/email/models"
+import { goalsTable } from "./api/features/goals/models"
 import { jobBoardsTable, jobsTable } from "./api/features/jobs/models"
 import {
   jobLeadsTable,
@@ -34,6 +35,7 @@ export default defineSchema({
   emailConnections: emailConnectionsTable,
   mailEvents: mailEventsTable,
   views: viewsTable,
+  goals: goalsTable,
   calendarEvents: calendarEventsTable,
   calendarSettings: calendarSettingsTable,
   bookingPages: bookingPagesTable,

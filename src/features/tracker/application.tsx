@@ -85,23 +85,26 @@ const Pick = ({
   value: string
   onChange: (value: string) => void
   children: React.ReactNode
-}) => (
-  <Menu>
-    <Trigger label={label}>{children}</Trigger>
-    <MenuPopup align="start" className="min-w-44">
-      <MenuRadioGroup value={value} onValueChange={(v) => onChange(v as string)}>
-        {fieldOptions(field).map((o) => (
-          <MenuRadioItem key={o.value} value={o.value}>
-            <span className="flex items-center gap-2">
-              {icon(field, o.value)}
-              {o.label}
-            </span>
-          </MenuRadioItem>
-        ))}
-      </MenuRadioGroup>
-    </MenuPopup>
-  </Menu>
-)
+}) => {
+  const { applications, goals } = useSource()
+  return (
+    <Menu>
+      <Trigger label={label}>{children}</Trigger>
+      <MenuPopup align="start" className="min-w-44">
+        <MenuRadioGroup value={value} onValueChange={(v) => onChange(v as string)}>
+          {fieldOptions(field, applications, goals).map((o) => (
+            <MenuRadioItem key={o.value} value={o.value}>
+              <span className="flex items-center gap-2">
+                {icon(field, o.value)}
+                {o.label}
+              </span>
+            </MenuRadioItem>
+          ))}
+        </MenuRadioGroup>
+      </MenuPopup>
+    </Menu>
+  )
+}
 
 const Row = ({ label, children }: { label: string; children: React.ReactNode }) => (
   <>
@@ -143,19 +146,17 @@ const Properties = ({ a }: { a: Application }) => {
           <PriorityIcon priority={a.priority} /> {priorityLabels[a.priority]}
         </Pick>
       </Row>
-      {source.goals && (
-        <Row label="Goal">
-          <Pick
-            label="Goal"
-            field="goal"
-            value={a.goalId ?? "none"}
-            onChange={(v) => source.setGoal(a.id, v === "none" ? undefined : v)}
-          >
-            <HugeiconsIcon icon={Target02Icon} className={muted} />
-            <span className="truncate">{goalName(a.goalId)}</span>
-          </Pick>
-        </Row>
-      )}
+      <Row label="Goal">
+        <Pick
+          label="Goal"
+          field="goal"
+          value={a.goalId ?? "none"}
+          onChange={(v) => source.setGoal(a.id, v === "none" ? undefined : v)}
+        >
+          <HugeiconsIcon icon={Target02Icon} className={muted} />
+          <span className="truncate">{goalName(source.goals, a.goalId)}</span>
+        </Pick>
+      </Row>
       <Row label="Labels">
         <Menu>
           <Trigger label="Labels">

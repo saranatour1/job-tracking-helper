@@ -7,8 +7,10 @@ import { createContext, useContext } from "react"
 import type { MailEvent } from "./mail"
 import {
   type Application,
+  type Goal,
   type Label,
   type Status,
+  goals as sampleGoals,
   today,
   updateApplication,
   useApplications,
@@ -19,19 +21,18 @@ type Editable = Pick<
   "role" | "company" | "priority" | "labels" | "method" | "location" | "description" | "tasks"
 >
 
-// Where the tracker's applications come from and how edits are saved. Pipeline and an
-// application's page read Convex; Goals and Views still use the sample data.
+// Where the tracker's applications and goals come from and how edits are saved. Every
+// page reads Convex; the sample data is for the sample applications (APP-21) only.
 export type Source = {
   // Convex rather than the sample data.
   real: boolean
   applications: Application[]
+  goals: Goal[]
   // False while the first load is on its way.
   loaded: boolean
   setStatus: (id: string, status: Status) => void
   update: (id: string, patch: Partial<Editable>) => void
   addNote: (id: string, text: string) => void
-  // Goals are still sample data, so only sample applications can join one.
-  goals: boolean
   setGoal: (id: string, goalId?: string) => void
   // Company mail filed under applications, newest first; none in the sample data.
   mail: MailEvent[]
@@ -56,6 +57,7 @@ const useSampleSource = (): Source => {
     real: false,
     // Sample ids double as their short code, like APP-21.
     applications: applications.map((a) => ({ ...a, code: a.id })),
+    goals: sampleGoals,
     loaded: true,
     setStatus: (id, status) => {
       const a = find(id)
@@ -65,7 +67,6 @@ const useSampleSource = (): Source => {
     update: updateApplication,
     addNote: (id, text) =>
       updateApplication(id, { notes: [...(find(id)?.notes ?? []), { text, at: today }] }),
-    goals: true,
     setGoal: (id, goalId) => updateApplication(id, { goalId }),
     mail: [],
     answerMail: () => undefined,
@@ -107,11 +108,14 @@ export const fromDoc = (d: Doc<"applications">): Application => ({
   })),
   tasks: d.tasks,
   notes: d.notes?.map((n) => ({ text: n.text, at: isoOf(n.at) })),
+  goalId: d.goalId,
   ...(d.archivedAt !== undefined && { archived: true }),
 })
 
 export const ConvexSource = ({ children }: { children: React.ReactNode }) => {
   const docs = useQuery(api.applications.list)
+  const goalDocs = useQuery(api.goals.list)
+  const setGoal = useMutation(api.applications.setGoal)
   const fits = new Map((useQuery(api.loops.fits) ?? []).map((f) => [f.applicationId, f]))
   const setStatus = useMutation(api.applications.setStatus)
   const update = useMutation(api.applications.update)
@@ -129,12 +133,20 @@ export const ConvexSource = ({ children }: { children: React.ReactNode }) => {
       const fit = fits.get(d._id)
       return { ...fromDoc(d), ...(fit && { fit: fit.fit, isFit: fit.isFit }) }
     }),
-    loaded: docs !== undefined,
+    goals: (goalDocs ?? []).map(({ _id, name, summary, priority, start, target, milestones }) => ({
+      id: _id,
+      name,
+      summary,
+      priority,
+      start,
+      target,
+      milestones,
+    })),
+    loaded: docs !== undefined && goalDocs !== undefined,
     setStatus: (s, status) => void setStatus({ id: id(s), status }),
     update: (s, patch) => void update({ id: id(s), ...patch }),
     addNote: (s, text) => void addNote({ id: id(s), text }),
-    goals: false,
-    setGoal: () => undefined,
+    setGoal: (s, goalId) => void setGoal({ id: id(s), goalId: goalId as Id<"goals"> | undefined }),
     mail: mail ?? [],
     answerMail: (eventId, accept) => void answer({ eventId, accept }),
     fileMail: (eventId, s) => void file({ eventId, applicationId: id(s) }),
