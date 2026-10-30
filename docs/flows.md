@@ -186,7 +186,9 @@ of 50 fields, with no names twice.
 **Flows**
 
 1. **Resume** in the sidebar (`/resume`): the upload Preferences' last step has (a PDF,
-   Word or text file up to 10 MB, one at a time), and **Review** (`api.resume.review`,
+   Word or text file up to 10 MB, one at a time), a preview of a PDF on the right on
+   wide screens (drawn page by page with pdf.js in a worker shipped with the app: nothing
+   in the file runs, and it goes to no other service), and **Review** (`api.resume.review`,
    a Node action). It pulls the text out of a PDF with `unpdf` (plain text files read as
    they are; Word files can't be reviewed), then:
    - **ATS check**, by rules in code: email and phone at the top, the headings
