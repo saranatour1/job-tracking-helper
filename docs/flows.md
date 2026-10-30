@@ -137,7 +137,8 @@ pasted links that aren't on a known board. A source without a key is skipped.
 - As someone who'd rather talk it through, I want my own AI assistant to interview me
   and fill the form.
 - As someone filling in application forms, I want my usual answers ready to copy.
-- As anyone, I want to keep my resume here without the app reading or scoring it.
+- As anyone, I want to keep my resume here, and check that it reads well to the systems
+  and people who screen it, without it being rewritten for me.
 
 **Flows**
 
@@ -160,6 +161,21 @@ pasted links that aren't on a known board. A source without a key is skipped.
 7. **Prefilled** keeps form fields to copy into applications. "Fill" suggests them from
    your answers, each field has a copy button, and Save keeps them
    (`api.preferences.savePrefilled`).
+8. **Resume tab** (`?tab=resume`): the same upload, and **Review** (`api.resume.review`,
+   a Node action). It pulls the text out of a PDF with `unpdf` (plain text files read as
+   they are; Word files can't be reviewed), then:
+   - **ATS check**, by rules in code: email and phone at the top, the headings
+     Experience, Education and Skills, one column with no tables, dates in one format,
+     one or two pages. Each failure says what to change.
+   - **Suggestions**: Jev answers fixed yes-or-no questions about the writing (does the
+     summary say the role, do bullets give results, is the newest role first, do bullets
+     start with verbs, is it free of filler) and, for up to 12 of your skills and
+     interests, whether the resume shows each. Every "no" becomes one line of advice,
+     written in code; Jev never writes the advice or the resume.
+   - The contact details and sections found, and which of your tags the resume shows.
+
+   The text and the review stay on your preferences until the file changes. 10 reviews
+   a day.
 
 **By itself:** loops and pasted links read your Preferences (`profileFor`) along with
 the roles you liked and dismissed, and loop templates start from your tags.
@@ -167,7 +183,8 @@ the roles you liked and dismissed, and loop templates start from your tags.
 **Rules:** each tag is 1 to 60 characters, 40 per list; Prefilled has up to 20 sections
 of 50 fields, with no names twice.
 
-**Files:** `src/features/preferences/`, `convex/api/features/preferences/`.
+**Files:** `src/features/preferences/`, `convex/api/features/preferences/` (`resumeRules.ts`
+for the checks and advice, `resume.ts` for the action).
 
 ## Applications
 

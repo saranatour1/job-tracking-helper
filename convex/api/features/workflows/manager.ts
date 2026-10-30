@@ -27,6 +27,8 @@ export const limits = new RateLimiter(components.rateLimiter, {
   automationDescribe: { kind: "fixed window", rate: 20, period: DAY },
   // Re-evaluating a goal asks Jev about every application.
   goalEvaluate: { kind: "fixed window", rate: 10, period: DAY },
+  // Reviewing a resume parses it and asks Jev a batch of questions.
+  resumeReview: { kind: "fixed window", rate: 10, period: DAY },
 })
 
 // The batch worker: it fetches job boards for the catalog, and every run hands it the
