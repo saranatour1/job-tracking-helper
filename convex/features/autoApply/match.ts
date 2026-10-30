@@ -6,7 +6,8 @@
 export type FormField = {
   selector: string
   name: string
-  // input types, plus "select", "textarea" and "custom" (a click-to-pick dropdown).
+  // input types, plus "select", "textarea", "custom" (a click-to-pick dropdown) and
+  // "yesno" (Ashby's pair of buttons).
   type: string
   label: string
   required: boolean
@@ -16,11 +17,17 @@ export type FormField = {
 /** A saved answer: a Prefilled field, a custom question, or an account detail. */
 export type Answer = { key: string; label: string; value: string }
 
-export type Fill = { selector: string; value: string; key: string }
+export type Fill = {
+  selector: string
+  value: string
+  key: string
+  // What to try if a pick list doesn't have `value`: some "Location" lists hold countries.
+  fallback?: string
+}
 
 // Demographic and EEO questions are never answered.
 export const demographic =
-  /\b(gender|race|ethnic|veteran|disabilit|hispanic|latino|sexual orientation|transgender|religion)\b/i
+  /\b(gender|race|ethnic\w*|veteran\w*|disabilit\w*|hispanic|latino|sexual orientation|transgender|religion|eeoc?)\b/i
 
 // Boxes that stand for reading a privacy notice or confirming the answers are true.
 const consent = /\b(agree|consent|privacy|terms|certify|acknowledge|confirm that)\b/i
@@ -38,13 +45,19 @@ const groups: RegExp[] = [
   /\blinkedin\b/i,
   /\bgithub\b/i,
   /\b(website|portfolio|personal site|homepage)\b/i,
-  /\b(location|city|where are you based|current location|country of residence)\b/i,
   /\b(authori[sz]ed to work|work authori[sz]ation|right to work|legally able to work)\b/i,
   /\b(visa|sponsorship)\b/i,
+  // After those: "authorized to work in the country" is a yes-or-no, not a country.
+  /\bpreferred (work )?locations?\b/i,
+  /\bcountry\b/i,
+  /\b(location|city|town|where are you based)\b/i,
   /\b(salary|compensation|pay expectation|expected pay)\b/i,
   /\b(start date|earliest start|available to start|notice period|availability)\b/i,
   /\bpronouns?\b/i,
 ]
+
+const countryGroup = groups.findIndex((re) => re.test("country"))
+const locationGroup = groups.findIndex((re) => re.test("location"))
 
 const groupOf = (label: string) => groups.findIndex((re) => re.test(label.trim()))
 
@@ -75,7 +88,8 @@ export const planFor = (fields: FormField[], answers: Answer[]): Plan => {
   const fullName = byGroup.get(0)
   const plan: Plan = { fills: [], consent: [], ask: [], skipped: [] }
   for (const f of fields) {
-    const label = `${f.label} ${f.name}`.trim()
+    // Names like cover_letter and _systemfield_resume read as words this way.
+    const label = `${f.label} ${f.name}`.replace(/_/g, " ").trim()
     if (f.type === "file") {
       if (resumeField.test(label) && !plan.upload) plan.upload = f.selector
       else plan.skipped.push(f.label || f.name)
@@ -99,18 +113,26 @@ export const planFor = (fields: FormField[], answers: Answer[]): Plan => {
     const g = groupOf(label)
     const saved = g >= 0 ? byGroup.get(g) : undefined
     // First and last name come from a full name when nothing was saved for them.
+    // A one-word full name has no last name to give: that's a question, not a blank.
     const derived =
       !saved && fullName && g === 1
         ? nameParts(fullName.value).first
         : !saved && fullName && g === 2
           ? nameParts(fullName.value).last
           : undefined
-    const value = saved?.value ?? derived
-    if (value !== undefined && f.type !== "select" && f.type !== "custom" && f.type !== "radio") {
-      plan.fills.push({ selector: f.selector, value, key: saved?.key ?? fullName!.key })
+    const value = saved?.value ?? (derived || undefined)
+    const listed = f.options?.find((o) => o.toLowerCase() === value?.trim().toLowerCase())
+    if (value !== undefined && (listed || !f.options?.length)) {
+      const country = byGroup.get(countryGroup)
+      plan.fills.push({
+        selector: f.selector,
+        value: listed ?? value,
+        key: saved?.key ?? fullName!.key,
+        ...(f.type === "custom" && g === locationGroup && country && { fallback: country.value }),
+      })
       continue
     }
-    // A pick list with a saved answer still needs the matching option: Jev's call.
+    // A pick list whose options don't include the saved answer word for word: Jev's call.
     plan.ask.push(f)
   }
   return plan

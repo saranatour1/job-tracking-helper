@@ -42,7 +42,7 @@ const run = internalAction({
       scrapeId = opened.scrapeId
       credits += 1
       await turn(ctx, "firecrawl")
-      const read = ReadResult.assert(await interact(scrapeId, readFormScript(), 60))
+      const read = ReadResult.assert(await interact(scrapeId, readFormScript(), 120))
       credits += 1
       if (read.login) return stop("needsYou", { error: "This form wants you to sign in first." })
       if (read.captcha) return stop("needsYou", { error: "This form has a CAPTCHA." })
@@ -83,10 +83,10 @@ const run = internalAction({
         )
       }
       const resolved = resolve(plan.ask, found.answers, picks)
-      const fills = [...plan.fills, ...resolved.fills].map((f) => ({
-        ...f,
-        type: fields.find((x) => x.selector === f.selector)?.type ?? "text",
-      }))
+      const fills = [...plan.fills, ...resolved.fills].map((f) => {
+        const field = fields.find((x) => x.selector === f.selector)
+        return { ...f, type: field?.type ?? "text", label: field?.label ?? "" }
+      })
       const byKey = new Map(found.answers.map((a) => [a.key, a.label]))
       const used: Used[] = [...new Set(fills.map((f) => f.key))]
         .filter((key) => byKey.has(key))

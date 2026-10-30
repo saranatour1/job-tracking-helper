@@ -78,6 +78,16 @@ describe("auto-apply", () => {
     expect(await t.run((ctx) => ctx.db.query("autoApplies").collect())).toHaveLength(1)
   })
 
+  it("never turns a dry run into a real one on Try again", async () => {
+    const { t, as, jobId } = await setup()
+    await as.mutation(api.autoApply.setSwitch, { on: true, dryRun: true })
+    const id = await as.mutation(api.autoApply.queue, { jobId })
+    await t.mutation(internal.autoApply.claim, { autoApplyId: id })
+    await t.mutation(internal.autoApply.finish, { autoApplyId: id, status: "previewed" })
+    await as.mutation(api.autoApply.retry, { id })
+    expect((await as.query(api.autoApply.list))[0]?.dryRun).toBe(true)
+  })
+
   it("finishes as applied: an application, stamped answers, and an Inbox line", async () => {
     const { t, as, userId, jobId, fieldId } = await setup()
     await as.mutation(api.autoApply.setSwitch, { on: true })
