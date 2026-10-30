@@ -1,4 +1,6 @@
+import { api } from "@convex/_generated/api"
 import type { Doc } from "@convex/_generated/dataModel"
+import { useQuery } from "convex-helpers/react/cache/hooks"
 import { statusLabels, statuses } from "@convex/api/features/applications/validators"
 import type { Block, Branch, Step, Trigger } from "@convex/api/features/automations/validators"
 import {
@@ -82,10 +84,15 @@ const freshTrigger = (kind: Trigger["kind"], zone: string): Trigger => {
       return { kind, kinds: [] }
     case "status":
       return { kind, to: [] }
+    case "goal":
+      return { kind, goals: [] }
     default:
       return { kind }
   }
 }
+
+/** The person's goals, as a picker lists them. */
+const useGoals = () => useQuery(api.goals.list) ?? []
 
 // Picks some of a list; none picked means any.
 const Some = <T extends string>({
@@ -127,80 +134,91 @@ const TriggerSettings = ({
   trigger: Trigger
   zone: string
   onChange: (trigger: Trigger) => void
-}) => (
-  <div className="grid gap-4">
-    <Field label="Starts when">
-      <Pick
-        label="Starts when"
-        value={trigger.kind}
-        items={(Object.keys(triggerKinds) as Trigger["kind"][]).map((kind) => ({
-          value: kind,
-          label: triggerKinds[kind],
-        }))}
-        onChange={(kind) =>
-          kind !== trigger.kind && onChange(freshTrigger(kind as Trigger["kind"], zone))
-        }
-      />
-    </Field>
-    {trigger.kind === "mail" && (
-      <Some
-        label="Kinds of email"
-        value={trigger.kinds}
-        labels={mailKindLabels}
-        onChange={(kinds) => onChange({ ...trigger, kinds })}
-      />
-    )}
-    {trigger.kind === "status" && (
-      <Some
-        label="Moves to"
-        value={trigger.to}
-        labels={statusLabels}
-        onChange={(to) => onChange({ ...trigger, to })}
-      />
-    )}
-    {trigger.kind === "booking" && (
-      <p className="text-muted-foreground text-xs">
-        Runs when someone books time on any of your booking pages.
-      </p>
-    )}
-    {trigger.kind === "schedule" && (
-      <>
-        <Field label="At">
-          <Input
-            type="time"
-            value={trigger.at}
-            onChange={(e) => onChange({ ...trigger, at: e.target.value })}
-          />
-        </Field>
-        <Field label="On">
-          <ToggleGroup
-            multiple
-            size="sm"
-            variant="outline"
-            aria-label="Days"
-            className="flex-wrap"
-            value={trigger.days.map(String)}
-            onValueChange={(v) => onChange({ ...trigger, days: (v as string[]).map(Number) })}
-          >
-            {weekdays.map((name, d) => (
-              <ToggleGroupItem key={name} value={String(d)}>
-                {name}
-              </ToggleGroupItem>
-            ))}
-          </ToggleGroup>
-        </Field>
-        <Field label="Time zone">
-          <ZonePick
-            label="Time zone"
-            value={trigger.timeZone}
-            options={Intl.supportedValuesOf("timeZone")}
-            onChange={(timeZone) => onChange({ ...trigger, timeZone })}
-          />
-        </Field>
-      </>
-    )}
-  </div>
-)
+}) => {
+  const goals = useGoals()
+  return (
+    <div className="grid gap-4">
+      <Field label="Starts when">
+        <Pick
+          label="Starts when"
+          value={trigger.kind}
+          items={(Object.keys(triggerKinds) as Trigger["kind"][]).map((kind) => ({
+            value: kind,
+            label: triggerKinds[kind],
+          }))}
+          onChange={(kind) =>
+            kind !== trigger.kind && onChange(freshTrigger(kind as Trigger["kind"], zone))
+          }
+        />
+      </Field>
+      {trigger.kind === "mail" && (
+        <Some
+          label="Kinds of email"
+          value={trigger.kinds}
+          labels={mailKindLabels}
+          onChange={(kinds) => onChange({ ...trigger, kinds })}
+        />
+      )}
+      {trigger.kind === "status" && (
+        <Some
+          label="Moves to"
+          value={trigger.to}
+          labels={statusLabels}
+          onChange={(to) => onChange({ ...trigger, to })}
+        />
+      )}
+      {trigger.kind === "goal" && (
+        <Some
+          label="Joins"
+          value={trigger.goals}
+          labels={Object.fromEntries(goals.map((g) => [g._id, g.name]))}
+          onChange={(picked) => onChange({ ...trigger, goals: picked })}
+        />
+      )}
+      {trigger.kind === "booking" && (
+        <p className="text-muted-foreground text-xs">
+          Runs when someone books time on any of your booking pages.
+        </p>
+      )}
+      {trigger.kind === "schedule" && (
+        <>
+          <Field label="At">
+            <Input
+              type="time"
+              value={trigger.at}
+              onChange={(e) => onChange({ ...trigger, at: e.target.value })}
+            />
+          </Field>
+          <Field label="On">
+            <ToggleGroup
+              multiple
+              size="sm"
+              variant="outline"
+              aria-label="Days"
+              className="flex-wrap"
+              value={trigger.days.map(String)}
+              onValueChange={(v) => onChange({ ...trigger, days: (v as string[]).map(Number) })}
+            >
+              {weekdays.map((name, d) => (
+                <ToggleGroupItem key={name} value={String(d)}>
+                  {name}
+                </ToggleGroupItem>
+              ))}
+            </ToggleGroup>
+          </Field>
+          <Field label="Time zone">
+            <ZonePick
+              label="Time zone"
+              value={trigger.timeZone}
+              options={Intl.supportedValuesOf("timeZone")}
+              onChange={(timeZone) => onChange({ ...trigger, timeZone })}
+            />
+          </Field>
+        </>
+      )}
+    </div>
+  )
+}
 
 // Which application a step acts on: one you pick, or the one the trigger is about.
 const ApplicationPick = ({
@@ -249,6 +267,7 @@ const BlockSettings = ({
   loops: Doc<"loops">[]
   onChange: (block: Block) => void
 }) => {
+  const goals = useGoals()
   switch (block.kind) {
     case "findRoles":
       return (
@@ -361,6 +380,25 @@ const BlockSettings = ({
             <Tokens
               names={placeholdersFor(trigger, steps, true)}
               onPick={(name) => onChange({ ...block, text: `${block.text} ${name}`.trim() })}
+            />
+          </Field>
+        </div>
+      )
+    case "putOnGoal":
+      return (
+        <div className="grid gap-4">
+          <ApplicationPick
+            value={block.applicationId}
+            trigger={trigger}
+            applications={applications}
+            onChange={(applicationId) => onChange({ ...block, applicationId })}
+          />
+          <Field label="Goal">
+            <Pick
+              label="Pick a goal"
+              value={block.goalId || null}
+              items={goals.map((g) => ({ value: g._id, label: g.name }))}
+              onChange={(goalId) => onChange({ ...block, goalId: goalId as typeof block.goalId })}
             />
           </Field>
         </div>

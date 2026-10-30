@@ -133,15 +133,18 @@ export const ConvexSource = ({ children }: { children: React.ReactNode }) => {
       const fit = fits.get(d._id)
       return { ...fromDoc(d), ...(fit && { fit: fit.fit, isFit: fit.isFit }) }
     }),
-    goals: (goalDocs ?? []).map(({ _id, name, summary, priority, start, target, milestones }) => ({
-      id: _id,
-      name,
-      summary,
-      priority,
-      start,
-      target,
-      milestones,
-    })),
+    goals: (goalDocs ?? []).map(
+      ({ _id, name, summary, priority, start, target, milestones, loopId }) => ({
+        id: _id,
+        name,
+        summary,
+        priority,
+        start,
+        target,
+        milestones,
+        loopId,
+      })
+    ),
     loaded: docs !== undefined && goalDocs !== undefined,
     setStatus: (s, status) => void setStatus({ id: id(s), status }),
     update: (s, patch) => void update({ id: id(s), ...patch }),

@@ -431,6 +431,50 @@ describe("a workflow run", () => {
     expect(application?.status).toBe("offer")
   })
 
+  it("starts when an application joins a goal, and can put one on a goal", async () => {
+    const { t, as, userId, applicationId } = await setup()
+    const goalId = await t.run((ctx) =>
+      ctx.db.insert("goals", {
+        userId,
+        name: "Land a role",
+        summary: "",
+        priority: "high",
+        start: "2026-01-01",
+        target: "2026-12-31",
+        milestones: [],
+      })
+    )
+    const otherGoal = await t.run((ctx) =>
+      ctx.db.insert("goals", {
+        userId,
+        name: "Side quests",
+        summary: "",
+        priority: "low",
+        start: "2026-01-01",
+        target: "2026-12-31",
+        milestones: [],
+      })
+    )
+    await as.mutation(api.automations.save, {
+      name: "On goal",
+      trigger: { kind: "goal", goals: [goalId] },
+      active: true,
+      steps: [
+        { kind: "addNote", text: "{application.company} joined {goal.name}" },
+        { kind: "putOnGoal", goalId: otherGoal },
+      ],
+    })
+    await as.mutation(api.applications.setGoal, { id: applicationId, goalId })
+    await t.finishAllScheduledFunctions(vi.runAllTimers)
+
+    const runs = await t.run((ctx) => ctx.db.query("automationRuns").collect())
+    expect(runs.map((r) => [r.status, r.context?.goalId])).toEqual([["done", goalId]])
+    const application = await t.run((ctx) => ctx.db.get("applications", applicationId))
+    expect(application?.notes?.map((n) => n.text)).toEqual(["Hooli joined Land a role"])
+    // The step's move onto the other goal starts nothing: one run in all.
+    expect(application?.goalId).toBe(otherGoal)
+  })
+
   it("runs only the path Jev picks, and counts its answers", async () => {
     const { t, as, userId } = await setup()
     const id = await as.mutation(api.automations.save, {

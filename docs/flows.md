@@ -249,21 +249,35 @@ application.
 2. **Open a view:** its tab on Applications, or `/views`.
 3. **Delete a view:** right-click its tab → "Delete view", and confirm.
 4. **Make a goal:** on **Goals** (`/goals`), **New goal**: a name, a summary, a priority,
-   start and target dates, and milestones one per line, each with a date at the end if
-   it has one. Create goal saves it
-   (`api.goals.create`). The page lists goals newest first under **Yours**, each with its
-   dates, milestone and application counts, status (Upcoming or Active), progress, and
-   Edit and Delete; completed ones move under **Done**.
-5. **Open a goal** (`/goals/$id`): its applications on the board, with a summary panel
+   start and target dates, one of your loops (optional), and milestones one per line,
+   each with a date at the end if it has one. Create goal saves it (`api.goals.create`).
+   The page lists goals newest first under **Yours**, each with its dates, milestone and
+   application counts, status (Upcoming or Active), progress, and Edit and Delete.
+   Completed and missed ones move under **Past**.
+5. **Retry a missed goal:** a goal whose target date passed with milestones unticked
+   shows as Missed, with **Retry**. That makes a fresh goal with the same name, summary,
+   priority, loop and milestones, unticked, starting today for the same length, with
+   milestone dates moved along (`api.goals.retry`). The old one stays.
+6. **Open a goal** (`/goals/$id`): its applications on the board, with a summary panel
    showing progress, interviews and offers, and its milestones. Click a milestone to tick
    it or untick it (`api.goals.update`). **Edit** changes the fields; **Delete** asks
    first, then removes the goal and its applications leave it (`api.goals.remove`).
-6. **Put an application on a goal:** open it and pick the goal in its properties
-   (`api.applications.setGoal`). The board can filter, group and count by goal.
+7. **Put an application on a goal:** open it and pick the goal in its properties
+   (`api.applications.setGoal`). The board can filter, group and count by goal. A goal
+   that names a loop takes roles by itself: adding one to the board from that loop's
+   shortlist puts it on the goal (`api.loops.track`). A workflow's **Put on goal** step
+   does the same, and **An application joins a goal** can start one; see
+   [workflows.md](workflows.md).
+8. **Re-evaluate:** on a goal's page, **Re-evaluate** asks Jev, for each of your
+   applications, whether it counts toward the goal, from the goal's name, summary and
+   milestones and the application's role, company, status, location, labels and
+   description (`api.goals.evaluate`). The panel then lists ones to **Add** and ones to
+   **Take off**; nothing changes until you press one. 10 re-evaluations a day, over your
+   newest 30 applications.
 
 **Rules:** 50 views, 50 goals, 20 milestones a goal. Progress is the share of milestones
 ticked; a goal with none is complete once its target date has passed. Only your own goals
-can be picked, edited or deleted.
+and loops can be picked, edited or deleted.
 
 **Files:** `src/features/tracker/views.tsx`, `goals.tsx`, `convex/api/features/views/`,
 `convex/api/features/goals/`.

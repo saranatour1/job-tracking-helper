@@ -168,6 +168,7 @@ const Editor = ({ saved }: { saved?: Doc<"automations"> }) => {
   const remove_ = useMutation(api.automations.remove)
   const applications = useQuery(api.applications.list) ?? []
   const loops = useQuery(api.loops.list) ?? []
+  const goals = useQuery(api.goals.list) ?? []
   const zone = useCalendarSettings()?.timeZone ?? Intl.DateTimeFormat().resolvedOptions().timeZone
 
   const unsaved = useRef<Draft>(null)
@@ -237,7 +238,9 @@ const Editor = ({ saved }: { saved?: Doc<"automations"> }) => {
     write({ step: at })
   }
   const nameOf = (id: string) =>
-    applications.find((a) => a._id === id)?.company ?? loops.find((l) => l._id === id)?.name
+    applications.find((a) => a._id === id)?.company ??
+    loops.find((l) => l._id === id)?.name ??
+    goals.find((g) => g._id === id)?.name
   const shown = run ? run.steps : draft.steps
 
   // The left panel: name, on/off, and the blocks (or, in History, the runs). A sheet

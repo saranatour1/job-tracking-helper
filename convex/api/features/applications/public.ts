@@ -150,11 +150,13 @@ const setGoal = arkMutation({
   args: type({ id: arkId("applications"), "goalId?": arkId("goals") }),
   returns: v.null(),
   handler: async (ctx, { id, goalId }) => {
-    await own(ctx, ctx.userId, id)
+    const application = await own(ctx, ctx.userId, id)
     if (goalId && (await ctx.db.get("goals", goalId))?.userId !== ctx.userId)
       throw new ConvexError("That goal isn't yours.")
     // Leaving `goalId` out clears it.
     await ctx.db.patch("applications", id, { goalId })
+    if (goalId && goalId !== application.goalId)
+      await fireEvent(ctx, ctx.userId, { kind: "goal", goalId, applicationId: id })
     return null
   },
 })

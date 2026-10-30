@@ -10,9 +10,9 @@ and the rules both go by. For the rest of the app, see [flows.md](flows.md).
 - **Workflow:** a name, a trigger, an on/off switch and up to 20 steps
   (`automations` table).
 - **Trigger:** what starts a run: Run now, a schedule, an email being sorted, an
-  application moving, or someone booking time.
+  application moving, someone booking time, or an application joining a goal.
 - **Block:** one thing to do: Notify me, Find roles, Send email, Add note, Move
-  application, Add calendar event, Only go on if, Wait.
+  application, Put on goal, Add calendar event, Only go on if, Wait.
 - **Branch:** a step that holds 2 to 4 paths of blocks, one level deep. A **split** runs
   every path side by side; **Ask Jev** runs only the path for Jev's answer.
 - **Run:** one go through the steps (`automationRuns`). It copies the steps when it
@@ -74,6 +74,9 @@ and the rules both go by. For the rest of the app, see [flows.md](flows.md).
      means any kind).
    - **An application moves:** to some statuses (none picked means any).
    - **Someone books time:** on any of your booking pages.
+   - **An application joins a goal:** when you pick a goal on an application, a loop's
+     role lands on its goal, or Jev's suggestion is added, for some goals (none picked
+     means any).
 5. Placeholder buttons under each text box add a name to the end of the text. Which
    names show depends on the trigger, and on whether a Find roles step comes first.
 6. Remove a step with its trash button or **Remove** in its settings. Removing the last
@@ -125,10 +128,12 @@ and the rules both go by. For the rest of the app, see [flows.md](flows.md).
 
 - **Schedule:** a cron calls `internal.automations.startDue` every 5 minutes, so one set
   for 09:00 starts by 09:05. It starts each workflow that's due and sets its next time.
-- **Events:** three places call `fireEvent` (`convex/api/features/automations/fire.ts`):
+- **Events:** five places call `fireEvent` (`convex/api/features/automations/fire.ts`):
   - the email sorter, after it files an email (`email/sort.ts`);
   - `changeStatus`, when an application moves (`applications/public.ts`);
-  - `book`, when someone books time (`booking/public.ts`).
+  - `book`, when someone books time (`booking/public.ts`);
+  - `setGoal`, when an application is put on a goal (`applications/public.ts`), and
+    `track`, when a role from a goal's loop lands on the board (`loops/public.ts`).
 
   `fireEvent` only schedules `internal.automations.onEvent` when the person has an
   active workflow with that kind of trigger. `onEvent` starts each one the event
@@ -137,8 +142,8 @@ and the rules both go by. For the rest of the app, see [flows.md](flows.md).
 - A run started by an event keeps only ids (`context`): the application, the email
   event, the booking, and the old and new status. An email's subject and sender stay
   sealed until a step needs them.
-- A workflow's own **Move application** never fires an event, so one workflow can't set
-  off another, or itself.
+- A workflow's own **Move application** and **Put on goal** never fire an event, so one
+  workflow can't set off another, or itself.
 
 ### Running the steps
 
@@ -182,6 +187,7 @@ workflow's journal is cleaned up. Each workflow keeps its newest 50 runs.
 | Send email         | Emails one address from your Cloudflare address                                              | “Send email” on; 20 a day                               |
 | Add note           | Adds a note to an application                                                                | An application picked, or one from the trigger          |
 | Move application   | Moves an application to a status                                                             | The same                                                |
+| Put on goal        | Puts an application on one of your goals                                                     | The same, and a goal picked                             |
 | Add calendar event | An event some days after the run, at a time, in your Calendar's zone (UTC if none)           | 0 to 60 days later, 5 minutes to 8 hours long           |
 | Wait               | Waits before the next step                                                                   | 1 minute to 30 days                                     |
 | Split into paths   | Runs 2 to 4 paths side by side                                                               | Every path has a step                                   |
@@ -190,14 +196,15 @@ workflow's journal is cleaned up. Each workflow keeps its newest 50 runs.
 
 ## Placeholders
 
-| Names                                                                 | When they're there                                                                  |
-| --------------------------------------------------------------------- | ----------------------------------------------------------------------------------- |
-| `{workflow.name}`, `{run.date}`                                       | Always                                                                              |
-| `{application.company}`, `{application.role}`, `{application.status}` | The trigger is about an application, or (in Add note) one is picked                 |
-| `{status.from}`, `{status.to}`                                        | An application moves                                                                |
-| `{email.subject}`, `{email.from}`, `{email.kind}`                     | An email comes in                                                                   |
-| `{booking.title}`, `{booking.when}`                                   | Someone books time; the time is in your Calendar's zone, or else the booking page's |
-| `{loop.name}`, `{roles.judged}`, `{roles.fits}`                       | After a Find roles step                                                             |
+| Names                                                                                       | When they're there                                                                  |
+| ------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------- |
+| `{workflow.name}`, `{run.date}`                                                             | Always                                                                              |
+| `{application.company}`, `{application.role}`, `{application.status}`, `{application.goal}` | The trigger is about an application, or (in Add note) one is picked                 |
+| `{status.from}`, `{status.to}`                                                              | An application moves                                                                |
+| `{goal.name}`                                                                               | An application joins a goal                                                         |
+| `{email.subject}`, `{email.from}`, `{email.kind}`                                           | An email comes in                                                                   |
+| `{booking.title}`, `{booking.when}`                                                         | Someone books time; the time is in your Calendar's zone, or else the booking page's |
+| `{loop.name}`, `{roles.judged}`, `{roles.fits}`                                             | After a Find roles step                                                             |
 
 Dates and times are in your Calendar's zone. A name the run doesn't know stays as
 written. Placeholders are only ever replaced with
