@@ -1,6 +1,6 @@
 import { type, type Type } from "arktype"
 import type { GenericId, Validator } from "convex/values"
-import { v } from "convex/values"
+import { ConvexError, v } from "convex/values"
 
 // arktype versions of convex-helpers' zid, zodToConvex and zodOutputToConvex.
 // They read arktype's JSON Schema, so rules Convex can't express (trim, min
@@ -70,6 +70,13 @@ const toConvex = (s: JsonSchema): Validator<unknown, "required", string> => {
       }
   }
   throw new Error(`arktype → Convex: unsupported schema ${JSON.stringify(s)}`)
+}
+
+/** Runs the rules Convex can't express. One that fails reaches the person as a ConvexError. */
+export const checked = <T extends Type>(schema: T, value: unknown): T["infer"] => {
+  const out = schema(value)
+  if (out instanceof type.errors) throw new ConvexError(out.summary)
+  return out as T["infer"]
 }
 
 /** A document id for `table`, like convex-helpers' `zid`. */

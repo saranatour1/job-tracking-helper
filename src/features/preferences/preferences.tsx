@@ -7,6 +7,7 @@ import {
   PrefilledSections,
   resumeTypes,
   workModes,
+  type Review,
 } from "@convex/features/preferences/validators"
 import {
   ArrowRight01Icon,
@@ -24,7 +25,6 @@ import { useAction, useMutation } from "convex/react"
 import { usePaginatedQuery, useQuery } from "convex-helpers/react/cache/hooks"
 import { ConvexError } from "convex/values"
 import { startTransition, useActionState, useRef } from "react"
-
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -44,9 +44,6 @@ import {
 } from "@/features/shell/page-body"
 import { PageHeader } from "@/features/shell/page-header"
 import { cn } from "@/lib/utils"
-
-import type { Review } from "@convex/features/preferences/resumeRules"
-
 import { IdentityBlocks } from "./identity-blocks"
 import { assistantPrompt, parseReply } from "./prompt"
 import { fillEmpty, type Section as FieldSection, suggestedSections } from "./prefilled"

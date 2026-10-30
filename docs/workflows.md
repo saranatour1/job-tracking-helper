@@ -130,7 +130,7 @@ and the rules both go by. For the rest of the app, see [flows.md](flows.md).
   for 09:00 starts by 09:05. It starts each workflow that's due and sets its next time.
 - **Events:** five places call `fireEvent` (`convex/features/automations/fire.ts`):
   - the email sorter, after it files an email (`email/sort.ts`);
-  - `changeStatus`, when an application moves (`applications/public.ts`);
+  - `changeStatus`, when an application moves (`applications/utils.ts`);
   - `book`, when someone books time (`booking/public.ts`);
   - `setGoal`, when an application is put on a goal (`applications/public.ts`), and
     `track`, when a role from a goal's loop lands on the board (`loops/public.ts`).
@@ -228,8 +228,9 @@ text; nothing in them runs.
 
 - `convex/features/automations/validators.ts`: blocks, triggers, limits and the
   checks a workflow must pass. Shared with the frontend.
-- `convex/features/automations/engine.ts`: the interpreter, each block, events and
-  the schedule.
+- `convex/features/automations/engine.ts`: the interpreter, events and the schedule.
+- `convex/features/automations/utils.ts`: what each block does, starting and stopping
+  a run, and what its steps can read.
 - `convex/features/automations/actions.ts`: Ask Jev, sending email, and Describe one.
 - `convex/features/automations/describe.ts`: Describe one's questions, and the draft
   built from Jev's answers.

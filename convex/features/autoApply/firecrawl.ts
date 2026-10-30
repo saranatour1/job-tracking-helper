@@ -3,7 +3,6 @@
 // JSON line, which is read back and checked here before anything trusts it. The page is
 // someone else's site: its text is data, never instructions.
 import { ConvexError } from "convex/values"
-import { type } from "arktype"
 import { apiKeyOf } from "../workflows/sources"
 import { post, record, text } from "../workflows/sources/source"
 import type { Fill } from "./match"
@@ -62,32 +61,6 @@ export const endSession = async (scrapeId: string) => {
     headers: { Authorization: `Bearer ${keyOrThrow()}` },
   })
 }
-
-// What the scripts print, checked before use.
-export const ReadResult = type({
-  login: "boolean",
-  captcha: "boolean",
-  fields: type({
-    selector: "string",
-    name: "string",
-    type: "string",
-    label: "string",
-    required: "boolean",
-    "options?": "string[]",
-  })
-    .array()
-    .or("null"),
-  "submit?": "string | null",
-})
-export const FillResult = type({
-  unfilled: type({ label: "string", reason: "string" }).array(),
-  errors: "string[]",
-})
-export const SubmitResult = type({
-  outcome: "'confirmed' | 'errors' | 'captcha' | 'unknown'",
-  url: "string",
-  text: "string",
-})
 
 // Greenhouse embedded on a company site keeps the form in an iframe.
 const frame = `const frame = (await page.locator('iframe#grnhse_iframe').count()) ? page.frameLocator('iframe#grnhse_iframe') : page;`

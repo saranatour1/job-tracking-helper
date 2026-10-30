@@ -1,57 +1,27 @@
 // Incoming mail: Email Routing sends mail for the person's address to a small Worker
 // in their Cloudflare account, which posts the raw message here. It's parsed, sealed
 // and kept in the cloudflareEmail component, all only if they allowed it.
-import { HOUR, RateLimiter } from "@convex-dev/rate-limiter"
-import { getAuthUserId } from "@convex-dev/auth/server"
 import { ConvexError, v } from "convex/values"
 import PostalMime from "postal-mime"
 import { components, internal } from "../../_generated/api"
-import type { Id } from "../../_generated/dataModel"
-import { action, type ActionCtx, env, httpAction } from "../../_generated/server"
+import { action, env, httpAction } from "../../_generated/server"
 import { authedQuery } from "../../lib/functions"
-import { open, seal } from "../../lib/secrets"
+import { seal } from "../../lib/secrets"
 import { createRule, removeInbound, routingEnabled, uploadWorker } from "./cloudflare"
-import { aad, keys, openJson } from "./internal"
-import { Details, Received } from "./models"
-
-export const limits = new RateLimiter(components.rateLimiter, {
-  connectEmail: { kind: "fixed window", rate: 10, period: HOUR },
-  testEmail: { kind: "fixed window", rate: 5, period: HOUR },
-  setUpInbound: { kind: "fixed window", rate: 5, period: HOUR },
-  // Enough for a busy job search, low enough that a flood can't fill the table.
-  inboundEmail: { kind: "token bucket", rate: 200, period: HOUR, capacity: 50 },
-})
-
-export const userIdOf = async (ctx: ActionCtx) => {
-  const userId = await getAuthUserId(ctx)
-  if (!userId) throw new Error("Not signed in")
-  return userId
-}
-
-export const secretKeys = () =>
-  keys().catch(() => {
-    throw new ConvexError("Email isn't set up on this server yet: SECRETS_KEYS is missing.")
-  })
-
-/** The connection with its details and token opened in memory, for an action to use. */
-export const openConnection = async (ctx: ActionCtx, userId: Id<"users">) => {
-  const row = await ctx.runQuery(internal.email.sealed, { userId })
-  if (!row) throw new ConvexError("Connect Cloudflare first.")
-  const k = await secretKeys()
-  const details = await openJson(k, row.details, aad.details(userId), Details)
-  const token = await open(k, row.token, aad.token(userId)).catch(() => null)
-  if (!details || !token)
-    throw new ConvexError("The saved connection couldn't be read. Paste your token again.")
-  return { row, k, details, token }
-}
-
-const sha256 = async (text: string) =>
-  Array.from(new Uint8Array(await crypto.subtle.digest("SHA-256", new TextEncoder().encode(text))))
-    .map((b) => b.toString(16).padStart(2, "0"))
-    .join("")
-
-const cloudflare = (cause: unknown) =>
-  new ConvexError(`Cloudflare: ${cause instanceof Error ? cause.message : String(cause)}`)
+import {
+  aad,
+  keys,
+  openJson,
+  limits,
+  userIdOf,
+  secretKeys,
+  openConnection,
+  sha256,
+  cloudflare,
+  tearDown,
+  cap,
+} from "./utils"
+import { Received, vRecentMail } from "./validators"
 
 // Deploys the Worker and adds the routing rule for the sending address. Routing must
 // already be on: turning it on replaces the domain's MX records, which would cut off
@@ -107,18 +77,6 @@ const setUpInbound = action({
   },
 })
 
-const tearDown = async (ctx: ActionCtx, userId: Id<"users">) => {
-  const { row, details, token } = await openConnection(ctx, userId)
-  if (row.inbound && details.zoneId)
-    await removeInbound(
-      details.accountId,
-      details.zoneId,
-      token,
-      row.inbound.worker,
-      row.inbound.ruleId
-    )
-}
-
 const stopInbound = action({
   args: {},
   returns: v.null(),
@@ -142,8 +100,6 @@ const disconnect = action({
     return null
   },
 })
-
-const cap = (text: string | undefined, max: number) => text?.slice(0, max)
 
 // POST /email/inbound/<inboundId>, called by the person's Worker. A 4xx makes the
 // Worker turn the message away; a 5xx makes Cloudflare try again later.
@@ -191,15 +147,7 @@ export const receive = httpAction(async (ctx, req) => {
 // line of the text.
 const recentMail = authedQuery({
   args: {},
-  returns: v.array(
-    v.object({
-      id: v.string(),
-      from: v.string(),
-      subject: v.string(),
-      snippet: v.string(),
-      at: v.number(),
-    })
-  ),
+  returns: vRecentMail,
   handler: async (ctx) => {
     const k = await keys().catch(() => null)
     if (!k) return []

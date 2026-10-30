@@ -5,10 +5,8 @@ import { internalMutation, internalQuery } from "../../_generated/server"
 import { urlKey } from "../workflows/fit"
 import { readPool } from "../workflows/manager"
 import { boardKinds, boardOf, companyOf, starterBoards } from "./boards"
-import { vFeedJob } from "./validators"
-
-// Boards are fetched about once a day; the hourly cron queues those due.
-const refreshEvery = 20 * 60 * 60 * 1000
+import { vFeedJob, vBoardFetchedArgs, vCandidatesArgs } from "./validators"
+import { refreshEvery } from "./utils"
 
 // The cron's job, every hour: start the catalog from the starter boards the first time,
 // then hand the boards that are due to the batch worker.
@@ -97,15 +95,7 @@ const saveJobs = internalMutation({
 // Finishes a fetch: drops the roles the board no longer lists and records how it went.
 // ponytail: removes up to 500 closed roles a fetch; the rest go on the next day's.
 const boardFetched = internalMutation({
-  args: {
-    boardId: v.id("jobBoards"),
-    startedAt: v.number(),
-    jobs: v.number(),
-    error: v.optional(v.string()),
-    // The name the board's own roles give the company, which reads better than one
-    // made from the board's address.
-    company: v.optional(v.string()),
-  },
+  args: vBoardFetchedArgs,
   returns: v.null(),
   handler: async (ctx, { boardId, startedAt, jobs, error, company }) => {
     if (!error) {
@@ -130,14 +120,7 @@ const boardFetched = internalMutation({
 // The roles a run sends to Jev: matches for each of the loop's searches, taken in turn,
 // that the person hasn't been shown and that pass the loop's hard rules.
 const candidates = internalQuery({
-  args: {
-    userId: v.id("users"),
-    queries: v.array(v.string()),
-    remoteOnly: v.boolean(),
-    companies: v.array(v.string()),
-    since: v.optional(v.number()),
-    limit: v.number(),
-  },
+  args: vCandidatesArgs,
   returns: v.array(v.id("jobs")),
   handler: async (ctx, { userId, queries, remoteOnly, companies, since, limit }) => {
     const results = await Promise.all(

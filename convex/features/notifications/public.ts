@@ -1,50 +1,18 @@
-import { type } from "arktype"
 import { v } from "convex/values"
 import { components, internal } from "../../_generated/api"
-import { internalMutation, type MutationCtx } from "../../_generated/server"
-import { arkMutation, authedQuery } from "../../lib/functions"
-import { statuses } from "../applications/validators"
-import { aad, keys, openJson } from "../email/internal"
-import type { Kind } from "../email/match"
-import { MailNote } from "../email/models"
+import { internalMutation } from "../../_generated/server"
+import { authedMutation, authedQuery } from "../../lib/functions"
+import { aad, keys, openJson } from "../email/utils"
+import { MailNote } from "../email/validators"
 import { notificationKindKeys } from "./kinds"
-
-const mailWords: Record<Kind, string> = {
-  confirmation: "Application received",
-  interview: "Interview",
-  rejection: "Rejected",
-  offer: "Offer",
-  portal: "Portal update",
-  other: "Email",
-}
+import { mailWords } from "./utils"
+import { vInboxLines } from "./validators"
 
 // The inbox, newest first. Each line is built from what it points at, so a mail line
 // opens the sealed mail event here and nowhere else. Lines whose source is gone are left out.
 const inbox = authedQuery({
   args: {},
-  returns: v.array(
-    v.object({
-      id: v.string(),
-      title: v.string(),
-      message: v.string(),
-      at: v.number(),
-      unread: v.boolean(),
-      // Where its button goes; none for a line with nowhere better to go.
-      link: v.union(
-        v.literal("/"),
-        v.literal("/loops"),
-        v.literal("/calendar"),
-        v.literal("/activity"),
-        v.null()
-      ),
-      company: v.optional(v.string()),
-      status: v.optional(v.union(...statuses.map((s) => v.literal(s)))),
-      // For a workflow's message: the run it came from, to open its history.
-      run: v.optional(
-        v.object({ automationId: v.id("automations"), runId: v.id("automationRuns") })
-      ),
-    })
-  ),
+  returns: vInboxLines,
   handler: async (ctx) => {
     const rows = await ctx.runQuery(components.notifications.lib.list, {
       owner: ctx.userId,
@@ -162,8 +130,8 @@ const unreadCount = authedQuery({
 })
 
 // Marks notifications read or unread; with no ids, every unread one is marked read.
-const setRead = arkMutation({
-  args: type({ "ids?": "string[]", read: "boolean" }),
+const setRead = authedMutation({
+  args: { ids: v.optional(v.array(v.string())), read: v.boolean() },
   returns: v.null(),
   handler: async (ctx, { ids, read }) => {
     // The component checks each one belongs to this person before it changes anything.
@@ -186,8 +154,8 @@ const settings = authedQuery({
   },
 })
 
-const setOn = arkMutation({
-  args: type({ kind: type.enumerated(...notificationKindKeys), on: "boolean" }),
+const setOn = authedMutation({
+  args: { kind: v.union(...notificationKindKeys.map((k) => v.literal(k))), on: v.boolean() },
   returns: v.null(),
   handler: async (ctx, { kind, on }) => {
     await ctx.runMutation(components.notifications.lib.setMuted, {
@@ -208,10 +176,6 @@ const removeNotifications = internalMutation({
     return null
   },
 })
-
-// For account deletion: notifications and settings go in batches.
-export const deleteNotifications = (ctx: MutationCtx, owner: string) =>
-  ctx.scheduler.runAfter(0, internal.inbox.removeNotifications, { owner })
 
 export const notificationsApi = {
   inbox,

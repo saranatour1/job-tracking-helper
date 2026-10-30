@@ -479,17 +479,19 @@ The workflow machinery and the shared catalog are their own features; everything
 convex/features/loops/          tables and the functions the page calls
   catalog.ts                         questions, templates, sizes, estimates
   models/                            loops.ts, runs.ts, leads.ts, usage.ts, index.ts
-  validators.ts, schedule.ts         input checks; the next morning in a time zone
-  public.ts, internal.ts             what the page calls; the cron, plan, judging tally, finish and shortlist
+  validators.ts, schedule.ts         shapes and input checks; the next morning in a time zone
+  public.ts, internal.ts             what the page calls; the cron, plan, judging tally and finish
+  utils.ts                           starting a run, the profile, usage, the shortlist
   link.ts                            checking a pasted link
 convex/features/jobs/           the shared catalog
   boards.ts                          feed URLs, feed parsing (JSON and Personio's XML), starter boards
   models/                            jobs.ts, boards.ts, index.ts
+  validators.ts, utils.ts            shapes; a row for the Jobs page
   public.ts, internal.ts, actions.ts search for the Jobs page; refresh, save, pick; fetchBoard
 convex/features/workflows/      what runs a loop
   manager.ts                         WorkflowManager, readPool and the rate limits
   findJobs.ts                        the run, step by step
-  actions.ts                         search (one batch) and judgeOne (one role, on readPool)
+  actions.ts, utils.ts               search (one batch) and judgeOne (one role, on readPool); judge, turn
   judge.ts                           the profile, Jev's questions, the breakdown and the verdict rules
   fit.ts                             search words, URL dedupe
   sources/                           firecrawl.ts, contextDev.ts, index.ts (keys and credits)

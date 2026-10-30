@@ -1,41 +1,19 @@
-import { type } from "arktype"
 import { ConvexError, v } from "convex/values"
 import { components, internal } from "../../_generated/api"
 import { action } from "../../_generated/server"
-import { arkOutputToConvex, arkToConvex } from "../../lib/ark"
-import { arkMutation, authedQuery } from "../../lib/functions"
+import { arkToConvex, checked } from "../../lib/ark"
+import { authedMutation, authedQuery } from "../../lib/functions"
 import { open, seal } from "../../lib/secrets"
 import { accessOf, tokenStatus } from "./cloudflare"
-import { limits, openConnection, secretKeys, userIdOf } from "./inbound"
-import { aad, keys, openJson } from "./internal"
-import { Access, Allow, allowKeys, Details, Sent } from "./models"
-import { Connect } from "./validators"
+import { limits, openConnection, secretKeys, userIdOf, aad, keys, openJson } from "./utils"
+import { allowKeys, Details, Sent, Connect, vConnectionView } from "./validators"
 
 // The connection, opened for its owner. The token itself never leaves the server.
 // A connection whose details can't be opened (its key was removed) reads as none,
 // so the person can paste it again.
 const connection = authedQuery({
   args: {},
-  returns: v.union(
-    v.null(),
-    v.object({
-      accountId: v.string(),
-      fromAddress: v.string(),
-      tokenAddedAt: v.number(),
-      access: arkOutputToConvex(Access),
-      allow: arkOutputToConvex(Allow),
-      receivingSince: v.union(v.number(), v.null()),
-      lastTest: v.union(
-        v.null(),
-        v.object({
-          to: v.string(),
-          status: v.string(),
-          error: v.optional(v.string()),
-          at: v.number(),
-        })
-      ),
-    })
-  ),
+  returns: vConnectionView,
   handler: async (ctx) => {
     const row = await ctx.db
       .query("emailConnections")
@@ -81,8 +59,7 @@ const connect = action({
   returns: v.null(),
   handler: async (ctx, args) => {
     const userId = await userIdOf(ctx)
-    const input = Connect(args)
-    if (input instanceof type.errors) throw new ConvexError(input.summary)
+    const input = checked(Connect, args)
     const { ok } = await limits.limit(ctx, "connectEmail", { key: userId })
     if (!ok) throw new ConvexError("Too many tries. Wait an hour and try again.")
     const k = await secretKeys()
@@ -124,8 +101,8 @@ const connect = action({
   },
 })
 
-const setAllow = arkMutation({
-  args: type({ key: type.enumerated(...allowKeys), value: "boolean" }),
+const setAllow = authedMutation({
+  args: { key: v.union(...allowKeys.map((k) => v.literal(k))), value: v.boolean() },
   returns: v.null(),
   handler: async (ctx, { key, value }) => {
     const row = await ctx.db

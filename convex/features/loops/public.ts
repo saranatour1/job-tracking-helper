@@ -1,25 +1,18 @@
 import { paginationOptsValidator, paginationResultValidator } from "convex/server"
-import { nextNumber } from "../applications/public"
+import { nextNumber } from "../applications/utils"
 import { priorityFor } from "../applications/validators"
 import { ConvexError, v } from "convex/values"
 import type { Id } from "../../_generated/dataModel"
-import type { MutationCtx } from "../../_generated/server"
 import schema from "../../schema"
-import { arkId } from "../../lib/ark"
 import { arkMutation, authedMutation, authedQuery } from "../../lib/functions"
 import { fireEvent } from "../automations/fire"
 import { limits } from "../workflows/manager"
 import { apiKeyOf, monthlyCredits } from "../workflows/sources"
 import { maxLoops, switchAt } from "./catalog"
-import { startRun, stopRunNow } from "./internal"
-import { isTimeZone, nextRunAt } from "./schedule"
-import { NewLoop, providerIds } from "./validators"
-
-const ownLoop = async (ctx: MutationCtx, userId: Id<"users">, loopId: Id<"loops">) => {
-  const loop = await ctx.db.get("loops", loopId)
-  if (!loop || loop.userId !== userId) throw new ConvexError("That loop doesn't exist.")
-  return loop
-}
+import { startRun, stopRunNow, ownLoop, rowOf, lastRunOf, ownLead, countOnRun } from "./utils"
+import { nextRunAt } from "./schedule"
+import { NewLoop, UpdateLoop, vFits, vRespondArgs, vSourceStatus } from "./validators"
+import { providerIds } from "../workflows/validators"
 
 const list = authedQuery({
   args: {},
@@ -47,23 +40,9 @@ const create = arkMutation({
   },
 })
 
-// A loop as it's kept, from the setup form's answers. Its next run moves to the new time.
-const rowOf = (loop: typeof NewLoop.infer) => {
-  if (loop.answers.remoteOnly && loop.answers.nearMe)
-    throw new ConvexError("Pick remote only or on-site near you, not both.")
-  if (!isTimeZone(loop.timeZone)) throw new ConvexError("That time zone isn't one we know.")
-  const { auto, prompt, ...fields } = loop
-  return {
-    ...fields,
-    prompt: prompt || undefined,
-    active: auto,
-    nextRunAt: nextRunAt(Date.now(), loop.at, loop.timeZone),
-  }
-}
-
 // Changes a loop's answers. A run already going keeps the answers it started with.
 const update = arkMutation({
-  args: NewLoop.and({ loopId: arkId("loops") }),
+  args: UpdateLoop,
   returns: v.null(),
   handler: async (ctx, { loopId, ...loop }) => {
     await ownLoop(ctx, ctx.userId, loopId)
@@ -112,13 +91,6 @@ const runNow = authedMutation({
     return startRun(ctx, loop)
   },
 })
-
-export const lastRunOf = (ctx: MutationCtx, loopId: Id<"loops">) =>
-  ctx.db
-    .query("loopRuns")
-    .withIndex("by_loopId_and_startedAt", (q) => q.eq("loopId", loopId))
-    .order("desc")
-    .first()
 
 // Stops the loop's run in progress, if there is one.
 const stopRun = authedMutation({
@@ -206,9 +178,7 @@ const leadForApplication = authedQuery({
 // leads only, so editing an application doesn't re-run it.
 const fits = authedQuery({
   args: {},
-  returns: v.array(
-    v.object({ applicationId: v.id("applications"), fit: v.number(), isFit: v.boolean() })
-  ),
+  returns: vFits,
   handler: async (ctx) => {
     // A missing applicationId sorts before any string, so this skips leads without one.
     const leads = await ctx.db
@@ -229,30 +199,10 @@ const fits = authedQuery({
   },
 })
 
-const ownLead = async (ctx: MutationCtx, userId: Id<"users">, leadId: Id<"jobLeads">) => {
-  const lead = await ctx.db.get("jobLeads", leadId)
-  if (!lead || lead.userId !== userId) throw new ConvexError("That job doesn't exist.")
-  return lead
-}
-
-// Keeps the run's counts in step as people act, so the Runs tab shows what came of
-// each morning.
-const countOnRun = async (
-  ctx: MutationCtx,
-  runId: Id<"loopRuns"> | undefined,
-  field: "saved" | "applied"
-) => {
-  const run = runId && (await ctx.db.get("loopRuns", runId))
-  if (run) await ctx.db.patch("loopRuns", run._id, { [field]: run[field] + 1 })
-}
-
 // The morning decisions. Save keeps it for later. Favorite keeps it too and tells
 // tomorrow's runs "more like this"; Dismiss drops it and tells them "not like this".
 const respond = authedMutation({
-  args: {
-    leadId: v.id("jobLeads"),
-    action: v.union(v.literal("save"), v.literal("favorite"), v.literal("dismiss")),
-  },
+  args: vRespondArgs,
   returns: v.null(),
   handler: async (ctx, { leadId, action }) => {
     const lead = await ownLead(ctx, ctx.userId, leadId)
@@ -323,16 +273,7 @@ const track = authedMutation({
 // the page, since queries can't read the clock.
 const sourceStatus = authedQuery({
   args: { month: v.string() },
-  returns: v.array(
-    v.object({
-      provider: v.union(...providerIds.map((p) => v.literal(p))),
-      configured: v.boolean(),
-      used: v.number(),
-      limit: v.number(),
-      exhausted: v.boolean(),
-      usable: v.boolean(),
-    })
-  ),
+  returns: vSourceStatus,
   handler: async (ctx, { month }) => {
     const rows = []
     for (const provider of providerIds) {

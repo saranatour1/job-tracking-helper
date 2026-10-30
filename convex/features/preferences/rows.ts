@@ -1,22 +1,17 @@
-import { emptyPreferences, Preferences, type PrefilledSections } from "./validators"
+import {
+  emptyPreferences,
+  Preferences,
+  type PrefilledSections,
+  tagKinds,
+  entryKinds,
+} from "./validators"
 
 // Turns the Preferences form into rows for `preferenceTags` and `profileEntries`, and
 // back. The page and the server share these, so both read the rows the same way.
 
 type Form = typeof Preferences.infer
 type Sections = typeof PrefilledSections.infer
-
-export const tagKinds = [
-  "interest",
-  "avoid",
-  "skill",
-  "location",
-  "company",
-  "redFlagCompany",
-] as const
 export type TagKind = (typeof tagKinds)[number]
-
-export const entryKinds = ["answer", "field"] as const
 
 // The most rows one person can have of each kind, from the caps the validators enforce:
 // 40 tags per list, 10 built-in answers plus 20 of their own, 20 sections of 50 fields.

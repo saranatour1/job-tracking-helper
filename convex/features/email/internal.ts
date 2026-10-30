@@ -1,48 +1,19 @@
-import { type, type Type } from "arktype"
 import { v } from "convex/values"
 import { components, internal } from "../../_generated/api"
 import type { Id } from "../../_generated/dataModel"
-import {
-  env,
-  internalAction,
-  internalMutation,
-  internalQuery,
-  type MutationCtx,
-  type QueryCtx,
-} from "../../_generated/server"
+import { internalAction, internalMutation, internalQuery } from "../../_generated/server"
 import { arkOutputToConvex } from "../../lib/ark"
-import { isStale, type Keys, open, parseKeys, seal } from "../../lib/secrets"
-import { Allow, EmailConnection, Inbound, nothingAllowed } from "./models"
-
-// Each sealed value is bound to its owner and what it is, so it can't be opened from
-// another person's row or passed off as a different field.
-export const aad = {
-  token: (userId: string) => `email-token:${userId}`,
-  details: (userId: string) => `email-details:${userId}`,
-  email: (userId: string) => `email:${userId}`,
-}
-export const keys = () => parseKeys(env.SECRETS_KEYS)
-
-/** Opens a sealed JSON value and checks its shape, or null when it can't be read. */
-export const openJson = async <T extends Type>(
-  k: Keys,
-  sealed: string,
-  aadText: string,
-  shape: T
-) =>
-  open(k, sealed, aadText).then(
-    (text) => {
-      const value = shape(JSON.parse(text))
-      return value instanceof type.errors ? null : (value as T["infer"])
-    },
-    () => null
-  )
-
-const connectionOf = (ctx: QueryCtx, userId: Id<"users">) =>
-  ctx.db
-    .query("emailConnections")
-    .withIndex("by_userId", (q) => q.eq("userId", userId))
-    .unique()
+import { isStale } from "../../lib/secrets"
+import {
+  EmailConnection,
+  nothingAllowed,
+  vSealedConnection,
+  vSetInboundArgs,
+  vInboundTarget,
+  vConnectionsPage,
+  vResealArgs,
+} from "./validators"
+import { aad, keys, connectionOf, reseal } from "./utils"
 
 // Adding a token, or replacing it, writes one row: the old token is gone once this
 // commits. A replaced token keeps the switches and incoming mail already set up.
@@ -66,17 +37,7 @@ const save = internalMutation({
 // The sealed connection and the person's own address, for an action to open.
 const sealed = internalQuery({
   args: { userId: v.id("users") },
-  returns: v.union(
-    v.null(),
-    v.object({
-      details: v.string(),
-      token: v.string(),
-      tokenAddedAt: v.number(),
-      allow: arkOutputToConvex(Allow),
-      inbound: v.optional(arkOutputToConvex(Inbound)),
-      userEmail: v.optional(v.string()),
-    })
-  ),
+  returns: vSealedConnection,
   handler: async (ctx, { userId }) => {
     const connection = await connectionOf(ctx, userId)
     if (!connection) return null
@@ -88,11 +49,7 @@ const sealed = internalQuery({
 
 // Records incoming mail as set up, or clears it when both are left out.
 const setInbound = internalMutation({
-  args: {
-    userId: v.id("users"),
-    inboundId: v.optional(v.string()),
-    inbound: v.optional(arkOutputToConvex(Inbound)),
-  },
+  args: vSetInboundArgs,
   returns: v.null(),
   handler: async (ctx, { userId, inboundId, inbound }) => {
     const connection = await connectionOf(ctx, userId)
@@ -104,10 +61,7 @@ const setInbound = internalMutation({
 // Who an inbound URL belongs to, for the HTTP endpoint to check the Worker's secret.
 const inboundTarget = internalQuery({
   args: { inboundId: v.string() },
-  returns: v.union(
-    v.null(),
-    v.object({ userId: v.id("users"), secretHash: v.string(), receive: v.boolean() })
-  ),
+  returns: vInboundTarget,
   handler: async (ctx, { inboundId }) => {
     const connection = await ctx.db
       .query("emailConnections")
@@ -135,11 +89,7 @@ const remove = internalMutation({
 
 const connectionsPage = internalQuery({
   args: { cursor: v.union(v.string(), v.null()) },
-  returns: v.object({
-    page: v.array(v.object({ userId: v.id("users"), details: v.string(), token: v.string() })),
-    isDone: v.boolean(),
-    continueCursor: v.string(),
-  }),
+  returns: vConnectionsPage,
   handler: async (ctx, { cursor }) => {
     const result = await ctx.db.query("emailConnections").paginate({ cursor, numItems: 100 })
     return {
@@ -150,12 +100,7 @@ const connectionsPage = internalQuery({
 })
 
 const resealConnection = internalMutation({
-  args: {
-    userId: v.id("users"),
-    from: v.string(),
-    details: v.string(),
-    token: v.string(),
-  },
+  args: vResealArgs,
   returns: v.null(),
   handler: async (ctx, { userId, from, details, token }) => {
     const connection = await connectionOf(ctx, userId)
@@ -165,9 +110,6 @@ const resealConnection = internalMutation({
     return null
   },
 })
-
-const reseal = async (k: Keys, sealedText: string, aadText: string) =>
-  seal(k, await open(k, sealedText, aadText), aadText)
 
 // After adding a key to the end of SECRETS_KEYS, run `npx convex run email:resealAll`
 // to move every connection and email to it. Then the old key can be removed.
@@ -229,17 +171,6 @@ const removeEmails = internalMutation({
     return null
   },
 })
-
-// For account deletion: the connection now, the emails in batches.
-export const deleteEmail = async (ctx: MutationCtx, userId: Id<"users">) => {
-  const connection = await connectionOf(ctx, userId)
-  if (connection) await ctx.db.delete("emailConnections", connection._id)
-  for await (const event of ctx.db
-    .query("mailEvents")
-    .withIndex("by_userId_and_applicationId", (q) => q.eq("userId", userId)))
-    await ctx.db.delete("mailEvents", event._id)
-  await ctx.scheduler.runAfter(0, internal.email.removeEmails, { owner: userId })
-}
 
 export const internalApi = {
   save,

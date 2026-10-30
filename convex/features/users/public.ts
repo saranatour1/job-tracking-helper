@@ -1,29 +1,21 @@
-import { type } from "arktype"
 import { ConvexError, v } from "convex/values"
 import { components } from "../../_generated/api"
-import { arkId } from "../../lib/ark"
 import { arkMutation, authedMutation, authedQuery } from "../../lib/functions"
-import { deleteEmail } from "../email/internal"
-import { deleteLoops } from "../loops/internal"
-import { deleteNotifications } from "../notifications/public"
-import { deleteViews } from "../views/public"
-import { deleteGoals } from "../goals/public"
-import { deleteAutoApplies } from "../autoApply/public"
-import { deleteCalendar } from "../calendar/public"
-import { deleteBookingPages } from "../booking/public"
-import { deleteAutomations } from "../automations/public"
-import { deletePreferences } from "../preferences/public"
-import { maxImageBytes, Profile } from "./validators"
+import { deleteEmail } from "../email/utils"
+import { deleteLoops } from "../loops/utils"
+import { deleteNotifications } from "../notifications/utils"
+import { deleteViews } from "../views/utils"
+import { deleteGoals } from "../goals/utils"
+import { deleteAutoApplies } from "../autoApply/utils"
+import { deleteCalendar } from "../calendar/utils"
+import { deleteBookingPages } from "../booking/utils"
+import { deleteAutomations } from "../automations/utils"
+import { deletePreferences } from "../preferences/utils"
+import { maxImageBytes, Profile, vMe } from "./validators"
 
 const me = authedQuery({
   args: {},
-  returns: v.object({
-    name: v.string(),
-    email: v.string(),
-    userName: v.string(),
-    imageUrl: v.union(v.string(), v.null()),
-    onboarded: v.boolean(),
-  }),
+  returns: vMe,
   handler: async (ctx) => {
     const user = await ctx.db.get("users", ctx.userId)
     return {
@@ -62,8 +54,8 @@ const generateUploadUrl = authedMutation({
   handler: (ctx) => ctx.storage.generateUploadUrl(),
 })
 
-const setImage = arkMutation({
-  args: type({ "imageId?": arkId("_storage") }),
+const setImage = authedMutation({
+  args: { imageId: v.optional(v.id("_storage")) },
   returns: v.null(),
   handler: async (ctx, { imageId }) => {
     if (imageId) {

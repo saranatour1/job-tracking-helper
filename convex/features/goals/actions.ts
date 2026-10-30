@@ -3,18 +3,12 @@ import { convexGateway } from "@convex-dev/ai-sdk-provider"
 import { experimental_decide as decide } from "ai"
 import { ConvexError, v } from "convex/values"
 import { internal } from "../../_generated/api"
-import type { Id } from "../../_generated/dataModel"
 import { action } from "../../_generated/server"
 import type { FunctionReturnType } from "convex/server"
 import { type NoulAnswer, readNoul } from "../../lib/jev"
 import { jevModel } from "../workflows/judge"
 import { limits as rates } from "../workflows/manager"
-
-type Verdicts = {
-  add: Id<"applications">[]
-  remove: Id<"applications">[]
-  judged: number
-}
+import { type Verdicts, vVerdicts } from "./validators"
 
 // Asks Jev, in one request, whether each of the person's applications counts toward
 // the goal: the goal and every application are the state, and one yes-or-no question
@@ -22,11 +16,7 @@ type Verdicts = {
 // person confirms each one; nothing is written here.
 const evaluate = action({
   args: { id: v.id("goals") },
-  returns: v.object({
-    add: v.array(v.id("applications")),
-    remove: v.array(v.id("applications")),
-    judged: v.number(),
-  }),
+  returns: vVerdicts,
   handler: async (ctx, { id }): Promise<Verdicts> => {
     const userId = await getAuthUserId(ctx)
     if (!userId) throw new Error("Not signed in")

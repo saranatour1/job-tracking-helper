@@ -6,11 +6,11 @@ import { components, internal } from "../../_generated/api"
 import type { Id } from "../../_generated/dataModel"
 import { action, internalAction } from "../../_generated/server"
 import { seal } from "../../lib/secrets"
-import { openConnection } from "../email/inbound"
-import { aad } from "../email/internal"
+import { openConnection, aad } from "../email/utils"
 import { jevModel } from "../workflows/judge"
 import { limits as rates } from "../workflows/manager"
-import { type DescribeAnswers, type Draft, describeQuestions, draftFrom, vDraft } from "./describe"
+import { type DescribeAnswers, describeQuestions, draftFrom } from "./describe"
+import { type Draft, vDraft } from "./validators"
 
 // The steps that call out: Jev for Ask Jev, and Cloudflare for Notify me by email. Each
 // records how it went before returning, so a run's history says why it stopped.

@@ -1,35 +1,19 @@
 import { vOnCompleteArgs } from "@convex-dev/workpool"
 import { v } from "convex/values"
 import { components } from "../../_generated/api"
-import type { Id } from "../../_generated/dataModel"
 import { internalMutation, internalQuery } from "../../_generated/server"
-import { arkOutputToConvex } from "../../lib/ark"
 import { workLog } from "../../lib/log"
-import { changeStatus, nextNumber } from "../applications/public"
-import { addUsage } from "../loops/internal"
-import { rowOf } from "../preferences/public"
+import { changeStatus, nextNumber } from "../applications/utils"
+import { addUsage } from "../loops/utils"
+import { rowOf } from "../preferences/utils"
 import { rowLimits } from "../preferences/rows"
-import { applyStatuses, MissingQuestion, UsedAnswer } from "./models"
-
-const vStatus = v.union(...applyStatuses.map((s) => v.literal(s)))
+import { vRunPlan, vFinishArgs } from "./validators"
 
 // Everything one run needs, read at once: the posting, the saved answers (keyed by
 // the row they came from, so usage can be stamped), and the resume file.
 const plan = internalQuery({
   args: { autoApplyId: v.id("autoApplies") },
-  returns: v.union(
-    v.null(),
-    v.object({
-      userId: v.id("users"),
-      url: v.string(),
-      dryRun: v.boolean(),
-      answers: v.array(v.object({ key: v.string(), label: v.string(), value: v.string() })),
-      resume: v.union(
-        v.null(),
-        v.object({ id: v.id("_storage"), name: v.string(), mimeType: v.string() })
-      ),
-    })
-  ),
+  returns: vRunPlan,
   handler: async (ctx, { autoApplyId }) => {
     const row = await ctx.db.get("autoApplies", autoApplyId)
     if (!row) return null
@@ -90,15 +74,7 @@ const markSubmitting = internalMutation({
 // Records how the run went. On applied, the posting becomes an application and the
 // answers used get their usage stamped; applied and needs-you reach the Inbox.
 const finish = internalMutation({
-  args: {
-    autoApplyId: v.id("autoApplies"),
-    status: vStatus,
-    used: v.optional(arkOutputToConvex(UsedAnswer.array())),
-    missing: v.optional(arkOutputToConvex(MissingQuestion.array())),
-    confirmation: v.optional(v.string()),
-    error: v.optional(v.string()),
-    credits: v.optional(v.number()),
-  },
+  args: vFinishArgs,
   returns: v.null(),
   handler: async (
     ctx,
@@ -193,4 +169,3 @@ const ended = internalMutation({
 })
 
 export const internalApi = { plan, claim, markSubmitting, finish, ended }
-export type { Id }
