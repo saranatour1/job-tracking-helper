@@ -5,11 +5,17 @@ import {
   type WithoutSystemFields,
 } from "convex/server"
 import { ConvexError, v } from "convex/values"
-import type { MutationCtx, QueryCtx } from "../../../_generated/server"
+import {
+  internalMutation,
+  internalQuery,
+  type MutationCtx,
+  type QueryCtx,
+} from "../../../_generated/server"
 import type { Doc, Id } from "../../../_generated/dataModel"
 import schema from "../../../schema"
-import { arkId } from "../../../lib/ark"
+import { arkId, arkOutputToConvex } from "../../../lib/ark"
 import { arkMutation, authedMutation, authedQuery } from "../../../lib/functions"
+import { Review } from "./resumeRules"
 import { answerRowsOf, entryKinds, fieldRowsOf, rowLimits, tagRowsOf } from "./rows"
 import {
   maxResumeBytes,
@@ -20,7 +26,10 @@ import {
 } from "./validators"
 
 type Settings = Partial<
-  Pick<Doc<"preferences">, "workMode" | "resumeId" | "resumeName" | "prefilledAt">
+  Pick<
+    Doc<"preferences">,
+    "workMode" | "resumeId" | "resumeName" | "resumeText" | "resumeReview" | "prefilledAt"
+  >
 >
 
 export const rowOf = (ctx: QueryCtx, userId: Id<"users">) =>
@@ -133,15 +142,18 @@ const get = authedQuery({
       v.null()
     ),
     resume: v.union(v.object({ name: v.string(), url: v.union(v.string(), v.null()) }), v.null()),
+    // The last review of the resume, until the file changes.
+    review: v.union(arkOutputToConvex(Review), v.null()),
   }),
   handler: async (ctx) => {
     const row = await rowOf(ctx, ctx.userId)
-    if (!row) return { settings: null, resume: null }
+    if (!row) return { settings: null, resume: null, review: null }
     return {
       settings: { workMode: row.workMode, prefilledAt: row.prefilledAt },
       resume: row.resumeId
         ? { name: row.resumeName ?? "Resume", url: await ctx.storage.getUrl(row.resumeId) }
         : null,
+      review: row.resumeReview ?? null,
     }
   },
 })
@@ -224,7 +236,51 @@ const setResume = arkMutation({
     }
     const row = await rowOf(ctx, ctx.userId)
     if (row?.resumeId && row.resumeId !== resumeId) await ctx.storage.delete(row.resumeId)
-    await upsert(ctx, ctx.userId, { resumeId, resumeName: resumeId ? name : undefined })
+    // A new file means a new review.
+    await upsert(ctx, ctx.userId, {
+      resumeId,
+      resumeName: resumeId ? name : undefined,
+      resumeText: undefined,
+      resumeReview: undefined,
+    })
+    return null
+  },
+})
+
+// What the review action needs: the file, and the skills and interests to check for.
+const resumeToReview = internalQuery({
+  args: { userId: v.id("users") },
+  returns: v.union(
+    v.null(),
+    v.object({
+      resumeId: v.id("_storage"),
+      contentType: v.string(),
+      skills: v.array(v.string()),
+      interests: v.array(v.string()),
+    })
+  ),
+  handler: async (ctx, { userId }) => {
+    const row = await rowOf(ctx, userId)
+    if (!row?.resumeId) return null
+    const file = await ctx.db.system.get("_storage", row.resumeId)
+    if (!file) return null
+    const tags = await tagsOf(ctx, userId)
+    const of = (kind: Doc<"preferenceTags">["kind"]) =>
+      tags.filter((t) => t.kind === kind).map((t) => t.value)
+    return {
+      resumeId: row.resumeId,
+      contentType: file.contentType ?? "",
+      skills: of("skill"),
+      interests: of("interest"),
+    }
+  },
+})
+
+const setResumeReview = internalMutation({
+  args: { userId: v.id("users"), text: v.string(), review: arkOutputToConvex(Review) },
+  returns: v.null(),
+  handler: async (ctx, { userId, text, review }) => {
+    await upsert(ctx, userId, { resumeText: text, resumeReview: review })
     return null
   },
 })
@@ -240,4 +296,14 @@ export const deletePreferences = async (ctx: MutationCtx, userId: Id<"users">) =
       await ctx.db.delete("profileEntries", entry._id)
 }
 
-export const publicApi = { get, tags, entries, save, savePrefilled, skip, setResume }
+export const publicApi = {
+  get,
+  tags,
+  entries,
+  save,
+  savePrefilled,
+  skip,
+  setResume,
+  resumeToReview,
+  setResumeReview,
+}

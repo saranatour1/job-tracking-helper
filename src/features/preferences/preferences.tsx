@@ -25,7 +25,7 @@ import {
   rowLimits,
   sectionsOf,
 } from "@convex/api/features/preferences/rows"
-import { useMutation } from "convex/react"
+import { useAction, useMutation } from "convex/react"
 import { usePaginatedQuery, useQuery } from "convex-helpers/react/cache/hooks"
 import { ConvexError } from "convex/values"
 import { startTransition, useActionState, useRef } from "react"
@@ -49,6 +49,8 @@ import {
 } from "@/features/shell/page-body"
 import { PageHeader } from "@/features/shell/page-header"
 import { cn } from "@/lib/utils"
+
+import type { Review } from "@convex/api/features/preferences/resumeRules"
 
 import { IdentityBlocks } from "./identity-blocks"
 import { assistantPrompt, parseReply } from "./prompt"
@@ -256,12 +258,11 @@ const ResumeStep = ({ resume }: { resume: { name: string; url: string | null } |
   return (
     <Section
       title="Resume, if you have one"
-      description="Optional. We won't read it, score it or rewrite it."
+      description="Optional. It's read only when you press Review on the Resume tab."
     >
       <p className="text-muted-foreground text-xs leading-relaxed">
-        It's kept only so you can attach it when an application form asks for one. Tailoring a
-        resume to a role isn't available yet. You can keep one file at a time, and uploading a new
-        one replaces it.
+        Kept so you can attach it when an application form asks for one, and so the Resume tab can
+        check it. You can keep one file at a time, and uploading a new one replaces it.
       </p>
       {resume ? (
         <div className="flex items-center gap-3 text-sm">
@@ -302,6 +303,129 @@ const ResumeStep = ({ resume }: { resume: { name: string; url: string | null } |
 }
 
 type Resume = { name: string; url: string | null } | null
+
+// The Resume tab: the file, and a review of it. Rules check what an ATS can read, and
+// Jev answers fixed questions about the writing and your tags; the advice is built from
+// its answers, so nothing in the resume is rewritten.
+const ResumeTab = ({ resume, review }: { resume: Resume; review: Review | null }) => {
+  const run = useAction(api.resume.review)
+  const [error, start, reviewing] = useActionState(
+    () => run().then(() => undefined, messageOf),
+    undefined
+  )
+  const failed = review?.checks.filter((c) => !c.ok) ?? []
+  const missing = review?.shows.filter((s) => !s.shown) ?? []
+  return (
+    <ScrollArea className="min-h-0 flex-1">
+      <div className={pageBody}>
+        <PageIntro
+          title="Resume"
+          description="Keep your resume here, and check that it reads well to the systems and people who screen it."
+        />
+        <ResumeStep resume={resume} />
+        <Tile
+          title="Review"
+          actions={
+            <Button
+              type="button"
+              size="sm"
+              disabled={!resume || reviewing}
+              onClick={() => startTransition(start)}
+            >
+              {reviewing ? "Reading…" : review ? "Review again" : "Review"}
+            </Button>
+          }
+        >
+          <p className="text-muted-foreground px-1 text-xs leading-relaxed">
+            Pulls the text out of your PDF, checks what an applicant tracking system can read, and
+            asks Jev about the writing and the skills and interests in your Preferences. 10 reviews
+            a day.
+          </p>
+          {error && (
+            <p role="alert" className="text-destructive px-1 text-xs">
+              {error}
+            </p>
+          )}
+          {!resume && (
+            <p className="text-muted-foreground px-1 text-[13px]">Upload a resume first.</p>
+          )}
+          {review && (
+            <div className="flex flex-col gap-4 px-1 text-[13px]">
+              {review.note && (
+                <p role="status" className="text-warning-foreground text-xs">
+                  {review.note}
+                </p>
+              )}
+              <p className="text-muted-foreground text-xs">
+                Reviewed {new Date(review.at).toLocaleDateString()} · {review.words} words
+                {review.contact.name && ` · ${review.contact.name}`}
+                {review.contact.email && ` · ${review.contact.email}`}
+                {review.contact.phone && ` · ${review.contact.phone}`}
+              </p>
+              <div className="flex flex-col gap-1">
+                <h4 className="text-xs font-medium">
+                  ATS check · {review.checks.length - failed.length}/{review.checks.length} pass
+                </h4>
+                <ul className="flex flex-col gap-1">
+                  {review.checks.map((c) => (
+                    <li key={c.name} className="flex items-start gap-2">
+                      <Badge
+                        variant={c.ok ? "success" : "warning"}
+                        className="shrink-0 font-normal"
+                      >
+                        {c.ok ? "OK" : "Fix"}
+                      </Badge>
+                      <span className="min-w-0">
+                        {c.name}
+                        {!c.ok && <span className="text-muted-foreground"> · {c.fix}</span>}
+                      </span>
+                    </li>
+                  ))}
+                </ul>
+                {review.sections.length > 0 && (
+                  <p className="text-muted-foreground text-xs">
+                    Sections found: {review.sections.join(", ")}
+                  </p>
+                )}
+              </div>
+              <div className="flex flex-col gap-1">
+                <h4 className="text-xs font-medium">Suggestions</h4>
+                {review.suggestions.length === 0 ? (
+                  <p className="text-muted-foreground">Nothing to change; Jev liked it.</p>
+                ) : (
+                  <ul className="flex list-disc flex-col gap-1 ps-4">
+                    {review.suggestions.map((s) => (
+                      <li key={s}>{s}</li>
+                    ))}
+                  </ul>
+                )}
+              </div>
+              {review.shows.length > 0 && (
+                <div className="flex flex-col gap-1">
+                  <h4 className="text-xs font-medium">
+                    From your Preferences · {review.shows.length - missing.length}/
+                    {review.shows.length} shown
+                  </h4>
+                  <div className="flex flex-wrap gap-1.5">
+                    {review.shows.map((s) => (
+                      <Badge
+                        key={s.tag}
+                        variant={s.shown ? "success" : "outline"}
+                        className="font-normal"
+                      >
+                        {s.tag}
+                      </Badge>
+                    ))}
+                  </div>
+                </div>
+              )}
+            </div>
+          )}
+        </Tile>
+      </div>
+    </ScrollArea>
+  )
+}
 
 const errors = (messages: ({ message?: string } | undefined)[]) =>
   messages.map((error) => (
@@ -589,7 +713,7 @@ const Prefilled = ({
   )
 }
 
-const preferencesTabs = ["overview", "edit", "prefilled"] as const
+const preferencesTabs = ["overview", "edit", "prefilled", "resume"] as const
 export type PreferencesTab = (typeof preferencesTabs)[number]
 
 // Reads `?tab=` and `?step=` for the route, dropping anything that isn't one of them.
@@ -768,11 +892,13 @@ const PreferencesForm = ({
   saved,
   prefilled,
   resume,
+  review,
   me,
 }: {
   saved: Values
   prefilled: FieldSection[] | null
   resume: Resume
+  review: Review | null
   me: { name: string; email: string; onboarded: boolean }
 }) => {
   const { onboarded } = me
@@ -1107,6 +1233,7 @@ const PreferencesForm = ({
             <TabsTab value="overview">Overview</TabsTab>
             <TabsTab value="edit">Edit</TabsTab>
             <TabsTab value="prefilled">Prefilled</TabsTab>
+            <TabsTab value="resume">Resume</TabsTab>
           </TabsList>
         </div>
         <TabsPanel value="overview" className="flex min-h-0">
@@ -1250,6 +1377,9 @@ const PreferencesForm = ({
         <TabsPanel value="prefilled" keepMounted className="flex min-h-0 data-hidden:hidden">
           <Prefilled saved={prefilled} suggestions={suggestedSections(values, me)} />
         </TabsPanel>
+        <TabsPanel value="resume" className="flex min-h-0">
+          <ResumeTab resume={resume} review={review} />
+        </TabsPanel>
       </Tabs>
     </form>
   )
@@ -1291,6 +1421,7 @@ export const Preferences = () => {
           saved={formOf(data.settings?.workMode ?? "any", tags, answers)}
           prefilled={data.settings?.prefilledAt === undefined ? null : sectionsOf(fields)}
           resume={data.resume}
+          review={data.review}
           me={me}
         />
       )}

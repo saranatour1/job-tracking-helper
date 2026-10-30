@@ -70,6 +70,8 @@ import type * as api_features_preferences_models_index from "../api/features/pre
 import type * as api_features_preferences_models_settings from "../api/features/preferences/models/settings.js";
 import type * as api_features_preferences_models_tags from "../api/features/preferences/models/tags.js";
 import type * as api_features_preferences_public from "../api/features/preferences/public.js";
+import type * as api_features_preferences_resume from "../api/features/preferences/resume.js";
+import type * as api_features_preferences_resumeRules from "../api/features/preferences/resumeRules.js";
 import type * as api_features_preferences_rows from "../api/features/preferences/rows.js";
 import type * as api_features_preferences_validators from "../api/features/preferences/validators.js";
 import type * as api_features_users_index from "../api/features/users/index.js";
@@ -107,6 +109,7 @@ import type * as lib_markdown from "../lib/markdown.js";
 import type * as lib_secrets from "../lib/secrets.js";
 import type * as loops from "../loops.js";
 import type * as preferences from "../preferences.js";
+import type * as resume from "../resume.js";
 import type * as users from "../users.js";
 import type * as views from "../views.js";
 import type * as workflows from "../workflows.js";
@@ -180,6 +183,8 @@ declare const fullApi: ApiFromModules<{
   "api/features/preferences/models/settings": typeof api_features_preferences_models_settings;
   "api/features/preferences/models/tags": typeof api_features_preferences_models_tags;
   "api/features/preferences/public": typeof api_features_preferences_public;
+  "api/features/preferences/resume": typeof api_features_preferences_resume;
+  "api/features/preferences/resumeRules": typeof api_features_preferences_resumeRules;
   "api/features/preferences/rows": typeof api_features_preferences_rows;
   "api/features/preferences/validators": typeof api_features_preferences_validators;
   "api/features/users/index": typeof api_features_users_index;
@@ -217,6 +222,7 @@ declare const fullApi: ApiFromModules<{
   "lib/secrets": typeof lib_secrets;
   loops: typeof loops;
   preferences: typeof preferences;
+  resume: typeof resume;
   users: typeof users;
   views: typeof views;
   workflows: typeof workflows;
