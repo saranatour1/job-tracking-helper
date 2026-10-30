@@ -148,8 +148,11 @@ and the rules both go by. For the rest of the app, see [flows.md](flows.md).
   anything else happens.
 - **Wait** sleeps inside the workflow. A sleeping run costs nothing.
 - **Notify me by email** and **Send email** go out from an action (`sendMail`), through
-  the person's own Cloudflare connection, then record how it went. An action isn't
-  retried, so an email never goes out twice.
+  the person's own Cloudflare connection, then record how it went. The action isn't
+  retried, so an email never goes out twice; only a send Cloudflare refused with a 429
+  or 503, which never went out, is tried again, up to 3 attempts over a few seconds.
+  An address that bounced or is suppressed fails the step, even though Cloudflare
+  calls that request a success.
 - **Find roles** inserts a loop run, then runs the loop's own `findJobs` workflow as a
   child: it searches for boards, picks catalog roles, has Jev judge them on the batch
   worker, waits for every verdict, and saves the fits to the shortlist. The loop's Runs

@@ -246,7 +246,11 @@ const testOf = (connection: Connection) => {
   if (!test) return "Sends a short email to your account's address."
   if (test.status === "queued") return `Sending to ${test.to}…`
   if (test.status === "failed")
-    return <span className="text-destructive">Failed: {test.error}</span>
+    return (
+      <span className="text-destructive">
+        Failed: {test.error || "we couldn't confirm it went out."}
+      </span>
+    )
   return `Sent to ${test.to} on ${dateOf(test.at)}.`
 }
 
