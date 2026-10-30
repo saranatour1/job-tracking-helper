@@ -1,43 +1,9 @@
-import { type } from "arktype"
+import type { Review, StoredReview } from "./validators"
 
 // What a review of a resume finds, from rules on its text and Jev's answers. Rules here
 // are the ATS side: what a parser needs to read a resume. Jev answers fixed questions
 // about the writing, and `suggestionsFrom` turns its "no"s into advice. Jev never writes
 // the advice itself. Kept free of convex/server imports so the frontend can share it.
-
-export const Check = type({
-  name: "string",
-  ok: "boolean",
-  // What to change when it isn't ok.
-  fix: "string",
-})
-
-export const Review = type({
-  at: "number",
-  contact: type({
-    "name?": "string",
-    "email?": "string",
-    "phone?": "string",
-    links: "string[]",
-  }),
-  // Standard headings found, in order.
-  sections: "string[]",
-  checks: Check.array(),
-  suggestions: "string[]",
-  // Each skill and interest from Preferences, and whether the resume shows it. Unsure
-  // means Jev couldn't tell, which is neither advice nor a pass.
-  shows: type({ tag: "string", shown: "'yes' | 'no' | 'unsure'" }).array(),
-  words: "number",
-  // Set when Jev couldn't answer, so the review is the rules alone.
-  "note?": "string",
-})
-export type Review = typeof Review.infer
-
-// How a review is kept. Reviews from before Jev could say unsure hold true or false,
-// until the next review replaces them.
-export const StoredReview = Review.omit("shows").and({
-  shows: type({ tag: "string", shown: "boolean | 'yes' | 'no' | 'unsure'" }).array(),
-})
 
 export const readReview = (stored: typeof StoredReview.infer): Review => ({
   ...stored,
@@ -189,3 +155,9 @@ export const suggestionsFrom = (answers: WritingAnswers, shows: Review["shows"])
         `Your Preferences list “${s.tag}”, but the resume doesn't show it. Add where you used it, or leave it off your Preferences.`
     ),
 ]
+
+// Jev reads this much of the resume: the first two pages or so.
+export const maxJevChars = 8000
+
+// Tags Jev checks the resume against, from the top of each list.
+export const maxTags = 12

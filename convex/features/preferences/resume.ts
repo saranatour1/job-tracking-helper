@@ -14,18 +14,15 @@ import {
   checksOf,
   contactOf,
   maxResumeChars,
-  Review,
   sectionsOf,
   suggestionsFrom,
   wordsOf,
   type WritingAnswers,
   writingQuestions,
+  maxJevChars,
+  maxTags,
 } from "./resumeRules"
-
-// Jev reads this much of the resume: the first two pages or so.
-const maxJevChars = 8000
-// Tags Jev checks the resume against, from the top of each list.
-const maxTags = 12
+import { Review } from "./validators"
 
 /** Parses the resume (unpdf for PDFs), runs the ATS rules and asks Jev about the
  * writing and the person's tags, then keeps the result on their preferences. */

@@ -9,7 +9,7 @@ import type { Type } from "arktype"
 import type { Validator } from "convex/values"
 import type { ReturnValueForOptionalValidator } from "convex/server"
 import { mutation, query } from "../_generated/server"
-import { arkToConvex } from "./ark"
+import { arkToConvex, checked } from "./ark"
 
 const signedIn = customCtx(async (ctx: Parameters<typeof getAuthUserId>[0]) => {
   const userId = await getAuthUserId(ctx)
@@ -37,5 +37,5 @@ export const arkMutation = <
   authedMutation({
     args: arkToConvex(def.args),
     returns: def.returns,
-    handler: (ctx, args) => def.handler(ctx, def.args.assert(args)),
+    handler: (ctx, args) => def.handler(ctx, checked(def.args, args)),
   })

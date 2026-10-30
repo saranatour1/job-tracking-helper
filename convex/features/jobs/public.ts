@@ -1,25 +1,16 @@
-import { paginationOptsValidator, paginationResultValidator } from "convex/server"
+import { paginationResultValidator } from "convex/server"
 import { v } from "convex/values"
 import type { Doc } from "../../_generated/dataModel"
 import { authedQuery } from "../../lib/functions"
-import { previewOf } from "./boards"
-import { vJobRow } from "./validators"
+import { vJobRow, vJobSearchArgs } from "./validators"
+import { rowOf } from "./utils"
 
 // Every role in the catalog, newest first, or the best matches for the search words,
 // narrowed by remote, one company's board, and how recently it was posted. With `fits`,
 // only roles Jev said fit this person, best first. Each row carries the fit a loop or a
 // pasted link gave it for this person, if one has.
 const search = authedQuery({
-  args: {
-    q: v.optional(v.string()),
-    remoteOnly: v.optional(v.boolean()),
-    // A string, since it comes from the address; a bad one finds nothing instead of throwing.
-    boardId: v.optional(v.string()),
-    // Posted at or after this time; the page rounds it to the hour so it caches.
-    since: v.optional(v.number()),
-    fits: v.optional(v.boolean()),
-    paginationOpts: paginationOptsValidator,
-  },
+  args: vJobSearchArgs,
   returns: paginationResultValidator(vJobRow),
   handler: async (ctx, { q, remoteOnly, boardId, since, fits, paginationOpts }) => {
     const board = boardId ? ctx.db.normalizeId("jobBoards", boardId) : null
@@ -104,19 +95,6 @@ const search = authedQuery({
     }
     return { ...page, page: rows }
   },
-})
-
-const rowOf = (job: Doc<"jobs">, lead: Doc<"jobLeads"> | null) => ({
-  _id: job._id,
-  url: job.url,
-  title: job.title,
-  company: job.company,
-  location: job.location,
-  remote: job.remote,
-  postedAt: job.postedAt,
-  preview: previewOf(job.text),
-  fit: lead?.fit ?? null,
-  verdict: lead?.verdict ?? null,
 })
 
 // The companies with the most open roles, for the company filter.

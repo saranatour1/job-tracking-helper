@@ -1,3 +1,4 @@
+import { ConvexError } from "convex/values"
 import { type } from "arktype"
 import type { Infer } from "convex/values"
 import { v } from "convex/values"
@@ -6,7 +7,7 @@ import { describe, expect, expectTypeOf, it } from "vite-plus/test"
 
 import type { Doc, Id } from "../_generated/dataModel"
 import schema from "../schema"
-import { arkId, arkOutputToConvex, arkToConvex } from "./ark"
+import { checked, arkId, arkOutputToConvex, arkToConvex } from "./ark"
 
 const filled = type("string.trim").to("string > 0")
 const Sample = type({
@@ -86,5 +87,13 @@ describe("applications table", () => {
       expect(fields[name]?.isOptional).toBe("optional")
     expectTypeOf<Doc<"applications">["userId"]>().toEqualTypeOf<Id<"users">>()
     expectTypeOf<Doc<"applications">["status"]>().toEqualTypeOf<(typeof statuses)[number]>()
+  })
+})
+
+describe("checked", () => {
+  it("returns the type's output, and throws its message as a ConvexError", () => {
+    const Name = type({ name: type("string.trim").to("string > 0") })
+    expect(checked(Name, { name: "  Sam " })).toEqual({ name: "Sam" })
+    expect(() => checked(Name, { name: " " })).toThrow(ConvexError)
   })
 })

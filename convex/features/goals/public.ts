@@ -1,22 +1,9 @@
-import { type } from "arktype"
-import { ConvexError, v } from "convex/values"
+import { v } from "convex/values"
 import schema from "../../schema"
-import type { Id } from "../../_generated/dataModel"
-import { internalQuery, type MutationCtx } from "../../_generated/server"
-import { arkId } from "../../lib/ark"
-import { arkMutation, authedQuery } from "../../lib/functions"
-import { GoalFields } from "./models"
-
-// Few enough to read at once, and plenty for one person's search.
-const maxGoals = 50
-// Applications Jev looks at in one re-evaluation, newest first.
-const maxEvaluated = 30
-
-// A loop to take roles from. null clears it; leaving it out keeps it.
-const loopField = { "loopId?": arkId("loops").or("null") }
-
-const dayOf = (ms: number) => new Date(ms).toISOString().slice(0, 10)
-const shift = (day: string, byMs: number) => dayOf(Date.parse(day) + byMs)
+import { internalQuery } from "../../_generated/server"
+import { arkMutation, authedMutation, authedQuery } from "../../lib/functions"
+import { maxGoals, maxEvaluated, NewGoal, UpdateGoal, vToEvaluate } from "./validators"
+import { dayOf, shift, own, ownLoop, roomFor } from "./utils"
 
 const list = authedQuery({
   args: {},
@@ -28,27 +15,8 @@ const list = authedQuery({
       .take(maxGoals),
 })
 
-const own = async (ctx: MutationCtx, userId: Id<"users">, id: Id<"goals">) => {
-  const goal = await ctx.db.get("goals", id)
-  if (goal?.userId !== userId) throw new ConvexError("That goal isn't yours.")
-  return goal
-}
-
-const ownLoop = async (ctx: MutationCtx, userId: Id<"users">, loopId?: Id<"loops"> | null) => {
-  if (loopId && (await ctx.db.get("loops", loopId))?.userId !== userId)
-    throw new ConvexError("That loop isn't yours.")
-}
-
-const roomFor = async (ctx: MutationCtx, userId: Id<"users">) => {
-  const existing = await ctx.db
-    .query("goals")
-    .withIndex("by_userId", (q) => q.eq("userId", userId))
-    .take(maxGoals)
-  if (existing.length >= maxGoals) throw new ConvexError(`You can keep ${maxGoals} goals.`)
-}
-
 const create = arkMutation({
-  args: GoalFields.and(loopField),
+  args: NewGoal,
   returns: v.id("goals"),
   handler: async (ctx, { loopId, ...goal }) => {
     await roomFor(ctx, ctx.userId)
@@ -58,9 +26,7 @@ const create = arkMutation({
 })
 
 const update = arkMutation({
-  args: type({ id: arkId("goals") })
-    .and(GoalFields.partial())
-    .and(loopField),
+  args: UpdateGoal,
   returns: v.null(),
   handler: async (ctx, { id, loopId, ...patch }) => {
     await own(ctx, ctx.userId, id)
@@ -74,8 +40,8 @@ const update = arkMutation({
 })
 
 // The goal's applications stay; they just leave it.
-const remove = arkMutation({
-  args: type({ id: arkId("goals") }),
+const remove = authedMutation({
+  args: { id: v.id("goals") },
   returns: v.null(),
   handler: async (ctx, { id }) => {
     await own(ctx, ctx.userId, id)
@@ -91,8 +57,8 @@ const remove = arkMutation({
 
 // A fresh go at a missed goal: the same goal again, starting today for the same length,
 // with its milestones unticked and their dates moved along. The old one stays as it was.
-const retry = arkMutation({
-  args: type({ id: arkId("goals") }),
+const retry = authedMutation({
+  args: { id: v.id("goals") },
   returns: v.id("goals"),
   handler: async (ctx, { id }) => {
     const { _id, _creationTime, start, target, milestones, ...goal } = await own(
@@ -120,24 +86,7 @@ const retry = arkMutation({
 // with whether each is on it already.
 const toEvaluate = internalQuery({
   args: { userId: v.id("users"), id: v.id("goals") },
-  returns: v.union(
-    v.null(),
-    v.object({
-      goal: v.object({ name: v.string(), summary: v.string(), milestones: v.array(v.string()) }),
-      applications: v.array(
-        v.object({
-          id: v.id("applications"),
-          company: v.string(),
-          role: v.string(),
-          status: v.string(),
-          location: v.string(),
-          labels: v.array(v.string()),
-          description: v.string(),
-          onGoal: v.boolean(),
-        })
-      ),
-    })
-  ),
+  returns: vToEvaluate,
   handler: async (ctx, { userId, id }) => {
     const goal = await ctx.db.get("goals", id)
     if (goal?.userId !== userId) return null
@@ -168,13 +117,5 @@ const toEvaluate = internalQuery({
     }
   },
 })
-
-// For account deletion.
-export const deleteGoals = async (ctx: MutationCtx, userId: Id<"users">) => {
-  for await (const goal of ctx.db
-    .query("goals")
-    .withIndex("by_userId", (q) => q.eq("userId", userId)))
-    await ctx.db.delete("goals", goal._id)
-}
 
 export const goalsApi = { list, create, update, remove, retry, toEvaluate }

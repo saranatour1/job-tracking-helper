@@ -64,11 +64,11 @@ sh scripts/push-secrets.test.sh
 convex/
   <feature>.ts                         registers api.<feature>.*: one line each, since the file's name is the API's name
   features/<feature>/
-    models.ts                          the feature's tables
-    validators.ts                      arktype rules, safe to import from the frontend
+    models.ts                          the feature's tables, and nothing else
+    validators.ts                      shapes, rules and limits; safe to import from the frontend
     public.ts                          functions the frontend calls
-    internal.ts                        functions only this feature calls
-    utils.ts                           helpers used only here
+    internal.ts                        functions only the backend calls
+    utils.ts                           everything else those functions share
     index.ts                           collects public and internal into one object
   components/
     cloudflareEmail/                   local component: sends through Cloudflare and keeps the emails
@@ -124,6 +124,6 @@ Made for this repo:
 - `convex/lib/functions.ts` has function builders that require sign-in and check arguments with arktype.
 - `convex/lib/secrets.ts` encrypts pasted secrets with AES-256-GCM, bound to their owner, with versioned keys for rotation.
 - `convex/cloudflareEmail` is the `@sarant/cloudflare-email` component, changed so each person sends with their own token and no token is ever stored in a scheduled call.
-- `convex/lib/ark.ts` turns arktype types into Convex validators (`arkToConvex`, `arkOutputToConvex`, `arkId`), so tables and args are defined once in arktype.
+- `convex/lib/ark.ts` turns arktype types into Convex validators (`arkToConvex`, `arkOutputToConvex`, `arkId`), so tables and args are defined once. Args use arktype when text has rules Convex can't check (trimming, lengths, patterns, or a check across fields), through `arkMutation` or `checked`; ids, booleans and fixed choices use `v`. A validator that reads `schema.doc` stays beside its function, since `schema.ts` imports `validators.ts`.
 - `.claude/skills/verify-job-tracking-helper` is an agent skill with a health check, an evidence helper and step-by-step checks for each feature.
 - `.claude/skills/write-pr` is an agent skill for Conventional Commits titles and short PR bodies, matching `.github/pull_request_template.md`. Its script uploads screenshots to the `pr-assets` branch.

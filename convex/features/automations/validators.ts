@@ -332,3 +332,140 @@ export const nextScheduledAt = (now: number, trigger: Extract<Trigger, { kind: "
   }
   throw new Error(`No next run for ${trigger.at} in ${trigger.timeZone}`)
 }
+
+export const runStatuses = ["running", "done", "failed", "canceled"] as const
+
+export const stepStatuses = ["running", "waiting", "done", "failed"] as const
+
+// What happened at one step, for the run's history. `at` is its place, like "2.1.0"
+// (see stepAt); `output` is what it said or did.
+export const vLogEntry = v.object({
+  at: v.string(),
+  kind: v.string(),
+  status: v.union(...stepStatuses.map((s) => v.literal(s))),
+  startedAt: v.number(),
+  finishedAt: v.optional(v.number()),
+  output: v.optional(v.string()),
+  error: v.optional(v.string()),
+  // Ask Jev: the answer Jev picked, which is the path that ran.
+  choice: v.optional(v.string()),
+})
+
+// Where the rest of the app says something happened that a workflow might start on. It
+// only schedules `onEvent` by reference, so features that fire events never import the
+// engine (whose Move application step changes statuses itself).
+
+export const vAutomationEvent = v.union(
+  v.object({
+    kind: v.literal("mail"),
+    mailKind: v.union(...mailKinds.map((k) => v.literal(k))),
+    mailEventId: v.id("mailEvents"),
+    applicationId: v.optional(v.id("applications")),
+  }),
+  v.object({
+    kind: v.literal("status"),
+    from: v.union(...statuses.map((s) => v.literal(s))),
+    to: v.union(...statuses.map((s) => v.literal(s))),
+    applicationId: v.id("applications"),
+  }),
+  v.object({
+    kind: v.literal("booking"),
+    bookingId: v.id("calendarEvents"),
+    applicationId: v.optional(v.id("applications")),
+  }),
+  v.object({
+    kind: v.literal("goal"),
+    goalId: v.id("goals"),
+    applicationId: v.id("applications"),
+  })
+)
+
+export type AutomationEvent = Infer<typeof vAutomationEvent>
+
+export const vDraft = v.object({
+  name: v.string(),
+  trigger: vTrigger,
+  steps: v.array(vStep),
+  active: v.boolean(),
+})
+
+export type Draft = Infer<typeof vDraft>
+
+export const vRunPathArgs = {
+  runId: v.id("automationRuns"),
+  split: v.number(),
+  path: v.number(),
+  length: v.number(),
+}
+
+export const vRunShape = v.array(
+  v.union(
+    v.null(),
+    v.object({
+      kind: v.union(v.literal("parallel"), v.literal("decide")),
+      lengths: v.array(v.number()),
+    })
+  )
+)
+
+export const vStepOutcome = v.object({
+  waitMs: v.number(),
+  error: v.optional(v.string()),
+  email: v.optional(v.boolean()),
+  loopRunId: v.optional(v.id("loopRuns")),
+  stop: v.optional(v.boolean()),
+})
+
+export const vStartBranchArgs = {
+  runId: v.id("automationRuns"),
+  at: v.string(),
+  kind: v.union(v.literal("parallel"), v.literal("decide")),
+}
+
+export const vDecision = v.union(
+  v.null(),
+  v.object({
+    question: v.string(),
+    answers: v.array(v.string()),
+    facts: v.record(v.string(), v.string()),
+  })
+)
+
+export const vAnsweredArgs = {
+  runId: v.id("automationRuns"),
+  at: v.string(),
+  choice: v.optional(v.string()),
+  error: v.optional(v.string()),
+}
+
+export const vFoundRolesArgs = {
+  runId: v.id("automationRuns"),
+  at: v.string(),
+  loopRunId: v.id("loopRuns"),
+  error: v.optional(v.string()),
+}
+
+export const vEmailToSend = v.union(
+  v.null(),
+  v.object({
+    userId: v.id("users"),
+    to: v.optional(v.string()),
+    subject: v.string(),
+    text: v.string(),
+  })
+)
+
+export const vRunCounts = v.object({
+  running: v.number(),
+  done: v.number(),
+  failed: v.number(),
+  canceled: v.number(),
+})
+
+export const vSaveWorkflow = {
+  id: v.optional(v.id("automations")),
+  name: v.string(),
+  trigger: vTrigger,
+  steps: v.array(vStep),
+  active: v.boolean(),
+}

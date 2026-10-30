@@ -1,34 +1,18 @@
 // Sorting incoming mail: each email becomes a timeline event on the application it's
 // about, with what it says and any status it suggests. Rules decide by default; Jev
 // decides when the person lets it read their mail.
-import { convexGateway } from "@convex-dev/ai-sdk-provider"
-import { type } from "arktype"
-import { experimental_decide as decide } from "ai"
 import { ConvexError, v } from "convex/values"
 import { components, internal } from "../../_generated/api"
-import type { Id } from "../../_generated/dataModel"
-import {
-  internalAction,
-  internalMutation,
-  internalQuery,
-  type QueryCtx,
-} from "../../_generated/server"
-import { arkId, arkOutputToConvex } from "../../lib/ark"
-import { arkMutation, authedQuery } from "../../lib/functions"
+import { internalAction, internalMutation, internalQuery } from "../../_generated/server"
+import { authedMutation, authedQuery } from "../../lib/functions"
 import { seal } from "../../lib/secrets"
-import { changeStatus } from "../applications/public"
+import { changeStatus } from "../applications/utils"
 import { fireEvent } from "../automations/fire"
-import { statuses } from "../applications/validators"
 import { mailNotificationKind } from "../notifications/kinds"
-import { jevModel } from "../workflows/judge"
-import { secretKeys } from "./inbound"
-import { aad, keys, openJson } from "./internal"
+import { secretKeys, aad, keys, openJson, threadKeyOf, askJev, ownEvent } from "./utils"
 import {
   type Candidate,
-  type Kind,
-  kindLabels,
   kindOf,
-  kinds,
   messageIdsIn,
   portalOf,
   slotOf,
@@ -37,17 +21,7 @@ import {
   ruleMatch,
   suggestionOf,
 } from "./match"
-import { MailEvent, MailNote, Moved, Received } from "./models"
-
-/** A Message-ID hashed with its owner, so threads match without storing the ID. */
-export const threadKeyOf = async (userId: string, messageId: string) =>
-  Array.from(
-    new Uint8Array(
-      await crypto.subtle.digest("SHA-256", new TextEncoder().encode(`${userId}:${messageId}`))
-    )
-  )
-    .map((b) => b.toString(16).padStart(2, "0"))
-    .join("")
+import { MailNote, Received, vSortContext, vRecordArgs, vTimeline, vMailBody } from "./validators"
 
 // The application an earlier email in the same thread was filed under, newest first.
 const threadOf = internalQuery({
@@ -65,26 +39,10 @@ const threadOf = internalQuery({
   },
 })
 
-const vCandidate = v.object({
-  id: v.id("applications"),
-  company: v.string(),
-  role: v.string(),
-  status: v.union(...statuses.map((s) => v.literal(s))),
-  at: v.number(),
-})
-
 // What sorting one email needs, or null when it's gone or already sorted.
 const sortContext = internalQuery({
   args: { userId: v.id("users"), emailId: v.string() },
-  returns: v.union(
-    v.null(),
-    v.object({
-      payload: v.string(),
-      read: v.boolean(),
-      move: v.boolean(),
-      applications: v.array(vCandidate),
-    })
-  ),
+  returns: vSortContext,
   handler: async (ctx, { userId, emailId }) => {
     const done = await ctx.db
       .query("mailEvents")
@@ -123,10 +81,7 @@ const sortContext = internalQuery({
 // With `move`, Jev moves the application to the status the email points to, and the
 // event remembers where it was so the person can undo it.
 const record = internalMutation({
-  args: {
-    event: arkOutputToConvex(MailEvent.omit("moved")),
-    move: v.boolean(),
-  },
+  args: vRecordArgs,
   returns: v.null(),
   handler: async (ctx, { event, move }) => {
     const done = await ctx.db
@@ -164,54 +119,6 @@ const record = internalMutation({
     return null
   },
 })
-
-// Two questions in one request: which application, and what the email says. An answer
-// Jev isn't at least even on counts as none.
-const askJev = async (
-  mail: typeof Received.infer,
-  applications: Candidate[]
-): Promise<{ application?: Candidate; kind: Kind; sureOfKind: number }> => {
-  const options = Object.fromEntries(
-    applications.map((a, i) => [`a${i}`, `${a.company}: ${a.role}`])
-  )
-  const result = await decide({
-    model: convexGateway.evaluationModel(jevModel),
-    state: {
-      email: {
-        from: mail.fromName ? `${mail.fromName} <${mail.from}>` : mail.from,
-        subject: mail.subject,
-        text: (mail.text ?? "").slice(0, 4000),
-      },
-      applications: Object.values(options),
-    },
-    questions: {
-      application: {
-        type: "choice",
-        instructions:
-          "Which of `applications` (company: role) is `email` about? Pick the one the email names or clearly refers to, or none when it's about none of them.",
-        criteria: { ...options, none: "None of these" },
-      },
-      kind: {
-        type: "choice",
-        instructions: "What does `email` tell the person about their job application?",
-        criteria: kindLabels,
-      },
-    },
-  })
-  const answers = result.answers as Record<
-    string,
-    { choice?: string; probabilities?: Record<string, number> }
-  >
-  const sure = (a?: { choice?: string; probabilities?: Record<string, number> }) =>
-    a?.choice && (a.probabilities?.[a.choice] ?? 0) >= 0.5 ? a.choice : undefined
-  const picked = sure(answers.application)
-  const kind = sure(answers.kind)
-  return {
-    application: picked?.startsWith("a") ? applications[Number(picked.slice(1))] : undefined,
-    kind: kinds.find((k) => k === kind) ?? "other",
-    sureOfKind: kind ? (answers.kind?.probabilities?.[kind] ?? 0) : 0,
-  }
-}
 
 // Scheduled with only ids, so no message is ever kept in a scheduled call.
 const sortMail = internalAction({
@@ -287,21 +194,7 @@ const sortMail = internalAction({
 // application; the ones without one are Unsorted.
 const timeline = authedQuery({
   args: {},
-  returns: v.array(
-    v.object({
-      id: v.id("mailEvents"),
-      applicationId: v.union(v.id("applications"), v.null()),
-      kind: v.union(...kinds.map((k) => v.literal(k))),
-      from: v.string(),
-      subject: v.string(),
-      portalUrl: v.optional(v.string()),
-      slot: v.optional(v.number()),
-      slotZone: v.optional(v.string()),
-      at: v.number(),
-      suggest: v.optional(v.union(...statuses.map((s) => v.literal(s)))),
-      moved: v.optional(arkOutputToConvex(Moved)),
-    })
-  ),
+  returns: vTimeline,
   handler: async (ctx) => {
     const k = await keys().catch(() => null)
     if (!k) return []
@@ -334,15 +227,9 @@ const timeline = authedQuery({
   },
 })
 
-const ownEvent = async (ctx: QueryCtx, userId: Id<"users">, eventId: Id<"mailEvents">) => {
-  const event = await ctx.db.get("mailEvents", eventId)
-  if (event?.userId !== userId) throw new ConvexError("That email isn't yours.")
-  return event
-}
-
 // Accepting sets the application's status; either way the suggestion goes.
-const resolveSuggestion = arkMutation({
-  args: type({ eventId: arkId("mailEvents"), accept: "boolean" }),
+const resolveSuggestion = authedMutation({
+  args: { eventId: v.id("mailEvents"), accept: v.boolean() },
   returns: v.null(),
   handler: async (ctx, { eventId, accept }) => {
     const event = await ownEvent(ctx, ctx.userId, eventId)
@@ -360,10 +247,7 @@ const resolveSuggestion = arkMutation({
 // Plain text when the sender included it, else the HTML as text.
 const mailBody = authedQuery({
   args: { eventId: v.id("mailEvents") },
-  returns: v.union(
-    v.null(),
-    v.object({ text: v.string(), to: v.string(), attachments: v.array(v.string()) })
-  ),
+  returns: vMailBody,
   handler: async (ctx, { eventId }) => {
     const event = await ctx.db.get("mailEvents", eventId)
     if (event?.userId !== ctx.userId) return null
@@ -380,8 +264,8 @@ const mailBody = authedQuery({
 })
 
 // Puts an application back where it was before Jev moved it.
-const undoMove = arkMutation({
-  args: type({ eventId: arkId("mailEvents") }),
+const undoMove = authedMutation({
+  args: { eventId: v.id("mailEvents") },
   returns: v.null(),
   handler: async (ctx, { eventId }) => {
     const event = await ownEvent(ctx, ctx.userId, eventId)
@@ -395,8 +279,8 @@ const undoMove = arkMutation({
 })
 
 // Moves an email to another application, or back to Unsorted.
-const assign = arkMutation({
-  args: type({ eventId: arkId("mailEvents"), "applicationId?": arkId("applications") }),
+const assign = authedMutation({
+  args: { eventId: v.id("mailEvents"), applicationId: v.optional(v.id("applications")) },
   returns: v.null(),
   handler: async (ctx, { eventId, applicationId }) => {
     const event = await ownEvent(ctx, ctx.userId, eventId)

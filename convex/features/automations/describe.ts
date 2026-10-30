@@ -1,4 +1,3 @@
-import { v, type Infer } from "convex/values"
 import { type Status, statusLabels } from "../applications/validators"
 import type { Kind } from "../email/match"
 import {
@@ -8,8 +7,7 @@ import {
   onlyIfStillAt,
   triggerHasApplication,
   type Trigger,
-  vStep,
-  vTrigger,
+  type Draft,
 } from "./validators"
 
 const choice = <K extends string>(instructions: string, criteria: Record<K, string>) => ({
@@ -99,14 +97,6 @@ type Questions = typeof describeQuestions
 export type DescribeAnswers = {
   [Q in keyof Questions]?: Questions[Q] extends { criteria: infer C } ? keyof C : boolean
 }
-
-export const vDraft = v.object({
-  name: v.string(),
-  trigger: vTrigger,
-  steps: v.array(vStep),
-  active: v.boolean(),
-})
-export type Draft = Infer<typeof vDraft>
 
 const times = { t07: "07:00", t09: "09:00", t12: "12:00", t17: "17:00", t20: "20:00" }
 const days = { weekdays: [1, 2, 3, 4, 5], everyDay: [0, 1, 2, 3, 4, 5, 6], weekly: [1] }

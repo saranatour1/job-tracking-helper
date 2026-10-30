@@ -19,7 +19,7 @@ vi.mock("ai", async (actual) => ({
 }))
 import notificationsSchema from "../../components/notifications/schema"
 import { seal } from "../../lib/secrets"
-import { aad, keys } from "../email/internal"
+import { aad, keys } from "../email/utils"
 import { choiceCounts, insertRun, patchRun } from "./counts"
 import schema from "../../schema"
 

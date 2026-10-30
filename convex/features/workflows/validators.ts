@@ -1,6 +1,7 @@
 import { v, type VBoolean } from "convex/values"
 import { type LoopQuestion, loopQuestions } from "../loops/catalog"
-import { providerIds } from "../loops/validators"
+
+export const providerIds = ["firecrawl", "contextDev"] as const
 
 // Convex validators for what passes between a run's steps.
 
@@ -85,3 +86,16 @@ export const vPasted = v.object({
 export const vJudgeResult = v.object({ cost: v.number(), judged: v.union(v.null(), vJudged) })
 
 export const vSpent = v.object({ provider: vProvider, credits: v.number() })
+
+export const vSearchArgs = {
+  provider: vProvider,
+  queries: v.array(v.string()),
+  perQuery: v.number(),
+  postedToday: v.boolean(),
+}
+
+export const vSearchResult = v.object({
+  postings: v.array(vPosting),
+  credits: v.number(),
+  outOfCredits: v.boolean(),
+})

@@ -2,51 +2,18 @@ import { type Infer, v } from "convex/values"
 import type { Doc } from "../../_generated/dataModel"
 import { internalAction } from "../../_generated/server"
 import { workLog } from "../../lib/log"
-import { convexGateway } from "@convex-dev/ai-sdk-provider"
-import { experimental_decide as decide } from "ai"
 import { internal } from "../../_generated/api"
 import { previewOf } from "../jobs/boards"
 import { isPostingUrl, jobBoards, type Posting, urlKey } from "./fit"
-import {
-  checksOf,
-  jevModel,
-  type JudgedJob,
-  type Outcome,
-  type Profile,
-  questionsOf,
-  specsOf,
-  stateOf,
-  verdictOf,
-} from "./judge"
-import { limits } from "./manager"
 import { apiKeyOf, sources } from "./sources"
 import { OutOfCredits } from "./sources/source"
-import { vJudgeResult, vPosting, vProfile, vProvider } from "./validators"
-
-const sleep = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms))
-
-// Waits for room under the source's shared call limit.
-const turn = async (
-  ctx: Parameters<typeof limits.limit>[0],
-  provider: "firecrawl" | "contextDev"
-) => {
-  const { retryAfter } = await limits.limit(ctx, provider, { reserve: true })
-  if (retryAfter) await sleep(retryAfter)
-}
+import { vJudgeResult, vProfile, vSearchArgs, vSearchResult } from "./validators"
+import { turn, judge } from "./utils"
 
 // One batch: every search for a run, with duplicates folded together.
 const search = internalAction({
-  args: {
-    provider: vProvider,
-    queries: v.array(v.string()),
-    perQuery: v.number(),
-    postedToday: v.boolean(),
-  },
-  returns: v.object({
-    postings: v.array(vPosting),
-    credits: v.number(),
-    outOfCredits: v.boolean(),
-  }),
+  args: vSearchArgs,
+  returns: vSearchResult,
   handler: async (ctx, { provider, queries, perQuery, postedToday }) => {
     const log = workLog("loop.search", { provider, queries: queries.length, perQuery })
     const apiKey = apiKeyOf(provider)
@@ -84,33 +51,6 @@ const search = internalAction({
     }
   },
 })
-
-// Asks Jev about one role through the Convex AI gateway: the overall match and one
-// question per thing the person asked for, all in one request.
-export const judge = async (profile: Profile, job: JudgedJob) => {
-  const result = await decide({
-    model: convexGateway.evaluationModel(jevModel),
-    state: stateOf(profile, job),
-    questions: questionsOf(profile),
-  })
-  const answers = result.answers as Record<
-    string,
-    { score?: number; choice?: string; probabilities?: Record<string, number> }
-  >
-  const checks = checksOf(
-    profile,
-    job,
-    specsOf(profile).map((_, i) => {
-      const a = answers[`c${i}`]
-      const outcome = (a?.choice ?? "unclear") as Outcome
-      return { outcome, confidence: a?.probabilities?.[outcome] ?? 0 }
-    })
-  )
-  return {
-    cost: Number(result.providerMetadata?.convexGateway?.cost ?? 0),
-    ...verdictOf(answers.match?.score ?? 0, checks, result.response.modelId ?? jevModel),
-  }
-}
 
 // Judges one catalog role for a run. The batch worker runs these and retries a failed
 // call twice.

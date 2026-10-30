@@ -1,29 +1,10 @@
 import { ConvexError, v } from "convex/values"
 import schema from "../../schema"
-import type { Doc, Id } from "../../_generated/dataModel"
-import type { MutationCtx } from "../../_generated/server"
 import { authedMutation, authedQuery } from "../../lib/functions"
 import { limits as rates } from "../workflows/manager"
-import { choicesOf, countsOf, deleteRuns } from "./counts"
-import { cancelRun, startRun } from "./engine"
-import {
-  blocksOf,
-  limits,
-  nextScheduledAt,
-  problemOf,
-  type Trigger,
-  vStep,
-  vTrigger,
-} from "./validators"
-
-const own = async (ctx: MutationCtx, userId: Id<"users">, id: Id<"automations">) => {
-  const automation = await ctx.db.get("automations", id)
-  if (automation?.userId !== userId) throw new ConvexError("That workflow isn't yours.")
-  return automation
-}
-
-const nextRunOf = (trigger: Trigger, active: boolean) =>
-  active && trigger.kind === "schedule" ? nextScheduledAt(Date.now(), trigger) : undefined
+import { choicesOf, countsOf } from "./counts"
+import { cancelRun, startRun, own, nextRunOf, deleteWorkflow } from "./utils"
+import { blocksOf, limits, problemOf, vRunCounts, vSaveWorkflow } from "./validators"
 
 const list = authedQuery({
   args: {},
@@ -38,12 +19,7 @@ const list = authedQuery({
 /** How many of a workflow's runs are going, done, failed or canceled. */
 const counts = authedQuery({
   args: { automationId: v.id("automations") },
-  returns: v.object({
-    running: v.number(),
-    done: v.number(),
-    failed: v.number(),
-    canceled: v.number(),
-  }),
+  returns: vRunCounts,
   handler: async (ctx, { automationId }) => {
     const automation = await ctx.db.get("automations", automationId)
     if (automation?.userId !== ctx.userId) return { running: 0, done: 0, failed: 0, canceled: 0 }
@@ -79,13 +55,7 @@ const runs = authedQuery({
 
 /** Adds a workflow, or changes yours with this id. Runs already going keep their steps. */
 const save = authedMutation({
-  args: {
-    id: v.optional(v.id("automations")),
-    name: v.string(),
-    trigger: vTrigger,
-    steps: v.array(vStep),
-    active: v.boolean(),
-  },
+  args: vSaveWorkflow,
   returns: v.id("automations"),
   handler: async (ctx, { id, ...automation }) => {
     const name = automation.name.trim()
@@ -130,23 +100,6 @@ const setActive = authedMutation({
   },
 })
 
-// A workflow's runs. Old ones are pruned as new ones start (see startRun), so there are
-// only a few dozen, plus any still waiting.
-const runsOf = (ctx: MutationCtx, automationId: Id<"automations">) =>
-  ctx.db
-    .query("automationRuns")
-    .withIndex("by_automationId_and_startedAt", (q) => q.eq("automationId", automationId))
-    .take(500)
-
-/** Stops a workflow's runs, then deletes them, their Inbox lines and the workflow. */
-const deleteWorkflow = async (ctx: MutationCtx, automation: Doc<"automations">) => {
-  for (const run of await runsOf(ctx, automation._id))
-    if (run.status === "running") await cancelRun(ctx, run)
-  // Read again: stopping moved them to another count, and deleting goes by what's stored.
-  await deleteRuns(ctx, await runsOf(ctx, automation._id))
-  await ctx.db.delete("automations", automation._id)
-}
-
 /** Deletes a workflow: stops its runs and forgets their history. */
 const remove = authedMutation({
   args: { id: v.id("automations") },
@@ -178,13 +131,5 @@ const stopRun = authedMutation({
     return null
   },
 })
-
-// For account deletion.
-export const deleteAutomations = async (ctx: MutationCtx, userId: Id<"users">) => {
-  for await (const automation of ctx.db
-    .query("automations")
-    .withIndex("by_userId", (q) => q.eq("userId", userId)))
-    await deleteWorkflow(ctx, automation)
-}
 
 export const publicApi = { list, counts, choices, runs, save, setActive, remove, runNow, stopRun }

@@ -1,20 +1,12 @@
-import { type } from "arktype"
 import { ConvexError, v } from "convex/values"
 import schema from "../../schema"
-import { internal } from "../../_generated/api"
-import type { Doc, Id } from "../../_generated/dataModel"
-import type { MutationCtx } from "../../_generated/server"
-import { arkId } from "../../lib/ark"
-import { arkMutation, authedMutation, authedQuery } from "../../lib/functions"
+import { authedMutation, authedQuery } from "../../lib/functions"
 import { boardOf } from "../jobs/boards"
-import { rowOf } from "../preferences/public"
-import { applyPool, limits } from "../workflows/manager"
+import { rowOf } from "../preferences/utils"
+import { applyPool } from "../workflows/manager"
 import { apiKeyOf } from "../workflows/sources"
-
-// Rows the Activity page reads at once.
-const maxListed = 100
-
-const autoApplyDoc = schema.doc("autoApplies")
+import { maxListed } from "./validators"
+import { enqueue, ready } from "./utils"
 
 const settings = authedQuery({
   args: {},
@@ -43,33 +35,10 @@ const setSwitch = authedMutation({
   },
 })
 
-// Hands a row to the pool. `retry: false`: a run that dies is never rerun by itself.
-const enqueue = async (ctx: MutationCtx, row: Doc<"autoApplies">) => {
-  const workId = await applyPool.enqueueAction(
-    ctx,
-    internal.autoApply.run,
-    { autoApplyId: row._id },
-    { retry: false, onComplete: internal.autoApply.ended, context: { autoApplyId: row._id } }
-  )
-  await ctx.db.patch("autoApplies", row._id, { workId, status: "queued", queuedAt: Date.now() })
-}
-
-const ready = async (ctx: MutationCtx, userId: Id<"users">) => {
-  const me = await ctx.db.get("users", userId)
-  if (me?.autoApplyAt === undefined)
-    throw new ConvexError("Turn on auto-apply under Account first.")
-  if (!me.email) throw new ConvexError("Add your email under Account first.")
-  if (!apiKeyOf("firecrawl")) throw new ConvexError("Auto-apply needs a Firecrawl key.")
-  const prefs = await rowOf(ctx, userId)
-  if (!prefs?.resumeId) throw new ConvexError("Upload a resume on the Resume page first.")
-  const { ok } = await limits.limit(ctx, "autoApply", { key: userId })
-  if (!ok) throw new ConvexError("That's 10 auto-applies today. Try again tomorrow.")
-}
-
 /** Puts a role from the catalog in the pile. One row per posting: queuing it again
  * returns the same row, and a posting that was sent is never queued again. */
-const queue = arkMutation({
-  args: type({ jobId: arkId("jobs"), "dryRun?": "boolean" }),
+const queue = authedMutation({
+  args: { jobId: v.id("jobs"), dryRun: v.optional(v.boolean()) },
   returns: v.id("autoApplies"),
   handler: async (ctx, { jobId, dryRun }) => {
     const job = await ctx.db.get("jobs", jobId)
@@ -116,8 +85,8 @@ const queue = arkMutation({
 })
 
 // Runs a stopped row again, after you added answers or fixed what it needed.
-const retry = arkMutation({
-  args: type({ id: arkId("autoApplies") }),
+const retry = authedMutation({
+  args: { id: v.id("autoApplies") },
   returns: v.null(),
   handler: async (ctx, { id }) => {
     const row = await ctx.db.get("autoApplies", id)
@@ -140,8 +109,8 @@ const retry = arkMutation({
 })
 
 // Takes a queued row out of the pile; a running one finishes on its own.
-const cancel = arkMutation({
-  args: type({ id: arkId("autoApplies") }),
+const cancel = authedMutation({
+  args: { id: v.id("autoApplies") },
   returns: v.null(),
   handler: async (ctx, { id }) => {
     const row = await ctx.db.get("autoApplies", id)
@@ -160,7 +129,7 @@ const cancel = arkMutation({
 
 const list = authedQuery({
   args: {},
-  returns: v.array(autoApplyDoc),
+  returns: v.array(schema.doc("autoApplies")),
   handler: (ctx) =>
     ctx.db
       .query("autoApplies")
@@ -168,13 +137,5 @@ const list = authedQuery({
       .order("desc")
       .take(maxListed),
 })
-
-// For account deletion.
-export const deleteAutoApplies = async (ctx: MutationCtx, userId: Id<"users">) => {
-  for await (const row of ctx.db
-    .query("autoApplies")
-    .withIndex("by_userId_and_queuedAt", (q) => q.eq("userId", userId)))
-    await ctx.db.delete("autoApplies", row._id)
-}
 
 export const publicApi = { settings, setSwitch, queue, retry, cancel, list }

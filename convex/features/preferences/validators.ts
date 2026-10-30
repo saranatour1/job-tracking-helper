@@ -1,4 +1,6 @@
 import { type } from "arktype"
+import { arkId, arkOutputToConvex } from "../../lib/ark"
+import { v } from "convex/values"
 
 const trimmed = type("string.trim")
 
@@ -115,3 +117,116 @@ export const resumeTypes = [
   "application/msword",
   "text/plain",
 ]
+
+export const tagKinds = [
+  "interest",
+  "avoid",
+  "skill",
+  "location",
+  "company",
+  "redFlagCompany",
+] as const
+
+export const entryKinds = ["answer", "field"] as const
+
+export const Check = type({
+  name: "string",
+  ok: "boolean",
+  // What to change when it isn't ok.
+  fix: "string",
+})
+
+export const Review = type({
+  at: "number",
+  contact: type({
+    "name?": "string",
+    "email?": "string",
+    "phone?": "string",
+    links: "string[]",
+  }),
+  // Standard headings found, in order.
+  sections: "string[]",
+  checks: Check.array(),
+  suggestions: "string[]",
+  // Each skill and interest from Preferences, and whether the resume shows it. Unsure
+  // means Jev couldn't tell, which is neither advice nor a pass.
+  shows: type({ tag: "string", shown: "'yes' | 'no' | 'unsure'" }).array(),
+  words: "number",
+  // Set when Jev couldn't answer, so the review is the rules alone.
+  "note?": "string",
+})
+
+export type Review = typeof Review.infer
+
+// How a review is kept. Reviews from before Jev could say unsure hold true or false,
+// until the next review replaces them.
+export const StoredReview = Review.omit("shows").and({
+  shows: type({ tag: "string", shown: "boolean | 'yes' | 'no' | 'unsure'" }).array(),
+})
+
+// A label and a value: an answer to a question (`answer`), or a form field from the
+// Prefilled tab (`field`). `group` is the Preferences step or the Prefilled section,
+// and `key` names a built-in question so its label can change without a migration.
+export const ProfileEntry = type({
+  userId: arkId("users"),
+  kind: type.enumerated(...entryKinds),
+  group: "string",
+  key: "string",
+  label: "string",
+  value: "string",
+  order: "number",
+  // For `field` rows: when auto-apply last put this answer in a form, and how often.
+  "lastUsedAt?": "number",
+  "useCount?": "number",
+})
+
+// One small row per user: settings that have a single value. Lists and answers live
+// in `preferenceTags` and `profileEntries`, one row each, so this row never grows.
+export const PreferenceSettings = type({
+  userId: arkId("users"),
+  workMode: type.enumerated(...workModes),
+  "resumeId?": arkId("_storage"),
+  "resumeName?": "string",
+  // The resume's text and its last review, set by Review on the Resume tab and
+  // cleared when the file changes.
+  "resumeText?": "string",
+  "resumeReview?": StoredReview,
+  // Set the first time the Prefilled tab is saved; until then the page suggests fields.
+  "prefilledAt?": "number",
+})
+
+// One short word or phrase per row: an interest, a skill, a place, a company. `kind`
+// says which list it belongs to, and `order` keeps the order it was added in.
+export const PreferenceTag = type({
+  userId: arkId("users"),
+  kind: type.enumerated(...tagKinds),
+  value: "string",
+  order: "number",
+})
+
+export const vPreferencesView = v.object({
+  settings: v.union(
+    v.object({
+      workMode: v.union(...workModes.map((m) => v.literal(m))),
+      prefilledAt: v.optional(v.number()),
+    }),
+    v.null()
+  ),
+  resume: v.union(v.object({ name: v.string(), url: v.union(v.string(), v.null()) }), v.null()),
+  // The last review of the resume, until the file changes.
+  review: v.union(arkOutputToConvex(Review), v.null()),
+})
+
+export const vResumeToReview = v.union(
+  v.null(),
+  v.object({
+    resumeId: v.id("_storage"),
+    contentType: v.string(),
+    skills: v.array(v.string()),
+    interests: v.array(v.string()),
+  })
+)
+
+export const SavePrefilled = type({ sections: PrefilledSections })
+
+export const SetResume = type({ "resumeId?": arkId("_storage"), "name?": "string <= 200" })

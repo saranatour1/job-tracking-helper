@@ -1,150 +1,28 @@
-import { type } from "arktype"
-import {
-  paginationOptsValidator,
-  paginationResultValidator,
-  type WithoutSystemFields,
-} from "convex/server"
+import { entryKinds } from "./validators"
+import { paginationOptsValidator, paginationResultValidator } from "convex/server"
 import { ConvexError, v } from "convex/values"
-import {
-  internalMutation,
-  internalQuery,
-  type MutationCtx,
-  type QueryCtx,
-} from "../../_generated/server"
-import type { Doc, Id } from "../../_generated/dataModel"
+import { internalMutation, internalQuery } from "../../_generated/server"
+import type { Doc } from "../../_generated/dataModel"
 import schema from "../../schema"
-import { arkId, arkOutputToConvex } from "../../lib/ark"
+import { arkOutputToConvex } from "../../lib/ark"
 import { arkMutation, authedMutation, authedQuery } from "../../lib/functions"
-import { readReview, Review } from "./resumeRules"
-import { answerRowsOf, entryKinds, fieldRowsOf, rowLimits, tagRowsOf } from "./rows"
 import {
+  Review,
   maxResumeBytes,
   Preferences,
-  PrefilledSections,
   resumeTypes,
-  workModes,
+  vPreferencesView,
+  vResumeToReview,
+  SavePrefilled,
+  SetResume,
 } from "./validators"
-
-type Settings = Partial<
-  Pick<
-    Doc<"preferences">,
-    "workMode" | "resumeId" | "resumeName" | "resumeText" | "resumeReview" | "prefilledAt"
-  >
->
-
-export const rowOf = (ctx: QueryCtx, userId: Id<"users">) =>
-  ctx.db
-    .query("preferences")
-    .withIndex("by_userId", (q) => q.eq("userId", userId))
-    .unique()
-
-// Updates the user's settings row, creating it the first time.
-const upsert = async (ctx: MutationCtx, userId: Id<"users">, patch: Settings) => {
-  const row = await rowOf(ctx, userId)
-  if (row) await ctx.db.patch("preferences", row._id, patch)
-  else await ctx.db.insert("preferences", { workMode: "any", ...patch, userId })
-}
-
-const tagsOf = (ctx: QueryCtx, userId: Id<"users">) =>
-  ctx.db
-    .query("preferenceTags")
-    .withIndex("by_userId_and_kind_and_order", (q) => q.eq("userId", userId))
-    .take(rowLimits.tags)
-
-const entriesOf = (ctx: QueryCtx, userId: Id<"users">, kind: (typeof entryKinds)[number]) =>
-  ctx.db
-    .query("profileEntries")
-    .withIndex("by_userId_and_kind_and_order", (q) => q.eq("userId", userId).eq("kind", kind))
-    .take(rowLimits[kind])
-
-type Table = "preferenceTags" | "profileEntries"
-type Row<T extends Table> = Omit<Doc<T>, "_id" | "_creationTime" | "userId">
-
-const sameRow = (a: object, b: object) => {
-  const entries = (o: object) =>
-    Object.entries(o)
-      .filter(([k]) => !["_id", "_creationTime", "userId"].includes(k))
-      .sort(([x], [y]) => x.localeCompare(y))
-  return JSON.stringify(entries(a)) === JSON.stringify(entries(b))
-}
-
-// Rewrites only the slices that changed, so saving one answer touches its own rows
-// and leaves the rest alone. A slice is one tag list, one question, or one section.
-const sync = async <T extends Table>(
-  ctx: MutationCtx,
-  table: T,
-  userId: Id<"users">,
-  current: Doc<T>[],
-  next: Row<T>[],
-  sliceOf: (row: Row<T>) => string
-) => {
-  for (const slice of new Set([...current, ...next].map(sliceOf))) {
-    const before = current.filter((row) => sliceOf(row) === slice)
-    const after = next.filter((row) => sliceOf(row) === slice)
-    if (before.length === after.length && before.every((row, i) => sameRow(row, after[i]!)))
-      continue
-    for (const row of before) await ctx.db.delete(table, row._id)
-    for (const row of after)
-      // The row came from this table minus its ids, so adding userId makes it whole again.
-      await ctx.db.insert(table, { ...row, userId } as unknown as WithoutSystemFields<Doc<T>>)
-  }
-}
-
-export const writeAnswers = async (
-  ctx: MutationCtx,
-  userId: Id<"users">,
-  form: typeof Preferences.infer
-) => {
-  await upsert(ctx, userId, { workMode: form.workMode })
-  await sync(
-    ctx,
-    "preferenceTags",
-    userId,
-    await tagsOf(ctx, userId),
-    tagRowsOf(form),
-    (r) => r.kind
-  )
-  await sync(
-    ctx,
-    "profileEntries",
-    userId,
-    await entriesOf(ctx, userId, "answer"),
-    answerRowsOf(form),
-    (r) => r.key
-  )
-}
-
-export const writeFields = async (
-  ctx: MutationCtx,
-  userId: Id<"users">,
-  sections: typeof PrefilledSections.infer
-) => {
-  await upsert(ctx, userId, { prefilledAt: Date.now() })
-  await sync(
-    ctx,
-    "profileEntries",
-    userId,
-    await entriesOf(ctx, userId, "field"),
-    fieldRowsOf(sections),
-    (r) => `${Math.floor(r.order / 100)}:${r.group}`
-  )
-}
+import { readReview } from "./resumeRules"
+import { rowOf, upsert, tagsOf, writeAnswers, writeFields, markOnboarded } from "./utils"
 
 // Settings and the resume. Tags and entries come from the paginated queries below.
 const get = authedQuery({
   args: {},
-  returns: v.object({
-    settings: v.union(
-      v.object({
-        workMode: v.union(...workModes.map((m) => v.literal(m))),
-        prefilledAt: v.optional(v.number()),
-      }),
-      v.null()
-    ),
-    resume: v.union(v.object({ name: v.string(), url: v.union(v.string(), v.null()) }), v.null()),
-    // The last review of the resume, until the file changes.
-    review: v.union(arkOutputToConvex(Review), v.null()),
-  }),
+  returns: vPreferencesView,
   handler: async (ctx) => {
     const row = await rowOf(ctx, ctx.userId)
     if (!row) return { settings: null, resume: null, review: null }
@@ -181,13 +59,6 @@ const entries = authedQuery({
       .paginate(paginationOpts),
 })
 
-// Marks the user as past first run, so `/` stops sending them to Preferences.
-const markOnboarded = async (ctx: MutationCtx, userId: Id<"users">) => {
-  const user = await ctx.db.get("users", userId)
-  if (user && user.onboardedAt === undefined)
-    await ctx.db.patch("users", userId, { onboardedAt: Date.now() })
-}
-
 const save = arkMutation({
   args: Preferences,
   returns: v.null(),
@@ -199,7 +70,7 @@ const save = arkMutation({
 })
 
 const savePrefilled = arkMutation({
-  args: type({ sections: PrefilledSections }),
+  args: SavePrefilled,
   returns: v.null(),
   handler: async (ctx, { sections }) => {
     await writeFields(ctx, ctx.userId, sections)
@@ -219,7 +90,7 @@ const skip = authedMutation({
 
 // One resume at a time: a new upload replaces the old file, and no args removes it.
 const setResume = arkMutation({
-  args: type({ "resumeId?": arkId("_storage"), "name?": "string <= 200" }),
+  args: SetResume,
   returns: v.null(),
   handler: async (ctx, { resumeId, name }) => {
     if (resumeId) {
@@ -250,15 +121,7 @@ const setResume = arkMutation({
 // What the review action needs: the file, and the skills and interests to check for.
 const resumeToReview = internalQuery({
   args: { userId: v.id("users") },
-  returns: v.union(
-    v.null(),
-    v.object({
-      resumeId: v.id("_storage"),
-      contentType: v.string(),
-      skills: v.array(v.string()),
-      interests: v.array(v.string()),
-    })
-  ),
+  returns: vResumeToReview,
   handler: async (ctx, { userId }) => {
     const row = await rowOf(ctx, userId)
     if (!row?.resumeId) return null
@@ -284,17 +147,6 @@ const setResumeReview = internalMutation({
     return null
   },
 })
-
-// Everything Preferences stored for the user, for deleting an account.
-export const deletePreferences = async (ctx: MutationCtx, userId: Id<"users">) => {
-  const row = await rowOf(ctx, userId)
-  if (row?.resumeId) await ctx.storage.delete(row.resumeId)
-  if (row) await ctx.db.delete("preferences", row._id)
-  for (const tag of await tagsOf(ctx, userId)) await ctx.db.delete("preferenceTags", tag._id)
-  for (const kind of entryKinds)
-    for (const entry of await entriesOf(ctx, userId, kind))
-      await ctx.db.delete("profileEntries", entry._id)
-}
 
 export const publicApi = {
   get,

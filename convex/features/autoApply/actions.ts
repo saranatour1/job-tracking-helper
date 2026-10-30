@@ -5,38 +5,12 @@ import { internal } from "../../_generated/api"
 import { internalAction } from "../../_generated/server"
 import { workLog } from "../../lib/log"
 import { jevModel } from "../workflows/judge"
-import { limits } from "../workflows/manager"
+import { turn } from "../workflows/utils"
 import { OutOfCredits } from "../workflows/sources/source"
-import {
-  endSession,
-  FillResult,
-  fillScript,
-  interact,
-  ReadResult,
-  readFormScript,
-  scrape,
-  SubmitResult,
-  submitScript,
-} from "./firecrawl"
+import { endSession, fillScript, interact, readFormScript, scrape, submitScript } from "./firecrawl"
+import { FillResult, ReadResult, SubmitResult, type Used, type Missing } from "./validators"
 import { type FormField, planFor, questionsFor, resolve } from "./match"
-import type { MissingQuestion, UsedAnswer } from "./models"
-
-type Used = typeof UsedAnswer.infer
-type Missing = typeof MissingQuestion.infer
-
-// Jev's pick counts only when it's sure; a weak pick is treated as none.
-const sureEnough = 0.6
-// The run stops short of the submit click when less than this is left of the action.
-const actionMs = 10 * 60 * 1000
-const submitNeedsMs = 90 * 1000
-
-const sleep = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms))
-
-// Waits for a turn under the shared Firecrawl limit, like loops do.
-const turn = async (ctx: Parameters<typeof limits.limit>[0]) => {
-  const { retryAfter } = await limits.limit(ctx, "firecrawl", { reserve: true })
-  if (retryAfter) await sleep(retryAfter)
-}
+import { sureEnough, actionMs, submitNeedsMs } from "./utils"
 
 /** One auto-apply run: open the form, match its fields to saved answers, fill it,
  * submit, and record how it went. Every stop writes the row; nothing is retried. */
@@ -63,11 +37,11 @@ const run = internalAction({
       if (!found.resume) return stop("failed", { error: "Upload a resume first." })
 
       // Open the posting and read its form.
-      await turn(ctx)
+      await turn(ctx, "firecrawl")
       const opened = await scrape(found.url)
       scrapeId = opened.scrapeId
       credits += 1
-      await turn(ctx)
+      await turn(ctx, "firecrawl")
       const read = ReadResult.assert(await interact(scrapeId, readFormScript(), 60))
       credits += 1
       if (read.login) return stop("needsYou", { error: "This form wants you to sign in first." })
@@ -135,7 +109,7 @@ const run = internalAction({
       const resumeUrl = await ctx.storage.getUrl(found.resume.id)
       if (!resumeUrl)
         return stop("failed", { used, error: "The resume file is gone. Upload it again." })
-      await turn(ctx)
+      await turn(ctx, "firecrawl")
       const filled = FillResult.assert(
         await interact(
           scrapeId,
@@ -169,7 +143,7 @@ const run = internalAction({
       // Submit, behind the fence.
       if (!(await ctx.runMutation(internal.autoApply.markSubmitting, { autoApplyId })))
         return stop("failed", { used, error: "Already sent once." })
-      await turn(ctx)
+      await turn(ctx, "firecrawl")
       const sent = SubmitResult.assert(await interact(scrapeId, submitScript(read.submit), 90))
       credits += 1
       switch (sent.outcome) {
