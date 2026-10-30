@@ -193,7 +193,7 @@ const GoalDialog = ({ goal, trigger }: { goal?: Goal; trigger: React.ReactElemen
   )
 }
 
-// Goals as a timeline, newest first, like cycles. Each goal opens its applications.
+// Goals as cards, newest first. Each opens its applications.
 export const Goals = () => {
   const { goals, applications, loaded } = useSource()
   const on = todayIso()
@@ -212,76 +212,59 @@ export const Goals = () => {
           />
         }
       />
-      <ol className="flex flex-col py-2">
-        {loaded && goals.length === 0 && (
-          <li className="text-muted-foreground p-6 text-center text-[13px]">
-            No goals yet. Make one, then put applications on it from their Goal property.
-          </li>
-        )}
-        {sorted.map((goal, i) => {
-          const status = goalStatus(goal, on)
+      {loaded && goals.length === 0 && (
+        <p className="text-muted-foreground p-6 text-center text-[13px]">
+          No goals yet. Make one, then put applications on it from their Goal property.
+        </p>
+      )}
+      <ul className="grid gap-3 p-4 sm:grid-cols-2 xl:grid-cols-3">
+        {sorted.map((goal) => {
           const progress = goalProgress(goal, on)
           const { items } = stats(goal, applications)
           return (
-            <li
-              key={goal.id}
-              className="grid grid-cols-[4.5rem_1.5rem_minmax(0,1fr)] items-stretch"
-            >
-              <span className="text-muted-foreground pt-4 pe-2 text-end text-xs leading-tight">
-                {formatDate(goal.start)}
-              </span>
-              <span className="relative flex justify-center">
-                <span
-                  className={cn(
-                    "bg-border absolute w-px",
-                    i === 0 ? "top-5 bottom-0" : i === sorted.length - 1 ? "top-0 h-5" : "inset-y-0"
-                  )}
-                />
-                <span
-                  className={cn(
-                    "relative mt-[1.1rem] size-2 rounded-full border",
-                    status === "Active" && "bg-primary border-primary",
-                    status === "Completed" && "bg-muted-foreground border-muted-foreground",
-                    status === "Upcoming" && "bg-background border-muted-foreground"
-                  )}
-                />
-              </span>
+            <li key={goal.id}>
               <Link
                 to="/goals/$id"
                 params={{ id: goal.id }}
-                className="hover:bg-accent/50 me-3 flex min-w-0 items-center gap-3 rounded-md border-b px-3 py-3 text-[13px] transition-colors"
+                className="hover:bg-accent/50 flex h-full flex-col gap-3 rounded-lg border p-4 text-[13px] transition-colors"
               >
-                <HugeiconsIcon
-                  icon={Target02Icon}
-                  className="text-muted-foreground size-4 shrink-0"
-                />
-                <span className="flex min-w-0 flex-col">
-                  <span className="truncate font-medium">{goal.name}</span>
-                  <span className="text-muted-foreground text-xs">
-                    {formatDate(goal.start)} → {formatDate(goal.target)}
+                <span className="flex items-start gap-2">
+                  <HugeiconsIcon
+                    icon={Target02Icon}
+                    className="text-muted-foreground mt-0.5 size-4 shrink-0"
+                  />
+                  <span className="flex min-w-0 flex-1 flex-col">
+                    <span className="truncate font-medium">{goal.name}</span>
+                    <span className="text-muted-foreground text-xs">
+                      {formatDate(goal.start)} → {formatDate(goal.target)}
+                    </span>
                   </span>
-                </span>
-                <span className="text-muted-foreground ms-auto hidden shrink-0 items-center gap-4 text-xs sm:flex">
                   <GoalBadge goal={goal} on={on} />
-                  <span className="flex items-center gap-2">
-                    <GoalMeter goal={goal} on={on} className="w-16" />
-                    <span className="text-foreground w-8 tabular-nums">{progress}%</span>
-                  </span>
+                </span>
+                {goal.summary && (
+                  <span className="text-muted-foreground line-clamp-2 text-xs">{goal.summary}</span>
+                )}
+                <span className="mt-auto flex items-center gap-2">
+                  <GoalMeter goal={goal} on={on} className="flex-1" />
+                  <span className="w-8 text-end text-xs tabular-nums">{progress}%</span>
+                </span>
+                <span className="text-muted-foreground flex gap-4 text-xs">
                   <span>
                     <span className="text-foreground tabular-nums">
                       {goal.milestones.filter((m) => m.done).length}/{goal.milestones.length}
                     </span>{" "}
                     milestones
                   </span>
-                  <span className="w-24">
-                    <span className="text-foreground tabular-nums">{items}</span> applications
+                  <span>
+                    <span className="text-foreground tabular-nums">{items}</span>{" "}
+                    {items === 1 ? "application" : "applications"}
                   </span>
                 </span>
               </Link>
             </li>
           )
         })}
-      </ol>
+      </ul>
     </>
   )
 }

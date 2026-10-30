@@ -251,7 +251,7 @@ application.
 4. **Make a goal:** on **Goals** (`/goals`), **New goal**: a name, a summary, a priority,
    start and target dates, and milestones one per line, each with a date at the end if
    it has one. Create goal saves it
-   (`api.goals.create`). The timeline lists goals newest first, each with its status
+   (`api.goals.create`). The page shows goals as cards, newest first, each with its status
    (Upcoming, Active or Completed), progress and how many applications count toward it.
 5. **Open a goal** (`/goals/$id`): its applications on the board, with a summary panel
    showing progress, interviews and offers, and its milestones. Click a milestone to tick
