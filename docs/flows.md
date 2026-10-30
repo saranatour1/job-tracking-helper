@@ -262,6 +262,9 @@ application.
    showing progress, interviews and offers, and its milestones. Click a milestone to tick
    it or untick it (`api.goals.update`). **Edit** changes the fields; **Delete** asks
    first, then removes the goal and its applications leave it (`api.goals.remove`).
+   Under the milestones, **Activity** gathers what happened on the goal's applications
+   between its start and target dates, newest first: company mail, status changes, notes
+   and calendar events, with their open tasks on top. Up to 50 items.
 7. **Put an application on a goal:** open it and pick the goal in its properties
    (`api.applications.setGoal`). The board can filter, group and count by goal. A goal
    that names a loop takes roles by itself: adding one to the board from that loop's
