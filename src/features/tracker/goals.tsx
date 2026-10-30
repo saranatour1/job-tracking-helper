@@ -1,6 +1,13 @@
 import { api } from "@convex/_generated/api"
 import type { Id } from "@convex/_generated/dataModel"
-import { PlusSignIcon, Target02Icon } from "@hugeicons/core-free-icons"
+import {
+  ArrowMoveUpRightIcon,
+  Calendar03Icon,
+  CircleIcon,
+  Note01Icon,
+  PlusSignIcon,
+  Target02Icon,
+} from "@hugeicons/core-free-icons"
 import { HugeiconsIcon } from "@hugeicons/react"
 import { Link, useNavigate } from "@tanstack/react-router"
 import { useAction, useMutation } from "convex/react"
@@ -43,10 +50,13 @@ import {
   parseMilestones,
   priorities,
   priorityLabels,
+  statusLabels,
 } from "./data"
 import { PriorityIcon } from "./icons"
+import { MailLine } from "./mail"
 import { Pipeline } from "./pipeline"
 import { useSource } from "./source"
+import { useSavedEvents } from "@/features/calendar/saved"
 
 // Today as YYYY-MM-DD, the form a goal's dates take.
 const todayIso = () => new Date().toISOString().slice(0, 10)
@@ -509,7 +519,98 @@ const GoalSummary = ({ goal }: { goal: Goal }) => {
           ))}
         </ol>
       </div>
+      <GoalActivity goal={goal} />
     </div>
+  )
+}
+
+// What happened on the goal's applications in its period, newest first: mail, status
+// changes, notes and calendar events, with their open tasks on top.
+const GoalActivity = ({ goal }: { goal: Goal }) => {
+  const { applications, mail } = useSource()
+  const events = useSavedEvents() ?? []
+  const mine = applications.filter((a) => a.goalId === goal.id)
+  const byId = new Map(mine.map((a) => [a.id, a]))
+  const inPeriod = (at: string) => at.slice(0, 10) >= goal.start && at.slice(0, 10) <= goal.target
+  const items = [
+    ...mine.flatMap((a) =>
+      a.history.map((e) => ({ at: e.at, who: a.company, status: e.status, note: e.note }))
+    ),
+    ...mine.flatMap((a) =>
+      (a.notes ?? []).map((n) => ({ at: n.at, who: a.company, text: n.text }))
+    ),
+    ...mail
+      .filter((e) => e.applicationId && byId.has(e.applicationId))
+      .map((e) => ({ at: new Date(e.at).toISOString(), mail: e })),
+    ...events
+      .filter((e) => e.applicationId && byId.has(e.applicationId) && !e.hidden)
+      .map((e) => ({ at: e.start, who: byId.get(e.applicationId!)!.company, title: e.title })),
+  ]
+    .filter((item) => inPeriod(item.at))
+    .sort((x, y) => y.at.localeCompare(x.at))
+    .slice(0, 50)
+  const tasks = mine.flatMap((a) =>
+    (a.tasks ?? []).filter((t) => !t.done).map((t) => ({ who: a.company, title: t.title }))
+  )
+  return (
+    <section aria-label="Activity" className="flex flex-col gap-2">
+      <span className="text-muted-foreground text-xs">
+        Activity · {formatDate(goal.start)} → {formatDate(goal.target)}
+      </span>
+      {tasks.length === 0 && items.length === 0 && (
+        <p className="text-muted-foreground text-[13px]">
+          Nothing yet on this goal's applications.
+        </p>
+      )}
+      {tasks.length > 0 && (
+        <ul className="flex flex-col gap-1">
+          {tasks.map((t, i) => (
+            <li key={i} className="flex items-start gap-2 text-[13px]">
+              <HugeiconsIcon
+                icon={CircleIcon}
+                className="text-muted-foreground mt-0.5 size-3.5 shrink-0"
+              />
+              <span className="min-w-0">
+                <span className="text-muted-foreground">{t.who}:</span> {t.title}
+              </span>
+            </li>
+          ))}
+        </ul>
+      )}
+      <ol className="flex flex-col gap-2">
+        {items.map((item, i) => (
+          <li key={i} className="flex items-start gap-2 text-[13px]">
+            {"mail" in item ? (
+              <MailLine e={item.mail} />
+            ) : (
+              <>
+                <HugeiconsIcon
+                  icon={
+                    "title" in item
+                      ? Calendar03Icon
+                      : "status" in item
+                        ? ArrowMoveUpRightIcon
+                        : Note01Icon
+                  }
+                  className="text-muted-foreground mt-0.5 size-3.5 shrink-0"
+                />
+                <span className="min-w-0 flex-1">
+                  <span className="text-muted-foreground">{item.who}</span>{" "}
+                  {"title" in item
+                    ? item.title
+                    : "status" in item
+                      ? `moved to ${statusLabels[item.status]}${item.note ? ` · ${item.note}` : ""}`
+                      : item.text}
+                </span>
+                <span className="text-muted-foreground shrink-0 text-xs">
+                  {formatDate(item.at)}
+                </span>
+              </>
+            )}
+          </li>
+        ))}
+      </ol>
+    </section>
   )
 }
 
