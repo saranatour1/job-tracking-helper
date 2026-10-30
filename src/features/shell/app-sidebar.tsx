@@ -35,12 +35,46 @@ import { ThemeSwitch } from "@/features/shell/theme"
 import { useUnreadCount } from "@/features/inbox/inbox"
 import { NewApplicationDialog } from "@/features/tracker/new-application"
 
-const tracker = [
-  { title: "Goals", to: "/goals", icon: Target02Icon },
-  { title: "Views", to: "/views", icon: Layers01Icon },
-] as const
-
 type Item = { title: string; to: string; icon: typeof InboxIcon; badge?: number }
+
+// The pages, grouped by what you do with them: the day's work on top, then finding
+// roles, what runs for you, the tracker's own views, and what the app knows about you.
+const groups: { label?: string; items: readonly Item[] }[] = [
+  {
+    items: [
+      { title: "Applications", to: "/", icon: Briefcase01Icon },
+      { title: "Calendar", to: "/calendar", icon: Calendar03Icon },
+    ],
+  },
+  {
+    label: "Find roles",
+    items: [
+      { title: "Jobs", to: "/jobs", icon: JobSearchIcon },
+      { title: "Loops", to: "/loops", icon: RepeatIcon },
+    ],
+  },
+  {
+    label: "Done for you",
+    items: [
+      { title: "Workflows", to: "/workflows", icon: WorkflowSquare03Icon },
+      { title: "Activity", to: "/activity", icon: Activity01Icon },
+    ],
+  },
+  {
+    label: "Tracker",
+    items: [
+      { title: "Goals", to: "/goals", icon: Target02Icon },
+      { title: "Views", to: "/views", icon: Layers01Icon },
+    ],
+  },
+  {
+    label: "You",
+    items: [
+      { title: "Preferences", to: "/preferences", icon: UserCircleIcon },
+      { title: "Resume", to: "/resume", icon: File01Icon },
+    ],
+  },
+]
 
 const NavItems = ({ items }: { items: readonly Item[] }) => {
   const { setOpenMobile } = useSidebar()
@@ -66,17 +100,8 @@ const NavItems = ({ items }: { items: readonly Item[] }) => {
 }
 
 export const AppSidebar = (props: React.ComponentProps<typeof Sidebar>) => {
-  const top = [
-    { title: "Inbox", to: "/inbox", icon: InboxIcon, badge: useUnreadCount() },
-    { title: "Activity", to: "/activity", icon: Activity01Icon },
-    { title: "Applications", to: "/", icon: Briefcase01Icon },
-    { title: "Calendar", to: "/calendar", icon: Calendar03Icon },
-    { title: "Preferences", to: "/preferences", icon: UserCircleIcon },
-    { title: "Resume", to: "/resume", icon: File01Icon },
-    { title: "Jobs", to: "/jobs", icon: JobSearchIcon },
-    { title: "Loops", to: "/loops", icon: RepeatIcon },
-    { title: "Workflows", to: "/workflows", icon: WorkflowSquare03Icon },
-  ]
+  // The Inbox carries its unread count, so it's built here.
+  const inbox = { title: "Inbox", to: "/inbox", icon: InboxIcon, badge: useUnreadCount() }
   return (
     <Sidebar collapsible="icon" {...props}>
       <SidebarHeader className="flex-row items-center justify-between">
@@ -100,13 +125,12 @@ export const AppSidebar = (props: React.ComponentProps<typeof Sidebar>) => {
         />
       </SidebarHeader>
       <SidebarContent>
-        <SidebarGroup className="group-data-[collapsible=icon]:px-0">
-          <NavItems items={top} />
-        </SidebarGroup>
-        <SidebarGroup className="group-data-[collapsible=icon]:px-0">
-          <SidebarGroupLabel>Tracker</SidebarGroupLabel>
-          <NavItems items={tracker} />
-        </SidebarGroup>
+        {groups.map(({ label, items }, i) => (
+          <SidebarGroup key={label ?? "top"} className="group-data-[collapsible=icon]:px-0">
+            {label && <SidebarGroupLabel>{label}</SidebarGroupLabel>}
+            <NavItems items={i === 0 ? [inbox, ...items] : items} />
+          </SidebarGroup>
+        ))}
       </SidebarContent>
       <SidebarFooter className="group-data-[collapsible=icon]:px-0">
         <ThemeSwitch />

@@ -117,9 +117,10 @@ pasted links that aren't on a known board. A source without a key is skipped.
 
 **Flows**
 
-1. The sidebar lists Inbox (with its unread count), Applications, Calendar,
-   Preferences, Jobs, Loops, Workflows, then Goals and Views under Tracker. The pencil
-   opens New application.
+1. The sidebar groups the pages by what you do with them: Inbox (with its unread
+   count), Applications and Calendar on top; **Find roles** with Jobs and Loops; **Done
+   for you** with Workflows and Activity; **Tracker** with Goals and Views; **You** with
+   Preferences and Resume. The pencil opens New application.
 2. The header's sidebar button opens and closes the app sidebar. Side panels (an
    application, insights, a job from a loop) open beside it and leave it alone; on the
    board, the panel button at the right of the toolbar opens insights or closes an open
