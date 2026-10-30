@@ -1,6 +1,6 @@
 import { type } from "arktype"
 import { v } from "convex/values"
-import { arkId } from "../../lib/ark"
+import { arkId, cutTo } from "../../lib/ark"
 import { isTimeZone } from "../loops/schedule"
 
 export const maxPages = 20
@@ -12,9 +12,9 @@ const trimmed = type("string.trim")
 
 // What a booking page offers, set by its host. Hours are in the host's zone.
 export const PageFields = type({
-  title: trimmed.to(
-    type("0 < string <= 80").configure({ message: "Give the page a title, up to 80 characters." })
-  ),
+  title: trimmed
+    .pipe(cutTo(80))
+    .to(type("string > 0").configure({ message: "Give the page a title." })),
   minutes: "number",
   startHour: "number",
   endHour: "number",
@@ -28,7 +28,7 @@ export const PageFields = type({
   // Bookings go under this application; without one, by the guest's email domain.
   "applicationId?": arkId("applications"),
   // Where the call happens: a room, "Phone", or a video link.
-  "location?": trimmed.to("string <= 300"),
+  "location?": trimmed.pipe(cutTo(300)).to("string"),
   active: "boolean",
 })
 
@@ -64,17 +64,15 @@ export const BookingPage = PageFields.and({ userId: arkId("users"), slug: "strin
 export const Booking = type({
   slug: "string",
   start: "number",
-  name: trimmed.to(
-    type("0 < string <= 100").configure({ message: "Add your name, up to 100 characters." })
-  ),
+  name: trimmed.pipe(cutTo(100)).to(type("string > 0").configure({ message: "Add your name." })),
   email: trimmed
-    .pipe((email) => email.toLowerCase())
+    .pipe((email) => email.toLowerCase().slice(0, 200))
     .to(
-      type(/^(?=.{1,200}$)[^\s@]+@[^\s@]+\.[^\s@]+$/).configure({
+      type(/^[^\s@]+@[^\s@]+\.[^\s@]+$/).configure({
         message: "That email doesn't look right.",
       })
     ),
-  "note?": trimmed.to("string <= 1000"),
+  "note?": trimmed.pipe(cutTo(1000)).to("string"),
 })
 
 export const vHours = {

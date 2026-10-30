@@ -29,17 +29,23 @@ describe("saved views", () => {
     expect(saved).toMatchObject({ name: "Remote", description: "Later" })
   })
 
-  it("says what's wrong with a name or its filters", async () => {
+  it("needs a name", async () => {
     const as = await setup()
     await expect(as.mutation(api.views.create, { ...view, name: "  " })).rejects.toThrow(
-      "Give the view a name"
+      "Give the view a name."
     )
-    await expect(
-      as.mutation(api.views.create, {
-        ...view,
-        filters: Object.fromEntries(Array.from({ length: 11 }, (_, i) => [`f${i}`, ["x"]])),
-      })
-    ).rejects.toThrow("up to 10 fields")
-    await expect(as.query(api.views.list, {})).resolves.toEqual([])
+  })
+
+  it("cuts what runs long instead of refusing it", async () => {
+    const as = await setup()
+    await as.mutation(api.views.create, {
+      name: "n".repeat(61),
+      description: "d".repeat(301),
+      filters: Object.fromEntries(Array.from({ length: 11 }, (_, i) => [`f${i}`, ["x"]])),
+    })
+    const [saved] = await as.query(api.views.list, {})
+    expect(saved?.name).toHaveLength(60)
+    expect(saved?.description).toHaveLength(300)
+    expect(Object.keys(saved?.filters ?? {})).toHaveLength(10)
   })
 })

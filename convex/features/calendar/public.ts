@@ -47,8 +47,6 @@ const save = arkMutation({
       title,
       applicationId,
       kind: event.kind ?? (existing?.title === title ? existing.kind : kindOf(title)),
-      // A long-running series keeps its newest exceptions.
-      exdates: event.exdates?.slice(-200),
     }
     if (existing) {
       await ctx.db.replace("calendarEvents", existing._id, {

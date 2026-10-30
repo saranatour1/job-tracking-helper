@@ -1,5 +1,5 @@
 import { type } from "arktype"
-import { arkId } from "../../lib/ark"
+import { arkId, cutTo } from "../../lib/ark"
 import { isTimeZone } from "../loops/schedule"
 
 export const eventKinds = ["interview", "followup", "reminder"] as const
@@ -11,13 +11,23 @@ export const maxEvents = 500
 const instant = /^\d{4}-\d{2}-\d{2}(T\d{2}:\d{2}(:\d{2})?(Z|[+-]\d{2}:\d{2}))?$/
 const dateOnly = /^\d{4}-\d{2}-\d{2}$/
 
+const cut = (max: number) => type("string").pipe(cutTo(max)).to("string")
+
+const Reminder = type({ minutesBefore: "number", "method?": "'popup' | 'email'" })
+const Attendee = type({
+  email: "string",
+  "name?": "string",
+  "status?": "'accepted' | 'declined' | 'tentative' | 'pending'",
+  "optional?": "boolean",
+})
+
 // An event you add on the Calendar, or your fix to one the app worked out (an interview
 // slot from an email, a follow-up): `replaces` names that one, and `hidden` removes it.
 // `key` is the id the calendar gave it, so it keeps one id from the first draw on.
 export const EventFields = type({
   key: "string <= 100",
   // Left empty, it's saved as "Untitled".
-  title: type("string.trim").to("string <= 200"),
+  title: type("string.trim").pipe(cutTo(200)).to("string"),
   // Offset-qualified instants ("2026-11-03T10:30:00+01:00"), or dates when all-day.
   start: "string",
   end: "string",
@@ -27,26 +37,24 @@ export const EventFields = type({
   "replaces?": "string",
   "hidden?": "boolean",
   // The rest of what kloq's event panel edits, kept as kloq has it.
-  "location?": "string <= 200",
-  "description?": "string <= 2000",
-  "meetingUrl?": "string <= 500",
+  "location?": cut(200),
+  "description?": cut(2000),
+  "meetingUrl?": cut(500),
   "color?": "'blue' | 'violet' | 'emerald' | 'amber' | 'rose'",
   "busy?": "boolean",
   // The zone it was set in, as an invite gives it ("America/New_York").
   "timeZone?": "string",
-  "rrule?": "string <= 300",
-  "exdates?": "string[]",
-  "reminders?": type({ minutesBefore: "number", "method?": "'popup' | 'email'" })
-    .array()
-    .atMostLength(10),
-  "attendees?": type({
-    email: "string",
-    "name?": "string",
-    "status?": "'accepted' | 'declined' | 'tentative' | 'pending'",
-    "optional?": "boolean",
-  })
-    .array()
-    .atMostLength(50),
+  "rrule?": cut(300),
+  // A long-running series keeps its newest exceptions.
+  "exdates?": type("string[]")
+    .pipe((dates) => dates.slice(-200))
+    .to("string[]"),
+  "reminders?": Reminder.array()
+    .pipe((reminders) => reminders.slice(0, 10))
+    .to(Reminder.array()),
+  "attendees?": Attendee.array()
+    .pipe((attendees) => attendees.slice(0, 50))
+    .to(Attendee.array()),
 })
 
 // What Save sends: the fields, with times the calendar can read, in order.

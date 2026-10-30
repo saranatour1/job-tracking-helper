@@ -52,11 +52,20 @@ describe("calendar events", () => {
     ).rejects.toThrow("isn't one the calendar can read")
   })
 
-  it("keeps a long series' newest exceptions", async () => {
+  it("cuts what runs long instead of refusing it", async () => {
     const as = await setup()
-    const exdates = Array.from({ length: 201 }, (_, i) => `d${i}`)
-    await as.mutation(api.calendar.save, { ...event, exdates })
+    await as.mutation(api.calendar.save, {
+      ...event,
+      title: "t".repeat(201),
+      description: "d".repeat(2001),
+      exdates: Array.from({ length: 201 }, (_, i) => `d${i}`),
+      reminders: Array.from({ length: 11 }, () => ({ minutesBefore: 5 })),
+    })
     const [saved] = await as.query(api.calendar.list, {})
+    expect(saved?.title).toHaveLength(200)
+    expect(saved?.description).toHaveLength(2000)
+    expect(saved?.reminders).toHaveLength(10)
+    // A long-running series keeps its newest exceptions.
     expect(saved?.exdates).toHaveLength(200)
     expect(saved?.exdates?.at(-1)).toBe("d200")
   })

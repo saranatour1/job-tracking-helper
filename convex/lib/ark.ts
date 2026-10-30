@@ -79,6 +79,9 @@ export const checked = <T extends Type>(schema: T, value: unknown): T["infer"] =
   return out as T["infer"]
 }
 
+/** Keeps the first `max` characters: for free text whose length shouldn't stop a save. */
+export const cutTo = (max: number) => (text: string) => text.slice(0, max)
+
 /** A document id for `table`, like convex-helpers' `zid`. */
 export const arkId = <TableName extends string>(table: TableName) =>
   type("string")

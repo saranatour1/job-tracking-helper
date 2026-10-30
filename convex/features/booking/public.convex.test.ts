@@ -32,6 +32,13 @@ const page = {
 }
 
 describe("booking pages", () => {
+  it("cuts a long title instead of refusing it", async () => {
+    const { as } = await setup()
+    await as.mutation(api.booking.savePage, { ...page, title: "t".repeat(81) })
+    const [saved] = await as.query(api.booking.pages, {})
+    expect(saved?.title).toHaveLength(80)
+  })
+
   it("cleans up what it stores", async () => {
     const { as } = await setup()
     await as.mutation(api.booking.savePage, {
@@ -50,7 +57,7 @@ describe("booking pages", () => {
     const { as } = await setup()
     const save = (change: Partial<typeof page>) =>
       as.mutation(api.booking.savePage, { ...page, ...change })
-    await expect(save({ title: " " })).rejects.toThrow("Give the page a title")
+    await expect(save({ title: " " })).rejects.toThrow("Give the page a title.")
     await expect(save({ minutes: 20 })).rejects.toThrow("Pick a length from the list.")
     await expect(save({ endHour: 25 })).rejects.toThrow("Hours run from 0 to 24.")
     await expect(save({ startHour: 16, endHour: 16 })).rejects.toThrow("fit at least one booking")
@@ -66,7 +73,7 @@ describe("booking a time", () => {
   it("checks the guest's details before anything else", async () => {
     const { t } = await setup()
     await expect(t.mutation(api.booking.book, { ...guest, name: " " })).rejects.toThrow(
-      "Add your name"
+      "Add your name."
     )
     await expect(t.mutation(api.booking.book, { ...guest, email: "pat" })).rejects.toThrow(
       "That email doesn't look right."
