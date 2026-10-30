@@ -3,9 +3,10 @@ import type { Id } from "@convex/_generated/dataModel"
 import { PlusSignIcon, Target02Icon } from "@hugeicons/core-free-icons"
 import { HugeiconsIcon } from "@hugeicons/react"
 import { Link, useNavigate } from "@tanstack/react-router"
-import { useMutation } from "convex/react"
+import { useAction, useMutation } from "convex/react"
+import { useQuery } from "convex-helpers/react/cache/hooks"
 import { ConvexError } from "convex/values"
-import { useActionState, useRef } from "react"
+import { startTransition, useActionState, useRef } from "react"
 
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
@@ -26,7 +27,7 @@ import { Label } from "@/components/ui/label"
 import { Meter, MeterIndicator, MeterTrack } from "@/components/ui/meter"
 import { ScrollArea } from "@/components/ui/scroll-area"
 import { Textarea } from "@/components/ui/textarea"
-import { Section } from "@/features/account/settings"
+import { messageOf, Section } from "@/features/account/settings"
 import { PageIntro, pageBody } from "@/features/shell/page-body"
 import { PageHeader } from "@/features/shell/page-header"
 import { cn } from "@/lib/utils"
@@ -50,7 +51,15 @@ import { useSource } from "./source"
 // Today as YYYY-MM-DD, the form a goal's dates take.
 const todayIso = () => new Date().toISOString().slice(0, 10)
 
-const statusBadge = { Active: "info", Upcoming: "outline", Completed: "success" } as const
+const statusBadge = {
+  Active: "info",
+  Upcoming: "outline",
+  Completed: "success",
+  Missed: "warning",
+} as const
+
+/** The person's loops, for a goal to take roles from. */
+const useLoops = () => useQuery(api.loops.list) ?? []
 
 const GoalBadge = ({ goal, on }: { goal: Goal; on: string }) => {
   const status = goalStatus(goal, on)
@@ -82,6 +91,7 @@ const select = "border-input h-9 w-full rounded-lg border bg-transparent px-2.5 
 const GoalDialog = ({ goal, trigger }: { goal?: Goal; trigger: React.ReactElement }) => {
   const create = useMutation(api.goals.create)
   const update = useMutation(api.goals.update)
+  const loops = useLoops()
   const handle = useRef(DialogCreateHandle()).current
   const [error, submit] = useActionState(async (_: string | undefined, form: FormData) => {
     const text = (name: string) => {
@@ -95,6 +105,8 @@ const GoalDialog = ({ goal, trigger }: { goal?: Goal; trigger: React.ReactElemen
       start: text("start"),
       target: text("target"),
       milestones: parseMilestones(text("milestones"), goal?.milestones),
+      // null clears the loop.
+      loopId: (text("loop") || null) as Id<"loops"> | null,
     }
     if (!fields.name) return "Give the goal a name."
     if (!fields.start || !fields.target) return "Pick a start and a target date."
@@ -169,6 +181,25 @@ const GoalDialog = ({ goal, trigger }: { goal?: Goal; trigger: React.ReactElemen
               </div>
             </div>
             <div className="grid gap-1.5">
+              <Label htmlFor="goal-loop">Loop</Label>
+              <select
+                id="goal-loop"
+                name="loop"
+                defaultValue={goal?.loopId ?? ""}
+                className={select}
+              >
+                <option value="">No loop</option>
+                {loops.map((loop) => (
+                  <option key={loop._id} value={loop._id}>
+                    {loop.name}
+                  </option>
+                ))}
+              </select>
+              <p className="text-muted-foreground text-xs">
+                Roles you add to the board from this loop's shortlist join the goal.
+              </p>
+            </div>
+            <div className="grid gap-1.5">
               <Label htmlFor="goal-milestones">Milestones</Label>
               <Textarea
                 id="goal-milestones"
@@ -201,6 +232,7 @@ const GoalDialog = ({ goal, trigger }: { goal?: Goal; trigger: React.ReactElemen
 const GoalRow = ({ goal, on }: { goal: Goal; on: string }) => {
   const { applications } = useSource()
   const remove = useMutation(api.goals.remove)
+  const retry = useMutation(api.goals.retry)
   const { items } = stats(goal, applications)
   return (
     <div className="flex flex-wrap items-center justify-between gap-x-6 gap-y-2 px-4 py-3">
@@ -222,6 +254,15 @@ const GoalRow = ({ goal, on }: { goal: Goal; on: string }) => {
           <GoalMeter goal={goal} on={on} className="w-20" />
           <span className="w-8 text-xs tabular-nums">{goalProgress(goal, on)}%</span>
         </span>
+        {goalStatus(goal, on) === "Missed" && (
+          <Button
+            size="sm"
+            variant="outline"
+            onClick={() => void retry({ id: goal.id as Id<"goals"> })}
+          >
+            Retry
+          </Button>
+        )}
         <GoalDialog
           goal={goal}
           trigger={
@@ -245,13 +286,15 @@ const GoalRow = ({ goal, on }: { goal: Goal; on: string }) => {
   )
 }
 
-// Your goals, newest first, with the done ones below. Laid out like the Workflows page.
+// Your goals, newest first, with the done and missed ones below. Laid out like the
+// Workflows page.
 export const Goals = () => {
   const { goals, loaded } = useSource()
   const on = todayIso()
   const sorted = [...goals].sort((a, b) => b.start.localeCompare(a.start))
-  const open = sorted.filter((g) => goalStatus(g, on) !== "Completed")
-  const done = sorted.filter((g) => goalStatus(g, on) === "Completed")
+  const isPast = (g: Goal) => ["Completed", "Missed"].includes(goalStatus(g, on))
+  const open = sorted.filter((g) => !isPast(g))
+  const done = sorted.filter(isPast)
   return (
     <div className="flex h-svh flex-col md:h-[calc(100svh-1rem)]">
       <PageHeader
@@ -284,7 +327,7 @@ export const Goals = () => {
             </Section>
           )}
           {done.length > 0 && (
-            <Section title="Done">
+            <Section title="Past">
               {done.map((goal) => (
                 <GoalRow key={goal.id} goal={goal} on={on} />
               ))}
@@ -299,9 +342,12 @@ export const Goals = () => {
 // The goal's side panel: dates, progress, milestones to tick, and how its applications
 // are doing.
 const GoalSummary = ({ goal }: { goal: Goal }) => {
-  const { applications } = useSource()
+  const source = useSource()
+  const { applications } = source
   const update = useMutation(api.goals.update)
   const remove = useMutation(api.goals.remove)
+  const evaluate = useAction(api.goals.evaluate)
+  const loops = useLoops()
   const navigate = useNavigate()
   const on = todayIso()
   const { items, interviews, offers } = stats(goal, applications)
@@ -311,6 +357,21 @@ const GoalSummary = ({ goal }: { goal: Goal }) => {
       id,
       milestones: goal.milestones.map((m) => (m.name === name ? { ...m, done: !m.done } : m)),
     })
+  // Jev's verdicts, kept until the next re-evaluation. Each one stays listed only while
+  // it still applies, so acting on it takes it off.
+  const [verdict, reevaluate, judging] = useActionState(
+    () =>
+      evaluate({ id }).then(
+        (v) => v,
+        (cause) => ({ error: messageOf(cause) })
+      ),
+    undefined
+  )
+  const named = (ids: string[]) =>
+    ids.map((a) => applications.find((x) => x.id === a)).filter((a) => a !== undefined)
+  const toAdd = verdict && "add" in verdict ? named(verdict.add).filter((a) => a.goalId !== id) : []
+  const toRemove =
+    verdict && "remove" in verdict ? named(verdict.remove).filter((a) => a.goalId === id) : []
   return (
     <div className="flex flex-col gap-4 border-b pb-4">
       <div className="text-muted-foreground flex items-center gap-2 text-xs">
@@ -319,6 +380,14 @@ const GoalSummary = ({ goal }: { goal: Goal }) => {
           {formatDate(goal.start)} → {formatDate(goal.target)}
         </span>
         <span className="ms-auto flex gap-1">
+          <Button
+            variant="ghost"
+            size="xs"
+            disabled={judging}
+            onClick={() => startTransition(reevaluate)}
+          >
+            {judging ? "Asking Jev…" : "Re-evaluate"}
+          </Button>
           <GoalDialog
             goal={goal}
             trigger={
@@ -346,8 +415,52 @@ const GoalSummary = ({ goal }: { goal: Goal }) => {
           {goal.name}
         </h2>
         {goal.summary && <p className="text-muted-foreground text-[13px]">{goal.summary}</p>}
+        {goal.loopId && (
+          <p className="text-muted-foreground text-xs">
+            Roles from {loops.find((l) => l._id === goal.loopId)?.name ?? "a loop"} join this goal.
+          </p>
+        )}
       </div>
       <GoalMeter goal={goal} on={on} />
+      {verdict && (
+        <div className="flex flex-col gap-2 rounded-lg border p-3 text-[13px]" role="status">
+          {"error" in verdict ? (
+            <p className="text-destructive">{verdict.error}</p>
+          ) : (
+            <>
+              <p className="text-muted-foreground text-xs">
+                Jev looked at {verdict.judged}{" "}
+                {verdict.judged === 1 ? "application" : "applications"}
+                {toAdd.length + toRemove.length === 0 && ", and agrees with what's on this goal"}.
+              </p>
+              {toAdd.map((a) => (
+                <span key={a.id} className="flex items-center gap-2">
+                  <span className="min-w-0 flex-1 truncate">
+                    {a.role} at {a.company}
+                  </span>
+                  <Button size="xs" variant="outline" onClick={() => source.setGoal(a.id, id)}>
+                    Add
+                  </Button>
+                </span>
+              ))}
+              {toRemove.map((a) => (
+                <span key={a.id} className="flex items-center gap-2">
+                  <span className="min-w-0 flex-1 truncate">
+                    {a.role} at {a.company}
+                  </span>
+                  <Button
+                    size="xs"
+                    variant="outline"
+                    onClick={() => source.setGoal(a.id, undefined)}
+                  >
+                    Take off
+                  </Button>
+                </span>
+              ))}
+            </>
+          )}
+        </div>
+      )}
       <dl className="grid grid-cols-3 gap-2 text-xs">
         {(
           [

@@ -21,6 +21,7 @@ import {
   NoteEditIcon,
   Notification03Icon,
   PlayIcon,
+  Target02Icon,
 } from "@hugeicons/core-free-icons"
 
 import type { EventColor } from "@/components/kloq/lib/event-types"
@@ -45,6 +46,15 @@ export const blocks = {
     icon: ArrowMoveUpRightIcon,
     color: "emerald",
     make: (): Block => ({ kind: "move", to: "interviewing" }),
+  },
+  putOnGoal: {
+    label: "Put on goal",
+    group: "Do",
+    hint: "Count it toward a goal",
+    icon: Target02Icon,
+    color: "violet",
+    // A goal has to be picked; the builder says so before it saves.
+    make: (): Block => ({ kind: "putOnGoal", goalId: "" as never }),
   },
   addEvent: {
     label: "Add calendar event",
@@ -165,7 +175,7 @@ export const testLabels = {
 
 const sendLabels = { inbox: "", email: " · by email", both: " · Inbox and email" }
 
-/** A card's second line. `nameOf` names an application (its company) or a loop. */
+/** A card's second line. `nameOf` names an application (its company), a loop or a goal. */
 export const summaryOf = (step: Step, nameOf: (id: string) => string | undefined) => {
   const which = (id: string | undefined) =>
     id ? (nameOf(id) ?? "Pick an application") : "The trigger's application"
@@ -176,6 +186,8 @@ export const summaryOf = (step: Step, nameOf: (id: string) => string | undefined
       return `${which(step.applicationId)}: ${step.text || "no text yet"}`
     case "move":
       return `${which(step.applicationId)} to ${statusLabels[step.to]}`
+    case "putOnGoal":
+      return `${which(step.applicationId)} on ${(step.goalId && nameOf(step.goalId)) || "Pick a goal"}`
     case "addEvent":
       return `${step.title || "No title yet"}, ${step.inDays === 0 ? "same day" : `${plural(step.inDays, "day")} later`} at ${step.at}`
     case "findRoles":
@@ -215,6 +227,7 @@ export const triggerKinds = {
   mail: "An email comes in",
   status: "An application moves",
   booking: "Someone books time",
+  goal: "An application joins a goal",
 } satisfies Record<Trigger["kind"], string>
 
 export const triggerInfo = (trigger: Trigger) => {
@@ -255,13 +268,26 @@ export const triggerInfo = (trigger: Trigger) => {
       }
     case "booking":
       return { label, summary: "When someone books time with you", icon: CalendarCheckIn01Icon }
+    case "goal":
+      return {
+        label,
+        summary: trigger.goals.length
+          ? `When an application joins one of ${plural(trigger.goals.length, "goal")}`
+          : "When an application joins any goal",
+        icon: Target02Icon,
+      }
   }
 }
 
 /** Placeholders a step's text can use: the run's, what its trigger brings, and what a
  * Find roles step found. */
 export const placeholdersFor = (trigger: Trigger, steps: Step[], picked = false) => {
-  const application = ["{application.company}", "{application.role}", "{application.status}"]
+  const application = [
+    "{application.company}",
+    "{application.role}",
+    "{application.status}",
+    "{application.goal}",
+  ]
   const base = [
     "{workflow.name}",
     "{run.date}",
@@ -276,6 +302,8 @@ export const placeholdersFor = (trigger: Trigger, steps: Step[], picked = false)
       return [...base, "{status.from}", "{status.to}", ...application]
     case "booking":
       return [...base, "{booking.title}", "{booking.when}", ...application]
+    case "goal":
+      return [...base, "{goal.name}", ...application]
     default:
       return picked ? [...base, ...application] : base
   }

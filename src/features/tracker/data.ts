@@ -77,6 +77,8 @@ export type Goal = {
   start: string
   target: string
   milestones: Milestone[]
+  // A loop whose roles join this goal when added to the board.
+  loopId?: string
 }
 
 // Filters are "field is one of values". A view is a saved set of filters.
@@ -459,5 +461,12 @@ export const goalProgress = (goal: Goal, on = today) =>
       ? 100
       : 0
 
+// Missed: the target date passed with milestones left unticked.
 export const goalStatus = (goal: Goal, on = today) =>
-  goalProgress(goal, on) === 100 ? "Completed" : goal.start > on ? "Upcoming" : "Active"
+  goalProgress(goal, on) === 100
+    ? "Completed"
+    : goal.target < on
+      ? "Missed"
+      : goal.start > on
+        ? "Upcoming"
+        : "Active"

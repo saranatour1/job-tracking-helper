@@ -7,6 +7,7 @@ import type { MutationCtx } from "../../../_generated/server"
 import schema from "../../../schema"
 import { arkId } from "../../../lib/ark"
 import { arkMutation, authedMutation, authedQuery } from "../../../lib/functions"
+import { fireEvent } from "../automations/fire"
 import { limits } from "../workflows/manager"
 import { apiKeyOf, monthlyCredits } from "../workflows/sources"
 import { maxLoops, switchAt } from "./catalog"
@@ -287,6 +288,15 @@ const track = authedMutation({
         })
       return linked._id
     }
+    // A goal that takes its roles from this loop.
+    const goal = lead.loopId
+      ? (
+          await ctx.db
+            .query("goals")
+            .withIndex("by_userId", (q) => q.eq("userId", ctx.userId))
+            .take(50)
+        ).find((g) => g.loopId === lead.loopId)
+      : undefined
     const applicationId = await ctx.db.insert("applications", {
       userId: ctx.userId,
       company: lead.company,
@@ -294,6 +304,7 @@ const track = authedMutation({
       status: "saved",
       url: lead.url,
       number: await nextNumber(ctx, ctx.userId),
+      ...(goal && { goalId: goal._id }),
       ...(lead.location && { location: lead.location }),
       labels: /remote/i.test(lead.location ?? "") ? ["Remote"] : [],
       ...(lead.snippet && { description: lead.snippet.slice(0, 5000) }),
@@ -303,6 +314,7 @@ const track = authedMutation({
     })
     await ctx.db.patch("jobLeads", leadId, { status: "applied", applicationId })
     await countOnRun(ctx, lead.runId, "applied")
+    if (goal) await fireEvent(ctx, ctx.userId, { kind: "goal", goalId: goal._id, applicationId })
     return applicationId
   },
 })

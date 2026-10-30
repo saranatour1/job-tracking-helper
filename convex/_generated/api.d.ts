@@ -38,6 +38,7 @@ import type * as api_features_email_models from "../api/features/email/models.js
 import type * as api_features_email_public from "../api/features/email/public.js";
 import type * as api_features_email_sort from "../api/features/email/sort.js";
 import type * as api_features_email_validators from "../api/features/email/validators.js";
+import type * as api_features_goals_actions from "../api/features/goals/actions.js";
 import type * as api_features_goals_models from "../api/features/goals/models.js";
 import type * as api_features_goals_public from "../api/features/goals/public.js";
 import type * as api_features_jobs_actions from "../api/features/jobs/actions.js";
@@ -147,6 +148,7 @@ declare const fullApi: ApiFromModules<{
   "api/features/email/public": typeof api_features_email_public;
   "api/features/email/sort": typeof api_features_email_sort;
   "api/features/email/validators": typeof api_features_email_validators;
+  "api/features/goals/actions": typeof api_features_goals_actions;
   "api/features/goals/models": typeof api_features_goals_models;
   "api/features/goals/public": typeof api_features_goals_public;
   "api/features/jobs/actions": typeof api_features_jobs_actions;

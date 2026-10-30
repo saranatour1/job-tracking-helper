@@ -75,6 +75,67 @@ describe("goals", () => {
     )
   })
 
+  it("retries a goal as a fresh one, starting today for the same length", async () => {
+    const { as } = await setup()
+    const id = await as.mutation(api.goals.create, {
+      ...goal,
+      start: "2026-01-01",
+      target: "2026-01-31",
+      milestones: [{ name: "Polish resume", done: true, target: "2026-01-10" }],
+    })
+    const retried = await as.mutation(api.goals.retry, { id })
+    const goals = await as.query(api.goals.list)
+    const fresh = goals.find((g) => g._id === retried)
+    const today = new Date().toISOString().slice(0, 10)
+    expect(goals).toHaveLength(2)
+    expect(fresh?.name).toBe(goal.name)
+    expect(fresh?.start).toBe(today)
+    expect(Date.parse(fresh!.target) - Date.parse(fresh!.start)).toBe(30 * 24 * 60 * 60 * 1000)
+    expect(fresh?.milestones).toEqual([
+      { name: "Polish resume", done: false, target: expect.stringMatching(/^\d{4}-\d{2}-\d{2}$/) },
+    ])
+    expect(Date.parse(fresh!.milestones[0]!.target!) - Date.parse(fresh!.start)).toBe(
+      9 * 24 * 60 * 60 * 1000
+    )
+  })
+
+  it("takes a loop only from its owner, and clears it with null", async () => {
+    const { t, as, userId } = await setup()
+    const addLoop = (owner: typeof userId, name: string) =>
+      t.run((ctx) =>
+        ctx.db.insert("loops", {
+          userId: owner,
+          name,
+          template: "remote",
+          answers: {
+            usePreferences: true,
+            stretch: false,
+            remoteOnly: true,
+            nearMe: false,
+            listedCompanies: false,
+            skipRedFlags: true,
+            postedToday: false,
+          },
+          daily: 25,
+          at: "08:00",
+          timeZone: "UTC",
+          active: false,
+          nextRunAt: 0,
+        })
+      )
+    const loopId = await addLoop(userId, "Mornings")
+    const other = await t.run((ctx) => ctx.db.insert("users", { name: "Ada" }))
+    const theirs = await addLoop(other, "Theirs")
+
+    const id = await as.mutation(api.goals.create, { ...goal, loopId })
+    expect((await as.query(api.goals.list))[0]?.loopId).toBe(loopId)
+    await expect(as.mutation(api.goals.update, { id, loopId: theirs })).rejects.toThrow(
+      "That loop isn't yours."
+    )
+    await as.mutation(api.goals.update, { id, loopId: null })
+    expect((await as.query(api.goals.list))[0]?.loopId).toBe(undefined)
+  })
+
   it("keeps one person's goals from another", async () => {
     const { t, as, addApplication } = await setup()
     const other = t.withIdentity({

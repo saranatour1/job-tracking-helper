@@ -30,6 +30,12 @@ const blocks = [
     applicationId: v.optional(v.id("applications")),
     to: vStatus,
   }),
+  // Puts an application on one of your goals, the same way.
+  v.object({
+    kind: v.literal("putOnGoal"),
+    applicationId: v.optional(v.id("applications")),
+    goalId: v.id("goals"),
+  }),
   // Puts an event on your Calendar, some days from the run at a time of day.
   v.object({
     kind: v.literal("addEvent"),
@@ -107,13 +113,18 @@ export const vTrigger = v.union(
   // When an application moves, to these statuses (none picked: any).
   v.object({ kind: v.literal("status"), to: v.array(vStatus) }),
   // When someone books time on one of your booking pages.
-  v.object({ kind: v.literal("booking") })
+  v.object({ kind: v.literal("booking") }),
+  // When an application is put on a goal, one of these (none picked: any).
+  v.object({ kind: v.literal("goal"), goals: v.array(v.id("goals")) })
 )
 export type Trigger = Infer<typeof vTrigger>
 
 /** Triggers that come with an application, so steps can act on "the one it's about". */
 export const triggerHasApplication = (trigger: Trigger) =>
-  trigger.kind === "mail" || trigger.kind === "status" || trigger.kind === "booking"
+  trigger.kind === "mail" ||
+  trigger.kind === "status" ||
+  trigger.kind === "booking" ||
+  trigger.kind === "goal"
 
 // What a run started by an event points at. Only ids: the email's words stay sealed and
 // are opened when a step needs them.
@@ -123,6 +134,7 @@ export const vRunContext = v.object({
   bookingId: v.optional(v.id("calendarEvents")),
   from: v.optional(vStatus),
   to: v.optional(vStatus),
+  goalId: v.optional(v.id("goals")),
   // Set by Find roles, for the steps after it.
   loopRunId: v.optional(v.id("loopRuns")),
 })
@@ -163,8 +175,10 @@ export const onlyIfFacts = [
   "application.company",
   "application.role",
   "application.status",
+  "application.goal",
   "status.from",
   "status.to",
+  "goal.name",
   "email.subject",
   "email.from",
   "email.kind",
@@ -214,11 +228,12 @@ const blockProblem = (step: Block, trigger: Trigger) => {
   if (step.kind === "addNote" && (!step.text.trim() || step.text.length > limits.note))
     return `A note is 1 to ${limits.note} characters.`
   if (
-    (step.kind === "addNote" || step.kind === "move") &&
+    (step.kind === "addNote" || step.kind === "move" || step.kind === "putOnGoal") &&
     !step.applicationId &&
     !triggerHasApplication(trigger)
   )
-    return "Pick an application, or start the workflow from an email, a status change or a booking."
+    return "Pick an application, or start the workflow from an email, a status change, a booking or a goal."
+  if (step.kind === "putOnGoal" && !step.goalId) return "Pick a goal to put it on."
   if (step.kind === "findRoles" && !step.loopId) return "Pick a loop to find roles with."
   if (step.kind === "onlyIf") {
     if (!(onlyIfFacts as readonly string[]).includes(step.fact)) return "Pick what to check."

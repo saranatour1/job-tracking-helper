@@ -146,6 +146,7 @@ export const draftFrom = (
     mail: "{email.kind} email from {email.from}: {email.subject}",
     status: "{application.company} moved to {status.to}",
     booking: "Booked: {booking.title}, {booking.when}",
+    goal: "{application.company} joined {goal.name}",
   }[trigger.kind]
 
   const steps: Block[] = []

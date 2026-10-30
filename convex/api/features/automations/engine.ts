@@ -238,9 +238,15 @@ export const factsOf = async (ctx: QueryCtx, found: Doc<"automationRuns">) => {
     values["application.company"] = application.company
     values["application.role"] = application.role
     values["application.status"] = statusLabels[application.status]
+    const goal = application.goalId && (await ctx.db.get("goals", application.goalId))
+    if (goal) values["application.goal"] = goal.name
   }
   if (context.from) values["status.from"] = statusLabels[context.from]
   if (context.to) values["status.to"] = statusLabels[context.to]
+  if (context.goalId) {
+    const goal = await ctx.db.get("goals", context.goalId)
+    if (goal?.userId === found.userId) values["goal.name"] = goal.name
+  }
   if (context.mailEventId) {
     const mail = await ctx.db.get("mailEvents", context.mailEventId)
     const k = await keys().catch(() => null)
@@ -343,6 +349,17 @@ const doBlock = async (
       })
       return {
         output: `Moved ${application.role} at ${application.company} to ${statusLabels[block.to]}`,
+        waitMs: 0,
+      }
+    }
+    case "putOnGoal": {
+      const application = await applicationFor(ctx, found, block.applicationId)
+      const goal = await ctx.db.get("goals", block.goalId)
+      if (goal?.userId !== found.userId) throw new ConvexError("That goal is gone.")
+      // Quietly, like Move application: no workflow sets off another.
+      await ctx.db.patch("applications", application._id, { goalId: goal._id })
+      return {
+        output: `Put ${application.role} at ${application.company} on ${goal.name}`,
         waitMs: 0,
       }
     }
@@ -668,7 +685,10 @@ const matches = (trigger: Trigger, event: typeof vAutomationEvent.type) =>
   (trigger.kind === "status" &&
     event.kind === "status" &&
     (!trigger.to.length || trigger.to.includes(event.to))) ||
-  (trigger.kind === "booking" && event.kind === "booking")
+  (trigger.kind === "booking" && event.kind === "booking") ||
+  (trigger.kind === "goal" &&
+    event.kind === "goal" &&
+    (!trigger.goals.length || trigger.goals.includes(event.goalId)))
 
 /** Starts the person's workflows an event matches, with what the event was about. */
 const onEvent = internalMutation({
@@ -691,6 +711,7 @@ const onEvent = internalMutation({
         ...("mailEventId" in rest && { mailEventId: rest.mailEventId }),
         ...("bookingId" in rest && { bookingId: rest.bookingId }),
         ...("from" in rest && { from: rest.from, to: rest.to }),
+        ...("goalId" in rest && { goalId: rest.goalId }),
       })
       started++
     }

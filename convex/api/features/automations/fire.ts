@@ -26,6 +26,11 @@ export const vAutomationEvent = v.union(
     kind: v.literal("booking"),
     bookingId: v.id("calendarEvents"),
     applicationId: v.optional(v.id("applications")),
+  }),
+  v.object({
+    kind: v.literal("goal"),
+    goalId: v.id("goals"),
+    applicationId: v.id("applications"),
   })
 )
 export type AutomationEvent = Infer<typeof vAutomationEvent>
