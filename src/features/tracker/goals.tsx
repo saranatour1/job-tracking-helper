@@ -24,7 +24,10 @@ import {
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Meter, MeterIndicator, MeterTrack } from "@/components/ui/meter"
+import { ScrollArea } from "@/components/ui/scroll-area"
 import { Textarea } from "@/components/ui/textarea"
+import { Section } from "@/features/account/settings"
+import { PageIntro, pageBody } from "@/features/shell/page-body"
 import { PageHeader } from "@/features/shell/page-header"
 import { cn } from "@/lib/utils"
 
@@ -193,96 +196,103 @@ const GoalDialog = ({ goal, trigger }: { goal?: Goal; trigger: React.ReactElemen
   )
 }
 
-// Goals as a timeline, newest first, like cycles. Each goal opens its applications.
+// One goal on the list, laid out like a workflow's row: the name opens it, and what it's
+// at sits on the right.
+const GoalRow = ({ goal, on }: { goal: Goal; on: string }) => {
+  const { applications } = useSource()
+  const remove = useMutation(api.goals.remove)
+  const { items } = stats(goal, applications)
+  return (
+    <div className="flex flex-wrap items-center justify-between gap-x-6 gap-y-2 px-4 py-3">
+      <Link
+        to="/goals/$id"
+        params={{ id: goal.id }}
+        className="grid min-w-48 flex-1 gap-0.5 rounded-md outline-none focus-visible:ring-2 focus-visible:ring-ring"
+      >
+        <span className="text-sm font-medium hover:underline">{goal.name}</span>
+        <span className="text-muted-foreground text-xs">
+          {formatDate(goal.start)} → {formatDate(goal.target)} ·{" "}
+          {goal.milestones.filter((m) => m.done).length}/{goal.milestones.length} milestones ·{" "}
+          {items} {items === 1 ? "application" : "applications"}
+        </span>
+      </Link>
+      <div className="flex items-center gap-3">
+        <GoalBadge goal={goal} on={on} />
+        <span className="flex items-center gap-2">
+          <GoalMeter goal={goal} on={on} className="w-20" />
+          <span className="w-8 text-xs tabular-nums">{goalProgress(goal, on)}%</span>
+        </span>
+        <GoalDialog
+          goal={goal}
+          trigger={
+            <Button size="sm" variant="ghost">
+              Edit
+            </Button>
+          }
+        />
+        <Button
+          size="sm"
+          variant="ghost"
+          onClick={() => {
+            if (window.confirm(`Delete “${goal.name}”? Its applications stay.`))
+              void remove({ id: goal.id as Id<"goals"> })
+          }}
+        >
+          Delete
+        </Button>
+      </div>
+    </div>
+  )
+}
+
+// Your goals, newest first, with the done ones below. Laid out like the Workflows page.
 export const Goals = () => {
-  const { goals, applications, loaded } = useSource()
+  const { goals, loaded } = useSource()
   const on = todayIso()
   const sorted = [...goals].sort((a, b) => b.start.localeCompare(a.start))
+  const open = sorted.filter((g) => goalStatus(g, on) !== "Completed")
+  const done = sorted.filter((g) => goalStatus(g, on) === "Completed")
   return (
-    <>
+    <div className="flex h-svh flex-col md:h-[calc(100svh-1rem)]">
       <PageHeader
         crumbs={[{ label: "Tracker" }, { label: "Goals" }]}
         actions={
           <GoalDialog
             trigger={
-              <Button variant="ghost" size="sm">
+              <Button size="sm">
                 <HugeiconsIcon icon={PlusSignIcon} /> New goal
               </Button>
             }
           />
         }
       />
-      <ol className="flex flex-col py-2">
-        {loaded && goals.length === 0 && (
-          <li className="text-muted-foreground p-6 text-center text-[13px]">
-            No goals yet. Make one, then put applications on it from their Goal property.
-          </li>
-        )}
-        {sorted.map((goal, i) => {
-          const status = goalStatus(goal, on)
-          const progress = goalProgress(goal, on)
-          const { items } = stats(goal, applications)
-          return (
-            <li
-              key={goal.id}
-              className="grid grid-cols-[4.5rem_1.5rem_minmax(0,1fr)] items-stretch"
-            >
-              <span className="text-muted-foreground pt-4 pe-2 text-end text-xs leading-tight">
-                {formatDate(goal.start)}
-              </span>
-              <span className="relative flex justify-center">
-                <span
-                  className={cn(
-                    "bg-border absolute w-px",
-                    i === 0 ? "top-5 bottom-0" : i === sorted.length - 1 ? "top-0 h-5" : "inset-y-0"
-                  )}
-                />
-                <span
-                  className={cn(
-                    "relative mt-[1.1rem] size-2 rounded-full border",
-                    status === "Active" && "bg-primary border-primary",
-                    status === "Completed" && "bg-muted-foreground border-muted-foreground",
-                    status === "Upcoming" && "bg-background border-muted-foreground"
-                  )}
-                />
-              </span>
-              <Link
-                to="/goals/$id"
-                params={{ id: goal.id }}
-                className="hover:bg-accent/50 me-3 flex min-w-0 items-center gap-3 rounded-md border-b px-3 py-3 text-[13px] transition-colors"
-              >
-                <HugeiconsIcon
-                  icon={Target02Icon}
-                  className="text-muted-foreground size-4 shrink-0"
-                />
-                <span className="flex min-w-0 flex-col">
-                  <span className="truncate font-medium">{goal.name}</span>
-                  <span className="text-muted-foreground text-xs">
-                    {formatDate(goal.start)} → {formatDate(goal.target)}
-                  </span>
-                </span>
-                <span className="text-muted-foreground ms-auto hidden shrink-0 items-center gap-4 text-xs sm:flex">
-                  <GoalBadge goal={goal} on={on} />
-                  <span className="flex items-center gap-2">
-                    <GoalMeter goal={goal} on={on} className="w-16" />
-                    <span className="text-foreground w-8 tabular-nums">{progress}%</span>
-                  </span>
-                  <span>
-                    <span className="text-foreground tabular-nums">
-                      {goal.milestones.filter((m) => m.done).length}/{goal.milestones.length}
-                    </span>{" "}
-                    milestones
-                  </span>
-                  <span className="w-24">
-                    <span className="text-foreground tabular-nums">{items}</span> applications
-                  </span>
-                </span>
-              </Link>
-            </li>
-          )
-        })}
-      </ol>
-    </>
+      <ScrollArea className="min-h-0 flex-1">
+        <main className={cn(pageBody, "max-w-3xl gap-8")}>
+          <PageIntro
+            title="Goals"
+            description="What your search is for. Give a goal milestones to tick and put applications on it from their Goal property; the board can then filter, group and count by goal."
+          />
+          {loaded && (
+            <Section title="Yours">
+              {open.length === 0 ? (
+                <p className="text-muted-foreground px-4 py-3 text-sm">
+                  No goals yet. Start one with New goal.
+                </p>
+              ) : (
+                open.map((goal) => <GoalRow key={goal.id} goal={goal} on={on} />)
+              )}
+            </Section>
+          )}
+          {done.length > 0 && (
+            <Section title="Done">
+              {done.map((goal) => (
+                <GoalRow key={goal.id} goal={goal} on={on} />
+              ))}
+            </Section>
+          )}
+        </main>
+      </ScrollArea>
+    </div>
   )
 }
 
