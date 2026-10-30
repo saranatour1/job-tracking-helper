@@ -1,9 +1,17 @@
-import type { Review } from "./validators"
+import type { Review, StoredReview } from "./validators"
 
 // What a review of a resume finds, from rules on its text and Jev's answers. Rules here
 // are the ATS side: what a parser needs to read a resume. Jev answers fixed questions
 // about the writing, and `suggestionsFrom` turns its "no"s into advice. Jev never writes
 // the advice itself. Kept free of convex/server imports so the frontend can share it.
+
+export const readReview = (stored: typeof StoredReview.infer): Review => ({
+  ...stored,
+  shows: stored.shows.map(({ tag, shown }) => ({
+    tag,
+    shown: shown === true ? "yes" : shown === false ? "no" : shown,
+  })),
+})
 
 // Review at most this much text; a resume is one or two pages.
 export const maxResumeChars = 20_000

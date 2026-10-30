@@ -16,6 +16,7 @@ import {
   SavePrefilled,
   SetResume,
 } from "./validators"
+import { readReview } from "./resumeRules"
 import { rowOf, upsert, tagsOf, writeAnswers, writeFields, markOnboarded } from "./utils"
 
 // Settings and the resume. Tags and entries come from the paginated queries below.
@@ -30,7 +31,7 @@ const get = authedQuery({
       resume: row.resumeId
         ? { name: row.resumeName ?? "Resume", url: await ctx.storage.getUrl(row.resumeId) }
         : null,
-      review: row.resumeReview ?? null,
+      review: row.resumeReview ? readReview(row.resumeReview) : null,
     }
   },
 })
