@@ -35,6 +35,8 @@ import {
   formatDate,
   goalProgress,
   goalStatus,
+  milestoneLine,
+  parseMilestones,
   priorities,
   priorityLabels,
 } from "./data"
@@ -72,8 +74,8 @@ const stats = (goal: Goal, applications: Application[]) => {
 
 const select = "border-input h-9 w-full rounded-lg border bg-transparent px-2.5 text-sm sm:h-8"
 
-// Creates a goal, or edits the one given. Milestones are one per line; a renamed
-// milestone starts unticked.
+// Creates a goal, or edits the one given. Milestones are one per line, with a date at the
+// end if it has one; a renamed milestone starts unticked.
 const GoalDialog = ({ goal, trigger }: { goal?: Goal; trigger: React.ReactElement }) => {
   const create = useMutation(api.goals.create)
   const update = useMutation(api.goals.update)
@@ -89,14 +91,7 @@ const GoalDialog = ({ goal, trigger }: { goal?: Goal; trigger: React.ReactElemen
       priority: text("priority") as Priority,
       start: text("start"),
       target: text("target"),
-      milestones: text("milestones")
-        .split("\n")
-        .map((line) => line.trim())
-        .filter(Boolean)
-        .map((name) => {
-          const was = goal?.milestones.find((m) => m.name === name)
-          return { name, done: was?.done ?? false, ...(was?.target && { target: was.target }) }
-        }),
+      milestones: parseMilestones(text("milestones"), goal?.milestones),
     }
     if (!fields.name) return "Give the goal a name."
     if (!fields.start || !fields.target) return "Pick a start and a target date."
@@ -175,8 +170,10 @@ const GoalDialog = ({ goal, trigger }: { goal?: Goal; trigger: React.ReactElemen
               <Textarea
                 id="goal-milestones"
                 name="milestones"
-                defaultValue={goal?.milestones.map((m) => m.name).join("\n")}
-                placeholder={"One per line, like:\nApply to 30 companies\nReach 5 interviews"}
+                defaultValue={goal?.milestones.map(milestoneLine).join("\n")}
+                placeholder={
+                  "One per line, with a date at the end if it has one, like:\nApply to 30 companies 2026-11-30\nReach 5 interviews"
+                }
                 className="min-h-24"
               />
             </div>

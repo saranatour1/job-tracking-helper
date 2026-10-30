@@ -437,6 +437,20 @@ export const ago = (iso: string) => {
   return `${Math.floor(days / 30)}mo`
 }
 
+// Milestones as the goal form writes them: one per line, with a YYYY-MM-DD at the end as
+// its target date. A milestone keeps its tick while its name stays the same.
+export const milestoneLine = (m: Milestone) => (m.target ? `${m.name} ${m.target}` : m.name)
+export const parseMilestones = (text: string, was: Milestone[] = []): Milestone[] =>
+  text
+    .split("\n")
+    .map((line) => line.trim())
+    .filter(Boolean)
+    .map((line) => {
+      const [, name = line, target] = /^(.*?)\s*(\d{4}-\d{2}-\d{2})?$/.exec(line) ?? []
+      const done = was.find((m) => m.name === name)?.done ?? false
+      return { name: name || line, done, ...(target && { target }) }
+    })
+
 // A goal with no milestones is done when its target date has passed.
 export const goalProgress = (goal: Goal, on = today) =>
   goal.milestones.length
