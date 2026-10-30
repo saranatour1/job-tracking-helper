@@ -13,6 +13,10 @@ export const User = type({
   // How many days applications stay in the Trash before they're deleted; 0 keeps them.
   // Unset means 90.
   "trashDays?": "number",
+  // When auto-apply was turned on under Account; unset means off.
+  "autoApplyAt?": "number",
+  // Fill each form but stop before sending, to see what it would use first.
+  "autoApplyDryRun?": "boolean",
 })
 
 export const usersTable = defineTable(arkOutputToConvex(User))

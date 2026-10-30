@@ -263,7 +263,9 @@ export const Inbox = () => {
                       ? "Open loops"
                       : note.link === "/calendar"
                         ? "Open calendar"
-                        : "Open applications"}
+                        : note.link === "/activity"
+                          ? "Open activity"
+                          : "Open applications"}
                   </Button>
                 )}
                 <Button variant="ghost" size="sm" onClick={() => toggle(note)}>

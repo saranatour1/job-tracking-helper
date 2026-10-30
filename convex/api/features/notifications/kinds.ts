@@ -31,6 +31,14 @@ export const notificationKinds = {
     label: "New roles from loops",
     description: "When a morning run puts new roles on your shortlist.",
   },
+  "apply.done": {
+    label: "Applications sent for you",
+    description: "When auto-apply submits an application.",
+  },
+  "apply.needsYou": {
+    label: "Applications that need you",
+    description: "When auto-apply stops because a question has no saved answer, or the form needs a login.",
+  },
 } as const
 export type NotificationKind = keyof typeof notificationKinds
 export const notificationKindKeys = Object.keys(notificationKinds) as NotificationKind[]

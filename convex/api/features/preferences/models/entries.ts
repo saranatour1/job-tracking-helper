@@ -14,6 +14,9 @@ export const ProfileEntry = type({
   label: "string",
   value: "string",
   order: "number",
+  // For `field` rows: when auto-apply last put this answer in a form, and how often.
+  "lastUsedAt?": "number",
+  "useCount?": "number",
 })
 
 export const profileEntriesTable = defineTable(arkOutputToConvex(ProfileEntry)).index(

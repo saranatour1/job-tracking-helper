@@ -13,11 +13,13 @@ import { Route as AppRouteImport } from './routes/_app'
 import { Route as AuthRouteImport } from './routes/_auth'
 import { Route as AppIndexRouteImport } from './routes/_app/index'
 import { Route as AppAccountRouteImport } from './routes/_app/account'
+import { Route as AppActivityRouteImport } from './routes/_app/activity'
 import { Route as AppCalendarRouteImport } from './routes/_app/calendar'
 import { Route as AppInboxRouteImport } from './routes/_app/inbox'
 import { Route as AppJobsRouteImport } from './routes/_app/jobs'
 import { Route as AppLoopsRouteImport } from './routes/_app/loops'
 import { Route as AppPreferencesRouteImport } from './routes/_app/preferences'
+import { Route as AppResumeRouteImport } from './routes/_app/resume'
 import { Route as AuthSignInRouteImport } from './routes/_auth/sign-in'
 import { Route as AuthSignUpRouteImport } from './routes/_auth/sign-up'
 import { Route as BookSlugRouteImport } from './routes/book.$slug'
@@ -48,6 +50,11 @@ const AppAccountRoute = AppAccountRouteImport.update({
   path: '/account',
   getParentRoute: () => AppRoute,
 } as any)
+const AppActivityRoute = AppActivityRouteImport.update({
+  id: '/activity',
+  path: '/activity',
+  getParentRoute: () => AppRoute,
+} as any)
 const AppCalendarRoute = AppCalendarRouteImport.update({
   id: '/calendar',
   path: '/calendar',
@@ -71,6 +78,11 @@ const AppLoopsRoute = AppLoopsRouteImport.update({
 const AppPreferencesRoute = AppPreferencesRouteImport.update({
   id: '/preferences',
   path: '/preferences',
+  getParentRoute: () => AppRoute,
+} as any)
+const AppResumeRoute = AppResumeRouteImport.update({
+  id: '/resume',
+  path: '/resume',
   getParentRoute: () => AppRoute,
 } as any)
 const AuthSignInRoute = AuthSignInRouteImport.update({
@@ -132,11 +144,13 @@ const AppWorkflowsIdRoute = AppWorkflowsIdRouteImport.update({
 export interface FileRoutesByFullPath {
   '/': typeof AppIndexRoute
   '/account': typeof AppAccountRoute
+  '/activity': typeof AppActivityRoute
   '/calendar': typeof AppCalendarRoute
   '/inbox': typeof AppInboxRoute
   '/jobs': typeof AppJobsRoute
   '/loops': typeof AppLoopsRoute
   '/preferences': typeof AppPreferencesRoute
+  '/resume': typeof AppResumeRoute
   '/sign-in': typeof AuthSignInRoute
   '/sign-up': typeof AuthSignUpRoute
   '/book/$slug': typeof BookSlugRoute
@@ -152,11 +166,13 @@ export interface FileRoutesByFullPath {
 export interface FileRoutesByTo {
   '/': typeof AppIndexRoute
   '/account': typeof AppAccountRoute
+  '/activity': typeof AppActivityRoute
   '/calendar': typeof AppCalendarRoute
   '/inbox': typeof AppInboxRoute
   '/jobs': typeof AppJobsRoute
   '/loops': typeof AppLoopsRoute
   '/preferences': typeof AppPreferencesRoute
+  '/resume': typeof AppResumeRoute
   '/sign-in': typeof AuthSignInRoute
   '/sign-up': typeof AuthSignUpRoute
   '/book/$slug': typeof BookSlugRoute
@@ -174,11 +190,13 @@ export interface FileRoutesById {
   '/_app': typeof AppRouteWithChildren
   '/_auth': typeof AuthRouteWithChildren
   '/_app/account': typeof AppAccountRoute
+  '/_app/activity': typeof AppActivityRoute
   '/_app/calendar': typeof AppCalendarRoute
   '/_app/inbox': typeof AppInboxRoute
   '/_app/jobs': typeof AppJobsRoute
   '/_app/loops': typeof AppLoopsRoute
   '/_app/preferences': typeof AppPreferencesRoute
+  '/_app/resume': typeof AppResumeRoute
   '/_auth/sign-in': typeof AuthSignInRoute
   '/_auth/sign-up': typeof AuthSignUpRoute
   '/book/$slug': typeof BookSlugRoute
@@ -197,11 +215,13 @@ export interface FileRouteTypes {
   fullPaths:
     | '/'
     | '/account'
+    | '/activity'
     | '/calendar'
     | '/inbox'
     | '/jobs'
     | '/loops'
     | '/preferences'
+    | '/resume'
     | '/sign-in'
     | '/sign-up'
     | '/book/$slug'
@@ -217,11 +237,13 @@ export interface FileRouteTypes {
   to:
     | '/'
     | '/account'
+    | '/activity'
     | '/calendar'
     | '/inbox'
     | '/jobs'
     | '/loops'
     | '/preferences'
+    | '/resume'
     | '/sign-in'
     | '/sign-up'
     | '/book/$slug'
@@ -238,11 +260,13 @@ export interface FileRouteTypes {
     | '/_app'
     | '/_auth'
     | '/_app/account'
+    | '/_app/activity'
     | '/_app/calendar'
     | '/_app/inbox'
     | '/_app/jobs'
     | '/_app/loops'
     | '/_app/preferences'
+    | '/_app/resume'
     | '/_auth/sign-in'
     | '/_auth/sign-up'
     | '/book/$slug'
@@ -293,6 +317,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AppAccountRouteImport
       parentRoute: typeof AppRoute
     }
+    '/_app/activity': {
+      id: '/_app/activity'
+      path: '/activity'
+      fullPath: '/activity'
+      preLoaderRoute: typeof AppActivityRouteImport
+      parentRoute: typeof AppRoute
+    }
     '/_app/calendar': {
       id: '/_app/calendar'
       path: '/calendar'
@@ -326,6 +357,13 @@ declare module '@tanstack/react-router' {
       path: '/preferences'
       fullPath: '/preferences'
       preLoaderRoute: typeof AppPreferencesRouteImport
+      parentRoute: typeof AppRoute
+    }
+    '/_app/resume': {
+      id: '/_app/resume'
+      path: '/resume'
+      fullPath: '/resume'
+      preLoaderRoute: typeof AppResumeRouteImport
       parentRoute: typeof AppRoute
     }
     '/_auth/sign-in': {
@@ -410,11 +448,13 @@ declare module '@tanstack/react-router' {
 
 interface AppRouteChildren {
   AppAccountRoute: typeof AppAccountRoute
+  AppActivityRoute: typeof AppActivityRoute
   AppCalendarRoute: typeof AppCalendarRoute
   AppInboxRoute: typeof AppInboxRoute
   AppJobsRoute: typeof AppJobsRoute
   AppLoopsRoute: typeof AppLoopsRoute
   AppPreferencesRoute: typeof AppPreferencesRoute
+  AppResumeRoute: typeof AppResumeRoute
   AppIndexRoute: typeof AppIndexRoute
   AppGoalsIdRoute: typeof AppGoalsIdRoute
   AppPipelineIdRoute: typeof AppPipelineIdRoute
@@ -428,11 +468,13 @@ interface AppRouteChildren {
 
 const AppRouteChildren: AppRouteChildren = {
   AppAccountRoute: AppAccountRoute,
+  AppActivityRoute: AppActivityRoute,
   AppCalendarRoute: AppCalendarRoute,
   AppInboxRoute: AppInboxRoute,
   AppJobsRoute: AppJobsRoute,
   AppLoopsRoute: AppLoopsRoute,
   AppPreferencesRoute: AppPreferencesRoute,
+  AppResumeRoute: AppResumeRoute,
   AppIndexRoute: AppIndexRoute,
   AppGoalsIdRoute: AppGoalsIdRoute,
   AppPipelineIdRoute: AppPipelineIdRoute,

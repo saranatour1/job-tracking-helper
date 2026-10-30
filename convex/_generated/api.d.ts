@@ -16,6 +16,13 @@ import type * as api_features_applications_validators from "../api/features/appl
 import type * as api_features_auth_index from "../api/features/auth/index.js";
 import type * as api_features_auth_internal from "../api/features/auth/internal.js";
 import type * as api_features_auth_public from "../api/features/auth/public.js";
+import type * as api_features_autoApply_actions from "../api/features/autoApply/actions.js";
+import type * as api_features_autoApply_firecrawl from "../api/features/autoApply/firecrawl.js";
+import type * as api_features_autoApply_index from "../api/features/autoApply/index.js";
+import type * as api_features_autoApply_internal from "../api/features/autoApply/internal.js";
+import type * as api_features_autoApply_match from "../api/features/autoApply/match.js";
+import type * as api_features_autoApply_models from "../api/features/autoApply/models.js";
+import type * as api_features_autoApply_public from "../api/features/autoApply/public.js";
 import type * as api_features_automations_actions from "../api/features/automations/actions.js";
 import type * as api_features_automations_counts from "../api/features/automations/counts.js";
 import type * as api_features_automations_describe from "../api/features/automations/describe.js";
@@ -93,6 +100,7 @@ import type * as api_features_workflows_sources_source from "../api/features/wor
 import type * as api_features_workflows_validators from "../api/features/workflows/validators.js";
 import type * as applications from "../applications.js";
 import type * as auth from "../auth.js";
+import type * as autoApply from "../autoApply.js";
 import type * as automations from "../automations.js";
 import type * as booking from "../booking.js";
 import type * as calendar from "../calendar.js";
@@ -129,6 +137,13 @@ declare const fullApi: ApiFromModules<{
   "api/features/auth/index": typeof api_features_auth_index;
   "api/features/auth/internal": typeof api_features_auth_internal;
   "api/features/auth/public": typeof api_features_auth_public;
+  "api/features/autoApply/actions": typeof api_features_autoApply_actions;
+  "api/features/autoApply/firecrawl": typeof api_features_autoApply_firecrawl;
+  "api/features/autoApply/index": typeof api_features_autoApply_index;
+  "api/features/autoApply/internal": typeof api_features_autoApply_internal;
+  "api/features/autoApply/match": typeof api_features_autoApply_match;
+  "api/features/autoApply/models": typeof api_features_autoApply_models;
+  "api/features/autoApply/public": typeof api_features_autoApply_public;
   "api/features/automations/actions": typeof api_features_automations_actions;
   "api/features/automations/counts": typeof api_features_automations_counts;
   "api/features/automations/describe": typeof api_features_automations_describe;
@@ -206,6 +221,7 @@ declare const fullApi: ApiFromModules<{
   "api/features/workflows/validators": typeof api_features_workflows_validators;
   applications: typeof applications;
   auth: typeof auth;
+  autoApply: typeof autoApply;
   automations: typeof automations;
   booking: typeof booking;
   calendar: typeof calendar;
@@ -263,6 +279,7 @@ export declare const components: {
   authGithub: import("@convex-dev/auth/components/github/_generated/component.js").ComponentApi<"authGithub">;
   workflow: import("@convex-dev/workflow/_generated/component.js").ComponentApi<"workflow">;
   readPool: import("@convex-dev/workpool/_generated/component.js").ComponentApi<"readPool">;
+  applyPool: import("@convex-dev/workpool/_generated/component.js").ComponentApi<"applyPool">;
   rateLimiter: import("@convex-dev/rate-limiter/_generated/component.js").ComponentApi<"rateLimiter">;
   automationRunCounts: import("@convex-dev/aggregate/_generated/component.js").ComponentApi<"automationRunCounts">;
   automationChoices: import("@convex-dev/aggregate/_generated/component.js").ComponentApi<"automationChoices">;

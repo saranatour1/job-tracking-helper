@@ -13,6 +13,7 @@ import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { ScrollArea } from "@/components/ui/scroll-area"
 import { Select, SelectItem, SelectPopup, SelectTrigger, SelectValue } from "@/components/ui/select"
+import { Switch } from "@/components/ui/switch"
 import { EmailSection } from "@/features/account/email"
 import { NotificationsSection } from "@/features/account/notifications"
 import { messageOf, Row, Section } from "@/features/account/settings"
@@ -250,6 +251,52 @@ const ApplicationsSection = () => {
   )
 }
 
+// The switch that lets the app submit applications for you, from the Jobs page.
+const AutoApplySection = () => {
+  const settings = useQuery(api.autoApply.settings)
+  const setSwitch = useMutation(api.autoApply.setSwitch)
+  return (
+    <Section title="Auto-apply">
+      <Row
+        label="Apply for me"
+        description={
+          <>
+            With this on, <strong>Auto-apply</strong> on a role in Jobs fills the posting's form
+            from your saved answers and resume and submits it. Only Greenhouse, Lever, Ashby and
+            Personio forms that need no account; a question with no saved answer stops it as Needs
+            you, and required consent boxes are ticked for you. 10 a day. Each run shows on the
+            Activity page.
+            {settings && !settings.ready && !settings.on && (
+              <>
+                {" "}
+                Needs a resume on the Resume page, your email under Profile, and a Firecrawl key.
+              </>
+            )}
+          </>
+        }
+      >
+        <Switch
+          aria-label="Apply for me"
+          checked={settings?.on ?? false}
+          disabled={!settings}
+          onCheckedChange={(on) => void setSwitch({ on })}
+        />
+      </Row>
+      <Row
+        label="Fill, but don't send yet"
+        description="Each run fills the form and shows on Activity what it would use, then stops before Submit. Turn it off once you're happy with the answers."
+      >
+        <Switch
+          aria-label="Fill, but don't send yet"
+          checked={settings?.dryRun ?? false}
+          disabled={!settings}
+          onCheckedChange={(dryRun) => void setSwitch({ dryRun })}
+        />
+      </Row>
+    </Section>
+  )
+}
+
 const AccountSection = () => {
   const deleteAccount = useMutation(api.users.deleteAccount)
   const { signOut } = useAuthActions()
@@ -300,6 +347,7 @@ export const Account = () => {
           <CalendarSection />
           <BookingSection />
           <ApplicationsSection />
+          <AutoApplySection />
           <Section title="Interface and theme">
             <Row label="Theme" description="Light, dark, or follow your system.">
               <div className="w-32">

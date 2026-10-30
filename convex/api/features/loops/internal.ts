@@ -181,7 +181,7 @@ const beginRun = internalMutation({
   },
 })
 
-const addUsage = async (
+export const addUsage = async (
   ctx: MutationCtx,
   provider: Provider,
   credits: number,
