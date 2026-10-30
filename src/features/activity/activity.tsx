@@ -78,8 +78,8 @@ const RunTile = ({ run }: { run: Run }) => {
         <div className="flex flex-col gap-1 px-1 text-xs">
           <span className="text-muted-foreground">No saved answer for:</span>
           <ul className="flex flex-col gap-1">
-            {run.missing.map((m) => (
-              <li key={m.question} className="flex items-center gap-2">
+            {run.missing.map((m, i) => (
+              <li key={`${i}-${m.question}`} className="flex items-center gap-2">
                 <span className="min-w-0 flex-1 truncate text-[13px]">
                   {m.question}
                   {m.required && <span className="text-muted-foreground"> · required</span>}
