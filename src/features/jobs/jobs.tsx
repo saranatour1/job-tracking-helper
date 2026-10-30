@@ -1,10 +1,14 @@
 import { api } from "@convex/_generated/api"
+import type { Id } from "@convex/_generated/dataModel"
 import { rowLimits } from "@convex/api/features/preferences/rows"
 import { Cancel01Icon, LinkSquare02Icon, Search01Icon } from "@hugeicons/core-free-icons"
 import { HugeiconsIcon } from "@hugeicons/react"
 import { Link, useNavigate, useSearch } from "@tanstack/react-router"
+import { useMutation } from "convex/react"
 import { usePaginatedQuery, useQuery } from "convex-helpers/react/cache/hooks"
-import { useMemo } from "react"
+import { startTransition, useActionState, useMemo } from "react"
+
+import { messageOf } from "@/features/account/settings"
 
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
@@ -116,6 +120,52 @@ const Initial = ({ company }: { company: string }) => (
 
 // Every role in the shared catalog. Search it, narrow it down, and from any role find
 // more like it. Roles a loop or a pasted link judged show Jev's verdict for you.
+const pileLabels = {
+  queued: "Queued",
+  running: "Applying…",
+  needsYou: "Needs you",
+  previewed: "Previewed",
+  applied: "Applied",
+  failed: "Failed",
+} as const
+
+// Puts the role in the auto-apply pile, or shows where it already is. A refusal (the
+// switch is off, no resume, the daily limit) shows under the button.
+const AutoApplyButton = ({
+  jobId,
+  status,
+}: {
+  jobId: Id<"jobs">
+  status?: keyof typeof pileLabels
+}) => {
+  const queue = useMutation(api.autoApply.queue)
+  const [error, add] = useActionState(
+    () => queue({ jobId }).then(() => undefined, messageOf),
+    undefined
+  )
+  if (status && status !== "failed")
+    return (
+      <Badge
+        variant={status === "applied" ? "success" : status === "needsYou" ? "warning" : "secondary"}
+        className="font-normal"
+      >
+        {pileLabels[status]}
+      </Badge>
+    )
+  return (
+    <span className="flex flex-col items-end">
+      <Button size="xs" variant="ghost" onClick={() => startTransition(add)}>
+        Auto-apply
+      </Button>
+      {error && (
+        <span role="alert" className="text-destructive max-w-56 text-end text-xs">
+          {error}
+        </span>
+      )}
+    </span>
+  )
+}
+
 export const Jobs = () => {
   const search = useSearch({ from: "/_app/jobs" })
   const { q, remote, compact, posted, board, fits } = search
@@ -132,6 +182,8 @@ export const Jobs = () => {
   )
   const stats = useQuery(api.jobs.stats)
   const companies = useQuery(api.jobs.companies) ?? []
+  // Roles already in the auto-apply pile, by posting, for their badge.
+  const piled = new Map((useQuery(api.autoApply.list) ?? []).map((r) => [r.url, r.status]))
   // Keyed by board, since two boards can share a company name.
   const options = companies.map((c) => ({ value: c.boardId, label: c.company, jobs: c.jobs }))
   const company = options.find((o) => o.value === board) ?? null
@@ -320,6 +372,7 @@ export const Jobs = () => {
             )}
             {jobs.results.map((job) => {
               const where = job.location || "Location not listed"
+              const apply = <AutoApplyButton jobId={job._id} status={piled.get(job.url)} />
               const more = (
                 <Button
                   size="xs"
@@ -363,6 +416,7 @@ export const Jobs = () => {
                     {ago(job.postedAt, now)}
                   </span>
                   <span className="flex items-center justify-end gap-0.5">
+                    {apply}
                     {more}
                     {open}
                   </span>
@@ -393,6 +447,7 @@ export const Jobs = () => {
                     )}
                   </div>
                   <div className="flex shrink-0 items-center gap-0.5">
+                    {apply}
                     {more}
                     {open}
                   </div>

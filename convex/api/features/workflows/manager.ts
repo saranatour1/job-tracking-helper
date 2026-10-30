@@ -29,6 +29,8 @@ export const limits = new RateLimiter(components.rateLimiter, {
   goalEvaluate: { kind: "fixed window", rate: 10, period: DAY },
   // Reviewing a resume parses it and asks Jev a batch of questions.
   resumeReview: { kind: "fixed window", rate: 10, period: DAY },
+  // Jobs queued for auto-apply; each run spends Firecrawl credits and Jev.
+  autoApply: { kind: "fixed window", rate: 10, period: DAY },
 })
 
 // The batch worker: it fetches job boards for the catalog, and every run hands it the
@@ -38,4 +40,11 @@ export const readPool = new Workpool(components.readPool, {
   maxParallelism: 8,
   retryActionsByDefault: true,
   defaultRetryBehavior: { maxAttempts: 3, initialBackoffMs: 1000, base: 2 },
+})
+
+// Auto-apply runs drive a form in a browser and submit it, so a run that dies is never
+// tried again by itself: the row says so, and the person decides.
+export const applyPool = new Workpool(components.applyPool, {
+  maxParallelism: 2,
+  retryActionsByDefault: false,
 })

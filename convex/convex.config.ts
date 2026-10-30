@@ -65,6 +65,8 @@ app.use(authGithub, {
 // Jev is called through the Convex AI gateway, so it needs no key here.
 app.use(workflow)
 app.use(workpool, { name: "readPool" })
+// Auto-apply runs: a few at a time, and never retried, so a form is never submitted twice.
+app.use(workpool, { name: "applyPool" })
 app.use(rateLimiter)
 
 // Counters: each workflow's runs bucketed by how they ended (see automations/counts).

@@ -258,10 +258,10 @@ const ResumeStep = ({ resume }: { resume: { name: string; url: string | null } |
   return (
     <Section
       title="Resume, if you have one"
-      description="Optional. It's read only when you press Review on the Resume tab."
+      description="Optional. It's read only when you press Review on the Resume page, or when auto-apply sends it with an application."
     >
       <p className="text-muted-foreground text-xs leading-relaxed">
-        Kept so you can attach it when an application form asks for one, and so the Resume tab can
+        Kept so you can attach it when an application form asks for one, and so the Resume page can
         check it. You can keep one file at a time, and uploading a new one replaces it.
       </p>
       {resume ? (
@@ -307,7 +307,7 @@ type Resume = { name: string; url: string | null } | null
 // The Resume tab: the file, and a review of it. Rules check what an ATS can read, and
 // Jev answers fixed questions about the writing and your tags; the advice is built from
 // its answers, so nothing in the resume is rewritten.
-const ResumeTab = ({ resume, review }: { resume: Resume; review: Review | null }) => {
+export const ResumeTab = ({ resume, review }: { resume: Resume; review: Review | null }) => {
   const run = useAction(api.resume.review)
   const [error, start, reviewing] = useActionState(
     () => run().then(() => undefined, messageOf),
@@ -456,16 +456,34 @@ type PrefilledAction =
 
 // Fields application forms ask for, in sections, with what to put in each, ready to copy.
 // Saved on its own, so it never overwrites the answers in the other tabs.
+// A question Activity sent over (`?add=`) joins "Your questions" unless it's already here.
+const withAdded = (sections: FieldSection[], add?: string): FieldSection[] => {
+  if (!add || sections.some((s) => s.fields.some((f) => f.label.trim() === add.trim())))
+    return sections
+  const title = "Your questions"
+  const field = { label: add, value: "" }
+  return sections.some((s) => s.title === title)
+    ? sections.map((s) => (s.title === title ? { ...s, fields: [...s.fields, field] } : s))
+    : [...sections, { title, fields: [field] }]
+}
+
+const usedOn = (ms: number) =>
+  new Intl.DateTimeFormat("en-US", { month: "short", day: "numeric" }).format(ms)
+
 const Prefilled = ({
   saved,
   suggestions,
+  add,
+  usage,
 }: {
   saved: FieldSection[] | null
   suggestions: FieldSection[]
+  add?: string
+  usage: Usage
 }) => {
   const savePrefilled = useMutation(api.preferences.savePrefilled)
   // Kept from the first render: new defaults would reset the form and drop unsaved edits.
-  const defaults = useRef({ sections: saved ?? suggestions }).current
+  const defaults = useRef({ sections: withAdded(saved ?? suggestions, add) }).current
   const form = useForm({
     defaultValues: defaults,
     validators: { onSubmit: PrefilledShape },
@@ -626,6 +644,14 @@ const Prefilled = ({
                                           className={cn(soft, oneLine)}
                                         />
                                         {errors(f.state.meta.errors)}
+                                        {(() => {
+                                          const u = usage[usageKey(section.title, row.label)]
+                                          return u?.useCount && u.lastUsedAt ? (
+                                            <span className="text-muted-foreground px-2 text-xs">
+                                              Used {u.useCount}× · last {usedOn(u.lastUsedAt)}
+                                            </span>
+                                          ) : null
+                                        })()}
                                       </div>
                                     )}
                                   </form.Field>
@@ -713,19 +739,25 @@ const Prefilled = ({
   )
 }
 
-const preferencesTabs = ["overview", "edit", "prefilled", "resume"] as const
+const preferencesTabs = ["overview", "edit", "prefilled"] as const
 export type PreferencesTab = (typeof preferencesTabs)[number]
 
-// Reads `?tab=` and `?step=` for the route, dropping anything that isn't one of them.
+// Reads `?tab=`, `?step=` and `?add=` (a question Activity wants on Prefilled) for the
+// route, dropping anything that isn't one of them.
 export const preferencesSearch = (
   search: Record<string, unknown>
-): { tab?: PreferencesTab; step?: number } => ({
+): { tab?: PreferencesTab; step?: number; add?: string } => ({
   tab: preferencesTabs.find((t) => t === search.tab),
   step:
     typeof search.step === "number" && Number.isInteger(search.step) && search.step >= 0
       ? search.step
       : undefined,
+  add: typeof search.add === "string" && search.add.trim() ? search.add.slice(0, 200) : undefined,
 })
+
+// When auto-apply last used each Prefilled answer, by section and label.
+export type Usage = Record<string, { lastUsedAt?: number; useCount?: number }>
+export const usageKey = (section: string, label: string) => `${section}\n${label}`
 
 declare module "@tanstack/react-router" {
   interface HistoryState {
@@ -892,13 +924,13 @@ const PreferencesForm = ({
   saved,
   prefilled,
   resume,
-  review,
+  usage,
   me,
 }: {
   saved: Values
   prefilled: FieldSection[] | null
   resume: Resume
-  review: Review | null
+  usage: Usage
   me: { name: string; email: string; onboarded: boolean }
 }) => {
   const { onboarded } = me
@@ -1233,7 +1265,6 @@ const PreferencesForm = ({
             <TabsTab value="overview">Overview</TabsTab>
             <TabsTab value="edit">Edit</TabsTab>
             <TabsTab value="prefilled">Prefilled</TabsTab>
-            <TabsTab value="resume">Resume</TabsTab>
           </TabsList>
         </div>
         <TabsPanel value="overview" className="flex min-h-0">
@@ -1375,10 +1406,12 @@ const PreferencesForm = ({
         </TabsPanel>
         {/* Kept mounted so unsaved edits survive switching tabs. */}
         <TabsPanel value="prefilled" keepMounted className="flex min-h-0 data-hidden:hidden">
-          <Prefilled saved={prefilled} suggestions={suggestedSections(values, me)} />
-        </TabsPanel>
-        <TabsPanel value="resume" className="flex min-h-0">
-          <ResumeTab resume={resume} review={review} />
+          <Prefilled
+            saved={prefilled}
+            suggestions={suggestedSections(values, me)}
+            add={search.add}
+            usage={usage}
+          />
         </TabsPanel>
       </Tabs>
     </form>
@@ -1421,7 +1454,12 @@ export const Preferences = () => {
           saved={formOf(data.settings?.workMode ?? "any", tags, answers)}
           prefilled={data.settings?.prefilledAt === undefined ? null : sectionsOf(fields)}
           resume={data.resume}
-          review={data.review}
+          usage={Object.fromEntries(
+            fields.map((r) => [
+              usageKey(r.group, r.label),
+              { lastUsedAt: r.lastUsedAt, useCount: r.useCount },
+            ])
+          )}
           me={me}
         />
       )}

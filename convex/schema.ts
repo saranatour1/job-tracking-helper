@@ -1,5 +1,6 @@
 import { defineSchema } from "convex/server"
 import { applicationsTable } from "./api/features/applications/models"
+import { autoAppliesTable } from "./api/features/autoApply/models"
 import { automationRunsTable, automationsTable } from "./api/features/automations/models"
 import { bookingPagesTable } from "./api/features/booking/models"
 import { calendarEventsTable, calendarSettingsTable } from "./api/features/calendar/models"
@@ -23,6 +24,7 @@ import { viewsTable } from "./api/features/views/models"
 export default defineSchema({
   users: usersTable,
   applications: applicationsTable,
+  autoApplies: autoAppliesTable,
   preferences: preferencesTable,
   preferenceTags: preferenceTagsTable,
   profileEntries: profileEntriesTable,

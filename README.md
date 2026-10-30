@@ -79,8 +79,9 @@ src/
     _app.tsx, _auth.tsx                layouts: signed-in pages, and /sign-in + /sign-up
   features/<feature>/                  the feature's components
   features/tracker/                    Applications, Views and Goals on Convex
-  features/preferences/                Preferences: the form, the assistant prompt, the profile blocks and the resume review
-  features/jobs/                       Jobs: the shared catalog of open roles
+  features/preferences/                Preferences: the form, the assistant prompt, the profile blocks; and the Resume page
+  features/jobs/                       Jobs: the shared catalog of open roles, with Auto-apply
+  features/activity/                   Activity: what auto-apply did, used and still needs
   features/loops/                      Loops: morning job searches, their runs and sources
   features/account/                    Account: profile, email connection, notifications, theme, sign-out
   features/inbox/                      Inbox: notifications from mail and loops

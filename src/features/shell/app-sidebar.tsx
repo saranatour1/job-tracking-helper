@@ -1,7 +1,9 @@
 import { Link, useRouterState } from "@tanstack/react-router"
 import {
+  Activity01Icon,
   Briefcase01Icon,
   Calendar03Icon,
+  File01Icon,
   InboxIcon,
   JobSearchIcon,
   Layers01Icon,
@@ -66,9 +68,11 @@ const NavItems = ({ items }: { items: readonly Item[] }) => {
 export const AppSidebar = (props: React.ComponentProps<typeof Sidebar>) => {
   const top = [
     { title: "Inbox", to: "/inbox", icon: InboxIcon, badge: useUnreadCount() },
+    { title: "Activity", to: "/activity", icon: Activity01Icon },
     { title: "Applications", to: "/", icon: Briefcase01Icon },
     { title: "Calendar", to: "/calendar", icon: Calendar03Icon },
     { title: "Preferences", to: "/preferences", icon: UserCircleIcon },
+    { title: "Resume", to: "/resume", icon: File01Icon },
     { title: "Jobs", to: "/jobs", icon: JobSearchIcon },
     { title: "Loops", to: "/loops", icon: RepeatIcon },
     { title: "Workflows", to: "/workflows", icon: WorkflowSquare03Icon },

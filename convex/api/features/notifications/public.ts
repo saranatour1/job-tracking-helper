@@ -30,7 +30,13 @@ const inbox = authedQuery({
       at: v.number(),
       unread: v.boolean(),
       // Where its button goes; none for a line with nowhere better to go.
-      link: v.union(v.literal("/"), v.literal("/loops"), v.literal("/calendar"), v.null()),
+      link: v.union(
+        v.literal("/"),
+        v.literal("/loops"),
+        v.literal("/calendar"),
+        v.literal("/activity"),
+        v.null()
+      ),
       company: v.optional(v.string()),
       status: v.optional(v.union(...statuses.map((s) => v.literal(s)))),
       // For a workflow's message: the run it came from, to open its history.
@@ -48,6 +54,26 @@ const inbox = authedQuery({
     const lines = await Promise.all(
       rows.map(async (n) => {
         const base = { id: n._id, at: n.at, unread: n.readAt === undefined }
+        const applyId =
+          (n.kind === "apply.done" || n.kind === "apply.needsYou") &&
+          n.ref &&
+          ctx.db.normalizeId("autoApplies", n.ref)
+        if (applyId) {
+          const row = await ctx.db.get("autoApplies", applyId)
+          return (
+            row?.userId === ctx.userId && {
+              ...base,
+              title: `${row.title} · ${row.company}`,
+              message:
+                n.kind === "apply.done"
+                  ? "Applied for you."
+                  : (row.error ?? "Needs you before it can be sent."),
+              link: "/activity" as const,
+              company: row.company,
+              status: row.status === "applied" ? ("applied" as const) : undefined,
+            }
+          )
+        }
         const loopRunId = n.kind === "loop.found" && n.ref && ctx.db.normalizeId("loopRuns", n.ref)
         if (loopRunId) {
           const run = await ctx.db.get("loopRuns", loopRunId)
