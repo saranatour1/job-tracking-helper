@@ -8,20 +8,45 @@
 // as arguments from an action. Scheduled functions keep their arguments, so nothing
 // here schedules with a token or a message.
 import { v } from "convex/values"
-import { action, mutation, query } from "./_generated/server"
+import { internal } from "./_generated/api"
+import { action, internalMutation, mutation, query } from "./_generated/server"
 import schema, { vEmail } from "./schema"
 
 const emailDoc = schema.doc("emails")
 const direction = v.union(v.literal("inbound"), v.literal("outbound"))
 
+// Past the 10 minutes an action can run, so the send can't still be going.
+const stuckAfterMs = 15 * 60 * 1000
+const retryWaitsMs = [1000, 3000]
+
 export const queue = mutation({
   args: { owner: v.string(), payload: v.string() },
   returns: v.id("emails"),
-  handler: (ctx, { owner, payload }) =>
-    ctx.db.insert("emails", { owner, payload, direction: "outbound", status: "queued" }),
+  handler: async (ctx, { owner, payload }) => {
+    const emailId = await ctx.db.insert("emails", {
+      owner,
+      payload,
+      direction: "outbound",
+      status: "queued",
+    })
+    // If the action sending it dies, nothing else would ever close this row.
+    await ctx.scheduler.runAfter(stuckAfterMs, internal.lib.expire, { emailId })
+    return emailId
+  },
 })
 
-// shortcut: one attempt, no retry on 429/5xx; retry with backoff once sends are frequent.
+export const expire = internalMutation({
+  args: { emailId: v.id("emails") },
+  returns: v.null(),
+  handler: async (ctx, { emailId }) => {
+    const email = await ctx.db.get("emails", emailId)
+    if (email?.status === "queued") await ctx.db.patch("emails", emailId, { status: "failed" })
+    return null
+  },
+})
+
+// shortcut: retries only ride out a few seconds; schedule an app action with just the
+// emailId, which reopens the sealed connection, if throttling lasts longer than that.
 /** Sends through Cloudflare and returns its Message-ID, or why it failed. Stores nothing. */
 export const send = action({
   args: { accountId: v.string(), apiToken: v.string(), email: vEmail },
@@ -30,22 +55,42 @@ export const send = action({
     if (email.to.length === 0) return { error: "`to` must not be empty" }
     if (!email.text && !email.html) return { error: "One of `text` or `html` is required" }
     try {
-      const res = await fetch(
-        `https://api.cloudflare.com/client/v4/accounts/${encodeURIComponent(accountId)}/email/sending/send`,
-        {
-          method: "POST",
-          headers: { Authorization: `Bearer ${apiToken}`, "Content-Type": "application/json" },
-          // The REST API names it reply_to.
-          body: JSON.stringify({ ...email, reply_to: replyTo }),
-        }
-      )
+      const post = () =>
+        fetch(
+          `https://api.cloudflare.com/client/v4/accounts/${encodeURIComponent(accountId)}/email/sending/send`,
+          {
+            method: "POST",
+            headers: { Authorization: `Bearer ${apiToken}`, "Content-Type": "application/json" },
+            // The REST API names it reply_to.
+            body: JSON.stringify({ ...email, reply_to: replyTo }),
+          }
+        )
+      let res = await post()
+      // 429 and 503 mean it never went out. Anything else, a thrown fetch included, may
+      // have, and Cloudflare takes no idempotency key, so a retry could send it twice.
+      for (const wait of retryWaitsMs) {
+        if (res.status !== 429 && res.status !== 503) break
+        await new Promise((resolve) => setTimeout(resolve, wait))
+        res = await post()
+      }
       const body = (await res.json().catch(() => null)) as {
         success?: boolean
         errors?: { message: string }[]
-        result?: { message_id?: string }
+        result?: {
+          message_id?: string
+          delivered?: string[]
+          queued?: string[]
+          permanent_bounces?: string[]
+          suppressed_recipients?: string[]
+        }
       } | null
       if (!res.ok || !body?.success)
         return { error: body?.errors?.map((e) => e.message).join("; ") || `HTTP ${res.status}` }
+      // Cloudflare can say success while refusing every address.
+      const { delivered, queued, permanent_bounces, suppressed_recipients } = body.result ?? {}
+      const dropped = [...(permanent_bounces ?? []), ...(suppressed_recipients ?? [])]
+      if (dropped.length && !delivered?.length && !queued?.length)
+        return { error: `Not delivered to ${dropped.join(", ")}` }
       return { messageId: body.result?.message_id }
     } catch (e) {
       return { error: e instanceof Error ? e.message : String(e) }

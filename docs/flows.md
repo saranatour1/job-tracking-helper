@@ -442,6 +442,12 @@ isn't shown. Email lines are opened from their sealed note only when you look.
 **Rules:** each switch is checked on the server before it acts. Mail is sealed per
 person. Only the kind, the suggestion and the move are kept in the clear.
 
+**Sending:** a send Cloudflare refuses with a 429 or 503 is tried again, up to 3 attempts
+over a few seconds. Nothing else is, since it may already have gone out. An address that
+bounced or is suppressed counts as failed, even though Cloudflare calls that request a
+success. An email still "queued" after 15 minutes means its send died, so it's marked
+failed, and Account says it couldn't confirm the email went out.
+
 **Files:** `src/features/account/email.tsx`, `convex/api/features/email/`,
 `convex/cloudflareEmail/`, `convex/lib/secrets.ts`.
 
