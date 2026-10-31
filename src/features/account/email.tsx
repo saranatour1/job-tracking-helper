@@ -9,11 +9,16 @@ import { useQuery } from "convex-helpers/react/cache/hooks"
 import { startTransition, useActionState } from "react"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
+import { messagesIn } from "@convex/features/email/addresses"
 import { Input } from "@/components/ui/input"
 import { Switch } from "@/components/ui/switch"
 import { messageOf, Row, Section } from "@/features/account/settings"
 
 type Connection = NonNullable<FunctionReturnType<typeof api.email.connection>>
+
+const maxImportBytes = 500 * 1024 * 1024
+// A message with big attachments is skipped. What it says would still fit, but the raw file wouldn't.
+const maxMessageChars = 10_000_000
 
 const dateOf = (at: number) =>
   new Date(at).toLocaleDateString(undefined, { month: "short", day: "numeric", year: "numeric" })
@@ -252,6 +257,59 @@ const testOf = (connection: Connection) => {
   return `Sent to ${test.to} on ${dateOf(test.at)}.`
 }
 
+// Reads files here and sends one email at a time, so a big export can't hit a size limit.
+const ImportMail = ({ allowed }: { allowed: boolean }) => {
+  const importMail = useAction(api.email.importMail)
+  type Result = { filed: number; total: number; error?: string }
+  const [result, run, pending] = useActionState<Result | null, FileList>(async (_, files) => {
+    const done: Result = { filed: 0, total: 0 }
+    try {
+      for (const file of files) {
+        if (file.size > maxImportBytes) throw new Error(`${file.name} is over 500 MB.`)
+        const messages = file.name.endsWith(".mbox")
+          ? messagesIn(await file.text())
+          : [await file.text()]
+        for (const raw of messages) {
+          done.total++
+          if (raw.length <= maxMessageChars && (await importMail({ raw })) === "filed") done.filed++
+        }
+      }
+      return done
+    } catch (cause) {
+      return { ...done, error: messageOf(cause) }
+    }
+  }, null)
+  return (
+    <Row
+      label="Import old mail"
+      description={
+        result?.error ? (
+          <span className="text-destructive">{result.error}</span>
+        ) : result ? (
+          `Filed ${result.filed} of ${result.total}. The rest matched no application, or were already here, and weren't kept.`
+        ) : (
+          "Add .eml or .mbox files from your mail app. Only mail matching an application is kept, by company name, with no AI."
+        )
+      }
+    >
+      <Button size="sm" variant="outline" disabled={!allowed || pending} render={<label />}>
+        {pending ? "Importing…" : "Choose files"}
+        <input
+          type="file"
+          multiple
+          accept=".eml,.mbox"
+          className="sr-only"
+          disabled={!allowed || pending}
+          onChange={(e) => {
+            const files = e.target.files
+            if (files?.length) startTransition(() => run(files))
+          }}
+        />
+      </Button>
+    </Row>
+  )
+}
+
 const Connected = ({ connection }: { connection: Connection }) => {
   const sendTest = useAction(api.email.sendTest)
   const disconnect = useAction(api.email.disconnect)
@@ -325,6 +383,7 @@ const Connected = ({ connection }: { connection: Connection }) => {
           </form>
         )}
       </Row>
+      <ImportMail allowed={connection.allow.receive} />
       <Row
         label="Disconnect"
         description="Removes the Worker and routing rule, then deletes the saved token and details. Emails stay."

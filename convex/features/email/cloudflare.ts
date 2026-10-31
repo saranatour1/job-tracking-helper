@@ -138,6 +138,28 @@ export const uploadWorker = (
   })
 }
 
+/** The routing rule already handling exactly this address, and who it forwards to. */
+export const ruleFor = async (zoneId: string, token: string, address: string) => {
+  const rules = (await call(`/zones/${zoneId}/email/routing/rules?per_page=50`, token)) as
+    | {
+        id: string
+        enabled?: boolean
+        matchers?: { type?: string; value?: string }[]
+        actions?: { type?: string; value?: string[] }[]
+      }[]
+    | undefined
+  const found = rules?.find(
+    (r) =>
+      r.enabled !== false &&
+      r.matchers?.some(
+        (m) => m.type === "literal" && m.value?.toLowerCase() === address.toLowerCase()
+      )
+  )
+  if (!found) return undefined
+  const forward = found.actions?.find((a) => a.type === "forward")
+  return { id: found.id, forwardsTo: forward?.value?.[0] }
+}
+
 /** Sends mail for `address` to the Worker and returns the rule's id. */
 export const createRule = async (zoneId: string, token: string, address: string, worker: string) =>
   (
@@ -159,9 +181,10 @@ export const removeInbound = async (
   zoneId: string,
   token: string,
   worker: string,
-  ruleId: string
+  ruleId: string,
+  aliasRules: string[] = []
 ) => {
-  if (ruleId)
-    await request(`/zones/${zoneId}/email/routing/rules/${ruleId}`, token, { method: "DELETE" })
+  for (const id of [ruleId, ...aliasRules].filter(Boolean))
+    await request(`/zones/${zoneId}/email/routing/rules/${id}`, token, { method: "DELETE" })
   await request(`/accounts/${accountId}/workers/scripts/${worker}`, token, { method: "DELETE" })
 }

@@ -1,5 +1,6 @@
 import { api } from "@convex/_generated/api"
 import type { Doc, Id } from "@convex/_generated/dataModel"
+import { isEmailQuestion } from "@convex/features/prefilled/match"
 import { Link } from "@tanstack/react-router"
 import { useAction, useMutation } from "convex/react"
 import { useQuery } from "convex-helpers/react/cache/hooks"
@@ -187,6 +188,49 @@ const FillBadge = ({ field }: { field: Field }) =>
     </Badge>
   ) : null
 
+// For a form that won't take the address with a plus: swaps in one without, in the form too.
+const PlainEmail = ({
+  id,
+  applicationId,
+  question,
+}: {
+  id: Id<"prefills">
+  applicationId: Id<"applications">
+  question: string
+}) => {
+  const makePlain = useAction(api.email.makeAddressWithoutPlus)
+  const setAnswer = useMutation(api.prefilled.setAnswer)
+  const sendToForm = useAction(api.prefilled.sendToForm)
+  const [error, swap, pending] = useActionState(async () => {
+    try {
+      const answer = await makePlain({ applicationId })
+      await setAnswer({ id, question, answer })
+      await sendToForm({ id, question })
+      return undefined
+    } catch (cause) {
+      return messageOf(cause)
+    }
+  }, undefined)
+  return (
+    <div className="flex flex-wrap items-center gap-2">
+      <Button
+        type="button"
+        size="xs"
+        variant="ghost"
+        disabled={pending}
+        onClick={() => startTransition(swap)}
+      >
+        {pending ? "Swapping…" : "Form refuses a +"}
+      </Button>
+      {error && (
+        <span role="alert" className="text-destructive text-xs">
+          {error}
+        </span>
+      )}
+    </div>
+  )
+}
+
 // One question and its answer. Saving it here changes this application only, unless you
 // tick Keep for future forms.
 const AnswerRow = ({
@@ -194,11 +238,13 @@ const AnswerRow = ({
   field,
   locked,
   live,
+  applicationId,
 }: {
   id: Id<"prefills">
   field: Field
   locked: boolean
   live: boolean
+  applicationId?: Id<"applications"> | undefined
 }) => {
   const setAnswer = useMutation(api.prefilled.setAnswer)
   const sendToForm = useAction(api.prefilled.sendToForm)
@@ -285,6 +331,12 @@ const AnswerRow = ({
           </Button>
         </div>
       )}
+      {live &&
+        applicationId &&
+        isEmailQuestion(field.question) &&
+        field.answer?.includes("+app-") && (
+          <PlainEmail id={id} applicationId={applicationId} question={field.question} />
+        )}
       {error && (
         <span role="alert" className="text-destructive text-xs">
           {error}
@@ -556,6 +608,7 @@ export const PrefilledPage = ({ id }: { id: Id<"prefills"> }) => {
                         field={field}
                         locked={!canApply && !open}
                         live={Boolean(open && prefill.liveUrl)}
+                        applicationId={prefill.applicationId}
                       />
                     ))}
                   </div>

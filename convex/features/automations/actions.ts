@@ -6,6 +6,7 @@ import { components, internal } from "../../_generated/api"
 import type { Id } from "../../_generated/dataModel"
 import { action, internalAction } from "../../_generated/server"
 import { seal } from "../../lib/secrets"
+import { taggedAddress } from "../email/addresses"
 import { openConnection, aad } from "../email/utils"
 import { jevModel } from "../workflows/judge"
 import { limits as rates } from "../workflows/manager"
@@ -66,8 +67,13 @@ const sendMail = internalAction({
   args: { runId: v.id("automationRuns"), at: v.string() },
   returns: v.union(v.string(), v.null()),
   handler: async (ctx, { runId, at }): Promise<string | null> => {
-    const mail: { userId: Id<"users">; to?: string; subject: string; text: string } | null =
-      await ctx.runQuery(internal.automations.emailOf, { runId, at })
+    const mail: {
+      userId: Id<"users">
+      to?: string
+      subject: string
+      text: string
+      application?: { id: Id<"applications">; number: number }
+    } | null = await ctx.runQuery(internal.automations.emailOf, { runId, at })
     if (!mail) return null
     try {
       const { row, k, details, token: apiToken } = await openConnection(ctx, mail.userId)
@@ -78,11 +84,18 @@ const sendMail = internalAction({
         to: [mail.to ?? (row.userEmail || details.fromAddress)],
         subject: mail.subject,
         text: mail.text,
+        ...(mail.application &&
+          row.inbound &&
+          row.allow.receive &&
+          row.allow.tag && {
+            replyTo: taggedAddress(details.fromAddress, mail.application.number),
+          }),
       }
       const sealEmail = (value: object) => seal(k, JSON.stringify(value), aad.email(mail.userId))
       const emailId = await ctx.runMutation(components.cloudflareEmail.lib.queue, {
         owner: mail.userId,
-        payload: await sealEmail(email),
+        // `attachments` so an application's activity can open it.
+        payload: await sealEmail({ ...email, attachments: [] }),
       })
       const { messageId, error } = await ctx.runAction(components.cloudflareEmail.lib.send, {
         accountId: details.accountId,
@@ -92,10 +105,21 @@ const sendMail = internalAction({
       await ctx.runMutation(components.cloudflareEmail.lib.markResult, {
         emailId,
         failed: error !== undefined,
-        payload: messageId ? await sealEmail({ ...email, messageId }) : undefined,
+        payload: messageId ? await sealEmail({ ...email, attachments: [], messageId }) : undefined,
         error: error && (await seal(k, error, aad.email(mail.userId))),
       })
       if (error) throw new ConvexError("Cloudflare didn't send the email.")
+      if (mail.application)
+        await ctx.runMutation(internal.email.recordSent, {
+          userId: mail.userId,
+          applicationId: mail.application.id,
+          emailId,
+          note: await seal(
+            k,
+            JSON.stringify({ from: details.fromAddress, to: email.to[0], subject: mail.subject }),
+            aad.email(mail.userId)
+          ),
+        })
       await ctx.runMutation(internal.automations.emailed, { runId, at })
       return null
     } catch (cause) {

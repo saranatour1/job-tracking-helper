@@ -50,6 +50,7 @@ import type * as features_email_index from "../features/email/index.js";
 import type * as features_email_internal from "../features/email/internal.js";
 import type * as features_email_match from "../features/email/match.js";
 import type * as features_email_models from "../features/email/models.js";
+import type * as features_email_parse from "../features/email/parse.js";
 import type * as features_email_public from "../features/email/public.js";
 import type * as features_email_send from "../features/email/send.js";
 import type * as features_email_sort from "../features/email/sort.js";
@@ -195,6 +196,7 @@ declare const fullApi: ApiFromModules<{
   "features/email/internal": typeof features_email_internal;
   "features/email/match": typeof features_email_match;
   "features/email/models": typeof features_email_models;
+  "features/email/parse": typeof features_email_parse;
   "features/email/public": typeof features_email_public;
   "features/email/send": typeof features_email_send;
   "features/email/sort": typeof features_email_sort;

@@ -69,6 +69,9 @@ export const Inbound = type({
   worker: "string",
   ruleId: "string",
   at: "number",
+  // Rules beyond the main one: the address without a tag, and addresses for forms that
+  // refuse a plus. Teardown removes them too.
+  "aliasRules?": "string[]",
 })
 
 // What the token was allowed to do when it was added. Sending is unknown when the
@@ -266,6 +269,8 @@ export const vSortContext = v.union(
 export const vRecordArgs = {
   event: arkOutputToConvex(MailEvent.omit("moved")),
   move: v.boolean(),
+  // Old mail being imported: no Inbox line or workflow event.
+  quiet: v.optional(v.boolean()),
 }
 
 export const vTimeline = v.array(

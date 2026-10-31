@@ -6,7 +6,7 @@ import { components, internal } from "../../_generated/api"
 import { internalAction, internalMutation, internalQuery } from "../../_generated/server"
 import { authedMutation, authedQuery } from "../../lib/functions"
 import { seal } from "../../lib/secrets"
-import type { Doc } from "../../_generated/dataModel"
+import type { Doc, Id } from "../../_generated/dataModel"
 import { changeStatus } from "../applications/utils"
 import { boardOf } from "../jobs/boards"
 import { fireEvent } from "../automations/fire"
@@ -75,6 +75,61 @@ const taggedApplication = internalQuery({
   },
 })
 
+const knownMessage = internalQuery({
+  args: { userId: v.id("users"), messageKey: v.string() },
+  returns: v.boolean(),
+  handler: async (ctx, { userId, messageKey }) =>
+    Boolean(
+      await ctx.db
+        .query("mailEvents")
+        .withIndex("by_userId_and_messageKey", (q) =>
+          q.eq("userId", userId).eq("messageKey", messageKey)
+        )
+        .first()
+    ),
+})
+
+// Where an imported email belongs: its address, its thread, or a company it names.
+const importTarget = internalQuery({
+  args: {
+    userId: v.id("users"),
+    number: v.optional(v.number()),
+    threadKeys: v.array(v.string()),
+    mail: v.object({ from: v.string(), fromName: v.optional(v.string()), subject: v.string() }),
+  },
+  returns: v.union(v.id("applications"), v.null()),
+  handler: async (ctx, { userId, number, threadKeys, mail }) => {
+    const live = async (id: Id<"applications"> | undefined) => {
+      const found = id && (await ctx.db.get("applications", id))
+      return found && found.trashedAt === undefined ? found._id : null
+    }
+    if (number !== undefined) {
+      const tagged = await ctx.db
+        .query("applications")
+        .withIndex("by_userId_and_number", (q) => q.eq("userId", userId).eq("number", number))
+        .first()
+      const id = await live(tagged?._id)
+      if (id) return id
+    }
+    for (const key of threadKeys.slice(-20).reverse()) {
+      const earlier = await ctx.db
+        .query("mailEvents")
+        .withIndex("by_userId_and_messageKey", (q) => q.eq("userId", userId).eq("messageKey", key))
+        .first()
+      const id = await live(earlier?.applicationId)
+      if (id) return id
+    }
+    const applications = await ctx.db
+      .query("applications")
+      .withIndex("by_userId_and_trashedAt", (q) =>
+        q.eq("userId", userId).eq("trashedAt", undefined)
+      )
+      .order("desc")
+      .take(1000)
+    return (ruleMatch(mail, applications.map(candidateOf))?.id as Id<"applications">) ?? null
+  },
+})
+
 // What sorting one email needs, or null when it's gone or already sorted.
 const sortContext = internalQuery({
   args: { userId: v.id("users"), emailId: v.string() },
@@ -113,7 +168,7 @@ const sortContext = internalQuery({
 const record = internalMutation({
   args: vRecordArgs,
   returns: v.null(),
-  handler: async (ctx, { event, move }) => {
+  handler: async (ctx, { event, move, quiet }) => {
     const done = await ctx.db
       .query("mailEvents")
       .withIndex("by_emailId", (q) => q.eq("emailId", event.emailId))
@@ -135,6 +190,7 @@ const record = internalMutation({
           moved: { from: application.status, to: event.suggest },
         }),
     })
+    if (quiet) return null
     await ctx.runMutation(components.notifications.lib.notify, {
       owner: event.userId,
       kind: mailNotificationKind(event.kind, event.applicationId !== undefined),
@@ -339,6 +395,8 @@ const assign = authedMutation({
 })
 
 export const sortApi = {
+  knownMessage,
+  importTarget,
   mailBody,
   taggedApplication,
   sortContext,

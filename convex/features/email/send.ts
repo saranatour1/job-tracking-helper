@@ -7,9 +7,10 @@ import { components, internal } from "../../_generated/api"
 import { action, internalMutation, internalQuery } from "../../_generated/server"
 import { arkToConvex, checked } from "../../lib/ark"
 import { seal } from "../../lib/secrets"
-import { taggedAddress } from "./addresses"
+import { addressWithoutPlus, taggedAddress } from "./addresses"
+import { createRule } from "./cloudflare"
 import { messageIdsIn } from "./match"
-import { aad, limits, openConnection, openJson, userIdOf } from "./utils"
+import { aad, cloudflare, limits, openConnection, openJson, userIdOf } from "./utils"
 import { Received, SendMail } from "./validators"
 
 // What sending needs: the application's number, and the email being answered, sealed.
@@ -19,7 +20,14 @@ const sendContext = internalQuery({
     applicationId: v.id("applications"),
     replyTo: v.optional(v.id("mailEvents")),
   },
-  returns: v.union(v.null(), v.object({ number: v.number(), parent: v.optional(v.string()) })),
+  returns: v.union(
+    v.null(),
+    v.object({
+      number: v.number(),
+      plainAddress: v.boolean(),
+      parent: v.optional(v.string()),
+    })
+  ),
   handler: async (ctx, { userId, applicationId, replyTo }) => {
     const application = await ctx.db.get("applications", applicationId)
     if (application?.userId !== userId || application.trashedAt !== undefined) return null
@@ -28,7 +36,11 @@ const sendContext = internalQuery({
       event && event.userId === userId
         ? await ctx.runQuery(components.cloudflareEmail.lib.get, { emailId: event.emailId })
         : null
-    return { number: application.number, ...(email && { parent: email.payload }) }
+    return {
+      number: application.number,
+      plainAddress: application.plainAddress ?? false,
+      ...(email && { parent: email.payload }),
+    }
   },
 })
 
@@ -113,4 +125,36 @@ const sendFromApplication = action({
   },
 })
 
-export const sendApi = { sendContext, recordSent, sendFromApplication }
+// Most of a domain's 200 routing rules stay free for the person's own use.
+const maxPlainAddresses = 150
+
+// For a form that refuses a plus. Cloudflare can't match a pattern here, so each of these
+// needs its own routing rule, which is why it's only made when asked for.
+const makeAddressWithoutPlus = action({
+  args: { applicationId: v.id("applications") },
+  returns: v.string(),
+  handler: async (ctx, { applicationId }) => {
+    const userId = await userIdOf(ctx)
+    const { row, details, token } = await openConnection(ctx, userId)
+    if (!row.inbound || !row.allow.receive) throw new ConvexError("Set up incoming mail first.")
+    if (!row.allow.setup || !details.zoneId)
+      throw new ConvexError("Turn on “Set up Cloudflare for you” first.")
+    const context = await ctx.runQuery(internal.email.sendContext, { userId, applicationId })
+    if (!context) throw new ConvexError("That application isn't here anymore.")
+    const address = addressWithoutPlus(details.fromAddress, context.number)
+    if (context.plainAddress) return address
+    if ((row.inbound.aliasRules?.length ?? 0) >= maxPlainAddresses)
+      throw new ConvexError("That's as many of these as Cloudflare's rule limit leaves room for.")
+    const { ok } = await limits.limit(ctx, "plainAddress", { key: userId })
+    if (!ok) throw new ConvexError("Too many at once. Wait an hour and try again.")
+    const ruleId = await createRule(details.zoneId, token, address, row.inbound.worker).catch(
+      (cause: unknown) => {
+        throw cloudflare(cause)
+      }
+    )
+    await ctx.runMutation(internal.email.addAliasRule, { userId, applicationId, ruleId })
+    return address
+  },
+})
+
+export const sendApi = { sendContext, recordSent, sendFromApplication, makeAddressWithoutPlus }

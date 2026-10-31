@@ -73,6 +73,8 @@ export const limits = new RateLimiter(components.rateLimiter, {
   setUpInbound: { kind: "fixed window", rate: 5, period: HOUR },
   // Mail written by hand from an application, well above a real day of it.
   sendMail: { kind: "fixed window", rate: 30, period: 24 * HOUR },
+  importMail: { kind: "token bucket", rate: 2000, period: HOUR, capacity: 500 },
+  plainAddress: { kind: "fixed window", rate: 20, period: HOUR },
   // Enough for a busy job search, low enough that a flood can't fill the table.
   inboundEmail: { kind: "token bucket", rate: 200, period: HOUR, capacity: 50 },
 })
@@ -116,7 +118,8 @@ export const tearDown = async (ctx: ActionCtx, userId: Id<"users">) => {
       details.zoneId,
       token,
       row.inbound.worker,
-      row.inbound.ruleId
+      row.inbound.ruleId,
+      row.inbound.aliasRules
     )
 }
 

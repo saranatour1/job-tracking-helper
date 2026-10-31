@@ -112,6 +112,111 @@ describe("incoming mail", () => {
   })
 })
 
+describe("importing old mail", () => {
+  const raw = (
+    from: string,
+    subject: string,
+    id: string,
+    date = "Mon, 05 Jan 2026 10:00:00 +0000"
+  ) =>
+    `From: ${from}\r\nTo: me@other.com\r\nSubject: ${subject}\r\nMessage-ID: <${id}@y.io>\r\nDate: ${date}\r\nContent-Type: text/plain\r\n\r\nUnfortunately we won't be moving forward.\r\n`
+
+  it("files what matches at its own date, quietly, and only once", async () => {
+    const { as, hooli, t } = await setup()
+    const mail = raw("People <jobs@hooli.com>", "Your application", "one")
+    expect(await as.action(api.email.importMail, { raw: mail })).toBe("filed")
+    const [line] = await as.query(api.email.timeline, {})
+    expect(line).toMatchObject({ applicationId: hooli, kind: "rejection" })
+    expect(line?.at).toBe(Date.parse("Mon, 05 Jan 2026 10:00:00 +0000"))
+    expect(line?.suggest).toBeUndefined()
+    expect(await as.query(api.inbox.inbox)).toHaveLength(0)
+    expect(await as.action(api.email.importMail, { raw: mail })).toBe("known")
+    expect(await t.run((ctx) => ctx.db.query("mailEvents").collect())).toHaveLength(1)
+  })
+
+  it("keeps nothing that matches no application", async () => {
+    const { as, t } = await setup()
+    expect(await as.action(api.email.importMail, { raw: raw("x@shop.com", "Sale", "two") })).toBe(
+      "unmatched"
+    )
+    expect(await t.run((ctx) => ctx.db.query("mailEvents").collect())).toHaveLength(0)
+    expect(await as.query(api.email.recentMail, {})).toHaveLength(0)
+  })
+
+  it("needs Keep incoming mail on", async () => {
+    const { as, t } = await setup()
+    await t.run(async (ctx) => {
+      const row = await ctx.db.query("emailConnections").first()
+      await ctx.db.patch("emailConnections", row!._id, { allow: { ...row!.allow, receive: false } })
+    })
+    await expect(as.action(api.email.importMail, { raw: raw("a@b.c", "x", "y") })).rejects.toThrow(
+      "Keep incoming mail"
+    )
+  })
+})
+
+describe("an address without a plus", () => {
+  it("adds one routing rule, once, and files mail sent to it", async () => {
+    const { as, hooli, receive } = await setup()
+    fetchMock.mockImplementation(
+      async () =>
+        new Response(JSON.stringify({ success: true, result: { id: "rule1" } }), { status: 200 })
+    )
+    const args = { applicationId: hooli }
+    expect(await as.action(api.email.makeAddressWithoutPlus, args)).toBe("reach.app-3@example.com")
+    expect(await as.action(api.email.makeAddressWithoutPlus, args)).toBe("reach.app-3@example.com")
+    expect(fetchMock).toHaveBeenCalledTimes(1)
+    expect(JSON.parse(fetchMock.mock.calls[0]![1]!.body as string).matchers[0].value).toBe(
+      "reach.app-3@example.com"
+    )
+    expect((await as.query(api.email.connection, {}))?.tracking).toBe(true)
+    expect(await receive({ to: ["reach.app-3@example.com"] })).toMatchObject({
+      applicationId: hooli,
+      by: "tag",
+    })
+  })
+})
+
+describe("setting up incoming mail", () => {
+  it("stops, and says who gets the mail, when a rule already handles the address", async () => {
+    const { t, as } = await setup()
+    await t.run(async (ctx) => {
+      const row = await ctx.db.query("emailConnections").first()
+      const k = await keys()
+      await ctx.db.patch("emailConnections", row!._id, {
+        details: await seal(
+          k,
+          JSON.stringify({ accountId: "a", fromAddress: "reach@example.com", zoneId: "z" }),
+          aad.details(row!.userId)
+        ),
+        inboundId: undefined,
+        inbound: undefined,
+      })
+    })
+    fetchMock.mockImplementation(async (url) => {
+      const rules = (url as string).includes("/rules")
+      return new Response(
+        JSON.stringify({
+          success: true,
+          result: rules
+            ? [
+                {
+                  id: "theirs",
+                  matchers: [{ type: "literal", field: "to", value: "reach@example.com" }],
+                  actions: [{ type: "forward", value: ["me@gmail.com"] }],
+                },
+              ]
+            : { enabled: true },
+        }),
+        { status: 200 }
+      )
+    })
+    await expect(as.action(api.email.setUpInbound, {})).rejects.toThrow("me@gmail.com")
+    // Nothing was deployed: it only read.
+    expect(fetchMock.mock.calls.every(([, init]) => (init?.method ?? "GET") === "GET")).toBe(true)
+  })
+})
+
 describe("the connection", () => {
   it("only says each application has an address when mail to it would arrive", async () => {
     expect((await (await setup()).as.query(api.email.connection, {}))?.tracking).toBe(true)

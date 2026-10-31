@@ -149,13 +149,25 @@ const Compose = ({
 /** Whether mail for this application can find its way back, and the address to give out. */
 export const MailStatus = ({ a }: { a: Application }) => {
   const connection = useQuery(api.email.connection)
+  const makePlain = useAction(api.email.makeAddressWithoutPlus)
   const [copied, copy] = useActionState(async (_: boolean, address: string) => {
     await navigator.clipboard.writeText(address)
     return true
   }, false)
+  const [plain, askPlain, making] = useActionState<{ address?: string; error?: string }>(
+    async () => {
+      try {
+        return { address: await makePlain({ applicationId: a.id as Id<"applications"> }) }
+      } catch (cause) {
+        return { error: messageOf(cause) }
+      }
+    },
+    {}
+  )
   const { real } = useSource()
   if (!real || connection === undefined || a.number === undefined) return null
-  const address = connection?.tracking ? taggedAddress(connection.fromAddress, a.number) : null
+  const tagged = connection?.tracking ? taggedAddress(connection.fromAddress, a.number) : null
+  const address = plain.address ?? tagged
   return (
     <div className="bg-muted/40 flex flex-wrap items-center gap-2 rounded-lg border px-3 py-2 text-[13px]">
       <HugeiconsIcon icon={Mail01Icon} className="text-muted-foreground size-3.5 shrink-0" />
@@ -185,6 +197,16 @@ export const MailStatus = ({ a }: { a: Application }) => {
           {copied ? "Copied" : "Copy"}
         </Button>
       )}
+      {tagged && !plain.address && (
+        <Button
+          size="xs"
+          variant="ghost"
+          disabled={making}
+          onClick={() => startTransition(() => askPlain())}
+        >
+          Form refuses a +
+        </Button>
+      )}
       {connection?.allow.send && (
         <Compose
           applicationId={a.id as Id<"applications">}
@@ -194,6 +216,11 @@ export const MailStatus = ({ a }: { a: Application }) => {
             </Button>
           }
         />
+      )}
+      {plain.error && (
+        <p role="alert" className="text-destructive w-full text-xs">
+          {plain.error}
+        </p>
       )}
     </div>
   )

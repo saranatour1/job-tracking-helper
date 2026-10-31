@@ -578,14 +578,21 @@ isn't shown. Email lines are opened from their sealed note only when you look.
    domain; the app won't turn it on, since that changes the domain's MX records.
    That mail then stops going anywhere else, so you can give an address for the Worker to
    forward a copy to. Cloudflare must have verified it, and a failed forward never loses
-   the app's copy. "Stop incoming mail" removes both.
+   the app's copy. If a routing rule already handles the address, setup stops and says so,
+   because Cloudflare only runs the first of two rules. "Stop incoming mail" removes both.
 5. **Recent mail:** the 10 newest, opened for you.
 6. **Disconnect:** removes the Worker, the rule and the saved token. Your emails stay.
 7. **On an application,** its Activity shows the address to give out, like
    `you+app-12@yourdomain`, with Copy, or says why mail isn't tracked yet. **Email** and
    **Reply** send from your plain address (`api.email.sendFromApplication`, 30 a day), with
    replies aimed at the application's address. Sent mail joins its Activity, with no Inbox
-   line or workflow event.
+   line or workflow event. A workflow's Send email about an application does the same.
+   **Form refuses a +** makes `you.app-12@yourdomain` for that application
+   (`api.email.makeAddressWithoutPlus`). Cloudflare can't match a pattern, so each needs its
+   own routing rule. They stop at 150, and stopping incoming mail removes them.
+8. **Import old mail** takes .eml or .mbox files (`api.email.importMail`). It keeps only mail
+   matching an application by its address, thread or company name, and skips what's already
+   here. It uses no AI, and adds no Inbox line, workflow event or suggestion.
 
 **By itself**
 

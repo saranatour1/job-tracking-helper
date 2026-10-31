@@ -282,8 +282,14 @@ const emailOf = internalQuery({
     if (block?.kind !== "sendEmail")
       return { userId: found.userId, subject: found.name, text: entry.output }
     const { values } = await factsOf(ctx, found)
+    const id = found.context?.applicationId
+    const application = id && (await ctx.db.get("applications", id))
     return {
       userId: found.userId,
+      ...(application &&
+        application.trashedAt === undefined && {
+          application: { id: application._id, number: application.number },
+        }),
       to: fill(block.to, values).trim(),
       subject: fill(block.subject, values).slice(0, limits.subject),
       text: fill(block.text, values),

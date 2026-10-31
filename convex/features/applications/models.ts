@@ -13,6 +13,8 @@ export const applicationsTable = defineTable(
       "goalId?": arkId("goals"),
       // Numbered 1, 2, 3… per person, shown as APP-1. Set by the server.
       number: "number",
+      // Has a routing rule for its address without a plus, for forms that refuse one.
+      "plainAddress?": "boolean",
       // Off the board but kept; after 30 days it moves to the Trash.
       "archivedAt?": "number",
       // In the Trash, out of everything else.
