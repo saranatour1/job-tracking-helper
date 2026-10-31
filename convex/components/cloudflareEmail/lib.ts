@@ -157,8 +157,10 @@ export const page = query({
   }),
   handler: async (ctx, { cursor }) => {
     const result = await ctx.db.query("emails").paginate({ cursor, numItems: 100 })
+    // Named, since a page also carries fields this doesn't return.
     return {
-      ...result,
+      isDone: result.isDone,
+      continueCursor: result.continueCursor,
       page: result.page.map(({ _id, owner, payload, error }) => ({ _id, owner, payload, error })),
     }
   },
