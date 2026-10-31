@@ -52,7 +52,13 @@ const recordSent = internalMutation({
   },
   returns: v.null(),
   handler: async (ctx, event) => {
-    await ctx.db.insert("mailEvents", { ...event, kind: "other", at: Date.now(), by: "sent" })
+    const id = await ctx.db.insert("mailEvents", {
+      ...event,
+      kind: "other",
+      at: Date.now(),
+      by: "sent",
+    })
+    await ctx.scheduler.runAfter(0, internal.contacts.learn, { eventId: id })
     return null
   },
 })

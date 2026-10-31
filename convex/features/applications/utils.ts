@@ -67,6 +67,12 @@ export const deleteApplication = async (ctx: MutationCtx, application: Doc<"appl
     )
     .take(50))
     await ctx.db.patch("prefills", prefill._id, { applicationId: undefined })
+  for await (const contact of ctx.db
+    .query("contacts")
+    .withIndex("by_userId_and_applicationId", (q) =>
+      q.eq("userId", userId).eq("applicationId", applicationId)
+    ))
+    await ctx.db.patch("contacts", contact._id, { applicationId: undefined })
   await ctx.db.delete("applications", applicationId)
 }
 

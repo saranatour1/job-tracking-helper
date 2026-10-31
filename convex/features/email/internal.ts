@@ -136,10 +136,10 @@ const resealConnection = internalMutation({
 // to move every connection and email to it. Then the old key can be removed.
 const resealAll = internalAction({
   args: {},
-  returns: v.object({ connections: v.number(), emails: v.number() }),
+  returns: v.object({ connections: v.number(), emails: v.number(), contacts: v.number() }),
   handler: async (ctx) => {
     const k = await keys()
-    const done = { connections: 0, emails: 0 }
+    const done = { connections: 0, emails: 0, contacts: 0 }
     let cursor: string | null = null
     for (;;) {
       const result: {
@@ -176,6 +176,25 @@ const resealAll = internalAction({
           error: email.error && (await reseal(k, email.error, aad.email(email.owner))),
         })
         done.emails++
+      }
+      if (result.isDone) break
+      cursor = result.continueCursor
+    }
+    cursor = null
+    for (;;) {
+      const result: {
+        page: { id: Id<"contacts">; userId: string; details: string }[]
+        isDone: boolean
+        continueCursor: string
+      } = await ctx.runQuery(internal.contacts.contactsPage, { cursor })
+      for (const contact of result.page) {
+        if (!isStale(k, contact.details)) continue
+        await ctx.runMutation(internal.contacts.resealContact, {
+          id: contact.id,
+          from: contact.details,
+          details: await reseal(k, contact.details, `contact:${contact.userId}`),
+        })
+        done.contacts++
       }
       if (result.isDone) return done
       cursor = result.continueCursor

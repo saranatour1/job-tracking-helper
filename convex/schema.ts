@@ -3,6 +3,7 @@ import { applicationsTable } from "./features/applications/models"
 import { automationRunsTable, automationsTable } from "./features/automations/models"
 import { bookingPagesTable } from "./features/booking/models"
 import { calendarEventsTable, calendarSettingsTable } from "./features/calendar/models"
+import { contactsTable } from "./features/contacts/models"
 import { emailConnectionsTable, mailEventsTable } from "./features/email/models"
 import { goalsTable } from "./features/goals/models"
 import { jobBoardsTable, jobsTable } from "./features/jobs/models"
@@ -40,11 +41,11 @@ export default defineSchema({
   loopRuns: loopRunsTable,
   jobLeads: jobLeadsTable,
   prefills: prefillsTable,
-  // Replaced by `prefills`; nothing writes here any more.
 
   // Mail.
   emailConnections: emailConnectionsTable,
   mailEvents: mailEventsTable,
+  contacts: contactsTable,
 
   // Time.
   calendarEvents: calendarEventsTable,
