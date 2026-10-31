@@ -68,7 +68,7 @@ export const answerRowsOf = (form: Form): EntryRow[] => [
       value: valueOf(form, key),
       order: 0,
     })),
-  ...(form.custom ?? []).map((c, order) => ({
+  ...form.custom.map((c, order) => ({
     kind: "answer" as const,
     group: "own",
     key: "custom",
@@ -103,7 +103,7 @@ export const formOf = (workMode: Form["workMode"], tags: TagRow[], answers: Entr
   const form = Preferences.assert(emptyPreferences)
   form.workMode = workMode
   for (const tag of byOrder(tags)) form[tagLists[tag.kind]].push(tag.value)
-  const custom: NonNullable<Form["custom"]> = []
+  const custom: Form["custom"] = []
   for (const row of byOrder(answers)) {
     if (row.key === "custom") custom.push({ question: row.label, answer: row.value })
     // hasOwn, not `in`: `in` also matches inherited names such as "constructor".

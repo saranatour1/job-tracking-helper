@@ -59,7 +59,7 @@ const blocks: { label: string; span: string; color: string; filled: (v: Values) 
     label: "Your Q&A",
     span: "col-span-2",
     color: "bg-pink-500/80",
-    filled: (v) => (v.custom ?? []).some((c) => c.question.trim()),
+    filled: (v) => v.custom.some((c) => c.question.trim()),
   },
 ]
 

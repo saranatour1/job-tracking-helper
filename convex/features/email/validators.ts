@@ -147,7 +147,7 @@ export const MailEvent = type({
   "moved?": Moved,
   "messageKey?": "string",
   by: "'rules' | 'jev' | 'you' | 'thread' | 'tag' | 'sent'",
-  "box?": "'inbox' | 'sent' | 'archived' | 'trash'",
+  box: "'inbox' | 'sent' | 'archived' | 'trash'",
   "readAt?": "number",
   "labels?": "string[]",
 })
@@ -258,7 +258,7 @@ export const vSortContext = v.union(
 )
 
 export const vRecordArgs = {
-  event: arkOutputToConvex(MailEvent.omit("moved")),
+  event: arkOutputToConvex(MailEvent.omit("moved", "box")),
   move: v.boolean(),
   quiet: v.optional(v.boolean()),
 }

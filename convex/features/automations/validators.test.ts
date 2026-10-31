@@ -79,6 +79,7 @@ describe("paths", () => {
     const manual = { kind: "manual" as const }
     const decide = (question: string, ...labels: string[]) => ({
       kind: "decide" as const,
+      id: "ask",
       question,
       paths: labels.map((label, i) => ({ label, steps: i === 0 ? [notify("a")] : [] })),
     })

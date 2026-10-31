@@ -39,6 +39,7 @@ describe("the mail timeline", () => {
           note,
           at,
           by: "rules",
+          box: "inbox",
         })
       await ctx.db.insert("mailEvents", {
         userId,
@@ -48,6 +49,7 @@ describe("the mail timeline", () => {
         note,
         at: 1000,
         by: "rules",
+        box: "inbox",
       })
     })
     const events = await t.withIdentity({ subject: userId }).query(api.api.email.timeline, {})

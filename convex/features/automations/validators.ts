@@ -60,7 +60,7 @@ export const vStep = v.union(
   v.object({ kind: v.literal("parallel"), paths: vPaths }),
   v.object({
     kind: v.literal("decide"),
-    id: v.optional(v.string()),
+    id: v.string(),
     question: v.string(),
     paths: vPaths,
   })
@@ -255,7 +255,7 @@ export const problemOf = (name: string, trigger: Trigger, steps: Step[]) => {
       return `Ask Jev a question of up to ${limits.question} characters.`
     if (step.paths.length < 2 || step.paths.length > limits.paths)
       return `${what} has 2 to ${limits.paths} paths.`
-    if (step.kind === "decide" && step.id !== undefined && !/^[\w-]{1,40}$/.test(step.id))
+    if (step.kind === "decide" && !/^[\w-]{1,40}$/.test(step.id))
       return "That Ask Jev step's id isn't one the app made."
     const labels = step.paths.map((p) => p.label.trim().toLowerCase())
     if (step.kind === "decide" && new Set(labels).size !== labels.length)

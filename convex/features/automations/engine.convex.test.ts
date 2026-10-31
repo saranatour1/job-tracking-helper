@@ -476,6 +476,7 @@ describe("a workflow run", () => {
       steps: [
         {
           kind: "decide",
+          id: "ask",
           question: "Worth it?",
           paths: [
             { label: "Yes", steps: [{ kind: "notify", message: "yes" }] },
@@ -634,6 +635,7 @@ describe("a workflow run", () => {
       steps: [
         {
           kind: "decide",
+          id: "ask",
           question: "Worth it?",
           paths: [
             { label: "Yes", steps: [{ kind: "notify", message: "yes" }] },
@@ -654,6 +656,7 @@ describe("a workflow run", () => {
     const { t, as, userId } = await setup()
     const loopId = await t.run((ctx) =>
       ctx.db.insert("loops", {
+        show: 5,
         userId,
         name: "Frontend",
         template: "custom",
@@ -701,6 +704,7 @@ describe("a workflow run", () => {
     const { t, userId } = await setup()
     const loopId = await t.run((ctx) =>
       ctx.db.insert("loops", {
+        show: 5,
         userId,
         name: "Mine",
         template: "custom",

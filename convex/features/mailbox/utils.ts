@@ -22,4 +22,3 @@ export const sameThread = (a: ThreadEmail, b: ThreadEmail) =>
   threadSubject(a.subject) === threadSubject(b.subject) &&
   a.applicationId === b.applicationId &&
   (a.applicationId !== undefined || otherSide(a) === otherSide(b))
-

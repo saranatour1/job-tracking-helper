@@ -204,7 +204,7 @@ const get = authedQuery({
           ? {
               fit: lead.fit,
               reasons: lead.reasons,
-              ...(lead.verdict && { verdict: lead.verdict }),
+              verdict: lead.verdict,
               ...(lead.checks && { checks: lead.checks }),
               ...(lead.location && { location: lead.location }),
             }

@@ -14,4 +14,3 @@ export const byKey = (ctx: MutationCtx, userId: Id<"users">, key: string) =>
     .query("calendarEvents")
     .withIndex("by_userId_and_key", (q) => q.eq("userId", userId).eq("key", key))
     .unique()
-

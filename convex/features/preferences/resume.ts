@@ -96,7 +96,11 @@ const review = action({
         note: "Jev couldn't read it just now, so this is the ATS check alone. Review again later for suggestions.",
       }),
     }
-    await ctx.runMutation(internal.api.preferences.setResumeReview, { userId, text, review: reviewed })
+    await ctx.runMutation(internal.api.preferences.setResumeReview, {
+      userId,
+      text,
+      review: reviewed,
+    })
     return reviewed
   },
 })

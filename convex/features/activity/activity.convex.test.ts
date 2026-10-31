@@ -80,7 +80,8 @@ const setup = async () => {
   })
   const as = t.withIdentity({ subject: userId })
   const events = async (failed?: boolean) =>
-    (await as.query(api.api.activity.page, { ...(failed && { failed }), paginationOpts: first })).page
+    (await as.query(api.api.activity.page, { ...(failed && { failed }), paginationOpts: first }))
+      .page
   return { t, as, userId, otherId, hooli, events, k }
 }
 
@@ -233,7 +234,9 @@ describe("activity", () => {
         history: [],
       })
     )
-    await expect(as.mutation(api.api.applications.addNote, { id: theirs, text: "x" })).rejects.toThrow()
+    await expect(
+      as.mutation(api.api.applications.addNote, { id: theirs, text: "x" })
+    ).rejects.toThrow()
     expect(await events()).toEqual([])
   })
 

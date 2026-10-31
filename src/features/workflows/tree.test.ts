@@ -59,6 +59,7 @@ describe("editing steps", () => {
   it("keeps an Ask Jev answer when its last step goes", () => {
     const decide: Step = {
       kind: "decide",
+      id: "ask",
       question: "?",
       paths: [
         { label: "Yes", steps: [notify("x")] },
@@ -106,6 +107,7 @@ describe("layout", () => {
     const { edges } = layout([
       {
         kind: "decide",
+        id: "ask",
         question: "?",
         paths: [
           { label: "Yes", steps: [notify("x")] },

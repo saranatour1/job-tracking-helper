@@ -34,8 +34,6 @@ export const NewLoop = type({
 
 export const Judgment = type({
   match: "number",
-  "avoids?": "number",
-  "inPlace?": "number",
   level: "string",
   model: "string",
 })
@@ -63,7 +61,7 @@ export const JobLead = type({
   reasons: "string[]",
   status: type.enumerated(...leadStatuses),
   "jobId?": arkId("jobs"),
-  "verdict?": type.enumerated(...verdicts),
+  verdict: type.enumerated(...verdicts),
   "checks?": Check.array(),
   "judgment?": Judgment,
   "feedback?": "'more' | 'less'",
@@ -114,7 +112,7 @@ export const Loop = type({
   answers: LoopAnswers,
   "prompt?": "string",
   daily: "number",
-  "show?": "number",
+  show: "number",
   at: "string",
   timeZone: "string",
   active: "boolean",
