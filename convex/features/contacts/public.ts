@@ -1,3 +1,4 @@
+import { paginationOptsValidator, paginationResultValidator } from "convex/server"
 import { ConvexError, v } from "convex/values"
 import { internal } from "../../_generated/api"
 import { action } from "../../_generated/server"
@@ -6,23 +7,24 @@ import { authedMutation, authedQuery } from "../../lib/functions"
 import { seal } from "../../lib/secrets"
 import { keys, openJson, secretKeys, threadKeyOf, userIdOf } from "../email/utils"
 import { contactAad } from "./internal"
-import { ContactDetails, maxContacts, SaveContact, vContactRow } from "./validators"
+import { ContactDetails, SaveContact, vContactRow } from "./validators"
 import { logEdit, logEditFromAction } from "../activity/utils"
 
-// Everyone you've dealt with, opened for you. By company, the one you've emailed most first.
+// Everyone you've dealt with, a page at a time, latest first, so only what's on screen gets
+// opened. The page sorts what it has by company.
 const list = authedQuery({
-  args: {},
-  returns: v.array(vContactRow),
-  handler: async (ctx) => {
-    const k = await keys().catch(() => null)
-    if (!k) return []
-    const rows = await ctx.db
+  args: { paginationOpts: paginationOptsValidator },
+  returns: paginationResultValidator(vContactRow),
+  handler: async (ctx, { paginationOpts }) => {
+    const result = await ctx.db
       .query("contacts")
       .withIndex("by_userId_and_lastAt", (q) => q.eq("userId", ctx.userId))
       .order("desc")
-      .take(maxContacts)
+      .paginate(paginationOpts)
+    const k = await keys().catch(() => null)
+    if (!k) return { ...result, page: [] }
     const opened = await Promise.all(
-      rows
+      result.page
         .filter((c) => !c.hidden)
         .map(async (c) => {
           const details = await openJson(k, c.details, contactAad(ctx.userId), ContactDetails)
@@ -37,11 +39,7 @@ const list = authedQuery({
           )
         })
     )
-    return opened
-      .filter((c) => c !== null)
-      .sort(
-        (a, b) => a.company.localeCompare(b.company) || b.count - a.count || b.lastAt - a.lastAt
-      )
+    return { ...result, page: opened.filter((c) => c !== null) }
   },
 })
 

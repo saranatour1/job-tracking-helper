@@ -10,8 +10,11 @@ import cloudflareSchema from "../../components/cloudflareEmail/schema"
 import notificationsSchema from "../../components/notifications/schema"
 import { seal } from "../../lib/secrets"
 import schema from "../../schema"
+import { byCompany } from "./rules"
 import { deleteApplication } from "../applications/utils"
 import { aad, keys } from "../email/utils"
+
+const everyone = { paginationOpts: { numItems: 100, cursor: null } }
 
 const modules = import.meta.glob([
   "../../**/*.ts",
@@ -89,7 +92,7 @@ describe("learning contacts from mail", () => {
     await receive({ from: "Pat@hooli.com", fromName: "Pat Lee" })
     await receive({ from: "pat@hooli.com", fromName: "Pat Lee" })
     await receive({ from: "no-reply@hooli.com" })
-    const list = await as.query(api.api.contacts.list, {})
+    const list = (await as.query(api.api.contacts.list, everyone)).page
     expect(list).toHaveLength(1)
     expect(list[0]).toMatchObject({
       company: "Hooli",
@@ -105,13 +108,15 @@ describe("learning contacts from mail", () => {
     await receive({ from: "sam@hooli.com", fromName: "Sam" })
     await receive({ from: "pat@hooli.com", fromName: "Pat" })
     await receive({ from: "pat@hooli.com", fromName: "Pat" })
-    expect((await as.query(api.api.contacts.list, {})).map((c) => c.name)).toEqual(["Pat", "Sam"])
+    expect(
+      byCompany((await as.query(api.api.contacts.list, everyone)).page).map((c) => c.name)
+    ).toEqual(["Pat", "Sam"])
   })
 
   it("keeps your edits when more mail arrives, and still counts it", async () => {
     const { as, receive } = await setup()
     await receive({ from: "pat@hooli.com", fromName: "Pat" })
-    const [pat] = await as.query(api.api.contacts.list, {})
+    const [pat] = (await as.query(api.api.contacts.list, everyone)).page
     await as.action(api.api.contacts.save, {
       id: pat!.id,
       company: "Hooli",
@@ -122,7 +127,7 @@ describe("learning contacts from mail", () => {
       notes: "Prefers mornings",
     })
     await receive({ from: "pat@hooli.com", fromName: "Pat" })
-    expect((await as.query(api.api.contacts.list, {}))[0]).toMatchObject({
+    expect((await as.query(api.api.contacts.list, everyone)).page[0]).toMatchObject({
       name: "Patricia Lee",
       title: "Recruiter",
       count: 2,
@@ -134,7 +139,7 @@ describe("learning contacts from mail", () => {
     expect(await as.query(api.api.contacts.known, { email: "pat@hooli.com" })).toBe(false)
     await receive({ from: "pat@hooli.com" })
     expect(await as.query(api.api.contacts.known, { email: "PAT@hooli.com" })).toBe(true)
-    const [pat] = await as.query(api.api.contacts.list, {})
+    const [pat] = (await as.query(api.api.contacts.list, everyone)).page
     await as.mutation(api.api.contacts.remove, { id: pat!.id })
     expect(await as.query(api.api.contacts.known, { email: "pat@hooli.com" })).toBe(false)
   })
@@ -142,10 +147,27 @@ describe("learning contacts from mail", () => {
   it("doesn't bring back someone you removed", async () => {
     const { as, receive } = await setup()
     await receive({ from: "pat@hooli.com" })
-    const [pat] = await as.query(api.api.contacts.list, {})
+    const [pat] = (await as.query(api.api.contacts.list, everyone)).page
     await as.mutation(api.api.contacts.remove, { id: pat!.id })
     await receive({ from: "pat@hooli.com" })
-    expect(await as.query(api.api.contacts.list, {})).toEqual([])
+    expect((await as.query(api.api.contacts.list, everyone)).page).toEqual([])
+  })
+})
+
+describe("listing", () => {
+  it("comes a page at a time, and every contact turns up once", async () => {
+    const { as, receive } = await setup()
+    for (const name of ["ann", "bea", "cam"]) await receive({ from: `${name}@hooli.com` })
+    const args = { numItems: 2, cursor: null }
+    const first = await as.query(api.api.contacts.list, { paginationOpts: args })
+    expect(first.page).toHaveLength(2)
+    expect(first.isDone).toBe(false)
+    const second = await as.query(api.api.contacts.list, {
+      paginationOpts: { numItems: 2, cursor: first.continueCursor },
+    })
+    expect(new Set([...first.page, ...second.page].map((c) => c.email))).toEqual(
+      new Set(["ann@hooli.com", "bea@hooli.com", "cam@hooli.com"])
+    )
   })
 })
 
@@ -159,17 +181,17 @@ describe("your own contacts", () => {
     await expect(
       as.action(api.api.contacts.save, { ...blank, email: "pat@hooli.com" })
     ).rejects.toThrow("already have")
-    expect((await as.query(api.api.contacts.list, {}))[0]?.email).toBe("pat@hooli.com")
+    expect((await as.query(api.api.contacts.list, everyone)).page[0]?.email).toBe("pat@hooli.com")
   })
 
   it("learns from mail you file by hand", async () => {
     const { t, as, hooli, receive } = await setup()
     await receive({ from: "stranger@elsewhere.org", subject: "Nothing to match" })
-    expect(await as.query(api.api.contacts.list, {})).toEqual([])
+    expect((await as.query(api.api.contacts.list, everyone)).page).toEqual([])
     const [line] = await as.query(api.api.email.timeline, {})
     await as.mutation(api.api.email.assign, { eventId: line!.id, applicationId: hooli })
     await t.finishAllScheduledFunctions(vi.runAllTimers)
-    expect((await as.query(api.api.contacts.list, {})).map((c) => c.email)).toEqual([
+    expect((await as.query(api.api.contacts.list, everyone)).page.map((c) => c.email)).toEqual([
       "stranger@elsewhere.org",
     ])
   })
@@ -177,10 +199,10 @@ describe("your own contacts", () => {
   it("lets you add back an address you removed", async () => {
     const { as, receive } = await setup()
     await receive({ from: "pat@hooli.com" })
-    const [pat] = await as.query(api.api.contacts.list, {})
+    const [pat] = (await as.query(api.api.contacts.list, everyone)).page
     await as.mutation(api.api.contacts.remove, { id: pat!.id })
     await as.action(api.api.contacts.save, { ...blank, email: "pat@hooli.com", name: "Pat" })
-    expect((await as.query(api.api.contacts.list, {}))[0]?.name).toBe("Pat")
+    expect((await as.query(api.api.contacts.list, everyone)).page[0]?.name).toBe("Pat")
   })
 
   it("keeps a contact when its application is deleted, unlinked", async () => {
@@ -189,7 +211,7 @@ describe("your own contacts", () => {
     await t.run(async (ctx) => {
       await deleteApplication(ctx, (await ctx.db.get("applications", hooli))!)
     })
-    const [pat] = await as.query(api.api.contacts.list, {})
+    const [pat] = (await as.query(api.api.contacts.list, everyone)).page
     expect(pat?.company).toBe("Hooli")
     expect(pat?.applicationId).toBeUndefined()
   })
@@ -197,11 +219,11 @@ describe("your own contacts", () => {
   it("keeps one person's contacts from another", async () => {
     const { t, as, receive } = await setup()
     await receive({ from: "pat@hooli.com" })
-    const [pat] = await as.query(api.api.contacts.list, {})
+    const [pat] = (await as.query(api.api.contacts.list, everyone)).page
     const other = t.withIdentity({
       subject: await t.run((ctx) => ctx.db.insert("users", { name: "Other" })),
     })
-    expect(await other.query(api.api.contacts.list, {})).toEqual([])
+    expect((await other.query(api.api.contacts.list, everyone)).page).toEqual([])
     await expect(other.mutation(api.api.contacts.remove, { id: pat!.id })).rejects.toThrow(
       "isn't yours"
     )

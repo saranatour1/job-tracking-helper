@@ -50,9 +50,6 @@ export const Contact = type({
   "hidden?": "boolean",
 })
 
-// More than a job search meets. Past it the most recently seen are kept on the page.
-export const maxContacts = 1000
-
 export const vContactRow = v.object({
   id: v.id("contacts"),
   company: v.string(),
