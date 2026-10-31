@@ -25,18 +25,30 @@ const route = getRouteApi("/_app/activity")
 const pageSize = 30
 
 const workNames: Record<string, string> = {
-  "application.added": "Application",
-  "application.status": "Application",
-  "booking.new": "Booking",
-  "loop.run": "Loop",
   "mail.received": "Email in",
   "mail.send": "Email out",
-  "mail.setup": "Email setup",
   "prefill.live": "Browser",
   "prefill.prepare": "Prepared",
   "prefill.sent": "Sent",
-  "workflow.run": "Workflow",
 }
+
+// Everything else by what it's about: loop.run and loop.update are both a Loop.
+const areaNames: Record<string, string> = {
+  account: "Account",
+  application: "Application",
+  booking: "Booking",
+  calendar: "Calendar",
+  contact: "Contact",
+  goal: "Goal",
+  loop: "Loop",
+  mail: "Email",
+  preferences: "Preferences",
+  prefill: "Prefilled",
+  view: "View",
+  workflow: "Workflow",
+}
+
+const nameOf = (work: string) => workNames[work] ?? areaNames[work.split(".")[0] ?? ""] ?? work
 
 const when = (ms: number) =>
   new Intl.DateTimeFormat("en-US", {
@@ -145,15 +157,19 @@ const EventLink = ({ event }: { event: Event }) => {
     return open(<Link to="/workflows/$id" params={{ id: event.automationId }} />)
   if (event.applicationId) return open(<Link to="/" search={{ app: event.applicationId }} />)
   if (event.work === "loop.run") return open(<Link to="/loops" />)
-  if (event.work === "mail.setup") return open(<Link to="/account" />)
+  if (
+    event.work.startsWith("account.") ||
+    event.work === "mail.setup" ||
+    event.work === "mail.connect"
+  )
+    return open(<Link to="/account" />)
+  if (event.work.startsWith("preferences.")) return open(<Link to="/preferences" />)
   return null
 }
 
 const EventRow = ({ event }: { event: Event }) => (
   <li className="flex flex-wrap items-center gap-x-3 gap-y-1 border-b py-2.5 text-[13px]">
-    <span className="text-muted-foreground w-20 shrink-0 text-xs">
-      {workNames[event.work] ?? event.work}
-    </span>
+    <span className="text-muted-foreground w-20 shrink-0 text-xs">{nameOf(event.work)}</span>
     <span className="flex min-w-40 flex-1 flex-col gap-0.5">
       <span className="break-words">{event.summary ?? event.outcome}</span>
       {event.error && (
@@ -175,6 +191,7 @@ const EventRow = ({ event }: { event: Event }) => (
 )
 
 const Events = ({ failed }: { failed: boolean }) => {
+  const joinedAt = useQuery(api.activity.joinedAt)
   const { results, status, loadMore } = usePaginatedQuery(
     api.activity.page,
     failed ? { failed } : {},
@@ -182,15 +199,20 @@ const Events = ({ failed }: { failed: boolean }) => {
   )
   return (
     <>
-      {status !== "LoadingFirstPage" && results.length === 0 && (
-        <p className="text-muted-foreground text-[13px]">
-          {failed ? "Nothing has failed." : "Nothing yet."}
-        </p>
+      {failed && status !== "LoadingFirstPage" && results.length === 0 && (
+        <p className="text-muted-foreground text-[13px]">Nothing has failed.</p>
       )}
       <ul>
         {results.map((event) => (
           <EventRow key={event._id} event={event} />
         ))}
+        {!failed && status === "Exhausted" && joinedAt && (
+          <li className="flex flex-wrap items-center gap-x-3 gap-y-1 py-2.5 text-[13px]">
+            <span className="text-muted-foreground w-20 shrink-0 text-xs">Account</span>
+            <span className="min-w-40 flex-1">You joined</span>
+            <time className="text-muted-foreground shrink-0 text-xs">{when(joinedAt)}</time>
+          </li>
+        )}
       </ul>
       {status === "CanLoadMore" && (
         <div className="text-center">
@@ -250,7 +272,7 @@ export const Activity = () => {
         <main className={pageBody}>
           <PageIntro
             title="Activity"
-            description="What's happened for you: loops, applications, email, workflows and bookings, and why anything failed."
+            description="Everything on your account since you joined: what you changed, what the app did for you, and why anything failed."
           />
           <div className="flex flex-wrap gap-1">
             {tabs.map((tab) => (

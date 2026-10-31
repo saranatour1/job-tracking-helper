@@ -438,12 +438,16 @@ Previews are the same text as plain words.
    Applied (or moves the one a loop already made), saved answers get their usage stamped,
    and the browser closes. Once only: a sent posting stays closed.
 6. **Activity** (`/activity`) has three views, with what's showing in the URL:
-   - **Everything** (`api.activity.page`): what's happened for you, newest first, 30 at a
-     time, with **Open** to go to it. Loop runs, prepared and sent applications, the live
-     browser, new applications and status changes, email in and out, incoming mail setup,
-     workflow runs and bookings. Each row comes from that work's evlog event (`keepLog`), so
+   - **Everything** (`api.activity.page`): your account since you joined, newest first, 30 at
+     a time, with **Open** to go to it. What the app did: loop runs, prepared and sent
+     applications, the live browser, email in and out, workflow runs and bookings. What you
+     changed: preferences, saved answers, your resume, profile and settings, applications and
+     their notes, goals, loops, workflows, views, contacts, calendar events, booking pages,
+     email folders, labels, drafts and templates. **You joined** is the last line, read off
+     the account, so it never ages out. Sign-ins aren't listed. Each row comes from that work's evlog event (`keepLog`), so
      the Convex logs and this page say the same thing. Mail rows name the company only,
-     never a subject or an address, and evlog masks any address in an error.
+     never a subject or an address, and evlog masks any address in an error. Rows for your edits
+     say what kind of thing changed, never what you wrote.
    - **Failed** (`?show=failed`): only what failed, with why.
    - **Applications** (`?show=applications`): what's finished, with the answers used, what
      had no saved answer (each with **Add to saved answers**), and **Try again**. A line on

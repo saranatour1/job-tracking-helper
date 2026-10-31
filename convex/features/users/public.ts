@@ -7,7 +7,7 @@ import { deleteNotifications } from "../notifications/utils"
 import { deleteViews } from "../views/utils"
 import { deleteGoals } from "../goals/utils"
 import { deleteContacts } from "../contacts/utils"
-import { deleteActivity } from "../activity/utils"
+import { deleteActivity, logEdit } from "../activity/utils"
 import { deleteMailbox } from "../mailbox/utils"
 import { deletePrefills } from "../prefilled/utils"
 import { deleteCalendar } from "../calendar/utils"
@@ -55,6 +55,7 @@ const updateProfile = arkMutation({
       github: github || undefined,
       x: x || undefined,
     })
+    await logEdit(ctx, ctx.userId, "account.profile", "Updated your profile")
     return null
   },
 })
@@ -83,6 +84,12 @@ const setImage = authedMutation({
     const user = await ctx.db.get("users", ctx.userId)
     if (user?.imageId && user.imageId !== imageId) await ctx.storage.delete(user.imageId)
     await ctx.db.patch("users", ctx.userId, { imageId })
+    await logEdit(
+      ctx,
+      ctx.userId,
+      "account.photo",
+      imageId ? "Changed your photo" : "Removed your photo"
+    )
     return null
   },
 })

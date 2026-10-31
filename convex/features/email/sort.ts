@@ -10,7 +10,6 @@ import {
   internalQuery,
 } from "../../_generated/server"
 import { workLog } from "../../lib/log"
-import { keepLog, keepLogFromAction, reasonOf } from "../activity/utils"
 import { authedMutation, authedQuery } from "../../lib/functions"
 import { seal } from "../../lib/secrets"
 import type { Doc, Id } from "../../_generated/dataModel"
@@ -33,6 +32,7 @@ import {
   tagMatch,
 } from "./match"
 import { MailNote, Received, vSortContext, vRecordArgs, vTimeline, vMailBody } from "./validators"
+import { keepLog, keepLogFromAction, logEdit, reasonOf } from "../activity/utils"
 
 // The application an earlier email in the same thread was filed under, newest first.
 const threadOf = internalQuery({
@@ -408,6 +408,13 @@ const assign = authedMutation({
     // Filed by hand, so nothing has learned from it yet.
     if (application && !event.applicationId)
       await ctx.scheduler.runAfter(0, internal.contacts.learn, { eventId })
+    await logEdit(
+      ctx,
+      ctx.userId,
+      "mail.assign",
+      application ? `Moved an email to ${application.company}` : "Moved an email to Unsorted",
+      applicationId && { applicationId }
+    )
     return null
   },
 })

@@ -12,6 +12,7 @@ import {
   AddNote,
 } from "./validators"
 import { own, capped, logNewApplication, nextNumber, changeStatus } from "./utils"
+import { logEdit } from "../activity/utils"
 
 const list = authedQuery({
   args: {},
@@ -56,8 +57,9 @@ const update = arkMutation({
   args: UpdateApplication,
   returns: v.null(),
   handler: async (ctx, { id, ...patch }) => {
-    await own(ctx, ctx.userId, id)
+    const { company } = await own(ctx, ctx.userId, id)
     await ctx.db.patch("applications", id, patch)
+    await logEdit(ctx, ctx.userId, "application.edit", `Edited ${company}`, { applicationId: id })
     return null
   },
 })
@@ -82,6 +84,13 @@ const setGoal = authedMutation({
     await ctx.db.patch("applications", id, { goalId })
     if (goalId && goalId !== application.goalId)
       await fireEvent(ctx, ctx.userId, { kind: "goal", goalId, applicationId: id })
+    await logEdit(
+      ctx,
+      ctx.userId,
+      "application.goal",
+      `Changed the goal on ${application.company}`,
+      { applicationId: id }
+    )
     return null
   },
 })
@@ -93,6 +102,9 @@ const addNote = arkMutation({
     const application = await own(ctx, ctx.userId, id)
     await ctx.db.patch("applications", id, {
       notes: capped([...(application.notes ?? []), { text, at: Date.now() }], limits.notes),
+    })
+    await logEdit(ctx, ctx.userId, "application.note", `Added a note to ${application.company}`, {
+      applicationId: id,
     })
     return null
   },

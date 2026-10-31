@@ -17,6 +17,7 @@ import {
   SetResume,
 } from "./validators"
 import { rowOf, upsert, tagsOf, writeAnswers, writeFields, markOnboarded } from "./utils"
+import { logEdit } from "../activity/utils"
 
 // Settings and the resume. Tags and entries come from the paginated queries below.
 const get = authedQuery({
@@ -64,6 +65,7 @@ const save = arkMutation({
   handler: async (ctx, form) => {
     await writeAnswers(ctx, ctx.userId, form)
     await markOnboarded(ctx, ctx.userId)
+    await logEdit(ctx, ctx.userId, "preferences.save", "Updated your preferences")
     return null
   },
 })
@@ -73,6 +75,7 @@ const savePrefilled = arkMutation({
   returns: v.null(),
   handler: async (ctx, { sections }) => {
     await writeFields(ctx, ctx.userId, sections)
+    await logEdit(ctx, ctx.userId, "preferences.answers", "Updated your saved answers")
     return null
   },
 })
@@ -113,6 +116,12 @@ const setResume = arkMutation({
       resumeText: undefined,
       resumeReview: undefined,
     })
+    await logEdit(
+      ctx,
+      ctx.userId,
+      "preferences.resume",
+      resumeId ? "Uploaded a resume" : "Removed your resume"
+    )
     return null
   },
 })

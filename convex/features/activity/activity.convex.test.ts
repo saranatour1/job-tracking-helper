@@ -186,6 +186,53 @@ describe("activity", () => {
     expect((await other.query(api.activity.page, { paginationOpts: first })).page).toEqual([])
   })
 
+  it("records what you edit, without what you wrote, and when you joined", async () => {
+    const { t, as, hooli, userId, events } = await setup()
+    await as.mutation(api.applications.addNote, { id: hooli, text: "A private note" })
+    await as.mutation(api.applications.update, { id: hooli, role: "Lead" })
+    await as.action(api.contacts.save, {
+      company: "Hooli",
+      name: "Pat Private",
+      email: "pat@hooli.com",
+      title: "",
+      phone: "",
+      notes: "",
+    })
+    await as.mutation(api.mailbox.saveTemplate, {
+      name: "Private template",
+      subject: "Hi",
+      html: "<p>Hi</p>",
+    })
+    await as.mutation(api.users.updateProfile, { name: "Sam", email: "", userName: "" })
+    const rows = await events()
+    expect(rows.map((r) => r.summary)).toEqual([
+      "Updated your profile",
+      "Added an email template",
+      "Added a contact",
+      "Edited Hooli",
+      "Added a note to Hooli",
+    ])
+    expect(JSON.stringify(rows)).not.toMatch(/private|pat@hooli/i)
+    const user = await t.run((ctx) => ctx.db.get("users", userId))
+    expect(await as.query(api.activity.joinedAt, {})).toBe(user?._creationTime)
+  })
+
+  it("rolls an edit's row back with the edit", async () => {
+    const { as, otherId, events, t } = await setup()
+    const theirs = await t.run((ctx) =>
+      ctx.db.insert("applications", {
+        userId: otherId,
+        company: "Theirs",
+        role: "Engineer",
+        status: "applied",
+        number: 1,
+        history: [],
+      })
+    )
+    await expect(as.mutation(api.applications.addNote, { id: theirs, text: "x" })).rejects.toThrow()
+    expect(await events()).toEqual([])
+  })
+
   it("lists failures per person, and forgets what's old", async () => {
     const { t, userId, otherId } = await setup()
     const failed = (who: typeof userId, at: number, error: string) =>

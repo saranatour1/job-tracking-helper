@@ -5,6 +5,7 @@ import { arkMutation, authedMutation, authedQuery } from "../../lib/functions"
 import { ruleMatch } from "../email/match"
 import { CalendarSettings, maxEvents, SaveEvent, SaveSettings } from "./validators"
 import { kindOf, byKey } from "./utils"
+import { logEdit } from "../activity/utils"
 
 const list = authedQuery({
   args: {},
@@ -55,6 +56,7 @@ const save = arkMutation({
         userId: ctx.userId,
         bookingPageId: existing.bookingPageId,
       })
+      await logEdit(ctx, ctx.userId, "calendar.save", "Changed a calendar event")
       return null
     }
     const count = await ctx.db
@@ -63,6 +65,7 @@ const save = arkMutation({
       .take(maxEvents)
     if (count.length >= maxEvents) throw new ConvexError(`You can keep ${maxEvents} events.`)
     await ctx.db.insert("calendarEvents", { ...row, userId: ctx.userId })
+    await logEdit(ctx, ctx.userId, "calendar.save", "Added a calendar event")
     return null
   },
 })
@@ -76,6 +79,7 @@ const remove = authedMutation({
     if (!existing) return null
     if (existing.replaces) await ctx.db.patch("calendarEvents", existing._id, { hidden: true })
     else await ctx.db.delete("calendarEvents", existing._id)
+    await logEdit(ctx, ctx.userId, "calendar.remove", "Removed a calendar event")
     return null
   },
 })
@@ -105,6 +109,7 @@ const saveSettings = arkMutation({
       .unique()
     if (row) await ctx.db.replace("calendarSettings", row._id, { ...settings, userId: ctx.userId })
     else await ctx.db.insert("calendarSettings", { ...settings, userId: ctx.userId })
+    await logEdit(ctx, ctx.userId, "calendar.settings", "Changed your calendar settings")
     return null
   },
 })

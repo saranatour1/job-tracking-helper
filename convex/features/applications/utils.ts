@@ -3,7 +3,7 @@ import type { Id, Doc } from "../../_generated/dataModel"
 import { ConvexError } from "convex/values"
 import { defaultTrashDays, type Status, limits, priorityFor, statusLabels } from "./validators"
 import { workLog } from "../../lib/log"
-import { keepLog } from "../activity/utils"
+import { keepLog, logEdit } from "../activity/utils"
 import { internal } from "../../_generated/api"
 import { fireEvent } from "../automations/fire"
 
@@ -127,9 +127,7 @@ export const logNewApplication = async (
   applicationId: Id<"applications">,
   company: string
 ) => {
-  const log = workLog("application.added", { userId, applicationId })
-  log.set({ summary: `Added ${company}`, outcome: "added" })
-  await keepLog(ctx, log)
+  await logEdit(ctx, userId, "application.added", `Added ${company}`, { applicationId })
 }
 
 // Every status change goes through here, so history stays complete: the tracker, a

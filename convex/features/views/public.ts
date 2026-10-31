@@ -2,6 +2,7 @@ import { ConvexError, v } from "convex/values"
 import schema from "../../schema"
 import { arkMutation, authedMutation, authedQuery } from "../../lib/functions"
 import { maxViews, ViewFields } from "./validators"
+import { logEdit } from "../activity/utils"
 
 const list = authedQuery({
   args: {},
@@ -22,6 +23,7 @@ const create = arkMutation({
       .withIndex("by_userId", (q) => q.eq("userId", ctx.userId))
       .take(maxViews)
     if (existing.length >= maxViews) throw new ConvexError(`You can keep ${maxViews} views.`)
+    await logEdit(ctx, ctx.userId, "view.create", "Saved a board view")
     return ctx.db.insert("views", { ...view, userId: ctx.userId })
   },
 })
@@ -33,6 +35,7 @@ const remove = authedMutation({
     const view = await ctx.db.get("views", id)
     if (view?.userId !== ctx.userId) throw new ConvexError("That view isn't yours.")
     await ctx.db.delete("views", id)
+    await logEdit(ctx, ctx.userId, "view.remove", "Removed a board view")
     return null
   },
 })

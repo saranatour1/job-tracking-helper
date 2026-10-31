@@ -29,6 +29,13 @@ const page = authedQuery({
   },
 })
 
+// When you joined. It never ages out, and it's the oldest thing that can have happened.
+const joinedAt = authedQuery({
+  args: {},
+  returns: v.union(v.number(), v.null()),
+  handler: async (ctx) => (await ctx.db.get("users", ctx.userId))?._creationTime ?? null,
+})
+
 const record = internalMutation({
   args: { event: arkOutputToConvex(ActivityEvent) },
   returns: v.null(),
@@ -100,4 +107,4 @@ const sweep = internalMutation({
   },
 })
 
-export const activityApi = { page, record, failures, sweep }
+export const activityApi = { page, joinedAt, record, failures, sweep }

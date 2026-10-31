@@ -8,7 +8,7 @@ import { arkToConvex, checked } from "../../lib/ark"
 import { authedQuery } from "../../lib/functions"
 import { workLog } from "../../lib/log"
 import { seal } from "../../lib/secrets"
-import { keepLogFromAction, reasonOf } from "../activity/utils"
+import { keepLogFromAction, logEditFromAction, reasonOf } from "../activity/utils"
 import { baseAddress, tagIn } from "./addresses"
 import { kindOf, messageIdsIn, portalOf, slotOf, zoneOf } from "./match"
 import { createRule, removeInbound, routingEnabled, ruleFor, uploadWorker } from "./cloudflare"
@@ -124,6 +124,7 @@ const stopInbound = action({
     const userId = await userIdOf(ctx)
     await tearDown(ctx, userId)
     await ctx.runMutation(internal.email.setInbound, { userId })
+    await logEditFromAction(ctx, userId, "mail.setup", "Turned off incoming mail")
     return null
   },
 })
@@ -137,6 +138,7 @@ const disconnect = action({
     const userId = await userIdOf(ctx)
     await tearDown(ctx, userId).catch(() => null)
     await ctx.runMutation(internal.email.remove, { userId })
+    await logEditFromAction(ctx, userId, "mail.connect", "Disconnected Cloudflare")
     return null
   },
 })

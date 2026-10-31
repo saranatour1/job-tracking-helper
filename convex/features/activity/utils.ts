@@ -55,6 +55,39 @@ export const keepLogFromAction = async (ctx: ActionCtx, log: WorkLog) => {
   if (row) await ctx.runMutation(internal.activity.record, { event: row }).catch(() => null)
 }
 
+type Links = {
+  applicationId?: Id<"applications">
+  prefillId?: Id<"prefills">
+  automationId?: Id<"automations">
+  // Why it didn't work, for the one change that reports a failure instead of throwing.
+  failed?: string
+}
+
+const editLog = (userId: Id<"users">, work: string, summary: string, links: Links | undefined) => {
+  const { failed, ...ids } = links ?? {}
+  const log = workLog(work, { userId, ...ids })
+  log.set({ summary, outcome: failed ? "failed" : "done", ...(failed && { error: failed }) })
+  if (failed) log.setLevel("error")
+  return log
+}
+
+/** Something you did yourself. The summary names no mail, contact or template contents. */
+export const logEdit = (
+  ctx: MutationCtx,
+  userId: Id<"users">,
+  work: string,
+  summary: string,
+  links?: Links
+) => keepLog(ctx, editLog(userId, work, summary, links))
+
+export const logEditFromAction = (
+  ctx: ActionCtx,
+  userId: Id<"users">,
+  work: string,
+  summary: string,
+  links?: Links
+) => keepLogFromAction(ctx, editLog(userId, work, summary, links))
+
 /** A readable reason from something thrown, with the message a person was shown. */
 export const reasonOf = (cause: unknown) =>
   cause instanceof ConvexError && typeof cause.data === "string"

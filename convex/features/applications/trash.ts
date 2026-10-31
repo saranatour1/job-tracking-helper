@@ -15,6 +15,7 @@ import {
   moveToTrash,
   emptySome,
 } from "./utils"
+import { logEdit } from "../activity/utils"
 
 /** What's in the Trash, newest first. */
 const trashed = authedQuery({
@@ -32,8 +33,15 @@ const archive = authedMutation({
   args: { id: v.id("applications"), archived: v.boolean() },
   returns: v.null(),
   handler: async (ctx, { id, archived }) => {
-    await ownAnywhere(ctx, ctx.userId, id)
+    const { company } = await ownAnywhere(ctx, ctx.userId, id)
     await ctx.db.patch("applications", id, { archivedAt: archived ? Date.now() : undefined })
+    await logEdit(
+      ctx,
+      ctx.userId,
+      "application.archive",
+      `${archived ? "Archived" : "Unarchived"} ${company}`,
+      { applicationId: id }
+    )
     return null
   },
 })
@@ -42,7 +50,15 @@ const trash = authedMutation({
   args: { id: v.id("applications") },
   returns: v.null(),
   handler: async (ctx, { id }) => {
-    await moveToTrash(ctx, await ownAnywhere(ctx, ctx.userId, id))
+    const application = await ownAnywhere(ctx, ctx.userId, id)
+    await moveToTrash(ctx, application)
+    await logEdit(
+      ctx,
+      ctx.userId,
+      "application.trash",
+      `Moved ${application.company} to the Trash`,
+      { applicationId: id }
+    )
     return null
   },
 })
@@ -52,11 +68,14 @@ const restore = authedMutation({
   args: { id: v.id("applications") },
   returns: v.null(),
   handler: async (ctx, { id }) => {
-    await ownAnywhere(ctx, ctx.userId, id)
+    const { company } = await ownAnywhere(ctx, ctx.userId, id)
     await ctx.db.patch("applications", id, {
       trashedAt: undefined,
       archivedAt: undefined,
       purgeAt: undefined,
+    })
+    await logEdit(ctx, ctx.userId, "application.restore", `Restored ${company}`, {
+      applicationId: id,
     })
     return null
   },
@@ -71,6 +90,7 @@ const deleteForever = authedMutation({
     if (application.trashedAt === undefined)
       throw new ConvexError("Move it to the Trash before deleting it.")
     await deleteApplication(ctx, application)
+    await logEdit(ctx, ctx.userId, "application.delete", `Deleted ${application.company} for good`)
     return null
   },
 })
@@ -79,7 +99,10 @@ const deleteForever = authedMutation({
 const emptyTrash = authedMutation({
   args: {},
   returns: v.number(),
-  handler: (ctx) => emptySome(ctx, ctx.userId),
+  handler: async (ctx) => {
+    await logEdit(ctx, ctx.userId, "application.delete", "Emptied the Trash")
+    return emptySome(ctx, ctx.userId)
+  },
 })
 
 const emptyTrashFor = internalMutation({
@@ -103,6 +126,7 @@ const setTrashDays = authedMutation({
       await ctx.db.patch("applications", application._id, {
         purgeAt: purgeAtOf(application.trashedAt!, days),
       })
+    await logEdit(ctx, ctx.userId, "account.trash", "Changed how long the Trash keeps things")
     return null
   },
 })

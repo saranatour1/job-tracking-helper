@@ -11,6 +11,7 @@ import { limits } from "../workflows/manager"
 import { statusFrom } from "./match"
 import { blockedBy, enqueue, ownPrefill, startPrefill } from "./utils"
 import { maxListed, PrefillListed, SetAnswer, vLeadSummary } from "./validators"
+import { logEdit } from "../activity/utils"
 
 const settings = authedQuery({
   args: {},
@@ -26,6 +27,14 @@ const setAutoPrepare = authedMutation({
   returns: v.null(),
   handler: async (ctx, { on }) => {
     await ctx.db.patch("users", ctx.userId, { prepareAt: on ? Date.now() : undefined })
+    await logEdit(
+      ctx,
+      ctx.userId,
+      "account.prepare",
+      on
+        ? "Turned on preparing applications for new fits"
+        : "Turned off preparing applications for new fits"
+    )
     return null
   },
 })
@@ -85,6 +94,9 @@ const dismiss = authedMutation({
     if (row.status === "applied" || row.status === "live")
       throw new ConvexError("This one can't be dismissed now.")
     await ctx.db.patch("prefills", id, { status: "dismissed" })
+    await logEdit(ctx, ctx.userId, "prefill.dismiss", `Dismissed ${row.title} · ${row.company}`, {
+      prefillId: id,
+    })
     return null
   },
 })
@@ -113,6 +125,13 @@ const setAnswer = arkMutation({
         ...(fill && f.answer === answer && { fill }),
       }
     })
+    await logEdit(
+      ctx,
+      ctx.userId,
+      "prefill.answer",
+      `Changed an answer on ${row.title} · ${row.company}`,
+      { prefillId: id }
+    )
     await ctx.db.patch("prefills", id, {
       fields,
       ...(row.status === "ready" || row.status === "needsAnswers"

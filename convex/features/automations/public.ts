@@ -5,6 +5,7 @@ import { limits as rates } from "../workflows/manager"
 import { choicesOf, countsOf } from "./counts"
 import { cancelRun, startRun, own, nextRunOf, deleteWorkflow } from "./utils"
 import { blocksOf, limits, problemOf, vRunCounts, vSaveWorkflow } from "./validators"
+import { logEdit } from "../activity/utils"
 
 const list = authedQuery({
   args: {},
@@ -75,6 +76,9 @@ const save = authedMutation({
     if (id) {
       await own(ctx, ctx.userId, id)
       await ctx.db.replace("automations", id, { ...row, userId: ctx.userId })
+      await logEdit(ctx, ctx.userId, "workflow.save", `Changed the workflow ${name}`, {
+        automationId: id,
+      })
       return id
     }
     const mine = await ctx.db
@@ -83,7 +87,11 @@ const save = authedMutation({
       .take(limits.automations)
     if (mine.length >= limits.automations)
       throw new ConvexError(`You can keep ${limits.automations} workflows.`)
-    return ctx.db.insert("automations", { ...row, userId: ctx.userId })
+    const created = await ctx.db.insert("automations", { ...row, userId: ctx.userId })
+    await logEdit(ctx, ctx.userId, "workflow.save", `Added the workflow ${name}`, {
+      automationId: created,
+    })
+    return created
   },
 })
 
@@ -96,6 +104,13 @@ const setActive = authedMutation({
       active,
       nextRunAt: nextRunOf(automation.trigger, active),
     })
+    await logEdit(
+      ctx,
+      ctx.userId,
+      "workflow.active",
+      `${active ? "Turned on" : "Turned off"} the workflow ${automation.name}`,
+      { automationId: id }
+    )
     return null
   },
 })
@@ -105,7 +120,9 @@ const remove = authedMutation({
   args: { id: v.id("automations") },
   returns: v.null(),
   handler: async (ctx, { id }) => {
-    await deleteWorkflow(ctx, await own(ctx, ctx.userId, id))
+    const automation = await own(ctx, ctx.userId, id)
+    await deleteWorkflow(ctx, automation)
+    await logEdit(ctx, ctx.userId, "workflow.remove", `Removed the workflow ${automation.name}`)
     return null
   },
 })
@@ -117,6 +134,9 @@ const runNow = authedMutation({
     const automation = await own(ctx, ctx.userId, id)
     const { ok } = await rates.limit(ctx, "automationRun", { key: ctx.userId })
     if (!ok) throw new ConvexError("That's enough runs for today. Try again tomorrow.")
+    await logEdit(ctx, ctx.userId, "workflow.runNow", `Started the workflow ${automation.name}`, {
+      automationId: id,
+    })
     return startRun(ctx, automation, "manual")
   },
 })
