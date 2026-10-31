@@ -187,6 +187,56 @@ describe("folders", () => {
   })
 })
 
+describe("unread", () => {
+  it("counts the Inbox's unread mail, and can put one back", async () => {
+    const { as, receive, box } = await setup()
+    expect(await as.query(api.mailbox.unreadCount, {})).toBe(0)
+    await receive({ subject: "One" })
+    await receive({ subject: "Two" })
+    expect(await as.query(api.mailbox.unreadCount, {})).toBe(2)
+    const [row] = await box("inbox")
+    await as.mutation(api.mailbox.markRead, { eventId: row!.id })
+    expect(await as.query(api.mailbox.unreadCount, {})).toBe(1)
+    await as.mutation(api.mailbox.markUnread, { eventId: row!.id })
+    expect(await as.query(api.mailbox.unreadCount, {})).toBe(2)
+    expect((await box("inbox")).find((m) => m.id === row!.id)?.read).toBe(false)
+  })
+
+  it("leaves other folders out of the count", async () => {
+    const { as, receive, box } = await setup()
+    await receive({})
+    const [row] = await box("inbox")
+    await as.mutation(api.mailbox.move, { eventId: row!.id, to: "archived" })
+    expect(await as.query(api.mailbox.unreadCount, {})).toBe(0)
+  })
+
+  it("gives sent mail no read state", async () => {
+    const { as, box, hooli } = await setup()
+    await as.action(api.email.sendFromApplication, {
+      applicationId: hooli,
+      to: "pat@hooli.com",
+      subject: "Sent one",
+      text: "Hi",
+    })
+    const [sent] = await box("sent")
+    await as.mutation(api.mailbox.markUnread, { eventId: sent!.id })
+    expect((await box("sent"))[0]?.read).toBe(true)
+    expect(await as.query(api.mailbox.unreadCount, {})).toBe(0)
+  })
+
+  it("keeps someone else's mail away", async () => {
+    const { t, receive, box } = await setup()
+    await receive({})
+    const [mine] = await box("inbox")
+    const other = await t.run((ctx) => ctx.db.insert("users", { name: "Eve" }))
+    const eve = t.withIdentity({ subject: other })
+    expect(await eve.query(api.mailbox.unreadCount, {})).toBe(0)
+    await expect(eve.mutation(api.mailbox.markUnread, { eventId: mine!.id })).rejects.toThrow(
+      "That email isn't yours."
+    )
+  })
+})
+
 describe("threads", () => {
   const subjects = async (as: Awaited<ReturnType<typeof setup>>["as"], eventId: Id<"mailEvents">) =>
     (await as.query(api.mailbox.thread, { eventId })).map((m) => m.subject)

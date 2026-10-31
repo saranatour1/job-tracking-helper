@@ -653,7 +653,10 @@ failed, and Account says it couldn't confirm the email went out.
    (`api.mailbox.page`). 25 at a time with **Load more**, and only those rows are decrypted.
 2. **Reading** (`api.mailbox.content`): opened only when you open one. HTML runs in a sandboxed
    frame with no scripts, and images from the web are blocked, since they can report back
-   when an email is opened. Opening one marks it read.
+   when an email is opened. Opening one marks it read, and **Mark as unread**
+   (`api.mailbox.markUnread`) puts it back and closes it. Received mail that's unread has a dot
+   and bolder text, and Inbox shows how many (`api.mailbox.unreadCount`), up to "99+", from an
+   index so nothing gets decrypted. Mail you sent has no read state.
    Its subject, From, To and date each have a **Copy** button, and an application links to it.
    **Add to contacts** sits beside the other person's address, or says **In contacts**.
    **Thread** (`api.mailbox.thread`): the other emails in the conversation sit above and below

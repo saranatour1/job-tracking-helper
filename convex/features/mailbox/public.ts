@@ -21,6 +21,7 @@ import {
   maxLabelLength,
   maxLabels,
   maxTemplates,
+  maxUnreadCount,
   SaveDraft,
   SaveTemplate,
   vBox,
@@ -159,6 +160,32 @@ const thread = authedQuery({
     return rows
       .filter((r) => sameThread(r, opened) && (r.box !== "trash" || r.id === eventId))
       .sort((a, b) => a.at - b.at)
+  },
+})
+
+// Stops counting at the limit, which the page shows as "99+". Nothing gets decrypted for this.
+const unreadCount = authedQuery({
+  args: {},
+  returns: v.number(),
+  handler: async (ctx) => {
+    const unread = await ctx.db
+      .query("mailEvents")
+      .withIndex("by_userId_and_box_and_readAt", (q) =>
+        q.eq("userId", ctx.userId).eq("box", "inbox").eq("readAt", undefined)
+      )
+      .take(maxUnreadCount)
+    return unread.length
+  },
+})
+
+// Mail you sent has no read state.
+const markUnread = authedMutation({
+  args: { eventId: v.id("mailEvents") },
+  returns: v.null(),
+  handler: async (ctx, { eventId }) => {
+    const event = await ownEvent(ctx, ctx.userId, eventId)
+    if (event.by !== "sent") await ctx.db.patch("mailEvents", eventId, { readAt: undefined })
+    return null
   },
 })
 
@@ -466,7 +493,9 @@ export const mailboxApi = {
   page,
   content,
   thread,
+  unreadCount,
   markRead,
+  markUnread,
   move,
   deleteForever,
   setLabels,

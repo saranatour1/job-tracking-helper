@@ -1,6 +1,6 @@
 import { api } from "@convex/_generated/api"
 import type { Id } from "@convex/_generated/dataModel"
-import type { Box } from "@convex/features/mailbox/validators"
+import { type Box, maxUnreadCount } from "@convex/features/mailbox/validators"
 import { getRouteApi, Link, useNavigate } from "@tanstack/react-router"
 import { useAction, useMutation } from "convex/react"
 import type { FunctionReturnType } from "convex/server"
@@ -209,6 +209,13 @@ const AddContact = ({ email, name, company }: { email: string; name: string; com
   )
 }
 
+// Always takes up its space, so senders line up whether or not there's a dot.
+const UnreadDot = ({ unread, className }: { unread: boolean; className?: string }) => (
+  <span className={cn("size-2 shrink-0 rounded-full", unread && "bg-primary", className)}>
+    {unread && <span className="sr-only">Unread</span>}
+  </span>
+)
+
 // A collapsed email in a thread. Only the one you're reading gets opened.
 const ThreadLine = ({ message }: { message: Row }) => {
   const markRead = useMutation(api.mailbox.markRead)
@@ -219,8 +226,9 @@ const ThreadLine = ({ message }: { message: Row }) => {
       onClick={() => {
         if (!message.read) void markRead({ eventId: message.id })
       }}
-      className="hover:bg-accent/40 flex items-baseline gap-2 border-b px-4 py-1.5 text-xs"
+      className="hover:bg-accent/40 flex items-center gap-2 border-b px-4 py-1.5 text-xs"
     >
+      <UnreadDot unread={!message.read} />
       <span className={cn("min-w-0 flex-1 truncate", !message.read && "font-semibold")}>
         {message.sent ? `You to ${message.to ?? ""}` : message.from}
       </span>
@@ -247,6 +255,7 @@ const Reader = ({ row }: { row: Row }) => {
   const mail = useQuery(api.mailbox.content, { eventId: shown.id })
   const move = useMutation(api.mailbox.move)
   const remove = useMutation(api.mailbox.deleteForever)
+  const markUnread = useMutation(api.mailbox.markUnread)
   const navigate = useNavigate({ from: "/email" })
   const close = () =>
     void navigate({
@@ -299,6 +308,15 @@ const Reader = ({ row }: { row: Row }) => {
           </Button>
         )}
         <LabelsMenu row={row} />
+        {shown.read && !shown.sent && (
+          <Button
+            size="xs"
+            variant="ghost"
+            onClick={() => void markUnread({ eventId: shown.id }).then(close)}
+          >
+            Mark as unread
+          </Button>
+        )}
       </div>
       <div className="flex flex-wrap items-center gap-x-1 px-4 py-3">
         <h2 className="min-w-0 text-base font-semibold break-words">{shown.subject}</h2>
@@ -415,33 +433,45 @@ const MailRow = ({ row, open }: { row: Row; open: boolean }) => {
         }}
         aria-current={open ? "true" : undefined}
         className={cn(
-          "hover:bg-accent/40 flex flex-col gap-0.5 border-b px-3 py-2.5 text-[13px]",
+          "hover:bg-accent/40 flex gap-2 border-b px-3 py-3 text-[13px]",
           open && "bg-accent/60"
         )}
       >
-        <span className="flex items-baseline gap-2">
-          <span className={cn("min-w-0 flex-1 truncate", !row.read && "font-semibold")}>
-            {row.sent ? `To ${row.to ?? ""}` : row.from}
+        <UnreadDot unread={!row.read} className="mt-1.5" />
+        <span className="flex min-w-0 flex-1 flex-col gap-1">
+          <span className="flex items-baseline gap-2">
+            <span
+              className={cn(
+                "min-w-0 flex-1 truncate",
+                row.read ? "text-muted-foreground" : "font-semibold"
+              )}
+            >
+              {row.sent ? `To ${row.to ?? ""}` : row.from}
+            </span>
+            <span
+              className={cn("shrink-0 text-xs", row.read ? "text-muted-foreground" : "font-medium")}
+            >
+              {shortDate(row.at)}
+            </span>
           </span>
-          <span className="text-muted-foreground shrink-0 text-xs">{shortDate(row.at)}</span>
-        </span>
-        <span className={cn("truncate", !row.read ? "font-medium" : "text-muted-foreground")}>
-          {row.subject}
-        </span>
-        {(row.company || row.labels.length > 0) && (
-          <span className="mt-0.5 flex flex-wrap gap-1">
-            {row.company && (
-              <Badge variant="secondary" size="sm" className="font-normal">
-                {row.company}
-              </Badge>
-            )}
-            {row.labels.map((label) => (
-              <Badge key={label} variant="outline" size="sm" className="font-normal">
-                {label}
-              </Badge>
-            ))}
+          <span className={cn("truncate", row.read ? "text-muted-foreground" : "font-medium")}>
+            {row.subject}
           </span>
-        )}
+          {(row.company || row.labels.length > 0) && (
+            <span className="flex flex-wrap gap-1">
+              {row.company && (
+                <Badge variant="secondary" size="sm" className="font-normal">
+                  {row.company}
+                </Badge>
+              )}
+              {row.labels.map((label) => (
+                <Badge key={label} variant="outline" size="sm" className="font-normal">
+                  {label}
+                </Badge>
+              ))}
+            </span>
+          )}
+        </span>
       </Link>
     </li>
   )
@@ -880,6 +910,7 @@ export const Mailbox = () => {
   const search = route.useSearch()
   const navigate = useNavigate({ from: "/email" })
   const labels = useQuery(api.mailbox.labels)
+  const unread = useQuery(api.mailbox.unreadCount)
   const view = search.view ?? "inbox"
   const dialog = search.compose ?? search.template
   const closeDialog = () =>
@@ -917,9 +948,18 @@ export const Mailbox = () => {
               to="/email"
               search={v === "inbox" ? {} : { view: v }}
               aria-current={view === v && !search.label ? "page" : undefined}
-              className={navItem(view === v && !search.label)}
+              className={cn(
+                navItem(view === v && !search.label),
+                "flex items-center justify-between gap-2"
+              )}
             >
               {viewNames[v]}
+              {v === "inbox" && !!unread && (
+                <span className="bg-primary text-primary-foreground rounded-full px-1.5 text-xs font-medium tabular-nums">
+                  {unread >= maxUnreadCount ? "99+" : unread}
+                  <span className="sr-only"> unread</span>
+                </span>
+              )}
             </Link>
           ))}
           {labels && labels.length > 0 && (
