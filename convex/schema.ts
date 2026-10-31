@@ -15,7 +15,13 @@ import {
 } from "./features/mailbox/models"
 import { goalsTable } from "./features/goals/models"
 import { jobBoardsTable, jobCatalogTable, jobsTable } from "./features/jobs/models"
-import { jobLeadsTable, loopRunsTable, loopsTable, sourceUsageTable } from "./features/loops/models"
+import {
+  jobLeadsTable,
+  judgedReadsTable,
+  loopRunsTable,
+  loopsTable,
+  sourceUsageTable,
+} from "./features/loops/models"
 import {
   preferencesTable,
   preferenceTagsTable,
@@ -43,6 +49,7 @@ export default defineSchema({
   loops: loopsTable,
   loopRuns: loopRunsTable,
   jobLeads: jobLeadsTable,
+  judgedReads: judgedReadsTable,
   prefills: prefillsTable,
 
   emailConnections: emailConnectionsTable,

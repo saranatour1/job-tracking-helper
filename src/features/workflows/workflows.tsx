@@ -120,7 +120,7 @@ const Row = ({ automation }: { automation: Doc<"automations"> }) => {
 const browserZone = Intl.DateTimeFormat().resolvedOptions().timeZone
 
 const Describe = () => {
-  const describe = useAction(api.automations.describe)
+  const describe = useAction(api.automationActions.describe)
   const navigate = useNavigate()
   const [error, draft, drafting] = useActionState(async (_: string | undefined, form: FormData) => {
     try {

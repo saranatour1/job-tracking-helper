@@ -7,6 +7,7 @@ import { workLog } from "../../lib/log"
 import { keepLog } from "../activity/utils"
 import { batch as applicationBatch, deleteApplication } from "../applications/utils"
 import { deleteWorkflow } from "../automations/utils"
+import { judgedWorker } from "../loops/judged"
 import { workerName } from "./utils"
 
 const batchSize = 200
@@ -152,9 +153,12 @@ const restartIfStuck = internalMutation({
   args: {},
   returns: v.null(),
   handler: async (ctx) => {
-    const oldest = await ctx.db.query("deleteJobs").first()
-    if (oldest && oldest._creationTime < Date.now() - stuckAfterMs)
+    const waitedTooLong = (row: { _creationTime: number } | null) =>
+      row !== null && row._creationTime < Date.now() - stuckAfterMs
+    if (waitedTooLong(await ctx.db.query("deleteJobs").first()))
       await ctx.runMutation(components.batchWorker.lib.kick, { name: workerName })
+    if (waitedTooLong(await ctx.db.query("judgedReads").first()))
+      await ctx.runMutation(components.batchWorker.lib.kick, { name: judgedWorker })
     return null
   },
 })

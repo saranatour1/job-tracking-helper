@@ -58,7 +58,7 @@ export const runBlock = async (
   if ("stop" in done && done.stop) return "stop"
   const { waitMs } = done
   if ("email" in done && done.email) {
-    const failed = await step.runAction(internal.api.automations.sendMail, { runId, at })
+    const failed = await step.runAction(internal.api.automationActions.sendMail, { runId, at })
     if (failed) return { error: failed }
   }
   if ("loopRunId" in done && done.loopRunId) {

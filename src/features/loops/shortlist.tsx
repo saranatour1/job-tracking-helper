@@ -335,7 +335,7 @@ export const JobPanel = ({ leadId, onClose }: { leadId: Id<"jobLeads">; onClose:
 // A job someone found themselves: Jev checks it against their Preferences and it opens
 // with the same breakdown, ready to add to the tracker.
 export const PasteLink = () => {
-  const checkLink = useAction(api.loops.checkLink)
+  const checkLink = useAction(api.loopActions.checkLink)
   const navigate = useNavigate({ from: "/loops" })
   const [status, check, checking] = useActionState(
     async (_: string | undefined, form: FormData) => {

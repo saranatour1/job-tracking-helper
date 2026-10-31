@@ -5,7 +5,7 @@ import type { Id } from "../../_generated/dataModel"
 import { action, internalAction } from "../../_generated/server"
 import { urlKey } from "../workflows/fit"
 import { limits } from "../workflows/manager"
-import { isLink, readAndJudge } from "./utils"
+import { isLink, readAndJudge } from "./read"
 
 const checkLink = action({
   args: { url: v.string() },

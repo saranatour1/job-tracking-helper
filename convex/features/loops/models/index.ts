@@ -1,4 +1,5 @@
 export { loopsTable } from "./loops"
 export { loopRunsTable } from "./runs"
 export { jobLeadsTable } from "./leads"
+export { judgedReadsTable } from "./judged"
 export { sourceUsageTable } from "./usage"
