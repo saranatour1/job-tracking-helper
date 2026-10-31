@@ -9,7 +9,7 @@
     "typecheck": "tsrs --noEmit -p tsconfig.json && tsrs --noEmit -p convex",
     "build": "vp build",
     "preview": "vp preview",
-    "deploy": "vp build && wrangler deploy"
+    "deploy": "convex deploy --cmd 'vp build' && wrangler deploy"
   },
   "dependencies": {
     "@base-ui/react": "^1.9.0",
