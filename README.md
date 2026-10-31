@@ -150,3 +150,11 @@ Some of this was written for this repo:
 - `convex/lib/functions.ts` has function builders that require sign-in and check arguments with arktype.
 - `convex/lib/secrets.ts` encrypts pasted secrets, bound to their owner, with versioned keys for rotation.
 - `convex/components/cloudflareEmail` is the `@sarant/cloudflare-email` component, changed so each person sends with their own token and no scheduled call ever stores one.
+
+## Contributing
+
+See [CONTRIBUTING.md](CONTRIBUTING.md). Report security bugs through [SECURITY.md](SECURITY.md).
+
+## License
+
+[Apache License 2.0](LICENSE). `src/components/kloq` is MIT, under [its own license](src/components/kloq/LICENSE).
