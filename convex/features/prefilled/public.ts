@@ -1,16 +1,13 @@
 import { ConvexError, v } from "convex/values"
 import { docOf } from "../../lib/docs"
 import { prefillsTable } from "./models"
-import type { Id } from "../../_generated/dataModel"
-import type { MutationCtx } from "../../_generated/server"
 import { arkOutputToConvex } from "../../lib/ark"
 import { arkMutation, authedMutation, authedQuery } from "../../lib/functions"
-import { boardOf, previewOf } from "../jobs/links"
+import { previewOf } from "../jobs/links"
 import { fieldOrder, rowLimits, sectionOfOrder } from "../preferences/rows"
 import { rowOf } from "../preferences/utils"
-import { limits } from "../workflows/manager"
 import { statusFrom } from "./match"
-import { blockedBy, enqueue, ownPrefill, startPrefill } from "./utils"
+import { enqueue, ownPrefill, preparePosting, roomToPrepare, withAnswer } from "./utils"
 import { maxListed, PrefillListed, SetAnswer, vLeadSummary } from "./validators"
 import { logEdit } from "../activity/utils"
 
@@ -39,36 +36,10 @@ const setAutoPrepare = authedMutation({
   },
 })
 
-const roomToPrepare = async (ctx: MutationCtx, userId: Id<"users">) => {
-  const blocked = await blockedBy(ctx, userId)
-  if (blocked) throw new ConvexError(blocked)
-  const { ok } = await limits.limit(ctx, "prepare", { key: userId })
-  if (!ok) throw new ConvexError("That's 10 prepared today. Try again tomorrow.")
-}
-
-const unsupported = "This works on Greenhouse, Lever, Ashby and Personio postings."
-
 const prepare = authedMutation({
   args: { jobId: v.optional(v.id("jobs")), leadId: v.optional(v.id("jobLeads")) },
   returns: v.id("prefills"),
-  handler: async (ctx, { jobId, leadId }) => {
-    const lead = leadId && (await ctx.db.get("jobLeads", leadId))
-    if (lead && lead.userId !== ctx.userId) throw new ConvexError("That isn't yours.")
-    const job = jobId ?? lead?.jobId
-    const fromJob = job && (await ctx.db.get("jobs", job))
-    const posting = fromJob ?? lead
-    if (!posting) throw new ConvexError("That role is gone from the catalog.")
-    if (!boardOf(posting.url)) throw new ConvexError(unsupported)
-    await roomToPrepare(ctx, ctx.userId)
-    return startPrefill(ctx, ctx.userId, {
-      url: posting.url,
-      urlKey: posting.urlKey,
-      company: posting.company,
-      title: posting.title,
-      ...(job && { jobId: job }),
-      ...(leadId && { leadId }),
-    })
-  },
+  handler: (ctx, { jobId, leadId }) => preparePosting(ctx, ctx.userId, { jobId, leadId }),
 })
 
 const prepareAgain = authedMutation({
@@ -105,20 +76,7 @@ const setAnswer = arkMutation({
   handler: async (ctx, { id, question, answer, keep }) => {
     const row = await ownPrefill(ctx, ctx.userId, id)
     if (row.status === "applied") throw new ConvexError("This one can't be changed now.")
-    const field = row.fields.find((f) => f.question === question)
-    if (!field) throw new ConvexError("The form doesn't ask that.")
-    if (answer && field.options && !field.options.includes(answer))
-      throw new ConvexError("Pick one of the form's options.")
-    const fields = row.fields.map((f) => {
-      if (f.question !== question) return f
-      const { answer: _answer, entryKey: _entryKey, fill, ...rest } = f
-      return {
-        ...rest,
-        source: answer ? ("you" as const) : ("none" as const),
-        ...(answer && { answer }),
-        ...(fill && f.answer === answer && { fill }),
-      }
-    })
+    const fields = withAnswer(row, question, answer, "you")
     await logEdit(
       ctx,
       ctx.userId,

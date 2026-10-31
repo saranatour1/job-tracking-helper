@@ -1,12 +1,20 @@
 import { ConvexError, v } from "convex/values"
+import type { Doc } from "../../_generated/dataModel"
 import { docOf } from "../../lib/docs"
 import { automationsTable, automationRunsTable } from "./models"
 import { authedMutation, authedQuery } from "../../lib/functions"
 import { limits as rates } from "../workflows/manager"
 import { choicesOf, countsOf } from "./counts"
-import { cancelRun, startRun, own, nextRunOf, deleteWorkflow } from "./utils"
-import { blocksOf, limits, problemOf, vRunCounts, vSaveWorkflow } from "./validators"
+import { cancelRun, startRun, own, nextRunOf, deleteWorkflow, saveWorkflow } from "./utils"
+import { limits, vRunCounts, vSaveWorkflow } from "./validators"
 import { logEdit } from "../activity/utils"
+
+const mustBeReviewed = ({ byAgent }: Doc<"automations">) => {
+  if (byAgent)
+    throw new ConvexError(
+      "A connected agent wrote this workflow. Open it, read every step, and save it first."
+    )
+}
 
 const list = authedQuery({
   args: {},
@@ -55,40 +63,17 @@ const runs = authedQuery({
 const save = authedMutation({
   args: vSaveWorkflow,
   returns: v.id("automations"),
-  handler: async (ctx, { id, ...automation }) => {
+  handler: async (ctx, automation) => {
+    const id = await saveWorkflow(ctx, ctx.userId, automation)
     const name = automation.name.trim()
-    const problem = problemOf(name, automation.trigger, automation.steps)
-    if (problem) throw new ConvexError(problem)
-    for (const step of blocksOf(automation.steps))
-      if ((step.kind === "addNote" || step.kind === "move") && step.applicationId) {
-        const application = await ctx.db.get("applications", step.applicationId)
-        if (application?.userId !== ctx.userId)
-          throw new ConvexError("That application isn't yours, or it's gone.")
-      } else if (step.kind === "findRoles") {
-        const loop = await ctx.db.get("loops", step.loopId)
-        if (loop?.userId !== ctx.userId)
-          throw new ConvexError("That loop isn't yours, or it's gone.")
-      }
-    const row = { ...automation, name, nextRunAt: nextRunOf(automation.trigger, automation.active) }
-    if (id) {
-      await own(ctx, ctx.userId, id)
-      await ctx.db.replace("automations", id, { ...row, userId: ctx.userId })
-      await logEdit(ctx, ctx.userId, "workflow.save", `Changed the workflow ${name}`, {
-        automationId: id,
-      })
-      return id
-    }
-    const mine = await ctx.db
-      .query("automations")
-      .withIndex("by_userId", (q) => q.eq("userId", ctx.userId))
-      .take(limits.automations)
-    if (mine.length >= limits.automations)
-      throw new ConvexError(`You can keep ${limits.automations} workflows.`)
-    const created = await ctx.db.insert("automations", { ...row, userId: ctx.userId })
-    await logEdit(ctx, ctx.userId, "workflow.save", `Added the workflow ${name}`, {
-      automationId: created,
-    })
-    return created
+    await logEdit(
+      ctx,
+      ctx.userId,
+      "workflow.save",
+      `${automation.id ? "Changed" : "Added"} the workflow ${name}`,
+      { automationId: id }
+    )
+    return id
   },
 })
 
@@ -97,6 +82,7 @@ const setActive = authedMutation({
   returns: v.null(),
   handler: async (ctx, { id, active }) => {
     const automation = await own(ctx, ctx.userId, id)
+    if (active) mustBeReviewed(automation)
     await ctx.db.patch("automations", id, {
       active,
       nextRunAt: nextRunOf(automation.trigger, active),
@@ -128,6 +114,7 @@ const runNow = authedMutation({
   returns: v.id("automationRuns"),
   handler: async (ctx, { id }) => {
     const automation = await own(ctx, ctx.userId, id)
+    mustBeReviewed(automation)
     const { ok } = await rates.limit(ctx, "automationRun", { key: ctx.userId })
     if (!ok) throw new ConvexError("That's enough runs for today. Try again tomorrow.")
     await logEdit(ctx, ctx.userId, "workflow.runNow", `Started the workflow ${automation.name}`, {

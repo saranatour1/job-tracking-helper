@@ -181,6 +181,9 @@ importers:
       '@convex-dev/batch-worker':
         specifier: ^0.3.6
         version: 0.3.6(@standard-schema/spec@1.1.0)(convex@1.49.0(react@19.3.1))(prettier@3.9.10)(react@19.3.1)(typescript@6.0.3)(zod@4.6.7)
+      '@convex-dev/mcp':
+        specifier: 0.1.0-alpha.7
+        version: 0.1.0-alpha.7(@standard-schema/spec@1.1.0)(convex@1.49.0(react@19.3.1))(prettier@3.9.10)(react@19.3.1)(typescript@6.0.3)(zod@4.6.7)
       '@convex-dev/rate-limiter':
         specifier: ^0.4.2
         version: 0.4.3(@standard-schema/spec@1.1.0)(convex@1.49.0(react@19.3.1))(prettier@3.9.10)(react@19.3.1)(typescript@6.0.3)(zod@4.6.7)
@@ -674,6 +677,11 @@ packages:
 
   '@convex-dev/eslint-plugin@5.0.1':
     resolution: {integrity: sha512-/zW1ihbthQ+ZRJhzjKVLosmQaLmsbayXu05o7JAKrWMZveBmMX/IuJo1XGZBlhEWL3cBBc1s6uI2XXDar/Pw1A==}
+    peerDependencies:
+      convex: ^1.43.0
+
+  '@convex-dev/mcp@0.1.0-alpha.7':
+    resolution: {integrity: sha512-z5GGX9dipVAjWk5p3+LyL7JPW0CVd9IFaBIPO6Pl/gA3MSlom8LnimKQyaM4/oc3spCqDnD3QGF2CKjrLV/bWQ==}
     peerDependencies:
       convex: ^1.43.0
 
@@ -6087,6 +6095,18 @@ snapshots:
     transitivePeerDependencies:
       - eslint
       - supports-color
+
+  '@convex-dev/mcp@0.1.0-alpha.7(@standard-schema/spec@1.1.0)(convex@1.49.0(react@19.3.1))(prettier@3.9.10)(react@19.3.1)(typescript@6.0.3)(zod@4.6.7)':
+    dependencies:
+      '@convex-dev/rate-limiter': 0.4.3(@standard-schema/spec@1.1.0)(convex@1.49.0(react@19.3.1))(prettier@3.9.10)(react@19.3.1)(typescript@6.0.3)(zod@4.6.7)
+      convex: 1.49.0(react@19.3.1)
+    transitivePeerDependencies:
+      - '@standard-schema/spec'
+      - hono
+      - prettier
+      - react
+      - typescript
+      - zod
 
   '@convex-dev/rate-limiter@0.3.2(convex@1.49.0(react@19.3.1))(react@19.3.1)':
     dependencies:

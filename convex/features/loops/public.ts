@@ -7,10 +7,20 @@ import { loopsTable, loopRunsTable, jobLeadsTable } from "./models"
 import { arkMutation, authedMutation, authedQuery } from "../../lib/functions"
 import { fireEvent } from "../automations/fire"
 import { maxGoals } from "../goals/validators"
-import { limits } from "../workflows/manager"
 import { apiKeyOf, monthlyCredits } from "../workflows/sources"
 import { maxLoops, switchAt } from "./catalog"
-import { startRun, stopRunNow, ownLoop, rowOf, lastRunOf, ownLead, countOnRun } from "./utils"
+import {
+  createLoop,
+  stopRunNow,
+  ownLoop,
+  rowOf,
+  lastRunOf,
+  ownLead,
+  countOnRun,
+  respondToLead,
+  runLoopNow,
+  shortlistOf,
+} from "./utils"
 import { nextRunAt } from "./schedule"
 import { NewLoop, UpdateLoop, vRespondArgs, vSourceStatus } from "./validators"
 import { providerIds } from "../workflows/validators"
@@ -30,16 +40,8 @@ const create = arkMutation({
   args: NewLoop,
   returns: v.id("loops"),
   handler: async (ctx, loop) => {
-    const count = (
-      await ctx.db
-        .query("loops")
-        .withIndex("by_userId", (q) => q.eq("userId", ctx.userId))
-        .take(maxLoops)
-    ).length
-    if (count >= maxLoops)
-      throw new ConvexError(`You can have ${maxLoops} loops. Remove one to start another.`)
     await logEdit(ctx, ctx.userId, "loop.create", `Added the loop ${loop.name}`)
-    return ctx.db.insert("loops", { ...rowOf(loop), userId: ctx.userId })
+    return createLoop(ctx, ctx.userId, loop)
   },
 })
 
@@ -94,14 +96,9 @@ const runNow = authedMutation({
   returns: v.id("loopRuns"),
   handler: async (ctx, { loopId }) => {
     const loop = await ownLoop(ctx, ctx.userId, loopId)
-    const last = await lastRunOf(ctx, loopId)
-    if (last && (last.status === "queued" || last.status === "running"))
-      throw new ConvexError("This loop is already running.")
-    const { ok } = await limits.limit(ctx, "runNow", { key: ctx.userId })
-    if (!ok)
-      throw new ConvexError("You've run loops by hand 3 times today. They'll run tomorrow morning.")
+    const runId = await runLoopNow(ctx, loop)
     await logEdit(ctx, ctx.userId, "loop.runNow", `Started the loop ${loop.name}`)
-    return startRun(ctx, loop)
+    return runId
   },
 })
 
@@ -132,18 +129,7 @@ const runs = authedQuery({
 const shortlist = authedQuery({
   args: { status: v.union(v.literal("new"), v.literal("saved")) },
   returns: v.array(docOf("jobLeads", jobLeadsTable)),
-  handler: async (ctx, { status }) => {
-    const of = (s: "new" | "saved" | "applied") =>
-      ctx.db
-        .query("jobLeads")
-        .withIndex("by_userId_and_status", (q) => q.eq("userId", ctx.userId).eq("status", s))
-        .order("desc")
-        .take(60)
-    if (status === "new") return (await of("new")).sort((a, b) => b.fit - a.fit)
-    return [...(await of("saved")), ...(await of("applied"))].sort(
-      (a, b) => b._creationTime - a._creationTime
-    )
-  },
+  handler: (ctx, { status }) => shortlistOf(ctx, ctx.userId, status),
 })
 
 const lead = authedQuery({
@@ -192,23 +178,9 @@ const respond = authedMutation({
   returns: v.null(),
   handler: async (ctx, { leadId, action }) => {
     const lead = await ownLead(ctx, ctx.userId, leadId)
-    if (action === "dismiss") {
-      await ctx.db.patch("jobLeads", leadId, { status: "dismissed", feedback: "less" })
-      await logEdit(ctx, ctx.userId, "loop.role", `Dismissed ${lead.title} · ${lead.company}`)
-      return null
-    }
-    if (lead.status !== "saved" && lead.status !== "applied")
-      await countOnRun(ctx, lead.runId, "saved")
-    await ctx.db.patch("jobLeads", leadId, {
-      status: lead.status === "applied" ? "applied" : "saved",
-      ...(action === "favorite" && { feedback: "more" as const }),
-    })
-    await logEdit(
-      ctx,
-      ctx.userId,
-      "loop.role",
-      `${action === "favorite" ? "Favorited" : "Saved"} ${lead.title} · ${lead.company}`
-    )
+    await respondToLead(ctx, lead, action)
+    const did = { dismiss: "Dismissed", favorite: "Favorited", save: "Saved" }[action]
+    await logEdit(ctx, ctx.userId, "loop.role", `${did} ${lead.title} · ${lead.company}`)
     return null
   },
 })

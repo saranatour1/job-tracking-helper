@@ -1446,6 +1446,12 @@ export const Preferences = () => {
   return (
     <div className="flex min-h-0 flex-1 flex-col">
       <PageHeader crumbs={[{ label: "Preferences" }]} />
+      {answers?.some((a) => a.byAgent) && (
+        <p role="alert" className="text-destructive px-4 pt-3 text-sm">
+          A connected agent changed some of your answers. They stay off application forms until you
+          read them and press Save.
+        </p>
+      )}
       {ready && (
         <PreferencesForm
           saved={formOf(data.settings?.workMode ?? "any", tags, answers)}

@@ -23,6 +23,11 @@ export const limits = new RateLimiter(components.rateLimiter, {
   goalEvaluate: { kind: "fixed window", rate: 10, period: DAY },
   resumeReview: { kind: "fixed window", rate: 10, period: DAY },
   prepare: { kind: "fixed window", rate: 10, period: DAY },
+  agentNotify: { kind: "fixed window", rate: 20, period: DAY },
+  agentContact: { kind: "fixed window", rate: 100, period: DAY },
+  // Shards, since agents call tools side by side and one counter would make them collide.
+  agentRead: { kind: "token bucket", rate: 120, period: MINUTE, capacity: 120, shards: 10 },
+  agentWrite: { kind: "fixed window", rate: 500, period: DAY, shards: 5 },
 })
 
 export const readPool = new Workpool(components.readPool, {

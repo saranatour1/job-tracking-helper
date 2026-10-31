@@ -4,7 +4,7 @@ import { goalsTable } from "./models"
 import { internalQuery } from "../../_generated/server"
 import { arkMutation, authedMutation, authedQuery } from "../../lib/functions"
 import { maxGoals, maxEvaluated, NewGoal, UpdateGoal, vToEvaluate } from "./validators"
-import { dayOf, shift, own, ownLoop, roomFor } from "./utils"
+import { createGoal, dayOf, own, roomFor, shift, updateGoal } from "./utils"
 import { logEdit } from "../activity/utils"
 
 const list = authedQuery({
@@ -20,14 +20,8 @@ const list = authedQuery({
 const create = arkMutation({
   args: NewGoal,
   returns: v.id("goals"),
-  handler: async (ctx, { loopId, ...goal }) => {
-    await roomFor(ctx, ctx.userId)
-    await ownLoop(ctx, ctx.userId, loopId)
-    const id = await ctx.db.insert("goals", {
-      ...goal,
-      ...(loopId && { loopId }),
-      userId: ctx.userId,
-    })
+  handler: async (ctx, goal) => {
+    const id = await createGoal(ctx, ctx.userId, goal)
     await logEdit(ctx, ctx.userId, "goal.create", `Added the goal ${goal.name}`)
     return id
   },
@@ -36,13 +30,8 @@ const create = arkMutation({
 const update = arkMutation({
   args: UpdateGoal,
   returns: v.null(),
-  handler: async (ctx, { id, loopId, ...patch }) => {
-    await own(ctx, ctx.userId, id)
-    await ownLoop(ctx, ctx.userId, loopId)
-    await ctx.db.patch("goals", id, {
-      ...patch,
-      ...(loopId !== undefined && { loopId: loopId ?? undefined }),
-    })
+  handler: async (ctx, goal) => {
+    await updateGoal(ctx, ctx.userId, goal)
     await logEdit(ctx, ctx.userId, "goal.update", "Changed a goal")
     return null
   },

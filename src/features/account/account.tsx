@@ -14,6 +14,7 @@ import { Input } from "@/components/ui/input"
 import { ScrollArea } from "@/components/ui/scroll-area"
 import { Select, SelectItem, SelectPopup, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Switch } from "@/components/ui/switch"
+import { AgentsSection } from "@/features/account/agents"
 import { EmailSection } from "@/features/account/email"
 import { NotificationsSection } from "@/features/account/notifications"
 import { messageOf, Row, Section } from "@/features/account/settings"
@@ -350,11 +351,12 @@ export const Account = () => {
         <main className={cn(pageBody, "max-w-2xl gap-10")}>
           <PageIntro
             title="Account"
-            description="Your profile, email, notifications, calendar, booking pages, how the app looks, and your sign-in."
+            description="Your profile, email, notifications, connected agents, calendar, booking pages, how the app looks, and your sign-in."
           />
           {me && <ProfileSection me={me} />}
           <EmailSection />
           <NotificationsSection />
+          <AgentsSection />
           <CalendarSection />
           <BookingSection />
           <ApplicationsSection />

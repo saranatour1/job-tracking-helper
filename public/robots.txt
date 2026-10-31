@@ -5,6 +5,7 @@ Disallow: /account
 Disallow: /activity
 Disallow: /book/
 Disallow: /calendar
+Disallow: /connect
 Disallow: /contacts
 Disallow: /email
 Disallow: /goals

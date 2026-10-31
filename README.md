@@ -11,6 +11,7 @@ A job search app. It finds roles that fit what you asked for, fills in their app
 - **Mail and Contacts.** Connect your own Cloudflare account to send from your domain and receive replies. Each company can have its own address, so mail lands on the right application.
 - **Calendar and Booking pages.** Application dates, interviews read from email and your own events, plus links a recruiter can book from.
 - **Workflows and Activity.** A trigger and up to 20 steps built on a canvas, and a record of everything the app did for you and why anything failed.
+- **Connected agents.** An MCP server, so Claude, ChatGPT, Cursor or Claude Code can do much of this for you. Agents draft and you submit.
 
 [docs/flows.md](docs/flows.md) covers every flow, and [docs/workflows.md](docs/workflows.md) covers workflows.
 
@@ -81,6 +82,7 @@ docs/
 | Frontend      | React 19, TanStack Start, Router, Table and Form, Tiptap                |
 | UI            | Tailwind CSS v4, shadcn CLI with coss ui, Hugeicons, kloq, React Flow   |
 | Backend       | Convex, Convex Auth v2, convex-helpers, batch worker for big deletes    |
+| Agents        | `@convex-dev/mcp`                                                       |
 | AI            | Jev and Gemini Flash Lite, through the Convex AI gateway and the AI SDK |
 | Forms and web | Firecrawl                                                               |
 | Validation    | arktype                                                                 |

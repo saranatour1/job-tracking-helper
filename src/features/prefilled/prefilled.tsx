@@ -357,7 +357,7 @@ const AnswerRow = ({
       )}
       {draft && (
         <p className="text-muted-foreground text-xs">
-          Drafted by AI from your resume. Make sure it's true and sounds like you, then{" "}
+          Drafted by AI. Make sure it's true and sounds like you, then{" "}
           {live ? "send it" : "accept it or change it"}.
         </p>
       )}

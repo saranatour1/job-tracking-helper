@@ -76,6 +76,7 @@ const Row = ({ automation }: { automation: Doc<"automations"> }) => {
         <span className="text-sm font-medium hover:underline">{automation.name}</span>
         <span className="text-muted-foreground text-xs">
           {triggerInfo(automation.trigger).summary} · {steps} {steps === 1 ? "step" : "steps"}
+          {automation.byAgent && " · Written by an agent, open it to check"}
           {counts && counts.done + counts.failed > 0 && (
             <>
               {" · "}

@@ -153,6 +153,8 @@ export const ProfileEntry = type({
   order: "number",
   "lastUsedAt?": "number",
   "useCount?": "number",
+  // Written by a connected agent, and not yet saved by the person. Forms don't use these.
+  "byAgent?": "boolean",
 })
 
 export const PreferenceSettings = type({

@@ -60,6 +60,8 @@ and the rules both go by. For the rest of the app, see [flows.md](flows.md).
    writes a step's text, so nothing typed becomes part of a step. The draft opens unsaved
    (`?draft=…`) for you to check. 20 drafts a day.
 
+5. Or a [connected agent](flows.md#connected-agents) drafts one with `save_workflow`. It's saved off, even if it replaces one that was on, and marked `byAgent`. Until you open it and save it in the builder, its switch and Run now both refuse, because a workflow can send email on its own.
+
 ### Build it
 
 1. The builder has three parts: the blocks on the left, the canvas in the middle, and

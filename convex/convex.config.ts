@@ -11,6 +11,7 @@ import workflow from "@convex-dev/workflow/convex.config.js"
 import aggregate from "@convex-dev/aggregate/convex.config.js"
 import workpool from "@convex-dev/workpool/convex.config.js"
 import batchWorker from "@convex-dev/batch-worker/convex.config.js"
+import mcp from "@convex-dev/mcp/convex.config.js"
 import cloudflareEmail from "./components/cloudflareEmail/convex.config"
 import notifications from "./components/notifications/convex.config"
 
@@ -68,5 +69,7 @@ app.use(aggregate, { name: "automationChoices" })
 app.use(cloudflareEmail)
 
 app.use(notifications)
+
+app.use(mcp)
 
 export default app

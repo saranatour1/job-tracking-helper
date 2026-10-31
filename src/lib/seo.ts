@@ -2,7 +2,7 @@ export const site = {
   name: "Job Tracking Helper",
   url: "https://ye.saranatour.dev",
   contact: "privacy@saranatour.dev",
-  updated: "October 31, 2026",
+  updated: "November 1, 2026",
   databuddyId: "8ed4f691-f76a-400e-b1fb-a9233678940e",
 }
 

@@ -9,6 +9,8 @@ export const automationsTable = defineTable({
   steps: v.array(vStep),
   active: v.boolean(),
   nextRunAt: v.optional(v.number()),
+  // Written by a connected agent and not yet saved in the builder, so it can't start.
+  byAgent: v.optional(v.boolean()),
 })
   .index("by_userId", ["userId"])
   .index("by_active_and_nextRunAt", ["active", "nextRunAt"])

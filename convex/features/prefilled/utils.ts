@@ -55,6 +55,41 @@ export const startPrefill = async (ctx: MutationCtx, userId: Id<"users">, postin
   return id
 }
 
+export const roomToPrepare = async (ctx: MutationCtx, userId: Id<"users">) => {
+  const blocked = await blockedBy(ctx, userId)
+  if (blocked) throw new ConvexError(blocked)
+  const { ok } = await limits.limit(ctx, "prepare", { key: userId })
+  if (!ok) throw new ConvexError("That's 10 prepared today. Try again tomorrow.")
+}
+
+const unsupported = "This works on Greenhouse, Lever, Ashby and Personio postings."
+
+export const preparePosting = async (
+  ctx: MutationCtx,
+  userId: Id<"users">,
+  { jobId, leadId }: { jobId?: Id<"jobs">; leadId?: Id<"jobLeads"> }
+) => {
+  const lead = leadId && (await ctx.db.get("jobLeads", leadId))
+  if (lead && lead.userId !== userId) throw new ConvexError("That isn't yours.")
+  const job = jobId ?? lead?.jobId
+  const fromJob = job && (await ctx.db.get("jobs", job))
+  const posting = fromJob ?? lead
+  if (!posting) throw new ConvexError("That role is gone from the catalog.")
+  if (!boardOf(posting.url)) throw new ConvexError(unsupported)
+  // Asking again for one already prepared costs nothing from the day's 10.
+  const known = await prefillOf(ctx, userId, posting.urlKey)
+  if (known && known.status !== "failed" && known.status !== "dismissed") return known._id
+  await roomToPrepare(ctx, userId)
+  return startPrefill(ctx, userId, {
+    url: posting.url,
+    urlKey: posting.urlKey,
+    company: posting.company,
+    title: posting.title,
+    ...(job && { jobId: job }),
+    ...(leadId && { leadId }),
+  })
+}
+
 export const prepareFits = async (
   ctx: MutationCtx,
   userId: Id<"users">,
@@ -78,6 +113,28 @@ export const prepareFits = async (
       ...(lead.jobId && { jobId: lead.jobId }),
     })
   }
+}
+
+export const withAnswer = (
+  row: Doc<"prefills">,
+  question: string,
+  answer: string,
+  source: "you" | "ai"
+) => {
+  const field = row.fields.find((f) => f.question === question)
+  if (!field) throw new ConvexError("The form doesn't ask that.")
+  if (answer && field.options && !field.options.includes(answer))
+    throw new ConvexError("Pick one of the form's options.")
+  return row.fields.map((f) => {
+    if (f.question !== question) return f
+    const { answer: _answer, entryKey: _entryKey, fill, ...rest } = f
+    return {
+      ...rest,
+      source: answer ? source : ("none" as const),
+      ...(answer && { answer }),
+      ...(fill && f.answer === answer && { fill }),
+    }
+  })
 }
 
 export const ownPrefill = async (ctx: MutationCtx, userId: Id<"users">, id: Id<"prefills">) => {
