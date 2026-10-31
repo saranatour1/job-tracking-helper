@@ -171,6 +171,22 @@ const sourceLabel = (field: Field) =>
             ? "Needs you"
             : "Optional"
 
+// Whether the app got this answer into the open browser.
+const FillBadge = ({ field }: { field: Field }) =>
+  field.fill === "filled" ? (
+    <Badge variant="success" className="shrink-0 font-normal">
+      In the form
+    </Badge>
+  ) : field.fill === "byHand" ? (
+    <Badge variant="warning" className="shrink-0 font-normal">
+      Do by hand
+    </Badge>
+  ) : field.answer ? (
+    <Badge variant="outline" className="shrink-0 font-normal">
+      Not sent yet
+    </Badge>
+  ) : null
+
 // One question and its answer. Saving it here changes this application only, unless you
 // tick Keep for future forms.
 const AnswerRow = ({
@@ -213,6 +229,7 @@ const AnswerRow = ({
         <label htmlFor={field.question} className="me-auto text-[13px] font-medium">
           {field.question}
         </label>
+        {live && <FillBadge field={field} />}
         <Badge variant={needed ? "warning" : "secondary"} className="shrink-0 font-normal">
           {sourceLabel(field)}
         </Badge>
@@ -528,8 +545,9 @@ export const PrefilledPage = ({ id }: { id: Id<"prefills"> }) => {
                     )}
                     {open && prefill.liveUrl && (
                       <p className="text-muted-foreground text-xs">
-                        Send to form puts an answer in the browser and shows you where it went.
-                        About 1 Firecrawl credit each.
+                        Each answer shows whether the app got it into the form, not edits you make
+                        there. Send to form puts one in and shows you where it went, for about 1
+                        Firecrawl credit.
                       </p>
                     )}
                     {questions?.map((field) => (

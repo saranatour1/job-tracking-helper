@@ -213,6 +213,61 @@ describe("sending an answer to the open browser", () => {
     expect((await row()).credits).toBe(before + 1)
   })
 
+  it("marks each answer by what happened when the browser opened", async () => {
+    const { row } = await openBrowser()
+    const fields = (await row()).fields
+    expect(fields.find((f) => f.question === "Phone")?.fill).toBe("filled")
+    expect(fields.find((f) => f.question === "Why us?")?.fill).toBe("filled")
+  })
+
+  it("marks an answer that wouldn't go in, and a blank required one, as by hand", async () => {
+    const s = await setup()
+    mocks.generateText.mockResolvedValue({ text: '{"answers":[""]}' })
+    await s.t.action(internal.prefilled.prepareForm, { id: s.id })
+    mocks.interact.mockResolvedValueOnce({ value: form, liveUrl: "" }).mockResolvedValueOnce({
+      value: { unfilled: [{ label: "Phone", reason: "no" }], errors: [] },
+      liveUrl: "https://live.example/x",
+    })
+    await s.as.action(api.prefilled.startLive, { id: s.id })
+    const opened = await s.row()
+    expect(opened.fields.map((f) => f.fill)).toEqual(["byHand", "byHand"])
+    expect(opened.unfilled).toEqual(expect.arrayContaining(["Phone", "Why us?"]))
+  })
+
+  it("clears the mark when an answer changes, and takes it off the by-hand list once sent", async () => {
+    const { as, id, row } = await openBrowser()
+    const why = async () => (await row()).fields.find((f) => f.question === "Why us?")
+    // The same answer keeps its mark.
+    await as.mutation(api.prefilled.setAnswer, { id, question: "Why us?", answer: "It fits." })
+    expect((await why())?.fill).toBe("filled")
+
+    await as.mutation(api.prefilled.setAnswer, { id, question: "Why us?", answer: "Edited." })
+    expect((await why())?.fill).toBeUndefined()
+
+    mocks.interact.mockResolvedValueOnce({
+      value: { unfilled: [{ label: "Why us?", reason: "no" }], errors: [] },
+      liveUrl: "",
+    })
+    expect(await as.action(api.prefilled.sendToForm, { id, question: "Why us?" })).toEqual({
+      filled: false,
+    })
+    expect((await why())?.fill).toBe("byHand")
+    expect((await row()).unfilled).toContain("Why us?")
+
+    await as.action(api.prefilled.sendToForm, { id, question: "Why us?" })
+    expect((await why())?.fill).toBe("filled")
+    expect((await row()).unfilled).not.toContain("Why us?")
+  })
+
+  it("leaves the mark alone when it only points at a blank question", async () => {
+    const { as, id, row } = await openBrowser()
+    await as.mutation(api.prefilled.setAnswer, { id, question: "Why us?", answer: "" })
+    expect(await as.action(api.prefilled.sendToForm, { id, question: "Why us?" })).toEqual({
+      filled: false,
+    })
+    expect((await row()).fields.find((f) => f.question === "Why us?")?.fill).toBeUndefined()
+  })
+
   it("says so when a question isn't in the form, and refuses someone else", async () => {
     const { t, as, id } = await openBrowser()
     await expect(as.action(api.prefilled.sendToForm, { id, question: "Gone" })).rejects.toThrow(

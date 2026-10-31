@@ -424,7 +424,9 @@ Previews are the same text as plain words.
    hand", and **press the form's own Submit**. The app never presses it. A location list that
    doesn't have your city tries your country. **Send to form** on an answer
    (`api.prefilled.sendToForm`) saves it, puts it in the browser and points the form at it,
-   for about 1 Firecrawl credit. A browser left alone closes after 15 minutes
+   for about 1 Firecrawl credit. While the browser is open, each answer is marked **In the
+   form**, **Do by hand** or **Not sent yet**. That's what the app did, not what you've since
+   changed in the form itself. A browser left alone closes after 15 minutes
    (`internal.prefilled.closeLive`), and **Close without sending** does it sooner.
 5. **I sent it** (`api.prefilled.confirmSent`) reads the page for a thank-you. If it finds
    one, or you press **Mark as sent** when it can't, the posting becomes an application at
