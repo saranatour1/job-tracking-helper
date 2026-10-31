@@ -14,9 +14,9 @@ export const prefillStatuses = [
 ] as const
 export type PrefillStatus = (typeof prefillStatuses)[number]
 
-// Where an answer came from: your saved answers by name, Jev's pick among them, or you,
-// typing it on this application. Text is only ever yours; Jev never writes it.
-export const answerSources = ["saved", "jev", "you", "none"] as const
+// Where an answer came from: your saved answers by name, Jev's pick among them, a draft
+// for you to check, or you, typing it on this application.
+export const answerSources = ["saved", "jev", "ai", "you", "none"] as const
 
 // One question on a posting's form. Demographic questions are left out, so they're never
 // stored or answered. `entryKey` is the saved answer it came from, to stamp its usage.
@@ -69,6 +69,8 @@ export const PrefillListed = Prefill.omit("liveUrl", "scrapeId").and({
   _creationTime: "number",
 })
 
+export const maxAnswer = 2000
+
 export const SetAnswer = type({
   id: arkId("prefills"),
   question: "string",
@@ -114,6 +116,10 @@ export const vRunPlan = v.union(
     status: v.union(...prefillStatuses.map((s) => v.literal(s))),
     fields: arkOutputToConvex(PrefillField.array()),
     answers: v.array(v.object({ key: v.string(), label: v.string(), value: v.string() })),
+    company: v.string(),
+    title: v.string(),
+    postingText: v.string(),
+    resumeText: v.string(),
     resume: v.union(
       v.null(),
       v.object({ id: v.id("_storage"), name: v.string(), mimeType: v.string() })

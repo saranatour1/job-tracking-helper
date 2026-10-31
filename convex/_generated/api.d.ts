@@ -97,6 +97,7 @@ import type * as features_preferences_rows from "../features/preferences/rows.js
 import type * as features_preferences_utils from "../features/preferences/utils.js";
 import type * as features_preferences_validators from "../features/preferences/validators.js";
 import type * as features_prefilled_actions from "../features/prefilled/actions.js";
+import type * as features_prefilled_draft from "../features/prefilled/draft.js";
 import type * as features_prefilled_firecrawl from "../features/prefilled/firecrawl.js";
 import type * as features_prefilled_index from "../features/prefilled/index.js";
 import type * as features_prefilled_internal from "../features/prefilled/internal.js";
@@ -239,6 +240,7 @@ declare const fullApi: ApiFromModules<{
   "features/preferences/utils": typeof features_preferences_utils;
   "features/preferences/validators": typeof features_preferences_validators;
   "features/prefilled/actions": typeof features_prefilled_actions;
+  "features/prefilled/draft": typeof features_prefilled_draft;
   "features/prefilled/firecrawl": typeof features_prefilled_firecrawl;
   "features/prefilled/index": typeof features_prefilled_index;
   "features/prefilled/internal": typeof features_prefilled_internal;

@@ -41,13 +41,14 @@ export const statusVariant: Record<Status, "secondary" | "info" | "warning" | "s
     failed: "error",
   }
 
-const leftToAnswer = (fields: Field[]) => fields.filter((f) => f.required && !f.answer).length
+const leftToAnswer = (fields: Field[]) =>
+  fields.filter((f) => f.required && (!f.answer || f.source === "ai")).length
 
 const summaryOf = (row: Pick<Prefill, "status" | "fields" | "error">) => {
   if (row.status === "preparing") return "Reading the form and matching your saved answers."
   if (row.status === "failed") return row.error ?? "It couldn't be prepared."
   const left = leftToAnswer(row.fields)
-  const answered = row.fields.filter((f) => f.answer).length
+  const answered = row.fields.filter((f) => f.answer && f.source !== "ai").length
   return left
     ? `${answered} answered. ${left} ${left === 1 ? "question needs" : "questions need"} you.`
     : `${answered} of ${row.fields.length} answered, ready for you to check.`
@@ -154,11 +155,13 @@ const sourceLabel = (field: Field) =>
     ? "Saved"
     : field.source === "jev"
       ? "Jev picked"
-      : field.source === "you"
-        ? "You"
-        : field.required
-          ? "Needs you"
-          : "Optional"
+      : field.source === "ai"
+        ? "AI draft"
+        : field.source === "you"
+          ? "You"
+          : field.required
+            ? "Needs you"
+            : "Optional"
 
 // One question and its answer. Saving it here changes this application only, unless you
 // tick Keep for future forms.
@@ -187,7 +190,8 @@ const AnswerRow = ({
     }
   }, undefined)
   const items = field.options?.map((o) => ({ value: o, label: o }))
-  const needed = field.required && !field.answer
+  const draft = field.source === "ai"
+  const needed = field.required && (!field.answer || draft)
   return (
     <form action={save} className="flex flex-col gap-1.5 border-t pt-3 first:border-t-0 first:pt-0">
       <div className="flex items-start gap-2">
@@ -228,6 +232,11 @@ const AnswerRow = ({
           maxLength={2000}
           disabled={locked}
         />
+      )}
+      {draft && (
+        <p className="text-muted-foreground text-xs">
+          Drafted by AI from your resume. Make sure it's true and sounds like you, then Save.
+        </p>
       )}
       {!locked && (
         <div className="flex items-center gap-3">
@@ -459,6 +468,15 @@ export const PrefilledPage = ({ id }: { id: Id<"prefills"> }) => {
                         {prefill.status === "preparing"
                           ? "Reading the form…"
                           : "No questions read yet."}
+                      </p>
+                    )}
+                    {!data.canDraft && canApply && leftToAnswer(prefill.fields) > 0 && (
+                      <p className="text-muted-foreground text-xs">
+                        Review your resume on the{" "}
+                        <Link to="/resume" className="underline underline-offset-2">
+                          Resume page
+                        </Link>{" "}
+                        and read the form again, and AI can draft these for you to check.
                       </p>
                     )}
                     {prefill.fields.map((field) => (

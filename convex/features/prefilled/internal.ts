@@ -33,12 +33,18 @@ const plan = internalQuery({
         .map((e) => ({ key: e._id as string, label: e.label, value: e.value })),
     ]
     const file = prefs?.resumeId && (await ctx.db.system.get("_storage", prefs.resumeId))
+    const job = row.jobId && (await ctx.db.get("jobs", row.jobId))
+    const lead = row.leadId && (await ctx.db.get("jobLeads", row.leadId))
     return {
       userId: row.userId,
       url: row.url,
       status: row.status,
       fields: row.fields,
       answers,
+      company: row.company,
+      title: row.title,
+      postingText: job ? job.text : (lead?.snippet ?? ""),
+      resumeText: prefs?.resumeText ?? "",
       resume: file
         ? {
             id: file._id,
@@ -50,7 +56,8 @@ const plan = internalQuery({
   },
 })
 
-// A prepare is done. Answers you typed stay, and it tells the Inbox it's ready to look at.
+// A prepare is done. Answers you typed stay, a draft stays unless a saved answer now covers
+// the question, and it tells the Inbox it's ready to look at.
 const savePrepared = internalMutation({
   args: vSavePreparedArgs,
   returns: v.null(),
@@ -58,14 +65,16 @@ const savePrepared = internalMutation({
     const row = await ctx.db.get("prefills", id)
     if (row?.status !== "preparing") return null
     if (credits) await addUsage(ctx, "firecrawl", credits, false)
-    const typed = new Map(
-      row.fields.filter((f) => f.source === "you").map((f) => [f.question, f.answer])
+    const earlier = new Map(
+      row.fields
+        .filter((f) => f.answer && (f.source === "you" || f.source === "ai"))
+        .map((f) => [f.question, f])
     )
     const merged = fields.map((f) => {
-      const answer = typed.get(f.question)
-      if (!answer) return f
+      const had = earlier.get(f.question)
+      if (!had || (had.source === "ai" && f.answer)) return f
       const { entryKey: _entryKey, ...rest } = f
-      return { ...rest, answer, source: "you" as const }
+      return { ...rest, answer: had.answer, source: had.source }
     })
     await ctx.db.patch("prefills", id, {
       fields: merged,

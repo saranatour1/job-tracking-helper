@@ -2,7 +2,7 @@
 
 Track job applications: company, role and status, saved per user.
 
-New accounts start on Preferences, which asks what someone wants from their next job in their own words, one section at a time, and saves it to Convex. Its Overview tab lists every answer, and clicking one opens its section. Its Prefilled tab keeps the fields application forms ask for, in sections you can add, rename and remove, suggested from those words and ready to copy. A copy-paste prompt lets them fill it with their own AI assistant. A resume upload is optional, kept only to attach to applications, and never read.
+New accounts start on Preferences, which asks what someone wants from their next job in their own words, one section at a time, and saves it to Convex. Its Overview tab lists every answer, and clicking one opens its section. Its Prefilled tab keeps the fields application forms ask for, in sections you can add, rename and remove, suggested from those words and ready to copy. A copy-paste prompt lets them fill it with their own AI assistant. A resume upload is optional and attached to applications. Its text is read only after you press Review on the Resume page, and prepared applications then use it, without your email or phone, for AI drafts you check before sending.
 
 Jobs lists every open role in a shared catalog, built from the free feeds of company job boards (Greenhouse, Lever, Ashby, Personio) and refreshed daily. Search it, keep to remote roles, switch to a compact list, or find more like any role. Postings are kept as small, sanitized Markdown made from each board's HTML.
 
@@ -106,17 +106,17 @@ Code rules, enforced by `vp check`: arrow functions only, no `useEffect`. Files 
 
 ## Tools
 
-| Area          | Used                                                            |
-| ------------- | --------------------------------------------------------------- |
-| Toolchain     | Vite+ (`vp`): dev server, build, lint, format                   |
-| Frontend      | React 19, TanStack Start, Router, Table and Form                |
-| UI            | Tailwind CSS v4, shadcn CLI with coss ui (Base UI), Hugeicons   |
-| Backend       | Convex, Convex Auth v2, convex-helpers                          |
-| AI            | Jev (TypeSafe) via the Convex AI gateway and the AI SDK         |
-| Validation    | arktype, shared by the form and the `applications:add` mutation |
-| Type checking | tsrs                                                            |
-| Convex lint   | `@convex-dev/eslint-plugin` recommended rules, loaded by oxlint |
-| Secrets       | 1Password CLI (`op`)                                            |
+| Area          | Used                                                                                       |
+| ------------- | ------------------------------------------------------------------------------------------ |
+| Toolchain     | Vite+ (`vp`): dev server, build, lint, format                                              |
+| Frontend      | React 19, TanStack Start, Router, Table and Form                                           |
+| UI            | Tailwind CSS v4, shadcn CLI with coss ui (Base UI), Hugeicons                              |
+| Backend       | Convex, Convex Auth v2, convex-helpers                                                     |
+| AI            | Jev (TypeSafe), and Gemini Flash Lite for drafts, via the Convex AI gateway and the AI SDK |
+| Validation    | arktype, shared by the form and the `applications:add` mutation                            |
+| Type checking | tsrs                                                                                       |
+| Convex lint   | `@convex-dev/eslint-plugin` recommended rules, loaded by oxlint                            |
+| Secrets       | 1Password CLI (`op`)                                                                       |
 
 Made for this repo:
 
