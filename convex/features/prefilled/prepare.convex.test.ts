@@ -156,6 +156,35 @@ describe("preparing without AI", () => {
   })
 })
 
+describe("choosing between answers", () => {
+  it("prefers your saved full name to the account's short one", async () => {
+    const { t, id, row } = await setup()
+    await t.run(async (ctx) => {
+      const user = await ctx.db.query("users").first()
+      await ctx.db.insert("profileEntries", {
+        userId: user!._id,
+        kind: "field",
+        group: "Contact",
+        key: "field",
+        label: "Full name",
+        value: "Samantha Lee",
+        order: 0,
+      })
+    })
+    mocks.interact.mockResolvedValue({
+      value: {
+        ...form,
+        fields: [
+          { selector: "#n", name: "name", type: "text", label: "Full name", required: true },
+        ],
+      },
+      liveUrl: "",
+    })
+    await t.action(internal.prefilled.prepareForm, { id })
+    expect((await row()).fields[0]).toMatchObject({ answer: "Samantha Lee", source: "saved" })
+  })
+})
+
 describe("sending an answer to the open browser", () => {
   const openBrowser = async () => {
     const s = await setup()

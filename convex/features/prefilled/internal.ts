@@ -26,12 +26,13 @@ const plan = internalQuery({
       .query("profileEntries")
       .withIndex("by_userId_and_kind_and_order", (q) => q.eq("userId", row.userId))
       .take(rowLimits.answer + rowLimits.field)
+    // Saved answers first: the first match wins, and yours beats the account's short name.
     const answers = [
-      ...(me?.name ? [{ key: "user.name", label: "Full name", value: me.name }] : []),
-      ...(me?.email ? [{ key: "user.email", label: "Email", value: me.email }] : []),
       ...entries
         .filter((e) => e.value.trim())
         .map((e) => ({ key: e._id as string, label: e.label, value: e.value })),
+      ...(me?.name ? [{ key: "user.name", label: "Full name", value: me.name }] : []),
+      ...(me?.email ? [{ key: "user.email", label: "Email", value: me.email }] : []),
     ]
     const file = prefs?.resumeId && (await ctx.db.system.get("_storage", prefs.resumeId))
     const job = row.jobId && (await ctx.db.get("jobs", row.jobId))
