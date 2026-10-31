@@ -3,7 +3,7 @@
 // however the other side's mail is set up. Cloudflare's send API returns no Message-ID, so a
 // reply is matched by that address, or by the email it answers.
 import { ConvexError, v } from "convex/values"
-import { components, internal } from "../../_generated/api"
+import { api, components, internal } from "../../_generated/api"
 import { action, internalMutation, internalQuery } from "../../_generated/server"
 import { arkToConvex, checked } from "../../lib/ark"
 import { seal } from "../../lib/secrets"
@@ -17,26 +17,27 @@ import { Received, SendMail } from "./validators"
 const sendContext = internalQuery({
   args: {
     userId: v.id("users"),
-    applicationId: v.id("applications"),
+    applicationId: v.optional(v.id("applications")),
     replyTo: v.optional(v.id("mailEvents")),
   },
   returns: v.union(
     v.null(),
     v.object({
-      company: v.string(),
+      company: v.optional(v.string()),
       parent: v.optional(v.string()),
     })
   ),
   handler: async (ctx, { userId, applicationId, replyTo }) => {
-    const application = await ctx.db.get("applications", applicationId)
-    if (application?.userId !== userId || application.trashedAt !== undefined) return null
+    const application = applicationId ? await ctx.db.get("applications", applicationId) : null
+    if (applicationId && (application?.userId !== userId || application.trashedAt !== undefined))
+      return null
     const event = replyTo && (await ctx.db.get("mailEvents", replyTo))
     const email =
       event && event.userId === userId
         ? await ctx.runQuery(components.cloudflareEmail.lib.get, { emailId: event.emailId })
         : null
     return {
-      company: application.company,
+      ...(application && { company: application.company }),
       ...(email && { parent: email.payload }),
     }
   },
@@ -46,7 +47,7 @@ const sendContext = internalQuery({
 const recordSent = internalMutation({
   args: {
     userId: v.id("users"),
-    applicationId: v.id("applications"),
+    applicationId: v.optional(v.id("applications")),
     emailId: v.string(),
     note: v.string(),
   },
@@ -57,6 +58,7 @@ const recordSent = internalMutation({
       kind: "other",
       at: Date.now(),
       by: "sent",
+      box: "sent",
     })
     await ctx.scheduler.runAfter(0, internal.contacts.learn, { eventId: id })
     return null
@@ -68,12 +70,12 @@ const sendFromApplication = action({
   returns: v.null(),
   handler: async (ctx, args) => {
     const userId = await userIdOf(ctx)
-    const { applicationId, to, subject, text, replyTo } = checked(SendMail, args)
+    const { applicationId, to, subject, text, replyTo, html, draftId } = checked(SendMail, args)
     const { row, k, details, token } = await openConnection(ctx, userId)
     if (!row.allow.send) throw new ConvexError("Turn on “Send email” under Account first.")
     const context = await ctx.runQuery(internal.email.sendContext, {
       userId,
-      applicationId,
+      ...(applicationId && { applicationId }),
       ...(replyTo && { replyTo }),
     })
     if (!context) throw new ConvexError("That application isn't here anymore.")
@@ -87,7 +89,9 @@ const sendFromApplication = action({
       to: [to],
       subject,
       text,
-      ...(row.inbound &&
+      ...(html && { html }),
+      ...(context.company &&
+        row.inbound &&
         row.allow.receive &&
         row.allow.tag && { replyTo: companyAddress(details.fromAddress, context.company) }),
       ...(parentId && {
@@ -117,7 +121,7 @@ const sendFromApplication = action({
     if (error) throw new ConvexError(`Cloudflare didn't send it: ${error}`)
     await ctx.runMutation(internal.email.recordSent, {
       userId,
-      applicationId,
+      ...(applicationId && { applicationId }),
       emailId,
       note: await seal(
         k,
@@ -125,6 +129,7 @@ const sendFromApplication = action({
         aad.email(userId)
       ),
     })
+    if (draftId) await ctx.runMutation(api.mailbox.deleteDraft, { id: draftId })
     return null
   },
 })
@@ -144,7 +149,7 @@ const makeAddressWithoutPlus = action({
     if (!row.allow.setup || !details.zoneId)
       throw new ConvexError("Turn on “Set up Cloudflare for you” first.")
     const context = await ctx.runQuery(internal.email.sendContext, { userId, applicationId })
-    if (!context) throw new ConvexError("That application isn't here anymore.")
+    if (!context?.company) throw new ConvexError("That application isn't here anymore.")
     const address = addressWithoutPlus(details.fromAddress, context.company)
     // Applications at one company share it.
     if (await ruleFor(details.zoneId, token, address)) return address

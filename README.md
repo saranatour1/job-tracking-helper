@@ -10,6 +10,7 @@ A job search app. It finds roles that fit what you asked for, fills in their app
 - **Prefilled applications.** The app reads a posting's form and matches your saved answers. A small model drafts the job-specific questions for you to check. The real form then opens beside your answers, already filled in.
 - **Applications.** A board or a list, one column per status. Each application has one timeline of status changes, notes and mail.
 - **Mail.** Connect your own Cloudflare account to send from your domain and receive replies. Each company can have its own address, like `you+hooli@yourdomain`, so mail lands in the right place, and you can write and reply from an application. Anything unmatched waits in Unsorted.
+- **Email.** Inbox, Sent, Drafts, Archived, Trash and labels, a page at a time, with a Tiptap editor and reusable templates.
 - **Contacts.** The people from your application mail, by company, with who you've emailed most marked. Copy, edit, add or remove any of them.
 - **Calendar.** Application dates, interview times read from emails and invites, follow-ups and your own events.
 - **Booking pages.** Links like `/book/<code>` to send a recruiter. They show your free time in the guest's zone, and a booking lands on your Calendar.
@@ -104,7 +105,7 @@ Arguments use arktype when text has rules Convex can't check, like trimming or l
 | Area          | Used                                                                    |
 | ------------- | ----------------------------------------------------------------------- |
 | Toolchain     | Vite+ (`vp`) for the dev server, build, lint and format                 |
-| Frontend      | React 19, TanStack Start, Router, Table and Form                        |
+| Frontend      | React 19, TanStack Start, Router, Table and Form, Tiptap                |
 | UI            | Tailwind CSS v4, shadcn CLI with coss ui, Hugeicons, kloq, React Flow   |
 | Backend       | Convex, Convex Auth v2, convex-helpers                                  |
 | AI            | Jev and Gemini Flash Lite, through the Convex AI gateway and the AI SDK |

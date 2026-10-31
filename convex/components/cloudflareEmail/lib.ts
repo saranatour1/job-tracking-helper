@@ -180,6 +180,17 @@ export const reseal = mutation({
   },
 })
 
+// One email, deleted for good. Only its owner's.
+export const remove = mutation({
+  args: { emailId: v.id("emails"), owner: v.string() },
+  returns: v.null(),
+  handler: async (ctx, { emailId, owner }) => {
+    const email = await ctx.db.get("emails", emailId)
+    if (email?.owner === owner) await ctx.db.delete("emails", emailId)
+    return null
+  },
+})
+
 // Deletes up to `limit` of an owner's emails and says whether any are left.
 export const removeOwner = mutation({
   args: { owner: v.string(), limit: v.optional(v.number()) },

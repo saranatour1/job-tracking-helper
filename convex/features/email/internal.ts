@@ -147,10 +147,15 @@ const resealConnection = internalMutation({
 // to move every connection and email to it. Then the old key can be removed.
 const resealAll = internalAction({
   args: {},
-  returns: v.object({ connections: v.number(), emails: v.number(), contacts: v.number() }),
+  returns: v.object({
+    connections: v.number(),
+    emails: v.number(),
+    contacts: v.number(),
+    drafts: v.number(),
+  }),
   handler: async (ctx) => {
     const k = await keys()
-    const done = { connections: 0, emails: 0, contacts: 0 }
+    const done = { connections: 0, emails: 0, contacts: 0, drafts: 0 }
     let cursor: string | null = null
     for (;;) {
       const result: {
@@ -206,6 +211,25 @@ const resealAll = internalAction({
           details: await reseal(k, contact.details, `contact:${contact.userId}`),
         })
         done.contacts++
+      }
+      if (result.isDone) break
+      cursor = result.continueCursor
+    }
+    cursor = null
+    for (;;) {
+      const result: {
+        page: { id: Id<"mailDrafts">; userId: string; details: string }[]
+        isDone: boolean
+        continueCursor: string
+      } = await ctx.runQuery(internal.mailbox.draftsPage, { cursor })
+      for (const draft of result.page) {
+        if (!isStale(k, draft.details)) continue
+        await ctx.runMutation(internal.mailbox.resealDraft, {
+          id: draft.id,
+          from: draft.details,
+          details: await reseal(k, draft.details, `mail-draft:${draft.userId}`),
+        })
+        done.drafts++
       }
       if (result.isDone) return done
       cursor = result.continueCursor

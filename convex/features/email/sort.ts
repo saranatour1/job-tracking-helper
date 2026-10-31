@@ -159,6 +159,9 @@ const record = internalMutation({
       await changeStatus(ctx, application, event.suggest, "Moved by Jev from an email")
     const id = await ctx.db.insert("mailEvents", {
       ...event,
+      box: "inbox",
+      // Old mail you're importing isn't new to you.
+      ...(quiet && { readAt: event.at }),
       ...(application &&
         event.suggest && {
           suggest: undefined,
@@ -273,26 +276,29 @@ const timeline = authedQuery({
       .order("desc")
       .take(300)
     const opened = await Promise.all(
-      events.map(async (e) => {
-        const note = await openJson(k, e.note, aad.email(ctx.userId), MailNote)
-        return (
-          note && {
-            id: e._id,
-            applicationId: e.applicationId ?? null,
-            kind: e.kind,
-            from: note.from,
-            subject: note.subject || "(no subject)",
-            portalUrl: note.portalUrl,
-            slot: note.slot,
-            slotZone: note.slotZone,
-            at: e.at,
-            sent: e.by === "sent",
-            to: note.to,
-            suggest: e.suggest,
-            moved: e.moved,
-          }
-        )
-      })
+      // Mail you've put in the Trash is out of everything else, like a trashed application.
+      events
+        .filter((e) => e.box !== "trash")
+        .map(async (e) => {
+          const note = await openJson(k, e.note, aad.email(ctx.userId), MailNote)
+          return (
+            note && {
+              id: e._id,
+              applicationId: e.applicationId ?? null,
+              kind: e.kind,
+              from: note.from,
+              subject: note.subject || "(no subject)",
+              portalUrl: note.portalUrl,
+              slot: note.slot,
+              slotZone: note.slotZone,
+              at: e.at,
+              sent: e.by === "sent",
+              to: note.to,
+              suggest: e.suggest,
+              moved: e.moved,
+            }
+          )
+        })
     )
     return opened.filter((e) => e !== null).sort((a, b) => b.at - a.at)
   },

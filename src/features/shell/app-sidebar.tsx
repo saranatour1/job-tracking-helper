@@ -8,6 +8,7 @@ import {
   InboxIcon,
   JobSearchIcon,
   Layers01Icon,
+  Mail01Icon,
   PencilEdit02Icon,
   RepeatIcon,
   Target02Icon,
@@ -45,6 +46,7 @@ const groups: { label?: string; items: readonly Item[] }[] = [
   {
     items: [
       { title: "Applications", to: "/", icon: Briefcase01Icon },
+      { title: "Email", to: "/email", icon: Mail01Icon },
       { title: "Calendar", to: "/calendar", icon: Calendar03Icon },
     ],
   },

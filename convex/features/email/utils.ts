@@ -132,7 +132,7 @@ export const senderOf = (address: string, name?: string) => {
 }
 
 /** What to hand to Cloudflare: under your name, and signed if there's a signature to add. */
-export const outgoing = async <T extends { from: string; text: string }>(
+export const outgoing = async <T extends { from: string; text: string; html?: string }>(
   ctx: ActionCtx,
   row: { signature: SignatureInfo; signaturePhoto?: Id<"_storage"> | undefined },
   email: T,
@@ -147,7 +147,8 @@ export const outgoing = async <T extends { from: string; text: string }>(
     ...signed(
       email.text,
       row.signature,
-      photo ? { base64: toBase64(await photo.arrayBuffer()), type: photo.type } : undefined
+      photo ? { base64: toBase64(await photo.arrayBuffer()), type: photo.type } : undefined,
+      email.html
     ),
   }
 }

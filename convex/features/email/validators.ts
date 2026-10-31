@@ -117,7 +117,7 @@ export const SetUpInbound = type({
 
 // An email written from an application. `replyTo` is the email it answers.
 export const SendMail = type({
-  applicationId: arkId("applications"),
+  "applicationId?": arkId("applications"),
   to: trimmed.to(type("string.email").configure({ message: "Send to a full email address." })),
   subject: trimmed.to(
     type(/^[^\r\n]{1,500}$/).configure({ message: "Give it a subject of one line." })
@@ -126,6 +126,10 @@ export const SendMail = type({
     type("0 < string <= 20000").configure({ message: "Write up to 20,000 characters." })
   ),
   "replyTo?": arkId("mailEvents"),
+  // Written in the editor. `text` is then its plain version.
+  "html?": "string <= 200000",
+  // The draft this was, which goes once it's sent.
+  "draftId?": arkId("mailDrafts"),
 })
 
 // One Cloudflare account per person, for sending from their own domain. Everything
@@ -182,6 +186,11 @@ export const MailEvent = type({
   // the thread it belongs to without the ID being stored. See threadKeyOf.
   "messageKey?": "string",
   by: "'rules' | 'jev' | 'you' | 'thread' | 'tag' | 'sent'",
+  // Which folder it's in. Optional only for mail from before folders; see convex/migrations.ts.
+  "box?": "'inbox' | 'sent' | 'archived' | 'trash'",
+  "readAt?": "number",
+  // Your labels, kept here to show with the row. `mailEventLabels` is what finds them.
+  "labels?": "string[]",
 })
 
 export const vCandidate = v.object({

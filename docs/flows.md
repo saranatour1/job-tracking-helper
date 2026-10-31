@@ -30,12 +30,13 @@ Workflows have their own page, [workflows.md](workflows.md).
 10. [Loops](#loops)
 11. [Inbox](#inbox)
 12. [Email](#email)
-13. [Contacts](#contacts)
-14. [Calendar](#calendar)
-15. [Booking pages](#booking-pages)
-16. [Account](#account)
-17. [Workflows](#workflows)
-18. [Known gaps](#known-gaps)
+13. [Email page](#email-page)
+14. [Contacts](#contacts)
+15. [Calendar](#calendar)
+16. [Booking pages](#booking-pages)
+17. [Account](#account)
+18. [Workflows](#workflows)
+19. [Known gaps](#known-gaps)
 
 ## Across the app
 
@@ -637,6 +638,38 @@ failed, and Account says it couldn't confirm the email went out.
 
 **Files:** `src/features/account/email.tsx`, `convex/features/email/`,
 `convex/components/cloudflareEmail/`, `convex/lib/secrets.ts`.
+
+## Email page
+
+**Stories**
+
+- As a job seeker, I want all my job mail in one place, sent and received, without opening each
+  application.
+- As a job seeker, I want to write formatted email, save drafts, and reuse what I've written.
+
+**Flows** (`/email`, with what's showing in the URL)
+
+1. **Folders:** Inbox, Sent, Drafts, Archived, Trash and Templates, plus one per label
+   (`api.mailbox.page`). 25 at a time with **Load more**, and only those rows are decrypted.
+2. **Reading** (`api.mailbox.content`): opened only when you open one. HTML runs in a sandboxed
+   frame with no scripts, and images from the web are blocked, since they can report back
+   when an email is opened. Opening one marks it read.
+3. **Archive, Trash, Move back, Restore** (`api.mailbox.move`), and **Delete forever** from the
+   Trash (`api.mailbox.deleteForever`). Mail in the Trash also leaves its application's
+   activity. Archived mail stays there.
+4. **Labels** (`api.mailbox.setLabels`): up to 10 on an email and 100 in all. One nothing uses
+   goes away.
+5. **Reply** is on every row and on an open email, except in the Trash. On mail you sent, it goes
+   to whoever you sent it to. **New email** and **Reply** use the Tiptap editor, loaded only when opened
+   (`api.email.sendFromApplication`). An application is optional, and picking one aims replies at
+   its company's address. **Save draft** seals it (`api.mailbox.saveDraft`), and sending removes it.
+6. **Templates** (`api.mailbox.saveTemplate`): a name, subject and body, up to 100. Picking one
+   in a new email fills it in, with `{company}` and `{role}` from the chosen application.
+
+**Rules:** drafts are sealed like mail. Label names and templates are plain, like application
+labels. Workflow emails also land in Sent. Notify me doesn't.
+
+**Files:** `src/features/mail/`, `convex/features/mailbox/`.
 
 ## Contacts
 
