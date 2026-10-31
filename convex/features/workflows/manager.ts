@@ -13,6 +13,8 @@ export const workflow = new WorkflowManager(components.workflow, {
 export const limits = new RateLimiter(components.rateLimiter, {
   firecrawl: { kind: "token bucket", rate: 60, period: MINUTE, capacity: 5 },
   contextDev: { kind: "token bucket", rate: 60, period: MINUTE, capacity: 2 },
+  // Under Firecrawl's free-plan limit of 5 searches a minute, so loops keep their share.
+  companySearch: { kind: "token bucket", rate: 4, period: MINUTE, capacity: 1 },
   runNow: { kind: "fixed window", rate: 3, period: DAY },
   checkLink: { kind: "fixed window", rate: 10, period: DAY },
   automationRun: { kind: "fixed window", rate: 50, period: DAY },

@@ -1,2 +1,2 @@
 export { jobsTable } from "./jobs"
-export { jobBoardsTable, jobCatalogTable } from "./boards"
+export { companiesTable, jobBoardsTable, jobCatalogTable } from "./boards"

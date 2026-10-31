@@ -15,6 +15,22 @@ export const vFeedJob = v.object({
   text: v.string(),
 })
 
+export const vCompanyLink = v.union(v.literal("postings"), v.literal("name"))
+
+export const vYc = v.object({
+  batch: v.string(),
+  status: v.string(),
+  url: v.string(),
+  teamSize: v.optional(v.number()),
+})
+
+export const vEvidence = v.object({
+  domain: v.union(v.string(), v.null()),
+  link: v.union(vCompanyLink, v.null()),
+  yc: v.union(vYc, v.null()),
+  registeredAt: v.union(v.number(), v.null()),
+})
+
 export const vJobRow = v.object({
   _id: v.id("jobs"),
   url: v.string(),
@@ -26,6 +42,7 @@ export const vJobRow = v.object({
   preview: v.string(),
   fit: v.union(v.null(), v.number()),
   verdict: v.union(v.null(), vVerdict),
+  evidence: vEvidence,
 })
 
 export const JobBoard = type({
@@ -36,6 +53,17 @@ export const JobBoard = type({
   "fetchedAt?": "number",
   jobs: "number",
   "error?": "string",
+  "companyId?": arkId("companies"),
+  // How this board reached its company's site: its postings live there, or only its name matches.
+  "companyLink?": "'postings' | 'name'",
+  "researchedAt?": "number",
+})
+
+export const Company = type({
+  name: "string",
+  "domain?": "string",
+  "registeredAt?": "number",
+  "yc?": { batch: "string", status: "string", url: "string", "teamSize?": "number" },
 })
 
 export const Job = type({
@@ -57,6 +85,16 @@ export const vBoardFetchedArgs = {
   jobs: v.number(),
   error: v.optional(v.string()),
   company: v.optional(v.string()),
+}
+
+export const vSaveResearchArgs = {
+  boardId: v.id("jobBoards"),
+  domain: v.optional(v.string()),
+  link: v.optional(vCompanyLink),
+  yc: v.optional(vYc),
+  registeredAt: v.optional(v.number()),
+  credits: v.number(),
+  exhausted: v.boolean(),
 }
 
 export const vCandidatesArgs = {

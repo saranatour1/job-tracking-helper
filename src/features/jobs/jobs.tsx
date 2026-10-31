@@ -84,6 +84,81 @@ type Row = {
   preview: string
   fit: number | null
   verdict: "fit" | "notFit" | null
+  evidence: {
+    domain: string | null
+    link: "postings" | "name" | null
+    yc: { batch: string; status: string; url: string; teamSize?: number } | null
+    registeredAt: number | null
+  }
+}
+
+const yearMs = 365.25 * dayMs
+
+// "9 months", "12 years".
+const ageOf = (ms: number, now: number) => {
+  const years = Math.floor((now - ms) / yearMs)
+  if (years >= 1) return `${years} ${years === 1 ? "year" : "years"}`
+  const months = Math.max(1, Math.floor(((now - ms) / yearMs) * 12))
+  return `${months} ${months === 1 ? "month" : "months"}`
+}
+
+const external = { target: "_blank", rel: "noopener noreferrer" }
+
+// What was found about a role's company, for the person to weigh. Never a verdict: most real
+// employers aren't in YC, and a scammer can copy a real name.
+const Evidence = ({ job, now, compact }: { job: Row; now: number; compact?: boolean }) => {
+  const { domain, link, yc, registeredAt } = job.evidence
+  if (!domain)
+    return (
+      <Badge
+        variant="warning"
+        className="font-normal"
+        title="No company site found for this board yet. Check the company yourself before applying."
+      >
+        Unverified
+      </Badge>
+    )
+  return (
+    <>
+      {link === "postings" ? (
+        <Badge
+          variant="success"
+          className="font-normal"
+          title={`This board's postings live on ${domain}.`}
+        >
+          {compact ? "Own site" : `On ${domain}`}
+        </Badge>
+      ) : (
+        <Badge
+          variant="outline"
+          className="font-normal"
+          title={`Found by searching the company's name: ${domain}. A copied name would match too, so what's shown is about that site, not proof it's this board.`}
+        >
+          {compact ? "Name only" : `Name matches ${domain}`}
+        </Badge>
+      )}
+      {!compact && yc && (
+        <Badge
+          variant="outline"
+          className="font-normal"
+          title={yc.teamSize ? `About ${yc.teamSize} people, per the YC directory` : undefined}
+          render={<a href={yc.url} {...external} />}
+        >
+          YC {yc.batch}
+          {yc.status !== "Active" && ` · ${yc.status}`}
+        </Badge>
+      )}
+      {!compact && registeredAt !== null && (
+        <Badge
+          variant={now - registeredAt < yearMs ? "warning" : "outline"}
+          className="font-normal"
+          title={`${domain} was registered in ${new Date(registeredAt).getUTCFullYear()}`}
+        >
+          Domain {ageOf(registeredAt, now)}
+        </Badge>
+      )}
+    </>
+  )
 }
 
 // What's worth seeing first about a role: remote, new, and what Jev thought of it.
@@ -376,7 +451,10 @@ export const Jobs = () => {
                       <Badges job={job} openings={postings.length} now={now} />
                     </span>
                   </span>
-                  <span className="hidden truncate md:block">{job.company}</span>
+                  <span className="hidden min-w-0 items-center gap-1.5 md:flex">
+                    <span className="truncate">{job.company}</span>
+                    <Evidence job={job} now={now} compact />
+                  </span>
                   <span className="text-muted-foreground hidden truncate md:block">{where}</span>
                   <span className="text-muted-foreground hidden tabular-nums md:block">
                     {ago(job.postedAt, now)}
@@ -402,10 +480,19 @@ export const Jobs = () => {
                       </span>
                     </div>
                     <span className="text-muted-foreground truncate text-xs">
-                      <span className="text-foreground/80">{job.company}</span> · {where}
+                      <span className="text-foreground/80">{job.company}</span> · {where} ·{" "}
+                      {/* A link out only: LinkedIn's terms rule out reading it. */}
+                      <a
+                        href={`https://www.linkedin.com/search/results/companies/?keywords=${encodeURIComponent(job.company)}`}
+                        {...external}
+                        className="hover:underline"
+                      >
+                        LinkedIn
+                      </a>
                     </span>
                     <span className="flex flex-wrap gap-1 empty:hidden">
                       <Badges job={job} openings={postings.length} now={now} />
+                      <Evidence job={job} now={now} />
                     </span>
                     {job.preview && (
                       <p className="text-muted-foreground line-clamp-2 text-xs leading-relaxed">

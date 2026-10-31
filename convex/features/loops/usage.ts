@@ -1,8 +1,8 @@
-import type { MutationCtx } from "../../_generated/server"
+import type { MutationCtx, QueryCtx } from "../../_generated/server"
 import { monthOf } from "../workflows/sources"
 import type { Provider } from "./catalog"
 
-export const usageOf = (ctx: MutationCtx, provider: Provider, month: string) =>
+export const usageOf = (ctx: QueryCtx, provider: Provider, month: string) =>
   ctx.db
     .query("sourceUsage")
     .withIndex("by_provider_and_month", (q) => q.eq("provider", provider).eq("month", month))
