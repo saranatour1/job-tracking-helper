@@ -26,7 +26,7 @@ Your resume file only gets attached to applications until you press Review on th
 
 Demographic questions are skipped by their wording, and job-site passwords are never stored. Pasted tokens, connection details, mail, contacts and drafts are encrypted with AES-256-GCM, under a key only the server holds. Resumes, saved answers and applications don't get that extra layer.
 
-The site sends page views, web vitals, outgoing link clicks and session replays to Databuddy, except on booking pages. Replays mask text. [/privacy](src/routes/privacy.tsx) has the full list, and it has to stay true when any of this changes.
+The site sends page views, web vitals, outgoing link clicks and session replays to Databuddy, except on booking pages. Replays mask text. [src/server.ts](src/server.ts) also reports AI crawler and agent requests from the Worker, again except on booking pages. [/privacy](src/routes/privacy.tsx) has the full list, and it has to stay true when any of this changes.
 
 ## How to run
 
