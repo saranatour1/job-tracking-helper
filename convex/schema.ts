@@ -1,5 +1,6 @@
 import { defineSchema } from "convex/server"
 import { applicationsTable } from "./features/applications/models"
+import { activityEventsTable } from "./features/activity/models"
 import { automationRunsTable, automationsTable } from "./features/automations/models"
 import { bookingPagesTable } from "./features/booking/models"
 import { calendarEventsTable, calendarSettingsTable } from "./features/calendar/models"
@@ -65,4 +66,7 @@ export default defineSchema({
   // Workflows you build.
   automations: automationsTable,
   automationRuns: automationRunsTable,
+
+  // What happened for each person, kept from its evlog event.
+  activityEvents: activityEventsTable,
 })

@@ -6,7 +6,9 @@ import { components, internal } from "../../_generated/api"
 import { action, env, httpAction } from "../../_generated/server"
 import { arkToConvex, checked } from "../../lib/ark"
 import { authedQuery } from "../../lib/functions"
+import { workLog } from "../../lib/log"
 import { seal } from "../../lib/secrets"
+import { keepLogFromAction, reasonOf } from "../activity/utils"
 import { baseAddress, tagIn } from "./addresses"
 import { kindOf, messageIdsIn, portalOf, slotOf, zoneOf } from "./match"
 import { createRule, removeInbound, routingEnabled, ruleFor, uploadWorker } from "./cloudflare"
@@ -76,6 +78,14 @@ const setUpInbound = action({
         baseRule.push(await createRule(details.zoneId, token, base, worker))
     } catch (cause) {
       await removeInbound(details.accountId, details.zoneId, token, worker, "")
+      const log = workLog("mail.setup", { userId })
+      log.set({
+        summary: "Setting up incoming mail",
+        outcome: "failed",
+        error: reasonOf(cloudflare(cause)),
+      })
+      log.setLevel("error")
+      await keepLogFromAction(ctx, log)
       throw cloudflare(cause)
     }
     // A previous setup's rule and Worker go once the new ones are in place.
@@ -100,6 +110,9 @@ const setUpInbound = action({
       },
       details: await seal(k, JSON.stringify({ ...details, forwardTo }), aad.details(userId)),
     })
+    const log = workLog("mail.setup", { userId })
+    log.set({ summary: "Set up incoming mail", outcome: "done" })
+    await keepLogFromAction(ctx, log)
     return null
   },
 })

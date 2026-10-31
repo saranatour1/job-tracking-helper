@@ -128,6 +128,12 @@ These have no owner. Deleting an account leaves them.
 | `automations`    | a workflow you built: trigger and steps, as data                                   | 4                | `by_userId`, `by_active_and_nextRunAt` |
 | `automationRuns` | one run: a copy of its steps, what triggered it, and a log with one entry per step | 1                | `by_automationId_and_startedAt`        |
 
+### Activity
+
+| Table            | One row is                                                                                       | Rows per person | Indexes                                                                        |
+| ---------------- | ------------------------------------------------------------------------------------------------ | --------------- | ------------------------------------------------------------------------------ |
+| `activityEvents` | one thing that happened, kept from its evlog event: what ran, whether it failed, why, and a link | three months    | `by_userId_and_at`, `by_userId_and_failed_and_at`, `by_failed_and_at`, `by_at` |
+
 ### What the components keep
 
 | Component                  | Keeps                                                      | The app keeps                                      |
@@ -142,17 +148,18 @@ These have no owner. Deleting an account leaves them.
 
 ## What happens when something is deleted
 
-| Deleted                    | What points at it                                                                  | What happens                                                                                                                                                           |
-| -------------------------- | ---------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| an account                 | everything with `userId`                                                           | all of it goes, with the resume and image files and the username. The `users` row stays, empty: Convex Auth reuses the id. Shared tables stay                          |
-| an application             | `mailEvents`, `jobLeads`, `calendarEvents`, `bookingPages`, `prefills`, `contacts` | each is unlinked and stays: mail goes back to unfiled, a lead stays tracked so loops don't offer the role again, a sent prefill stays closed so it can't be sent twice |
-| a goal                     | `applications.goalId`                                                              | cleared; the applications stay                                                                                                                                         |
-| a loop                     | `goals.loopId`                                                                     | cleared; the goal takes no more roles                                                                                                                                  |
-| a loop                     | `loopRuns.loopId`, `jobLeads.loopId`                                               | **left on purpose**: its runs and roles stay, so the Runs tab still adds up                                                                                            |
-| a loop                     | a workflow's Find roles step                                                       | left; that step stops with "That loop is gone." when it runs                                                                                                           |
-| a role closes on its board | `jobLeads.jobId`, `prefills.jobId`                                                 | **left on purpose**: both keep their own copy, and read a missing job as none                                                                                          |
-| a booking page             | `calendarEvents.bookingPageId`                                                     | **left on purpose**: bookings already made stay on the calendar                                                                                                        |
-| a workflow                 | `automationRuns.automationId`                                                      | its runs are stopped and deleted, with their Inbox lines                                                                                                               |
+| Deleted                                 | What points at it                                                                  | What happens                                                                                                                                                           |
+| --------------------------------------- | ---------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| an account                              | everything with `userId`                                                           | all of it goes, with the resume and image files and the username. The `users` row stays, empty: Convex Auth reuses the id. Shared tables stay                          |
+| an application                          | `mailEvents`, `jobLeads`, `calendarEvents`, `bookingPages`, `prefills`, `contacts` | each is unlinked and stays: mail goes back to unfiled, a lead stays tracked so loops don't offer the role again, a sent prefill stays closed so it can't be sent twice |
+| an application, a prefill or a workflow | `activityEvents.applicationId`, `prefillId`, `automationId`                        | the row stays, as a record of what happened. Its **Open** link finds nothing                                                                                           |
+| a goal                                  | `applications.goalId`                                                              | cleared; the applications stay                                                                                                                                         |
+| a loop                                  | `goals.loopId`                                                                     | cleared; the goal takes no more roles                                                                                                                                  |
+| a loop                                  | `loopRuns.loopId`, `jobLeads.loopId`                                               | **left on purpose**: its runs and roles stay, so the Runs tab still adds up                                                                                            |
+| a loop                                  | a workflow's Find roles step                                                       | left; that step stops with "That loop is gone." when it runs                                                                                                           |
+| a role closes on its board              | `jobLeads.jobId`, `prefills.jobId`                                                 | **left on purpose**: both keep their own copy, and read a missing job as none                                                                                          |
+| a booking page                          | `calendarEvents.bookingPageId`                                                     | **left on purpose**: bookings already made stay on the calendar                                                                                                        |
+| a workflow                              | `automationRuns.automationId`                                                      | its runs are stopped and deleted, with their Inbox lines                                                                                                               |
 
 ## What's copied on purpose
 
@@ -392,7 +399,7 @@ convex/features/workflows/      what runs a loop
   sources/                           firecrawl.ts, contextDev.ts, index.ts (keys and credits)
 convex/crons.ts                      every 15 minutes: start due loops; hourly: refresh boards
 convex/convex.config.ts              app.use(workflow), app.use(workpool, { name: "readPool" }), app.use(rateLimiter)
-convex/lib/log.ts                    evlog wide events
+convex/lib/log.ts                    evlog wide events; features/activity/utils.ts keeps them for their owner
 ```
 
 The search keys, `FIRECRAWL_API_KEY` and `CONTEXT_DEV_API_KEY`, go in the Convex env, declared in `convex.config.ts` like the auth keys. A source without a key is skipped.

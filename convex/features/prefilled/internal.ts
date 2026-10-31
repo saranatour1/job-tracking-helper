@@ -5,7 +5,8 @@ import type { Doc } from "../../_generated/dataModel"
 import { internalMutation, internalQuery, type MutationCtx } from "../../_generated/server"
 import { arkOutputToConvex } from "../../lib/ark"
 import { workLog } from "../../lib/log"
-import { changeStatus, nextNumber } from "../applications/utils"
+import { keepLog } from "../activity/utils"
+import { changeStatus, logNewApplication, nextNumber } from "../applications/utils"
 import { companyAddress } from "../email/addresses"
 import { trackingAddressOf } from "../email/utils"
 import { addUsage } from "../loops/utils"
@@ -126,9 +127,9 @@ const ended = internalMutation({
     const error = result.kind === "failed" ? `Stopped: ${result.error.slice(0, 200)}` : "Stopped."
     await ctx.db.patch("prefills", row._id, { status: "failed", error })
     const log = workLog("prefill.prepare", { prefillId: row._id, userId: row.userId })
-    log.set({ outcome: "failed", error })
+    log.set({ summary: `${row.title} · ${row.company}`, outcome: "failed", error })
     log.setLevel("error")
-    log.emit()
+    await keepLog(ctx, log)
     return null
   },
 })
@@ -152,7 +153,7 @@ const newApplication = async (
   note?: string
 ) => {
   const job = row.jobId && (await ctx.db.get("jobs", row.jobId))
-  return ctx.db.insert("applications", {
+  const applicationId = await ctx.db.insert("applications", {
     userId: row.userId,
     company: row.company,
     role: row.title,
@@ -164,6 +165,8 @@ const newApplication = async (
     labels: job?.remote ? ["Remote"] : [],
     history: [{ status, at: Date.now(), ...(note && { note }) }],
   })
+  await logNewApplication(ctx, row.userId, applicationId, row.company)
+  return applicationId
 }
 
 // You pressed Open browser: claims the row, so a second press can't open a second browser.
@@ -308,6 +311,9 @@ const finish = internalMutation({
       unfilled: undefined,
       credits: (row.credits ?? 0) + credits,
     })
+    const log = workLog("prefill.sent", { prefillId: id, userId, applicationId })
+    log.set({ summary: `${row.title} · ${row.company}`, outcome: "sent" })
+    await keepLog(ctx, log)
     return null
   },
 })

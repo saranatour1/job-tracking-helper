@@ -1,5 +1,5 @@
 import { paginationOptsValidator, paginationResultValidator } from "convex/server"
-import { nextNumber } from "../applications/utils"
+import { logNewApplication, nextNumber } from "../applications/utils"
 import { priorityFor } from "../applications/validators"
 import { ConvexError, v } from "convex/values"
 import type { Id } from "../../_generated/dataModel"
@@ -269,6 +269,7 @@ const track = authedMutation({
       priority: priorityFor(lead.fit),
       history: [{ status: "saved", at: Date.now() }],
     })
+    await logNewApplication(ctx, ctx.userId, applicationId, lead.company)
     await ctx.db.patch("jobLeads", leadId, { status: "applied", applicationId })
     await countOnRun(ctx, lead.runId, "applied")
     if (goal) await fireEvent(ctx, ctx.userId, { kind: "goal", goalId: goal._id, applicationId })

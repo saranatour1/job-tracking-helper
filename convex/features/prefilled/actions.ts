@@ -6,6 +6,7 @@ import { ConvexError, v } from "convex/values"
 import { internal } from "../../_generated/api"
 import { action, internalAction } from "../../_generated/server"
 import { workLog } from "../../lib/log"
+import { keepLogFromAction, reasonOf } from "../activity/utils"
 import { jevModel } from "../workflows/judge"
 import { OutOfCredits } from "../workflows/sources/source"
 import { turn } from "../workflows/utils"
@@ -50,6 +51,7 @@ const prepareForm = internalAction({
     if (found?.status !== "preparing") return null
     const startedAt = Date.now()
     const log = workLog("prefill.prepare", { prefillId: id, userId: found.userId })
+    log.set({ summary: `${found.title} · ${found.company}` })
     let scrapeId: string | undefined
     let credits = 0
     const stop = async (error: string) => {
@@ -156,7 +158,7 @@ const prepareForm = internalAction({
       return null
     } finally {
       if (scrapeId) await endSession(scrapeId).catch(() => null)
-      log.emit()
+      await keepLogFromAction(ctx, log)
     }
   },
 })
@@ -178,6 +180,7 @@ const startLive = action({
         internal.prefilled.plan,
         { id }
       )
+      if (found) log.set({ summary: `${found.title} · ${found.company}` })
       if (!found?.resume) throw new ConvexError("Upload a resume on the Resume page first.")
       const resumeUrl = await ctx.storage.getUrl(found.resume.id)
       if (!resumeUrl) throw new ConvexError("The resume file is gone. Upload it again.")
@@ -222,6 +225,7 @@ const startLive = action({
       return null
     } catch (cause) {
       log.error(cause as Error)
+      log.set({ outcome: "failed", error: reasonOf(cause) })
       if (scrapeId) await endSession(scrapeId).catch(() => null)
       const message =
         cause instanceof ConvexError && typeof cause.data === "string"
@@ -230,7 +234,7 @@ const startLive = action({
       await ctx.runMutation(internal.prefilled.endLive, { id, error: message, credits })
       throw new ConvexError(message)
     } finally {
-      log.emit()
+      await keepLogFromAction(ctx, log)
     }
   },
 })

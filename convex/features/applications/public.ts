@@ -11,7 +11,7 @@ import {
   SetStatus,
   AddNote,
 } from "./validators"
-import { own, capped, nextNumber, changeStatus } from "./utils"
+import { own, capped, logNewApplication, nextNumber, changeStatus } from "./utils"
 
 const list = authedQuery({
   args: {},
@@ -40,6 +40,7 @@ const add = arkMutation({
       number: await nextNumber(ctx, ctx.userId),
       history: [{ status: application.status, at: Date.now() }],
     })
+    await logNewApplication(ctx, ctx.userId, applicationId, application.company)
     if (application.url)
       await ctx.scheduler.runAfter(0, internal.loops.enrichApplication, {
         userId: ctx.userId,

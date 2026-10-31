@@ -437,16 +437,29 @@ Previews are the same text as plain words.
    one, or you press **Mark as sent** when it can't, the posting becomes an application at
    Applied (or moves the one a loop already made), saved answers get their usage stamped,
    and the browser closes. Once only: a sent posting stays closed.
-6. **Activity** (`/activity`) shows what's finished: sent, failed or dismissed, with the
-   answers used, what had no saved answer (each with **Add to saved answers**), and
-   **Try again**. A line on top: applied in 30 days, saved answers used.
+6. **Activity** (`/activity`) has three views, with what's showing in the URL:
+   - **Everything** (`api.activity.page`): what's happened for you, newest first, 30 at a
+     time, with **Open** to go to it. Loop runs, prepared and sent applications, the live
+     browser, new applications and status changes, email in and out, incoming mail setup,
+     workflow runs and bookings. Each row comes from that work's evlog event (`keepLog`), so
+     the Convex logs and this page say the same thing. Mail rows name the company only,
+     never a subject or an address, and evlog masks any address in an error.
+   - **Failed** (`?show=failed`): only what failed, with why.
+   - **Applications** (`?show=applications`): what's finished, with the answers used, what
+     had no saved answer (each with **Add to saved answers**), and **Try again**. A line on
+     top: applied in 30 days, saved answers used.
+
+   Rows go after 90 days. Whoever runs the app can see each person's failures by what failed
+   with `npx convex run activity:failures`, or `'{"days": 30}'` for further back. Work with
+   no owner, like refreshing a job board, is only in the Convex logs. So is importing old
+   mail, which can be hundreds of emails.
 
 **Rules:** nothing can be sent without you pressing the form's Submit. Nothing is guessed
 or written for you. No logins and no stored job-site passwords. The live browser's address
 controls that browser, so only its owner's `get` returns it, never a list, and it's cleared
 when the session ends. Answers' values never go in the log.
 
-**Files:** `src/features/prefilled/`, `src/features/activity/`, `src/features/jobs/jobs.tsx`,
+**Files:** `src/features/prefilled/`, `src/features/activity/`, `convex/features/activity/`, `src/features/jobs/jobs.tsx`,
 `src/features/loops/shortlist.tsx`, `src/features/account/account.tsx`,
 `convex/features/prefilled/` (`match.ts` the matcher and Jev's questions, `firecrawl.ts` the
 calls and scripts, `actions.ts` prepare and the live browser, `public.ts` what the pages

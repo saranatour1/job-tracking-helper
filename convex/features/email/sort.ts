@@ -3,7 +3,14 @@
 // decides when the person lets it read their mail.
 import { ConvexError, v } from "convex/values"
 import { components, internal } from "../../_generated/api"
-import { internalAction, internalMutation, internalQuery } from "../../_generated/server"
+import {
+  type ActionCtx,
+  internalAction,
+  internalMutation,
+  internalQuery,
+} from "../../_generated/server"
+import { workLog } from "../../lib/log"
+import { keepLog, keepLogFromAction, reasonOf } from "../activity/utils"
 import { authedMutation, authedQuery } from "../../lib/functions"
 import { seal } from "../../lib/secrets"
 import type { Doc, Id } from "../../_generated/dataModel"
@@ -170,7 +177,21 @@ const record = internalMutation({
     })
     if (event.applicationId)
       await ctx.scheduler.runAfter(0, internal.contacts.learn, { eventId: id })
+    // Old mail you're importing isn't news here either, and there can be hundreds.
     if (quiet) return null
+    const filedUnder =
+      event.applicationId && (await ctx.db.get("applications", event.applicationId))
+    const log = workLog("mail.received", {
+      userId: event.userId,
+      ...(event.applicationId && { applicationId: event.applicationId }),
+    })
+    log.set({
+      summary: filedUnder ? `Email filed under ${filedUnder.company}` : "Email waiting in Unsorted",
+      outcome: filedUnder ? "filed" : "unsorted",
+      kind: event.kind,
+      by: event.by,
+    })
+    await keepLog(ctx, log)
     await ctx.runMutation(components.notifications.lib.notify, {
       owner: event.userId,
       kind: mailNotificationKind(event.kind, event.applicationId !== undefined),
@@ -186,76 +207,89 @@ const record = internalMutation({
   },
 })
 
+const sortOne = async (
+  ctx: ActionCtx,
+  { userId, emailId }: { userId: Id<"users">; emailId: string }
+) => {
+  const context = await ctx.runQuery(internal.email.sortContext, { userId, emailId })
+  if (!context) return
+  const k = await secretKeys()
+  const mail = await openJson(k, context.payload, aad.email(userId), Received)
+  if (!mail) throw new Error("It couldn't be opened with the current key.")
+  const text = mail.text ?? ""
+  // Sent to a company's address: nothing else needs to guess.
+  const tag = tagIn(mail.to)
+  const tagged = tag ? tagMatch(tag, mail.subject, context.applications) : undefined
+  // A reply goes where the email it answers went: the thread decides next.
+  const parents = await Promise.all(
+    [...messageIdsIn(mail.references), ...messageIdsIn(mail.inReplyTo)].map((id) =>
+      threadKeyOf(userId, id)
+    )
+  )
+  const threadApp = parents.length
+    ? await ctx.runQuery(internal.email.threadOf, { userId, keys: parents })
+    : null
+  const inThread = context.applications.find((a) => a.id === threadApp)
+  const known = tagged ?? inThread
+  let application: Candidate | undefined = known ?? ruleMatch(mail, context.applications)
+  let kind = kindOf(mail.subject, text)
+  // Typed this way so TypeScript doesn't narrow it to "rules": Jev sets it in a callback.
+  let by = "rules" as "rules" | "jev"
+  let sureOfKind = 0
+  if (context.read && context.applications.length)
+    // If Jev can't be reached, the rules' answer stands.
+    await askJev(mail, context.applications).then(
+      (answer) => {
+        ;({ kind, sureOfKind } = answer)
+        // The tag or thread already knows the application; Jev only says what it means.
+        // Unsure isn't a no: Jev can change a match the rules found, but not erase one.
+        if (!known) application = answer.application ?? application
+        by = "jev"
+      },
+      () => null
+    )
+  const chosen = tagged ?? context.applications.find((a) => a.id === application?.id)
+  const portalUrl = portalOf(kind, text, mail.html)
+  await ctx.runMutation(internal.email.record, {
+    event: {
+      userId,
+      emailId,
+      applicationId: chosen?.id,
+      kind,
+      at: Date.now(),
+      note: await seal(
+        k,
+        JSON.stringify({
+          from: mail.fromName || mail.from,
+          subject: mail.subject,
+          portalUrl,
+          ...(kind === "interview" && {
+            slot: slotOf(`${mail.subject}\n${text}`, Date.now()),
+            slotZone: zoneOf(`${mail.subject}\n${text}`),
+          }),
+        }),
+        aad.email(userId)
+      ),
+      suggest: chosen && suggestionOf(kind, chosen.status),
+      ...(mail.messageId && { messageKey: await threadKeyOf(userId, mail.messageId) }),
+      by: by === "rules" ? (tagged ? "tag" : inThread ? "thread" : by) : by,
+    },
+    // Only Jev moves cards, only when allowed, and only when it's clearly sure.
+    move: context.move && by === "jev" && sureOfKind >= 0.8,
+  })
+}
+
 // Scheduled with only ids, so no message is ever kept in a scheduled call.
 const sortMail = internalAction({
   args: { userId: v.id("users"), emailId: v.string() },
   returns: v.null(),
-  handler: async (ctx, { userId, emailId }) => {
-    const context = await ctx.runQuery(internal.email.sortContext, { userId, emailId })
-    if (!context) return null
-    const k = await secretKeys()
-    const mail = await openJson(k, context.payload, aad.email(userId), Received)
-    if (!mail) return null
-    const text = mail.text ?? ""
-    // Sent to a company's address: nothing else needs to guess.
-    const tag = tagIn(mail.to)
-    const tagged = tag ? tagMatch(tag, mail.subject, context.applications) : undefined
-    // A reply goes where the email it answers went: the thread decides next.
-    const parents = await Promise.all(
-      [...messageIdsIn(mail.references), ...messageIdsIn(mail.inReplyTo)].map((id) =>
-        threadKeyOf(userId, id)
-      )
-    )
-    const threadApp = parents.length
-      ? await ctx.runQuery(internal.email.threadOf, { userId, keys: parents })
-      : null
-    const inThread = context.applications.find((a) => a.id === threadApp)
-    const known = tagged ?? inThread
-    let application: Candidate | undefined = known ?? ruleMatch(mail, context.applications)
-    let kind = kindOf(mail.subject, text)
-    // Typed this way so TypeScript doesn't narrow it to "rules": Jev sets it in a callback.
-    let by = "rules" as "rules" | "jev"
-    let sureOfKind = 0
-    if (context.read && context.applications.length)
-      // If Jev can't be reached, the rules' answer stands.
-      await askJev(mail, context.applications).then(
-        (answer) => {
-          ;({ kind, sureOfKind } = answer)
-          // The tag or thread already knows the application; Jev only says what it means.
-          // Unsure isn't a no: Jev can change a match the rules found, but not erase one.
-          if (!known) application = answer.application ?? application
-          by = "jev"
-        },
-        () => null
-      )
-    const chosen = tagged ?? context.applications.find((a) => a.id === application?.id)
-    const portalUrl = portalOf(kind, text, mail.html)
-    await ctx.runMutation(internal.email.record, {
-      event: {
-        userId,
-        emailId,
-        applicationId: chosen?.id,
-        kind,
-        at: Date.now(),
-        note: await seal(
-          k,
-          JSON.stringify({
-            from: mail.fromName || mail.from,
-            subject: mail.subject,
-            portalUrl,
-            ...(kind === "interview" && {
-              slot: slotOf(`${mail.subject}\n${text}`, Date.now()),
-              slotZone: zoneOf(`${mail.subject}\n${text}`),
-            }),
-          }),
-          aad.email(userId)
-        ),
-        suggest: chosen && suggestionOf(kind, chosen.status),
-        ...(mail.messageId && { messageKey: await threadKeyOf(userId, mail.messageId) }),
-        by: by === "rules" ? (tagged ? "tag" : inThread ? "thread" : by) : by,
-      },
-      // Only Jev moves cards, only when allowed, and only when it's clearly sure.
-      move: context.move && by === "jev" && sureOfKind >= 0.8,
+  handler: async (ctx, args) => {
+    await sortOne(ctx, args).catch(async (cause: unknown) => {
+      const log = workLog("mail.received", { userId: args.userId })
+      log.set({ summary: "An email couldn't be sorted", outcome: "failed", error: reasonOf(cause) })
+      log.setLevel("error")
+      await keepLogFromAction(ctx, log)
+      throw cause
     })
     return null
   },

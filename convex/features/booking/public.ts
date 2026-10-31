@@ -4,6 +4,8 @@ import { components } from "../../_generated/api"
 import { type MutationCtx, mutation, query } from "../../_generated/server"
 import { arkToConvex, checked } from "../../lib/ark"
 import { arkMutation, authedMutation, authedQuery } from "../../lib/functions"
+import { workLog } from "../../lib/log"
+import { keepLog } from "../activity/utils"
 import { fireEvent } from "../automations/fire"
 import { ruleMatch } from "../email/match"
 import { Booking, maxPages, maxUpcoming, SavePage, vGuestPage, vBooked } from "./validators"
@@ -142,6 +144,12 @@ const book = mutation({
       description: note || undefined,
       attendees: [{ email, name, status: "accepted" }],
     })
+    const log = workLog("booking.new", {
+      userId: found.userId,
+      ...(applicationId && { applicationId }),
+    })
+    log.set({ summary: `Booking on ${found.title}`, outcome: "booked" })
+    await keepLog(ctx, log)
     await ctx.runMutation(components.notifications.lib.notify, {
       owner: found.userId,
       kind: "booking.new",
