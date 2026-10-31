@@ -158,12 +158,6 @@ export const Review = type({
 
 export type Review = typeof Review.infer
 
-// How a review is kept. Reviews from before Jev could say unsure hold true or false,
-// until the next review replaces them.
-export const StoredReview = Review.omit("shows").and({
-  shows: type({ tag: "string", shown: "boolean | 'yes' | 'no' | 'unsure'" }).array(),
-})
-
 // A label and a value: an answer to a question (`answer`), or a form field from the
 // Prefilled tab (`field`). `group` is the Preferences step or the Prefilled section,
 // and `key` names a built-in question so its label can change without a migration.
@@ -190,7 +184,7 @@ export const PreferenceSettings = type({
   // The resume's text and its last review, set by Review on the Resume tab and
   // cleared when the file changes.
   "resumeText?": "string",
-  "resumeReview?": StoredReview,
+  "resumeReview?": Review,
   // Set the first time the Prefilled tab is saved; until then the page suggests fields.
   "prefilledAt?": "number",
 })

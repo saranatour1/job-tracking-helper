@@ -12,7 +12,7 @@ import {
   preferenceTagsTable,
   profileEntriesTable,
 } from "./features/preferences/models"
-import { autoAppliesTable, prefillsTable } from "./features/prefilled/models"
+import { prefillsTable } from "./features/prefilled/models"
 import { usersTable } from "./features/users/models"
 import { viewsTable } from "./features/views/models"
 
@@ -41,7 +41,6 @@ export default defineSchema({
   jobLeads: jobLeadsTable,
   prefills: prefillsTable,
   // Replaced by `prefills`; nothing writes here any more.
-  autoApplies: autoAppliesTable,
 
   // Mail.
   emailConnections: emailConnectionsTable,

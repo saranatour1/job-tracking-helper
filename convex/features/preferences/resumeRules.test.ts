@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vite-plus/test"
 
-import { checksOf, contactOf, readReview, sectionsOf, suggestionsFrom } from "./resumeRules"
+import { checksOf, contactOf, sectionsOf, suggestionsFrom } from "./resumeRules"
 
 const good = `Sara Natour
 sara@example.com · +962 79 123 4567 · linkedin.com/in/sara · github.com/sara
@@ -51,27 +51,6 @@ describe("resume rules", () => {
     ).toEqual([
       "Give each experience bullet a number or an outcome: what changed because of you.",
       "Your Preferences list “Rust”, but the resume doesn't show it. Add where you used it, or leave it off your Preferences.",
-    ])
-  })
-
-  it("reads a review from before Jev could say unsure", () => {
-    const stored = {
-      at: 1,
-      contact: { links: [] },
-      sections: [],
-      checks: [],
-      suggestions: [],
-      words: 1,
-    }
-    const shows = [
-      { tag: "React", shown: true },
-      { tag: "Rust", shown: false },
-      { tag: "Go", shown: "unsure" as const },
-    ]
-    expect(readReview({ ...stored, shows }).shows.map((s) => s.shown)).toEqual([
-      "yes",
-      "no",
-      "unsure",
     ])
   })
 })

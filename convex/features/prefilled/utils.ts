@@ -101,10 +101,3 @@ export const deletePrefills = async (ctx: MutationCtx, userId: Id<"users">) => {
     .withIndex("by_userId", (q) => q.eq("userId", userId)))
     await ctx.db.delete("prefills", row._id)
 }
-
-export const deleteAutoApplies = async (ctx: MutationCtx, userId: Id<"users">) => {
-  for await (const row of ctx.db
-    .query("autoApplies")
-    .withIndex("by_userId_and_queuedAt", (q) => q.eq("userId", userId)))
-    await ctx.db.delete("autoApplies", row._id)
-}

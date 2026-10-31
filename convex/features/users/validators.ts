@@ -30,9 +30,6 @@ export const User = type({
   // The next APP number, so adding an application needn't read the others. Unset until
   // their first application.
   "nextApplicationNumber?": "number",
-  // From before Prefilled applications; the schema pass removes these two.
-  "autoApplyAt?": "number",
-  "autoApplyDryRun?": "boolean",
   // When preparing applications for new fits was turned on under Account; unset means off.
   "prepareAt?": "number",
 })

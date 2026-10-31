@@ -22,6 +22,8 @@ const setup = async () => {
   const add = (company: string) =>
     t.run((ctx) =>
       ctx.db.insert("applications", {
+        number: 1,
+        history: [],
         userId,
         role: "Engineer",
         company,
@@ -147,6 +149,8 @@ describe("archive and trash", () => {
     const other = await t.run((ctx) => ctx.db.insert("users", { name: "Alex", trashDays: 0 }))
     const theirs = await t.run((ctx) =>
       ctx.db.insert("applications", {
+        number: 1,
+        history: [],
         userId: other,
         role: "Engineer",
         company: "Kept",

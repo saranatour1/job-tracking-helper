@@ -173,7 +173,7 @@ So a change to a stored shape takes three separate deploys, never fewer:
 2. **Migrate:** a batched internal mutation rewrites old rows, and has run on every deployment.
 3. **Narrow:** the schema accepts only the new shape.
 
-A new index or optional field is safe in one deploy. Removing a table needs its rows gone first. Tests won't catch a break here, since they start from empty tables, so check the `convex dev` log after any schema change.
+A new index or optional field is safe in one deploy. Removing a table from the schema is too: its rows stay on the deployment, unread, until someone clears them from the dashboard. Tests won't catch a break here, since they start from empty tables, so check the `convex dev` log after any schema change.
 
 ## Proposed changes
 
@@ -185,21 +185,19 @@ Measured on the dev deployment on 2026-10-31.
 - Removed `jobLeads.by_runId` and `automationRuns.by_userId_and_status`, which nothing used.
 - Deleting an application now unlinks `prefills`, and removing a loop now clears `goals.loopId`.
 - Grouped `convex/schema.ts` by domain.
+- Removed `autoApplies` from the schema, along with `users.autoApply*`, loops' `answers.digest` and boolean `shown` on old resume reviews. Its 5 rows on dev stay until cleared from the dashboard.
+- `applications.number` and `history` are now required, after a migration filled the 8 rows that lacked them.
+- `users.nextApplicationNumber` replaced reading every application to number a new one, and numbers are no longer reused after a delete.
 
-### Waiting on a decision
+### Waiting on a real problem
 
-Each of these rewrites stored data, so each follows the three deploys above.
+Each of these rewrites stored data, so each follows the three deploys above. None is worth doing until it causes trouble.
 
-| #   | Change                                 | Why                                                                                                                                                                                                                                                        | Rows on dev                                           | Risk   |
-| --- | -------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ----------------------------------------------------- | ------ |
-| 1   | **Remove what's retired**              | `autoApplies`, `users.autoApply*`, loops' `answers.digest`, boolean `shown` on old resume reviews. Nothing reads them, apart from the code that tolerates old reviews                                                                                      | 5 rows (none ever Applied), 3 users, 1 loop, 1 review | Low    |
-| 2   | **Fill in what old rows lack**         | `applications.number` and `history` are optional only for rows from before they existed. Once filled, they're required, and `nextNumber` stops backfilling as it goes                                                                                      | 7 and 8 of 45                                         | Low    |
-| 3   | **A counter for application numbers**  | `nextNumber` reads all of a person's applications on every add. A counter on `users` makes it one read, and is one of the `.collect()` sites you asked to remove                                                                                           | every application                                     | Low    |
-| 4   | **One home for each saved answer**     | Salary, visa, start date and About you live in both `kind: answer` and `kind: field`, copied once and then free to drift. Custom questions too. Fields could point at the answer instead                                                                   | 10 copies, none differ yet                            | Medium |
-| 5   | **A `resumes` table**                  | `preferences` is meant to stay small, but carries the resume's text and review (5.5 KB on dev, up to about 25 KB), and every read of settings loads them. It fails the "one row per parent" rule, so it's only worth it if you'd want more than one resume | 6 rows                                                | Medium |
-| 6   | **A child table for a run's verdicts** | `loopRuns.candidates` is rewritten on every judgment, up to 100 at about 1.3 KB, by 8 workers at once. It fits in a document, but those writes can conflict and retry. I read this from the code and didn't measure it                                     | clears at the end of each run                         | Medium |
-
-I'd do 1 and 2 together, then 3 with the pagination pass, and leave 4 to 6 until they cause a real problem.
+| Change                                 | Why                                                                                                                                                                                                                                                        | Rows on dev                   | Risk   |
+| -------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ----------------------------- | ------ |
+| **One home for each saved answer**     | Salary, visa, start date and About you live in both `kind: answer` and `kind: field`, copied once and then free to drift. Custom questions too. Fields could point at the answer instead                                                                   | 10 copies, some now differ    | Medium |
+| **A `resumes` table**                  | `preferences` is meant to stay small, but carries the resume's text and review (5.5 KB on dev, up to about 25 KB), and every read of settings loads them. It fails the "one row per parent" rule, so it's only worth it if you'd want more than one resume | 6 rows                        | Medium |
+| **A child table for a run's verdicts** | `loopRuns.candidates` is rewritten on every judgment, up to 100 at about 1.3 KB, by 8 workers at once. It fits in a document, but those writes can conflict and retry. I read this from the code and didn't measure it                                     | clears at the end of each run | Medium |
 
 ### Decided against
 
