@@ -659,7 +659,8 @@ failed, and Account says it couldn't confirm the email went out.
    activity. Archived mail stays there.
 4. **Labels** (`api.mailbox.setLabels`): up to 10 on an email and 100 in all. One nothing uses
    goes away.
-5. **New email and Reply** use the Tiptap editor, loaded only when opened
+5. **Reply** is on every row and on an open email, except in the Trash. On mail you sent, it goes
+   to whoever you sent it to. **New email** and **Reply** use the Tiptap editor, loaded only when opened
    (`api.email.sendFromApplication`). An application is optional, and picking one aims replies at
    its company's address. **Save draft** seals it (`api.mailbox.saveDraft`), and sending removes it.
 6. **Templates** (`api.mailbox.saveTemplate`): a name, subject and body, up to 100. Picking one
