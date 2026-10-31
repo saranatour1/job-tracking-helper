@@ -187,6 +187,7 @@ No query reads a table without a limit. Convex refuses a function that reads too
 | Read                                         | Limit                           | At the limit                                                                                                         |
 | -------------------------------------------- | ------------------------------- | -------------------------------------------------------------------------------------------------------------------- |
 | The board (`applications.list`)              | 2,000                           | Keeps the newest, and the board says so. It filters and counts in the browser, so it loads whole instead of in pages |
+| Contacts (`contacts.list`)                   | 100 a page                      | **Load more**. Main is judged among what's loaded                                                                    |
 | The Trash (`applications.trashed`)           | 50 a page                       | **Load more**                                                                                                        |
 | Saved answers and tags                       | `rowLimits`                     | Paged, and writes refuse more                                                                                        |
 | Jobs catalog, loop activity                  | a page each                     | Paged                                                                                                                |

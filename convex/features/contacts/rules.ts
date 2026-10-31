@@ -13,3 +13,11 @@ export const isContact = (address: string, ownAddresses: string[]) => {
   if (!local || !domain || automatedName.test(local) || hiringToolDomain.test(domain)) return false
   return !ownAddresses.some((own) => own.toLowerCase().split("@")[1] === domain)
 }
+
+/** How the Contacts page lists what it has: by company, the one you've emailed most first. */
+export const byCompany = <T extends { company: string; count: number; lastAt: number }>(
+  contacts: readonly T[]
+) =>
+  [...contacts].sort(
+    (a, b) => a.company.localeCompare(b.company) || b.count - a.count || b.lastAt - a.lastAt
+  )

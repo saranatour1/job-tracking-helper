@@ -1,9 +1,10 @@
 import { useApplicationRoutes } from "@/lib/route-ids"
+import { byCompany } from "@convex/features/contacts/rules"
 import { api } from "@/lib/api"
 import { Link } from "@tanstack/react-router"
 import { useAction, useMutation } from "convex/react"
 import type { FunctionReturnType } from "convex/server"
-import { useQuery } from "convex-helpers/react/cache/hooks"
+import { usePaginatedQuery } from "convex-helpers/react/cache/hooks"
 import { startTransition, useActionState } from "react"
 
 import { Badge } from "@/components/ui/badge"
@@ -35,7 +36,9 @@ import { messageOf } from "@/features/account/settings"
 import { PageIntro, pageBody } from "@/features/shell/page-body"
 import { PageHeader } from "@/features/shell/page-header"
 
-type Contact = FunctionReturnType<typeof api.contacts.list>[number]
+type Contact = FunctionReturnType<typeof api.contacts.list>["page"][number]
+
+const pageSize = 100
 
 const fields = [
   { name: "company", label: "Company" },
@@ -222,7 +225,12 @@ const Row = ({ contact, main }: { contact: Contact; main: boolean }) => {
 
 // People you've dealt with, by company. Mail fills it in, and you can change anything.
 export const Contacts = () => {
-  const contacts = useQuery(api.contacts.list)
+  const { results, status, loadMore } = usePaginatedQuery(
+    api.contacts.list,
+    {},
+    { initialNumItems: pageSize }
+  )
+  const contacts = byCompany(results)
   return (
     <div className="soft-theme bg-background text-foreground flex h-svh flex-col rounded-[inherit] md:h-[calc(100svh-1rem)]">
       <PageHeader crumbs={[{ label: "Contacts" }]} />
@@ -230,16 +238,16 @@ export const Contacts = () => {
         <main className={pageBody}>
           <PageIntro
             title="Contacts"
-            description="People from the mail on your applications, by company. Automated senders are left out, and Main is who you've traded the most email with."
+            description="People from the mail on your applications, by company. Automated senders are left out, and Main is who you've traded the most email with among those loaded."
           >
             <EditContact trigger={<Button size="sm">Add a contact</Button>} />
           </PageIntro>
-          {contacts?.length === 0 && (
+          {status === "Exhausted" && contacts.length === 0 && (
             <p className="text-muted-foreground text-[13px]">
               Nobody yet. People appear here when mail lands on an application, or add one yourself.
             </p>
           )}
-          {contacts && contacts.length > 0 && (
+          {contacts.length > 0 && (
             <Table>
               <TableHeader>
                 <TableRow>
@@ -264,6 +272,13 @@ export const Contacts = () => {
                 ))}
               </TableBody>
             </Table>
+          )}
+          {status === "CanLoadMore" && (
+            <div className="text-center">
+              <Button size="xs" variant="ghost" onClick={() => loadMore(pageSize)}>
+                Load more
+              </Button>
+            </div>
           )}
         </main>
       </ScrollArea>

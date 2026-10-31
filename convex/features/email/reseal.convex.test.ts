@@ -13,6 +13,8 @@ import { contactAad } from "../contacts/internal"
 import { draftAad } from "../mailbox/utils"
 import { aad } from "./utils"
 
+const everyone = { paginationOpts: { numItems: 100, cursor: null } }
+
 const modules = import.meta.glob([
   "../../**/*.ts",
   "!../../components/notifications/**",
@@ -135,10 +137,10 @@ describe("rotating the key", () => {
       (await as.query(api.api.mailbox.page, { box: "inbox", paginationOpts: first })).page
     ).toHaveLength(1)
     expect((await as.query(api.api.email.mailBody, { eventId: line!.id }))?.text).toBe("Body")
-    expect((await as.query(api.api.contacts.list, {}))[0]?.email).toBe("pat@hooli.com")
-    expect((await as.query(api.api.mailbox.drafts, { paginationOpts: first })).page[0]?.subject).toBe(
-      "Draft"
-    )
+    expect((await as.query(api.api.contacts.list, everyone)).page[0]?.email).toBe("pat@hooli.com")
+    expect(
+      (await as.query(api.api.mailbox.drafts, { paginationOpts: first })).page[0]?.subject
+    ).toBe("Draft")
     expect((await as.query(api.api.email.connection, {}))?.fromAddress).toBe("jobs@example.com")
   })
 
@@ -164,7 +166,11 @@ describe("rotating the key", () => {
   it("leaves alone a note that changed while it ran", async () => {
     const { t, noteBefore } = await setup()
     const id = await t.run(async (ctx) => (await ctx.db.query("mailEvents").first())!._id)
-    await t.mutation(internal.api.email.resealNote, { id, from: "something else", note: "replacement" })
+    await t.mutation(internal.api.email.resealNote, {
+      id,
+      from: "something else",
+      note: "replacement",
+    })
     expect(await t.run(async (ctx) => (await ctx.db.get("mailEvents", id))?.note)).toBe(noteBefore)
   })
 })

@@ -732,8 +732,9 @@ labels. Workflow emails also land in Sent. Notify me doesn't.
 **Flows** (`/contacts`)
 
 1. **The table** (`api.contacts.list`): company, name, title, email, phone, how many emails,
-   notes. By company, with who you've traded the most email with first and marked Main. A
-   company links to its application.
+   notes. 100 at a time with **Load more**, latest first, and only those rows are decrypted.
+   What's loaded is sorted by company, with who you've traded the most email with first and
+   marked Main. A company links to its application.
 2. **Copy** puts one line on the clipboard: name, title, company, email and phone.
 3. **Edit** and **Add a contact** (`api.contacts.save`). A name or an email is enough, and
    two contacts can't share an address. Later mail still adds to the count, but won't change

@@ -101,6 +101,8 @@ docs/
 
 Routes use regular text, not table ids: `/pipeline/app-4`, `/prefilled/engineer-figma`, `/email?open=oct-31-3-10-pm`. `src/lib/route-ids.ts` turns ids into text and back. Email, drafts, runs and Updates use their date, so a private subject never reaches a URL.
 
+Lists you scroll through read with `.paginate` and `usePaginatedQuery`, not a big `.take` or `.collect`. A read that needs every row to be right, like the board's columns, keeps a limit, listed in [docs/database-design.md](docs/database-design.md).
+
 Anything that can delete many rows goes through `startDelete` (`convex/features/deletes/`), which uses the batch worker.
 
 Tests that run Convex functions are named `*.convex.test.ts` and use `convex-test`. The typecheck leaves them out, because the component test helpers are typed against another copy of `convex`.
