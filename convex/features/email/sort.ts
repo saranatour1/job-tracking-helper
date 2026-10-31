@@ -54,14 +54,14 @@ const sortContext = internalQuery({
       .query("emailConnections")
       .withIndex("by_userId", (q) => q.eq("userId", userId))
       .unique()
-    // shortcut: the 200 newest applications; page through them if people keep more.
-    const applications = (
-      await ctx.db
-        .query("applications")
-        .withIndex("by_userId", (q) => q.eq("userId", userId))
-        .order("desc")
-        .take(200)
-    ).filter((a) => a.trashedAt === undefined)
+    // The newest 200: mail is about a recent application, and Jev reads each one.
+    const applications = await ctx.db
+      .query("applications")
+      .withIndex("by_userId_and_trashedAt", (q) =>
+        q.eq("userId", userId).eq("trashedAt", undefined)
+      )
+      .order("desc")
+      .take(200)
     return {
       payload: email.payload,
       read: connection?.allow.read ?? false,
@@ -198,10 +198,11 @@ const timeline = authedQuery({
   handler: async (ctx) => {
     const k = await keys().catch(() => null)
     if (!k) return []
-    // shortcut: the 300 newest events; paginate per application if people get more.
+    // The newest 300: each one is decrypted to show, so older mail drops off the timeline.
     const events = await ctx.db
       .query("mailEvents")
-      .withIndex("by_userId_and_applicationId", (q) => q.eq("userId", ctx.userId))
+      .withIndex("by_userId_and_at", (q) => q.eq("userId", ctx.userId))
+      .order("desc")
       .take(300)
     const opened = await Promise.all(
       events.map(async (e) => {

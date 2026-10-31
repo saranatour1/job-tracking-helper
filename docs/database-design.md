@@ -91,13 +91,12 @@ These have no owner. Deleting an account leaves them.
 
 ### Finding roles and getting them ready
 
-| Table         | Holds                                                                                                                  | Why it's a table | Indexes                                                                                                                                                      |
-| ------------- | ---------------------------------------------------------------------------------------------------------------------- | ---------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------ |
-| `loops`       | a saved search: its answers, size, time and next run                                                                   | 4                | `by_userId`, `by_active_and_nextRunAt`                                                                                                                       |
-| `loopRuns`    | one run's counts and cost, and while it runs, Jev's verdicts so far                                                    | 1                | `by_loopId_and_startedAt`, `by_userId_and_startedAt`                                                                                                         |
-| `jobLeads`    | a role judged for one person: verdict, fit, reasons, checks, where it stands                                           | 1, 4             | `by_userId_and_urlKey`, `by_userId_and_status`, `by_userId_and_feedback`, `by_userId_and_verdict_and_fit`, `by_applicationId`, `by_userId_and_applicationId` |
-| `prefills`    | an application made ready: every question on the form with its answer and source, and the live browser while it's open | 2, 4             | `by_userId`, `by_userId_and_urlKey`, `by_userId_and_applicationId`                                                                                           |
-| `autoApplies` | replaced by `prefills`. Nothing writes here                                                                            | to remove        | `by_userId_and_queuedAt`, `by_userId_and_urlKey`                                                                                                             |
+| Table      | Holds                                                                                                                  | Why it's a table | Indexes                                                                                                                                                      |
+| ---------- | ---------------------------------------------------------------------------------------------------------------------- | ---------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| `loops`    | a saved search: its answers, size, time and next run                                                                   | 4                | `by_userId`, `by_active_and_nextRunAt`                                                                                                                       |
+| `loopRuns` | one run's counts and cost, and while it runs, Jev's verdicts so far                                                    | 1                | `by_loopId_and_startedAt`, `by_userId_and_startedAt`                                                                                                         |
+| `jobLeads` | a role judged for one person: verdict, fit, reasons, checks, where it stands                                           | 1, 4             | `by_userId_and_urlKey`, `by_userId_and_status`, `by_userId_and_feedback`, `by_userId_and_verdict_and_fit`, `by_applicationId`, `by_userId_and_applicationId` |
+| `prefills` | an application made ready: every question on the form with its answer and source, and the live browser while it's open | 2, 4             | `by_userId`, `by_userId_and_urlKey`, `by_userId_and_applicationId`                                                                                           |
 
 `prefills.fields` is an array, capped at 80, not a table: a form is bounded and only read with its application.
 
@@ -162,6 +161,28 @@ Copying isn't always a normalization mistake. These stay, because the copy must 
 | `loopRuns.loopName`                            | `loops`            | a run outlives its loop                                            |
 | `automationRuns.steps`, `name`                 | `automations`      | editing a workflow must never change a run already going           |
 | `jobBoards.jobs`, the counts on `loopRuns`     | counted rows       | Convex has no count, and these are read on every page              |
+
+## How much each read takes
+
+No query reads a table without a limit. Convex refuses a function that reads too much, so a limit that's reached must have a known effect. These are the ones a person could reach:
+
+| Read                                         | Limit                           | At the limit                                                                                                         |
+| -------------------------------------------- | ------------------------------- | -------------------------------------------------------------------------------------------------------------------- |
+| The board (`applications.list`)              | 2,000                           | Keeps the newest, and the board says so. It filters and counts in the browser, so it loads whole instead of in pages |
+| The Trash (`applications.trashed`)           | 50 a page                       | **Load more**                                                                                                        |
+| Saved answers and tags                       | `rowLimits`                     | Paged, and writes refuse more                                                                                        |
+| Jobs catalog, loop activity                  | a page each                     | Paged                                                                                                                |
+| Mail timeline (`email.timeline`)             | newest 300                      | Older mail drops off the timeline. Each one is decrypted to show                                                     |
+| Busy times on a booking page                 | events 500, newest 300 mail     | Events stop at `maxEvents` anyway. An interview still ahead is in recent mail                                        |
+| Matching mail or a booking to an application | newest 200 and 1,000            | An older application isn't offered. You can still file it by hand                                                    |
+| Shortlist (`loops.shortlist`)                | newest 60 for each status       | Older saved or applied roles don't show. **The one to page next** if lists get long                                  |
+| Filling the shortlist                        | 300 of a person's waiting roles | Picks among those, and the rest wait                                                                                 |
+| Fit badges on the board (`loops.fits`)       | 1,000                           | An older application shows no badge                                                                                  |
+| A goal's evaluation                          | newest 30                       | Jev isn't asked about older ones                                                                                     |
+| Workflow history                             | 20 shown, 50 kept               | The oldest are deleted                                                                                               |
+| Boards list and catalog count                | 1,000                           | Undercounts past that. Dev has 62                                                                                    |
+
+Everything else stops at a limit a write already enforces (goals, views, loops, booking pages, workflows, calendar events), or is a batch that picks up the rest on its next run (due loops, due boards, closed roles, the Trash sweep, deleting a workflow's runs).
 
 ## Changing what's stored
 
@@ -375,4 +396,4 @@ The search keys, `FIRECRAWL_API_KEY` and `CONTEXT_DEV_API_KEY`, go in the Convex
 ## Open questions
 
 - **Interviews.** Are notes in `history` enough, or do you want dates and rounds? Reminders would make interviews pass rule 4.
-- **Reapplying.** `prefills` and `autoApplies` allow one per person and posting, so a posting can't be sent twice. Should reapplying months later be possible? That needs an explicit "apply again".
+- **Reapplying.** `prefills` allows one per person and posting, so a posting can't be sent twice. Should reapplying months later be possible? That needs an explicit "apply again".

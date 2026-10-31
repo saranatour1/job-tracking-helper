@@ -5,6 +5,7 @@ import type { MutationCtx } from "../../_generated/server"
 import { arkOutputToConvex } from "../../lib/ark"
 import { arkMutation, authedMutation, authedQuery } from "../../lib/functions"
 import { boardOf, previewOf } from "../jobs/boards"
+import { rowLimits } from "../preferences/rows"
 import { rowOf } from "../preferences/utils"
 import { limits } from "../workflows/manager"
 import { statusFrom } from "./match"
@@ -123,7 +124,7 @@ const setAnswer = arkMutation({
           q.eq("userId", ctx.userId).eq("kind", "field")
         )
         .order("desc")
-        .take(1000)
+        .take(rowLimits.field)
       const known = saved.find((e) => e.label === question)
       if (known) await ctx.db.patch("profileEntries", known._id, { value: answer })
       else {

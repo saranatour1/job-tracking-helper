@@ -1,3 +1,4 @@
+import { paginationOptsValidator, paginationResultValidator } from "convex/server"
 import { ConvexError, v } from "convex/values"
 import { internal } from "../../_generated/api"
 import { internalMutation } from "../../_generated/server"
@@ -17,17 +18,14 @@ import {
 
 /** What's in the Trash, newest first. */
 const trashed = authedQuery({
-  args: {},
-  returns: v.array(schema.doc("applications")),
-  handler: async (ctx) =>
-    (
-      await ctx.db
-        .query("applications")
-        .withIndex("by_userId", (q) => q.eq("userId", ctx.userId))
-        .collect()
-    )
-      .filter((a) => a.trashedAt !== undefined)
-      .sort((a, b) => b.trashedAt! - a.trashedAt!),
+  args: { paginationOpts: paginationOptsValidator },
+  returns: paginationResultValidator(schema.doc("applications")),
+  handler: (ctx, { paginationOpts }) =>
+    ctx.db
+      .query("applications")
+      .withIndex("by_userId_and_trashedAt", (q) => q.eq("userId", ctx.userId).gt("trashedAt", 0))
+      .order("desc")
+      .paginate(paginationOpts),
 })
 
 const archive = authedMutation({
@@ -77,7 +75,7 @@ const deleteForever = authedMutation({
   },
 })
 
-/** Deletes everything in the Trash for good. Returns how many were in it. */
+/** Deletes everything in the Trash for good. Returns how many went in this first batch. */
 const emptyTrash = authedMutation({
   args: {},
   returns: v.number(),
@@ -98,15 +96,13 @@ const setTrashDays = authedMutation({
     if (!(trashDayChoices as readonly number[]).includes(days))
       throw new ConvexError("Pick one of the choices.")
     await ctx.db.patch("users", ctx.userId, { trashDays: days })
-    const all = await ctx.db
+    // Bounded by the Trash itself, which is at most everything on the board.
+    for await (const application of ctx.db
       .query("applications")
-      .withIndex("by_userId", (q) => q.eq("userId", ctx.userId))
-      .collect()
-    for (const application of all)
-      if (application.trashedAt !== undefined)
-        await ctx.db.patch("applications", application._id, {
-          purgeAt: purgeAtOf(application.trashedAt, days),
-        })
+      .withIndex("by_userId_and_trashedAt", (q) => q.eq("userId", ctx.userId).gt("trashedAt", 0)))
+      await ctx.db.patch("applications", application._id, {
+        purgeAt: purgeAtOf(application.trashedAt!, days),
+      })
     return null
   },
 })

@@ -4,7 +4,7 @@ import { ArrowTurnBackwardIcon, Delete02Icon } from "@hugeicons/core-free-icons"
 import { HugeiconsIcon } from "@hugeicons/react"
 import { Link } from "@tanstack/react-router"
 import { useMutation } from "convex/react"
-import { useQuery } from "convex-helpers/react/cache/hooks"
+import { usePaginatedQuery, useQuery } from "convex-helpers/react/cache/hooks"
 import { startTransition, useActionState } from "react"
 
 import { Button } from "@/components/ui/button"
@@ -15,12 +15,17 @@ import { StatusIcon } from "./icons"
 import { useSource } from "./source"
 
 const day = 24 * 60 * 60 * 1000
+const pageSize = 50
 
 // The Trash: applications that are out of everything, until they're restored or deleted
 // for good, by hand or after the days set under Account.
 export const TrashList = () => {
   const source = useSource()
-  const trashed = useQuery(api.applications.trashed)
+  const {
+    results: trashed,
+    status,
+    loadMore,
+  } = usePaginatedQuery(api.applications.trashed, {}, { initialNumItems: pageSize })
   const settings = useQuery(api.applications.trashSettings)
   const restore = useMutation(api.applications.restore)
   const deleteForever = useMutation(api.applications.deleteForever)
@@ -69,7 +74,7 @@ export const TrashList = () => {
           <Button
             size="sm"
             variant="outline"
-            disabled={!trashed?.length}
+            disabled={!trashed.length}
             onClick={() => startTransition(() => act("empty"))}
           >
             Empty the Trash
@@ -80,11 +85,11 @@ export const TrashList = () => {
             {error}
           </p>
         )}
-        {trashed?.length === 0 && (
+        {status === "Exhausted" && trashed.length === 0 && (
           <p className="text-muted-foreground py-8 text-center text-sm">The Trash is empty.</p>
         )}
         <div className="bg-card divide-y rounded-lg border empty:hidden">
-          {trashed?.map((a) => {
+          {trashed.map((a) => {
             const left = keep
               ? Math.max(0, Math.ceil((a.trashedAt! + keep * day - now) / day))
               : null
@@ -120,6 +125,16 @@ export const TrashList = () => {
             )
           })}
         </div>
+        {status === "CanLoadMore" && (
+          <Button
+            size="sm"
+            variant="ghost"
+            className="self-center"
+            onClick={() => loadMore(pageSize)}
+          >
+            Load more
+          </Button>
+        )}
       </div>
     </ScrollArea>
   )
