@@ -129,7 +129,9 @@ pasted links that aren't on a known board. A source without a key is skipped.
 (`internal.api.auth.createUser`); Google and GitHub fill in your name and email.
 
 **Rules:** signed-out visits to app pages go to `/sign-in`; signed-in visits to
-`/sign-in` go to `/`.
+`/sign-in` go to `/`. Production only takes new accounts from GitHub until email is set
+up: the Google, guest and sign-up options are hidden, `/sign-up` goes to `/sign-in`, and
+`createUser` refuses other providers. Existing username accounts can still sign in.
 
 **Files:** `src/features/auth/sign-in.tsx`, `src/routes/_auth*.tsx`,
 `src/routes/_app.tsx`, `convex/features/auth/`.
