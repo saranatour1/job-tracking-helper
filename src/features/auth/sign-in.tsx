@@ -79,28 +79,34 @@ export const SignIn = ({ mode }: { mode: "signIn" | "signUp" }) => {
         <h1 className="font-heading text-lg font-medium">
           {mode === "signIn" ? "Sign in" : "Create an account"}
         </h1>
-        <div className="grid gap-1.5">
-          <Label htmlFor="username">Username</Label>
-          <Input id="username" name="username" autoComplete="username" required />
-        </div>
-        <div className="grid gap-1.5">
-          <Label htmlFor="password">Password</Label>
-          <Input
-            id="password"
-            name="password"
-            type="password"
-            autoComplete={mode === "signIn" ? "current-password" : "new-password"}
-            required
-          />
-        </div>
+        {import.meta.env.DEV && (
+          <>
+            <div className="grid gap-1.5">
+              <Label htmlFor="username">Username</Label>
+              <Input id="username" name="username" autoComplete="username" required />
+            </div>
+            <div className="grid gap-1.5">
+              <Label htmlFor="password">Password</Label>
+              <Input
+                id="password"
+                name="password"
+                type="password"
+                autoComplete={mode === "signIn" ? "current-password" : "new-password"}
+                required
+              />
+            </div>
+          </>
+        )}
         {error && (
           <p role="alert" className="text-destructive text-sm">
             {error}
           </p>
         )}
-        <Button type="submit" disabled={signingIn || signingUp}>
-          {mode === "signIn" ? "Sign in" : "Sign up"}
-        </Button>
+        {import.meta.env.DEV && (
+          <Button type="submit" disabled={signingIn || signingUp}>
+            {mode === "signIn" ? "Sign in" : "Sign up"}
+          </Button>
+        )}
         {oauth.map(({ label, signIn }) => (
           <Button
             key={label}
