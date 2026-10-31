@@ -72,7 +72,7 @@ The site runs on Cloudflare Workers. In the Cloudflare project, set the build co
 
 The build command needs a production deploy key from the Convex dashboard. Add it in the Cloudflare project's build settings as a secret named `CONVEX_DEPLOY_KEY`. Turn off builds for other branches, since they would deploy their backend to production too.
 
-`vp run deploy` does the same from your machine. A plain `vp build` reads the Convex URLs from `.env.production`.
+`vp run deploy` does the same from your machine.
 
 ## Folder structure
 
