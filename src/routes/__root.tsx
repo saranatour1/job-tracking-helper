@@ -74,10 +74,6 @@ export const Route = createRootRoute({
         content: "noindex, nofollow",
       },
       {
-        name: "author",
-        content: site.author,
-      },
-      {
         name: "theme-color",
         content: "#432dd7",
       },
@@ -89,7 +85,7 @@ export const Route = createRootRoute({
       },
       {
         rel: "icon",
-        href: "/logo.svg",
+        href: "/icon.svg",
         type: "image/svg+xml",
       },
       {

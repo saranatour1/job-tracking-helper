@@ -2,6 +2,7 @@ import { ComputerIcon, Moon02Icon, Sun03Icon } from "@hugeicons/core-free-icons"
 import { HugeiconsIcon } from "@hugeicons/react"
 import { useSyncExternalStore } from "react"
 
+import { Button } from "@/components/ui/button"
 import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group"
 
 const themes = [
@@ -50,6 +51,19 @@ const setTheme = (theme: Theme) => {
   apply(theme)
   for (const listener of listeners) listener()
 }
+
+// CSS picks the icon, so the server render can't disagree with the theme the head script set.
+export const ThemeButton = () => (
+  <Button
+    variant="ghost"
+    size="icon"
+    aria-label="Switch between light and dark"
+    onClick={() => setTheme(document.documentElement.classList.contains("dark") ? "light" : "dark")}
+  >
+    <HugeiconsIcon icon={Moon02Icon} className="dark:hidden" />
+    <HugeiconsIcon icon={Sun03Icon} className="hidden dark:block" />
+  </Button>
+)
 
 export const ThemeSwitch = () => {
   const theme = useSyncExternalStore(subscribe, read, (): Theme => "system")

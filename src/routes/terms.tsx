@@ -7,8 +7,8 @@ const TermsPage = () => (
   <LegalPage title="Terms of Use">
     <LegalSection title="The agreement">
       <p>
-        These terms are between you and {site.author}, who runs {site.name}. By creating an account
-        or using the app, you agree to them. If you don't agree, please don't use it.
+        These terms are between you and the operator of {site.name}. By creating an account or using
+        the app, you agree to them. If you don't agree, please don't use it.
       </p>
     </LegalSection>
 
