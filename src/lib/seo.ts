@@ -1,3 +1,5 @@
+import ogPath from "@/assets/og.png"
+
 export const site = {
   name: "Job Tracking Helper",
   url: "https://ye.saranatour.dev",
@@ -6,7 +8,8 @@ export const site = {
   databuddyId: "8ed4f691-f76a-400e-b1fb-a9233678940e",
 }
 
-const ogImage = `${site.url}/og.png`
+// Link previews cache by URL, so the built file name has to change whenever the image does.
+export const ogImage = `${site.url}${ogPath}`
 
 // Crawlers only index a page that asks for it, so a new route stays private by default.
 export const publicHead = ({
