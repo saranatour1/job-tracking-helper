@@ -1,6 +1,6 @@
-import type { MutationCtx, QueryCtx, ActionCtx } from "../../_generated/server"
+import type { MutationCtx, QueryCtx } from "../../_generated/server"
 import type { Id, Doc } from "../../_generated/dataModel"
-import { ConvexError, type Infer } from "convex/values"
+import { ConvexError } from "convex/values"
 import { NewLoop } from "./validators"
 import { isTimeZone, nextRunAt } from "./schedule"
 import { workflow, readPool } from "../workflows/manager"
@@ -9,16 +9,10 @@ import { type LoopAnswers, defaultShow } from "./catalog"
 import { rowLimits } from "../preferences/rows"
 import { criteriaOf } from "../workflows/fit"
 import { profileOf } from "../workflows/judge"
-import { apiKeyOf } from "../workflows/sources"
 import type { WorkflowId } from "@convex-dev/workflow"
 import type { WorkId } from "@convex-dev/workpool"
 import { workLog } from "../../lib/log"
 import { keepLog } from "../activity/utils"
-import { record, post, text } from "../workflows/sources/source"
-import { maxText, companyOf } from "../jobs/boards"
-import { boardOf, previewOf } from "../jobs/links"
-import type { vPasted } from "../workflows/validators"
-import { judge } from "../workflows/utils"
 
 export const ownLoop = async (ctx: MutationCtx, userId: Id<"users">, loopId: Id<"loops">) => {
   const loop = await ctx.db.get("loops", loopId)
@@ -168,69 +162,4 @@ export const stopRunNow = async (ctx: MutationCtx, run: Doc<"loopRuns">) => {
     runMs: Date.now() - run.startedAt,
   })
   await keepLog(ctx, log)
-}
-
-export const scrape = async (url: string) => {
-  const apiKey = apiKeyOf("firecrawl")
-  if (!apiKey)
-    throw new ConvexError(
-      "Only Greenhouse, Lever, Ashby and Personio links work until a Firecrawl key is set."
-    )
-  const data = record(
-    record(
-      await post(
-        "https://api.firecrawl.dev/v2/scrape",
-        apiKey,
-        { url, formats: ["markdown"], onlyMainContent: true },
-        (status) => status === 402
-      )
-    ).data
-  )
-  const page = text(data.markdown).slice(0, maxText)
-  if (!page) throw new ConvexError("That page has no text we could read.")
-  const host = new URL(url).hostname.replace(/^(www|jobs|careers)\./, "")
-  return {
-    title: text(record(data.metadata).title) || "Untitled role",
-    company: companyOf(host.split(".")[0] ?? host),
-    location: "",
-    remote: /remote/i.test(page.slice(0, 1500)),
-    text: page,
-  }
-}
-
-export const isLink = (link: string) =>
-  link.length <= 2000 && URL.canParse(link) && /^https?:$/.test(new URL(link).protocol)
-
-export const readAndJudge = async (
-  ctx: ActionCtx,
-  userId: Id<"users">,
-  link: string,
-  key: string
-): Promise<{ lead: Infer<typeof vPasted>; credits: number }> => {
-  const board = boardOf(link)
-  let job: Doc<"jobs"> | null = null
-  if (board) {
-    job = await ctx.runQuery(internal.api.jobs.byUrlKey, { urlKey: key })
-    if (!job) {
-      const boardId = await ctx.runMutation(internal.api.jobs.ensureBoard, board)
-      await ctx.runAction(internal.api.jobs.fetchBoard, { boardId }).catch(() => null)
-      job = await ctx.runQuery(internal.api.jobs.byUrlKey, { urlKey: key })
-    }
-  }
-  const page = job ?? (await scrape(link))
-  const profile = await ctx.runQuery(internal.api.loops.profileForLink, { userId })
-  const { cost: _cost, ...verdict } = await judge(profile, page)
-  return {
-    credits: job ? 0 : 1,
-    lead: {
-      url: job?.url ?? link,
-      urlKey: key,
-      title: page.title,
-      company: page.company,
-      location: page.location,
-      snippet: previewOf(page.text, 300),
-      ...(job ? { jobId: job._id } : { text: page.text }),
-      ...verdict,
-    },
-  }
 }

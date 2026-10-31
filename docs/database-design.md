@@ -1,6 +1,6 @@
 # Database design
 
-The schema as it is today: 28 tables in `convex/schema.ts`, grouped by what they're about, plus the components' own tables. Each table is defined in its feature's `models.ts`, from shapes in that feature's `validators.ts`.
+The schema as it is today: 30 tables in `convex/schema.ts`, grouped by what they're about, plus the components' own tables. Each table is defined in its feature's `models.ts`, from shapes in that feature's `validators.ts`.
 
 [Proposed changes](#proposed-changes) lists what's done, what's waiting on a decision and what's decided against.
 
@@ -134,6 +134,12 @@ These have no owner. Deleting an account leaves them.
 | Table            | One row is                                                                                       | Rows per person | Indexes                                                                        |
 | ---------------- | ------------------------------------------------------------------------------------------------ | --------------- | ------------------------------------------------------------------------------ |
 | `activityEvents` | one thing that happened, kept from its evlog event: what ran, whether it failed, why, and a link | three months    | `by_userId_and_at`, `by_userId_and_failed_and_at`, `by_failed_and_at`, `by_at` |
+
+### Judgments on their way
+
+| Table         | One row is                                                           | Rows per person     | Indexes |
+| ------------- | -------------------------------------------------------------------- | ------------------- | ------- |
+| `judgedReads` | one finished judgment waiting for the worker that adds it to its run | none, moments later | none    |
 
 ### Big deletes
 

@@ -40,6 +40,10 @@ Workflows have their own page, [workflows.md](workflows.md).
 
 ## Across the app
 
+### Judgments finishing together
+
+Jev judges 8 roles at a time, and each one writing to the run directly fails with conflicts. So each leaves a row in `judgedReads`, and one batch worker adds them to the run in batches and says when the last is in (`convex/features/loops/judged.ts`). A run that was stopped just has its rows dropped. The check that restarts a stuck worker covers this one too.
+
 ### Big deletes
 
 Anything that can touch many rows goes through one batch worker (`@convex-dev/batch-worker`, `convex/features/deletes/`): deleting an account, emptying the Trash, Trash past its date, and Activity past 90 days. Each is a row in `deleteJobs`. The worker finds the next rows in a query, deletes them in a mutation, and moves on, so no single mutation can hit Convex's limits. It rechecks each row first, so an application you restored after pressing Empty the Trash stays. If a job fails partway, it's logged as `delete.job` and dropped, so the jobs behind it still run. Every 15 minutes, a job waiting too long restarts the worker (`internal.api.deletes.restartIfStuck`).
@@ -524,7 +528,7 @@ call, `internal.ts` the row's steps, `utils.ts` starting one and preparing a loo
 4. **Your shortlist** ("For you", "Saved"): open a role for its fit, Jev's checks and the
    posting. Save it, favorite it ("Tomorrow's runs will look for more like it."), dismiss
    it ("…less like it."), or add it to Applications as Saved (`api.loops.track`).
-5. **Check a link.** Paste a posting's link and press "Check it" (`api.loops.checkLink`).
+5. **Check a link.** Paste a posting's link and press "Check it" (`api.loopActions.checkLink`).
    A known board is read for free; another page costs one Firecrawl credit. Jev judges
    it and it opens on your shortlist. 10 a day; a link you checked before opens straight
    away.
@@ -654,7 +658,7 @@ isn't shown. Email lines are opened from their sealed note only when you look.
    - The hook refuses a wrong secret (401) and mail you've stopped (403).
    - Past the limit it answers 503, so Cloudflare tries again.
    - Otherwise it seals the email, keeps only ids, and sorts it.
-2. **Sorting** (`internal.api.email.sortMail`):
+2. **Sorting** (`internal.api.emailActions.sortMail`):
    1. Mail to a company's address goes to its application, and nothing can override that.
       With several at one company, a role named in the subject wins, then the one still
       going, then the newest.

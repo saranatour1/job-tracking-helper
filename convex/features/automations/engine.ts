@@ -38,7 +38,7 @@ const run = workflow.define({
       }
       await step.runMutation(internal.api.automations.startBranch, { runId, at, kind: branch.kind })
       if (branch.kind === "decide") {
-        const { path, error } = await step.runAction(internal.api.automations.askJev, { runId, at })
+        const { path, error } = await step.runAction(internal.api.automationActions.askJev, { runId, at })
         if (error || path === null) throw new Error(error ?? "Jev didn't answer.")
         for (let j = 0; j < (branch.lengths[path] ?? 0); j++) {
           const done = await runBlock(step, runId, `${i}.${path}.${j}`)

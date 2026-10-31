@@ -21,7 +21,6 @@ export const {
   sortContext,
   threadOf,
   record,
-  sortMail,
   sendContext,
   recordSent,
   sendFromApplication,

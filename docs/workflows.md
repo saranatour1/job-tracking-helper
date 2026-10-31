@@ -53,7 +53,7 @@ and the rules both go by. For the rest of the app, see [flows.md](flows.md).
 3. Or, on the **Loops** page, press a loop's **Use in a workflow**. That opens Morning
    job search with the loop already picked (`?template=jobSearch&loop=…`).
 4. Or **Describe one** on the Workflows page: write what it should do in a sentence and
-   press **Draft it** (`api.automations.describe`). Jev answers fixed questions about the
+   press **Draft it** (`api.automationActions.describe`). Jev answers fixed questions about the
    sentence (what starts it, which blocks, how long to wait, which status), and the
    draft is built from those answers, with the same checks the templates have. Jev never
    writes a step's text, so nothing typed becomes part of a step. The draft opens unsaved

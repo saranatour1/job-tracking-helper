@@ -17,6 +17,6 @@ crons.daily(
 
 crons.daily("sweep activity", { hourUTC: 3, minuteUTC: 47 }, internal.api.activity.sweep, {})
 
-crons.interval("restart stuck deletes", { minutes: 15 }, internal.api.deletes.restartIfStuck, {})
+crons.interval("restart stuck workers", { minutes: 15 }, internal.api.deletes.restartIfStuck, {})
 
 export default crons

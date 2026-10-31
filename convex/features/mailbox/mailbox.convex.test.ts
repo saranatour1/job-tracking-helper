@@ -99,7 +99,7 @@ const setup = async () => {
         ),
       })
     )
-    await t.action(internal.api.email.sortMail, { userId, emailId })
+    await t.action(internal.api.emailActions.sortMail, { userId, emailId })
     await t.finishAllScheduledFunctions(vi.runAllTimers)
   }
   const box = async (name: "inbox" | "sent" | "archived" | "trash") =>

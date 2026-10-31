@@ -153,7 +153,7 @@ describe("activity", () => {
       const emailId: string = await t.run((ctx) =>
         ctx.runMutation(components.cloudflareEmail.lib.receive, { owner: userId, payload })
       )
-      return t.action(internal.api.email.sortMail, { userId, emailId })
+      return t.action(internal.api.emailActions.sortMail, { userId, emailId })
     }
     await receive(
       await seal(

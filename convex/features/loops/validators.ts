@@ -105,6 +105,14 @@ export const LoopRun = type({
   "readFailures?": "number",
 })
 
+// One finished judgment, waiting for the worker that adds it to its run.
+export const JudgedRead = type({
+  runId: arkId("loopRuns"),
+  failed: "boolean",
+  cost: "number",
+  "judged?": Candidate,
+})
+
 export const Loop = type({
   userId: arkId("users"),
   name: "string",

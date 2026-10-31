@@ -1,5 +1,5 @@
 import { internalApi } from "./internal"
-import { linkApi } from "./link"
+import { judgedApi } from "./judged"
 import { publicApi } from "./public"
 
-export const loopsApi = { ...publicApi, ...internalApi, ...linkApi }
+export const loopsApi = { ...publicApi, ...internalApi, ...judgedApi }

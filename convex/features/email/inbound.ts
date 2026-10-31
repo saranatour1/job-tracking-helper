@@ -156,7 +156,10 @@ export const receive = httpAction(async (ctx, req) => {
     owner: target.userId,
     payload: await seal(k, JSON.stringify(email), aad.email(target.userId)),
   })
-  await ctx.scheduler.runAfter(0, internal.api.email.sortMail, { userId: target.userId, emailId })
+  await ctx.scheduler.runAfter(0, internal.api.emailActions.sortMail, {
+    userId: target.userId,
+    emailId,
+  })
   return new Response(null, { status: 204 })
 })
 

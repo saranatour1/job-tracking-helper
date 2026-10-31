@@ -79,7 +79,7 @@ const setup = async () => {
         ),
       })
     )
-    await t.action(internal.api.email.sortMail, { userId, emailId })
+    await t.action(internal.api.emailActions.sortMail, { userId, emailId })
     await t.finishAllScheduledFunctions(vi.runAllTimers)
   }
   return { t, as: t.withIdentity({ subject: userId }), userId, hooli, receive }

@@ -1,5 +1,3 @@
-import type { WorkflowId } from "@convex-dev/workflow"
-import { vOnCompleteArgs } from "@convex-dev/workpool"
 import { v } from "convex/values"
 import { components, internal } from "../../_generated/api"
 import { internalMutation, internalQuery } from "../../_generated/server"
@@ -8,9 +6,9 @@ import { keepLog } from "../activity/utils"
 import { fillFromJob } from "../applications/utils"
 import { prepareFits } from "../prefilled/utils"
 import { descriptionsOf, queriesOf } from "../workflows/fit"
-import { readPool, workflow } from "../workflows/manager"
+import { readPool } from "../workflows/manager"
 import { apiKeyOf, monthlyCredits, monthOf } from "../workflows/sources"
-import { vJudgeResult, vProfile, providerIds } from "../workflows/validators"
+import { vProfile, providerIds } from "../workflows/validators"
 import { blankTemplate, type Provider, switchAt } from "./catalog"
 import { nextRunAt } from "./schedule"
 import { addUsage, usageOf } from "./usage"
@@ -136,30 +134,6 @@ const queueJudging = internalMutation({
   },
 })
 
-const judged = internalMutation({
-  args: vOnCompleteArgs(v.object({ runId: v.id("loopRuns") }), vJudgeResult),
-  returns: v.null(),
-  handler: async (ctx, { context, result }) => {
-    const run = await ctx.db.get("loopRuns", context.runId)
-    if (!run?.readsLeft) return null
-    const done = result.kind === "success" ? result.returnValue : undefined
-    const readsLeft = run.readsLeft - 1
-    await ctx.db.patch("loopRuns", run._id, {
-      readsLeft,
-      scanned: run.scanned + Number(Boolean(done?.judged)),
-      cost: (run.cost ?? 0) + (done?.cost ?? 0),
-      readFailures: (run.readFailures ?? 0) + Number(!done),
-      candidates: done?.judged ? [...(run.candidates ?? []), done.judged] : run.candidates,
-    })
-    if (readsLeft === 0 && run.workflowId)
-      await workflow.sendEvent(ctx, {
-        workflowId: run.workflowId as WorkflowId,
-        name: "judged",
-      })
-    return null
-  },
-})
-
 const finishRun = internalMutation({
   args: vFinishRunArgs,
   returns: v.null(),
@@ -271,7 +245,6 @@ export const internalApi = {
   startDue,
   beginRun,
   queueJudging,
-  judged,
   finishRun,
   runEnded,
   profileForLink,

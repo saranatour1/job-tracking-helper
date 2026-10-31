@@ -92,7 +92,7 @@ const setup = async (allow: { tag: boolean } = { tag: true }) => {
         ),
       })
     )
-    await t.action(internal.api.email.sortMail, { userId, emailId })
+    await t.action(internal.api.emailActions.sortMail, { userId, emailId })
     return t.run(async (ctx) =>
       (await ctx.db.query("mailEvents").collect()).find((e) => e.emailId === emailId)
     )
