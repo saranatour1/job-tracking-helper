@@ -1,5 +1,7 @@
 # Applications
 
+> **Out of date.** This recipe describes the old table and add form. The page is now a board with a `New application` dialog. Update it before you rely on these steps.
+
 The dashboard home lists the signed-in user's job applications in a table, with Company, Role, and Status columns. A form above it adds a row, which is stored in Convex and survives reloads.
 
 ## Sub-features

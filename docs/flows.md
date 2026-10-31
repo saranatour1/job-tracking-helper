@@ -3,7 +3,7 @@
 Every way someone uses the app, and everything the app does by itself, one section per
 feature. "You" is the person signed in. "The app" covers the parts that act without
 anyone pressing a button: crons, workflows, the batch worker, the inbound email hook, and
-Jev, the model that judges roles, sorts mail and answers workflow questions.
+Jev, the model that judges roles, sorts mail, reviews resumes and answers workflow questions.
 
 Each section has the same parts:
 
@@ -57,41 +57,42 @@ Lists you scroll through use `.paginate`: an application's mail, Unsorted, Conta
 
 Routes and search params carry regular text, never a table id (`src/lib/route-ids.ts`):
 
-| What                                     | Text                                                | Example                                   |
-| ---------------------------------------- | --------------------------------------------------- | ----------------------------------------- |
-| Application                              | its short code, which editing it doesn't change     | `/pipeline/app-4`, `/?app=app-4`          |
-| Prefilled application, shortlisted role  | title and company                                   | `/prefilled/engineer-figma`               |
-| Goal, workflow, view, loop, template     | its name                                            | `/goals/three-offers`, `/?view=hot-roles` |
-| Email, draft, workflow run, Updates line | its date, so a private subject stays out of the URL | `/email?open=oct-31-3-10-pm`              |
+| What                                     | Text                                                | Example                                           |
+| ---------------------------------------- | --------------------------------------------------- | ------------------------------------------------- |
+| Application                              | its short code, which editing it doesn't change     | `/pipeline/app-4`, `/?app=app-4`                  |
+| Prefilled application, shortlisted role  | title and company                                   | `/prefilled/engineer-figma`                       |
+| Goal, workflow, view, loop, template     | its name                                            | `/goals/three-offers`, `/pipeline?view=hot-roles` |
+| Email, draft, workflow run, Updates line | its date, so a private subject stays out of the URL | `/email?open=oct-31-3-10-pm`                      |
 
 A repeat gets a number (`-2`), and a real id still finds its row, so old links work. An application's text is looked up by its number (`api.applications.get`), so a link finds it whether or not it's on the board. Other text is looked up in the list the page already reads, so it's only as good as that list: rename something and its old link stops finding it after you leave the page, and an email past what's loaded won't open from a link. `?filters=` and a workflow's `?draft=` can still hold ids, because they're saved filters and drafts rather than addresses.
 
 ### Who acts
 
-| Actor                         | What it does                                                                                                                                | Where                                                                           |
-| ----------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------- |
-| You                           | Everything in the pages below                                                                                                               | `src/features/*`                                                                |
-| A guest on a booking page     | Books time with you, signed in or not                                                                                                       | `/book/$slug`                                                                   |
-| Crons                         | Start due loops (every 15 minutes), start due workflows (every 5 minutes), refresh job boards (hourly), sweep the Archive and Trash (daily) | `convex/crons.ts`                                                               |
-| The inbound email hook        | Takes mail your Cloudflare Worker forwards                                                                                                  | `POST /email/inbound/<id>`, `convex/http.ts`                                    |
-| Jev                           | Judges roles for loops and pasted links, sorts mail, answers Ask Jev, drafts workflows from a sentence                                      | `convex/features/workflows/judge.ts`, `email/sort.ts`, `automations/actions.ts` |
-| The batch worker (`readPool`) | Fetches job boards and runs Jev's judgments, 8 at a time, retrying each up to 3 times                                                       | `convex/features/workflows/manager.ts`                                          |
-| Workflows                     | Runs the steps people build                                                                                                                 | `convex/features/automations/engine.ts`                                         |
+| Actor                         | What it does                                                                                                                                                                                    | Where                                                                                                                                               |
+| ----------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------- |
+| You                           | Everything in the pages below                                                                                                                                                                   | `src/features/*`                                                                                                                                    |
+| A guest on a booking page     | Books time with you, signed in or not                                                                                                                                                           | `/book/$slug`                                                                                                                                       |
+| Crons                         | Start due loops (every 15 minutes), start due workflows (every 5 minutes), refresh job boards (hourly), sweep the Archive, Trash and Activity (daily), restart stuck workers (every 15 minutes) | `convex/crons.ts`                                                                                                                                   |
+| The inbound email hook        | Takes mail your Cloudflare Worker forwards                                                                                                                                                      | `POST /email/inbound/<id>`, `convex/http.ts`                                                                                                        |
+| Jev                           | Judges roles for loops and pasted links, sorts mail, reviews resumes, re-evaluates goals, picks saved answers for forms, answers Ask Jev, drafts workflows from a sentence                      | `convex/features/workflows/judge.ts`, `email/jev.ts`, `preferences/resume.ts`, `goals/actions.ts`, `prefilled/actions.ts`, `automations/actions.ts` |
+| The batch worker (`readPool`) | Fetches job boards and runs Jev's judgments, 8 at a time, with up to 3 attempts each                                                                                                            | `convex/features/workflows/manager.ts`                                                                                                              |
+| Workflows                     | Runs the steps people build                                                                                                                                                                     | `convex/features/automations/engine.ts`                                                                                                             |
 
 ### Events that start workflows
 
 `fireEvent` (`convex/features/automations/fire.ts`) is called when:
 
-- the sorter files an email (`internal.api.email.record`);
+- the sorter files an email (`internal.api.email.record`), except imported mail;
 - an application changes status (`changeStatus`), except a move a workflow made;
-- someone books time (`api.booking.book`).
+- someone books time (`api.booking.book`);
+- an application joins a goal (`api.applications.setGoal`, `api.loops.track`).
 
 It only schedules a check when you have an active workflow with that kind of trigger.
 
 ### Secrets
 
-- Email details, the Cloudflare token, every email, mail notes and send errors are
-  sealed with AES-256-GCM, bound to their owner and purpose (`convex/lib/secrets.ts`).
+- Email details, the Cloudflare token, every email, mail notes, send errors, contact
+  details and drafts are sealed with AES-256-GCM, bound to their owner and purpose (`convex/lib/secrets.ts`).
 - Keys come from `SECRETS_KEYS` (`v1:<base64>,v2:…`): the last one seals, any one opens.
   `npx convex run api/email:resealAll` reseals everything with the newest key.
 - Without `SECRETS_KEYS`, email features say "Email isn't set up on this server yet:
@@ -99,8 +100,9 @@ It only schedules a check when you have an active workflow with that kind of tri
 
 ### Optional keys
 
-`FIRECRAWL_API_KEY` and `CONTEXT_DEV_API_KEY` let loops search for new job boards and read
-pasted links that aren't on a known board. A source without a key is skipped.
+`FIRECRAWL_API_KEY` and `CONTEXT_DEV_API_KEY` let loops search for new job boards. A source
+without a key is skipped. Firecrawl also reads pasted links that aren't on a known board, and
+preparing applications needs it.
 
 ### Public pages and crawlers
 
@@ -115,7 +117,8 @@ pasted links that aren't on a known board. A source without a key is skipped.
    made-up applications that moves on its own, or holds still with reduced motion on. The header
    switches between light and dark. Signed-in people go on to `/pipeline`, keeping any search
    like `?app=app-4`.
-2. **Legal.** `/privacy` and `/terms` are linked from the footer, sign-in and booking forms.
+2. **Legal.** `/privacy` and `/terms` are linked from the footer and sign-in. Booking
+   forms link to `/privacy`.
 3. **Crawlers.** `public/robots.txt` lists every private route, and `public/llms.txt` and
    `public/sitemap.xml` list the public ones. All pages render on the server, so crawlers don't
    need JavaScript.
@@ -177,9 +180,9 @@ no form to sign in with there.
 **Flows**
 
 1. The sidebar groups the pages by what you do with them: Updates (with its unread
-   count), Applications and Calendar on top; **Find roles** with Jobs and Loops; **Done
-   for you** with Workflows and Activity; **Tracker** with Goals and Views; **You** with
-   Preferences and Resume. The pencil opens New application.
+   count), Applications, Email and Calendar on top; **Find roles** with Jobs and Loops;
+   **Done for you** with Workflows, Prefilled applications and Activity; **Tracker** with
+   Goals, Views and Contacts; **You** with Preferences and Resume. The pencil opens New application.
 2. The header's sidebar button opens and closes the app sidebar. Side panels (an
    application, insights, a job from a loop) open beside it and leave it alone; on the
    board, the panel button at the right of the toolbar opens insights or closes an open
@@ -203,8 +206,6 @@ no form to sign in with there.
 - As someone who'd rather talk it through, I want my own AI assistant to interview me
   and fill the form.
 - As someone filling in application forms, I want my usual answers ready to copy.
-- As anyone, I want to keep my resume here, and check that it reads well to the systems
-  and people who screen it, without it being rewritten for me.
 
 **Flows**
 
@@ -222,10 +223,10 @@ no form to sign in with there.
    is checked in the browser ("That reply isn't valid JSON…") and fills the form;
    nothing is saved until Save.
 5. **Resume:** upload a PDF, Word or text file up to 10 MB
-   (`api.preferences.setResume`). One at a time; a new one replaces the old.
+   (`api.preferences.setResume`). One at a time; a new one replaces the old, and **Remove** deletes it.
 6. **Overview** shows every answer; clicking one opens that step.
-7. **Saved answers** keeps form fields to copy, and that prefilled applications answer from. "Fill" suggests them from
-   your answers, each field has a copy button, and Save keeps them
+7. **Saved answers** keeps form fields to copy, and that prefilled applications answer from.
+   "Fill empty ones from your answers" suggests them from your answers, each field has a copy button, and Save keeps them
    (`api.preferences.savePrefilled`). Under a field an application has used, "Used
    3× · last Oct 30". Opening the tab with `?add=<question>` (Activity's **Add to
    saved answers**) adds that question to "Your questions", empty, for you to answer and
@@ -233,7 +234,8 @@ no form to sign in with there.
 
 **By itself:** loops and pasted links read your Preferences (`profileFor`) along with
 the roles you liked and dismissed, and loop templates start from your tags. Prefilled
-applications answer from Saved answers, your custom questions and your account name and email.
+applications answer from Saved answers, everything you answered in Preferences, and your
+account name and email.
 
 **Rules:** each tag is 1 to 60 characters, 40 per list; Prefilled has up to 20 sections
 of 50 fields, with no names twice.
@@ -257,7 +259,7 @@ of 50 fields, with no names twice.
    they are; Word files can't be reviewed), then:
    - **ATS check**, by rules in code: email and phone at the top, the headings
      Experience, Education and Skills, one column with no tables, dates in one format,
-     one or two pages. Each failure says what to change.
+     one or two pages (150 to 1,100 words). Each failure says what to change.
    - **Suggestions**: Jev answers fixed yes-or-no questions about the writing (does the
      summary say the role, do bullets give results, is the newest role first, do bullets
      start with verbs, is it free of filler) and, for up to 12 of your skills and
@@ -291,22 +293,24 @@ of 50 fields, with no names twice.
 1. **Add one.** New application asks for role, company, posting link and notes
    (`api.applications.add`). It starts at Applied and gets a number (`APP-12`). With a
    link, Jev checks the posting and fills in what's empty: priority, location, a Remote
-   label, the description.
-2. **See them.** `/` is a board or list, grouped by status, priority or goal, sorted by
-   priority, date or company, with Active, Saved and All tabs. Filters, display and the
+   label, the description. Past 10 link checks a day, it keeps what you typed.
+2. **See them.** `/pipeline` is a board or list, grouped by status, priority, goal or nothing,
+   sorted by priority, date created or company, with Active, Saved, All, Archived and Trash
+   tabs. Filters, display and the
    open application live in the address (`?tab=`, `?filters=`, `?display=`, `?app=`), so
    a link opens the same view.
    Each card shows the company, the role, and badges: its status, how well it fits
    (when a loop found it or Jev checked its link, stored on the application), Active or
    Quiet for open applications (no news in two weeks), then priority, labels,
-   location, mail (kind of the newest and how many, also stored) and tasks done.
+   mail (kind of the newest and how many, also stored) and tasks done. Display options pick
+   which of ID, priority, goal, labels, location and created date show. Location starts off.
 3. **Move one.** Drag a card to another column, use "Move to" on right-click, or the
    Status picker. All go through `api.applications.setStatus`, which adds to the
    history and may start workflows.
 4. **Open one.** Click a card for the side panel (`?app=`); click again, or Cmd-click,
    for the full page (`/pipeline/$id`). Esc closes the panel.
-5. **Edit one.** Status, priority, labels, how you applied, company and location
-   (`api.applications.update`). Tasks: type and press Enter, click to check off. Notes:
+5. **Edit one.** Status, priority, labels and how you applied
+   (`api.applications.update`). Company and location show but can't be edited. Tasks: type and press Enter, click to check off. Notes:
    "Leave a note…" (`api.applications.addNote`).
 6. **Its activity:** status changes, notes and emails in one timeline. Mail comes 25 at
    a time, newest first (`api.email.forApplication`), with **Load older mail**.
@@ -317,9 +321,10 @@ of 50 fields, with no names twice.
    move with an Undo. "N unsorted" in the toolbar (`api.email.unsortedCount`, "100+" past
    that) lets you file mail by hand (`api.email.assign`). Its list opens 25 at a time, and
    only then is any of it decrypted (`api.email.unsorted`).
-9. **Right-click:** a card offers Open, Move to, Archive, Move to Trash, "Roles at
+9. **Right-click:** a card offers Open, Open full page, Move to, Archive, Move to Trash, "Roles at
    <company> in Jobs", "Roles like this in Jobs", Open posting, Copy link. The board
-   offers "Save as a view" and Clear filters.
+   offers "Save as a view", Clear filters, and links to Jobs, Preferences, Calendar and
+   Updates.
 10. **Archive one:** Archive (on the card's menu, or the box icon in its panel) takes it off
     the board into the **Archived** tab (`api.applications.archive`); "Back to the board"
     undoes it.
@@ -349,14 +354,16 @@ application.
 
 **Flows**
 
-1. **Save a view:** filter Applications, then "+" by the tabs, or right-click → "Save as a
-   view", name it, and Create view (`api.views.create`). It opens at `/?view=<id>`.
+1. **Save a view:** filter Applications, then "+" by the tabs, "Save view" in the filter bar, or
+   right-click → "Save as a view". Name it, add a description if you want, and Create view
+   (`api.views.create`). It opens at `/pipeline?view=<its name>`.
 2. **Open a view:** its tab on Applications, or `/views`.
-3. **Delete a view:** right-click its tab → "Delete view", and confirm.
+3. **Delete a view:** right-click its tab → "Delete view", and confirm. The same menu has
+   Open and "Save as a new view".
 4. **Make a goal:** on **Goals** (`/goals`), **New goal**: a name, a summary, a priority,
    start and target dates, one of your loops (optional), and milestones one per line,
    each with a date at the end if it has one. Create goal saves it (`api.goals.create`).
-   The page lists goals newest first under **Yours**, each with its dates, milestone and
+   The page lists goals by start date, latest first, under **Yours**, each with its dates, milestone and
    application counts, status (Upcoming or Active), progress, and Edit and Delete.
    Completed and missed ones move under **Past**.
 5. **Retry a missed goal:** a goal whose target date passed with milestones unticked
@@ -420,12 +427,14 @@ and loops can be picked, edited or deleted.
 **By itself:** every hour (`internal.api.jobs.refreshDue`) up to 25 boards not fetched in 20
 hours go to the batch worker (`internal.api.jobs.fetchBoard`). It reads each public feed
 (Greenhouse, Lever, Ashby, Personio), saves the roles, and drops ones the board no
-longer lists. A board that answers 4xx is noted and not retried. Loops and pasted links
+longer lists. A board that answers 4xx is noted with no immediate retry, and comes due again 20 hours
+later. Loops and pasted links
 add new boards.
 
 **Postings:** a board's HTML is parsed with rehype, cleaned with rehype-sanitize (no
 scripts, styles, event handlers, `javascript:` links or images) and kept as Markdown, at
-most 3,500 characters (`convex/lib/markdown.ts`). The app draws it with react-markdown,
+most 3,500 characters with its title line (`convex/lib/markdown.ts`, and `maxText` in
+`convex/features/jobs/boards.ts`). The app draws it with react-markdown,
 which never draws raw HTML and sanitizes the tree again (`src/components/markdown.tsx`).
 Previews are the same text as plain words.
 
@@ -447,10 +456,10 @@ Previews are the same text as plain words.
 
 1. **Turn it on** under Account → Prefilled applications
    (`api.prefilled.setAutoPrepare`): each new fit a loop puts on your shortlist gets
-   prepared, up to 10 a day, while Firecrawl has credits this month. With it off, or past
-   the limit, press **Prepare** on a role in Jobs or on your shortlist
-   (`api.prefilled.prepare`). It needs your email, a resume, and a posting on Greenhouse,
-   Lever, Ashby or Personio. One per person and posting.
+   prepared, until Firecrawl has used 90% of this month's credits. With it off, press
+   **Prepare** on a role in Jobs or on your shortlist (`api.prefilled.prepare`). Both share a
+   limit of 10 a day. It needs your email, a resume, a Firecrawl key on the server, and a
+   posting on Greenhouse, Lever, Ashby or Personio. One per person and posting.
 2. **Prepare** runs with no one there (`internal.api.prefilledActions.prepareForm`, on `applyPool`,
    never retried by itself), and nothing is typed into the form:
    - **Open the form:** one Firecrawl scrape of the posting, then `interact` with
@@ -465,8 +474,8 @@ Previews are the same text as plain words.
      a pick counts only when Jev is at least 60% sure. Jev never writes an answer.
    - **Draft:** a required free-text question still blank gets a short draft from a small
      model through the gateway (`draftModel`, Gemini Flash Lite, on endpoints that keep no
-     data), once your resume has been reviewed on the Resume tab. It sees your resume
-     without email or phone, your saved answers that aren't personal facts, and the posting.
+     data). It sees your resume's text without email or phone, if you've pressed Review on
+     the Resume page, your saved answers that aren't personal facts, and the posting.
      It leaves blank anything it can't back up from those. It never drafts a personal fact
      (name, contact, work authorization, visa, location, salary, start date, pronouns), a
      pick list or an optional question. A draft counts as needing you until you accept or change it. If
@@ -479,15 +488,16 @@ Previews are the same text as plain words.
    lines. The arrows in the header step back and forth through what's waiting. Questions that
    need you come first, with the rest folded under **Everything else**, or open when nothing
    needs you. A row you answer stays where it is until you next open the page. Every question
-   shows where its answer came from: Saved, Jev picked, AI draft, You, or Needs you. Change
+   shows where its answer came from: Saved, Jev picked, AI draft, You, Needs you, or Optional. Change
    any answer for this application (`api.prefilled.setAnswer`): it saves when you leave the
    field or pick an option, and **Accept draft** takes an AI draft as it is. **Keep for future forms** also
    adds it to your Saved answers under "Your questions". **Read the form again** picks up
-   answers you've saved since, and keeps what you typed and any draft. **Dismiss** sets it
+   answers you've saved since, and keeps what you typed, and any draft unless a saved answer now fits it. **Dismiss** sets it
    aside.
 4. **Open browser** (`api.prefilledActions.startLive`), at the top of the page: a new browser opens
-   the form, puts your answers in and uploads your resume, then shows on the right of the
-   page, for you to control. It uses no AI, so it still works if AI ran out while preparing
+   the form, puts your answers in, ticks any boxes asking for consent or agreement to terms, and
+   uploads your resume, then shows on the right of the page, for you to control. **Open in a
+   new tab** opens it on its own. It uses no AI, so it still works if AI ran out while preparing
    (Jev or the draft failed) and the application has only what matched by name. You check it, solve any CAPTCHA, finish anything listed as "do these by
    hand", and **press the form's own Submit**. The app never presses it. A location list that
    doesn't have your city tries your country. With each company having its own address,
@@ -513,7 +523,8 @@ Previews are the same text as plain words.
      the account, so it never ages out. Sign-ins aren't listed. Each row comes from that work's evlog event (`keepLog`), so
      the Convex logs and this page say the same thing. Mail rows name the company only,
      never a subject or an address, and evlog masks any address in an error. Rows for your edits
-     say what kind of thing changed, never what you wrote.
+     say what kind of thing changed, and may name it, like a loop or a goal, but never quote what
+     you wrote in it.
    - **Failed** (`?show=failed`): only what failed, with why.
    - **Applications** (`?show=applications`): what's finished, with the answers used, what
      had no saved answer (each with **Add to saved answers**), and **Try again**. A line on
@@ -524,8 +535,9 @@ Previews are the same text as plain words.
    no owner, like refreshing a job board, is only in the Convex logs. So is importing old
    mail, which can be hundreds of emails.
 
-**Rules:** nothing can be sent without you pressing the form's Submit. Nothing is guessed
-or written for you. No logins and no stored job-site passwords. The live browser's address
+**Rules:** nothing can be sent without you pressing the form's Submit. Every answer shows
+where it came from, and an AI draft needs you to accept or change it. The live browser ticks
+consent boxes, so check them before you submit. No logins and no stored job-site passwords. The live browser's address
 controls that browser, so only its owner's `get` returns it, never a list, and it's cleared
 when the session ends. Answers' values never go in the log.
 
@@ -552,13 +564,14 @@ call, `internal.ts` the row's steps, `utils.ts` starting one and preparing a loo
 1. **Start a loop.** Pick a template on `/loops` (Remote roles that fit, Close to home,
    Dream companies watch, Stretch roles, Fresh this morning, or My loop). It fills its
    answers from Preferences: when it runs, the job in your words, what it searches for,
-   how many it checks and shows, and what it leaves out. "Start loop"
+   how many it checks and shows, and what it leaves out. Runs start at 07:00, 08:00 or 09:00, or
+   only by hand with **Run by itself every morning** off. "Start loop"
    (`api.loops.create`). Up to 3 loops.
 2. **Each loop's tile:** Run now (`api.loops.runNow`, 3 a day), Stop this run, Pause or
    Resume daily runs, Edit, Use in a workflow (opens Morning job search with this loop),
    and Remove (its runs and roles stay).
 3. **Edit a loop:** Edit opens the same setup with the loop's answers filled in
-   (`?edit=<loopId>`). "Save changes" (`api.loops.update`) runs the same checks as
+   (`?edit=<its name>`). "Save changes" (`api.loops.update`) runs the same checks as
    starting one and moves its next run to the new time; a run already going keeps the
    answers it started with.
 4. **Your shortlist** ("For you", "Saved"): open a role for its fit, Jev's checks and the
@@ -605,10 +618,10 @@ day; links 10 a day; a source moves on at 90% of its monthly credits.
 
 **Flows**
 
-1. `/inbox` shows the 100 newest, Unread first (`?tab=`), grouped by nothing, status or
+1. `/inbox` shows the 100 newest, with Unread, Read and All tabs (`?tab=`), grouped by nothing, status or
    company (`?group=`).
 2. Opening one marks it read (`?id=`). Each has a button to where it came from: Open
-   applications, Open calendar, Open loops, or Open the run.
+   applications, Open calendar, Open loops, Open prefilled applications, or Open the run.
 3. Mark as read or unread, or Mark all as read.
 4. The sidebar's count is the page's unread count (`api.inbox.unreadCount` builds the same
    lines), so a line whose source has been deleted doesn't count. The route stays `/inbox`.
@@ -666,7 +679,7 @@ isn't shown. Email lines are opened from their sealed note only when you look.
    That mail then stops going anywhere else, so you can give an address for the Worker to
    forward a copy to. Cloudflare must have verified it, and a failed forward never loses
    the app's copy. If a routing rule already handles the address, setup stops and says so,
-   because Cloudflare only runs the first of two rules. "Stop incoming mail" removes both.
+   because Cloudflare only runs the first of two rules. **Stop** removes both.
 5. **Recent mail:** the 10 newest, opened for you.
 6. **Disconnect:** removes the Worker, the rule and the saved token. Your emails stay.
 7. **On an application,** its Activity shows the address to give out, like
@@ -679,11 +692,12 @@ isn't shown. Email lines are opened from their sealed note only when you look.
    own routing rule, and takes a few minutes to start working. They stop at 150, and stopping incoming mail removes them.
 8. **Signature** (`api.email.setSignaturePhoto`, and your Profile): your photo, name, account
    email and any LinkedIn, GitHub and X you've added. **Signature preview** shows it as it goes
-   out. It's added to mail you write here and workflow emails, not Notify me, once there's a
+   out. It's added to mail you write here, test emails and workflow emails, not Notify me, once there's a
    photo or a link. The photo is a small embedded copy. The Activity shows what you wrote,
    without the signature. Your preferred name, else your saved full name, else your account
    name, is who mail is from.
-9. **Import old mail** takes .eml or .mbox files (`api.email.importMail`). It keeps only mail
+9. **Import old mail** takes .eml or .mbox files up to 500 MB (`api.email.importMail`), with
+   **Keep incoming mail** on. It keeps only mail
    matching an application by its address, thread or company name, and skips what's already
    here. It uses no AI, and adds no line in Updates, workflow event or suggestion.
 
@@ -704,7 +718,8 @@ isn't shown. Email lines are opened from their sealed note only when you look.
       a role named in the subject wins, then the one still going, then the newest.
    4. Rules guess the kind: confirmation, interview, rejection, offer, portal or other.
    5. If you let Jev read your mail, Jev answers which application and what kind. Only
-      answers it's at least 50% sure of count.
+      answers it's at least 50% sure of count, and an unsure kind becomes "other", replacing
+      the rules' guess.
    6. The sorter also keeps any portal link and interview time.
 3. **Filing** (`internal.api.email.record`):
    - It suggests a move (an interview suggests Interviewing).
@@ -742,10 +757,11 @@ failed, and Account says it couldn't confirm the email went out.
    (`api.mailbox.markUnread`) puts it back and closes it. Received mail that's unread has a dot
    and bolder text, and Inbox shows how many (`api.mailbox.unreadCount`), up to "99+", from an
    index so nothing gets decrypted. Mail you sent has no read state.
-   Its subject, From, To and date each have a **Copy** button, and an application links to it.
+   Its subject, From, To and date each have a **Copy** button, attachments are named but can't
+   be opened, and an application links to it.
    **Add to contacts** sits beside the other person's address, or says **In contacts**.
    **Thread** (`api.mailbox.thread`): the other emails in the conversation sit above and below
-   as one line each, across folders. Picking one opens it, and only that one is decrypted. An
+   as one line each, across folders, leaving out the Trash unless that's the one you opened. Picking one opens it, and only that one is decrypted. An
    email belongs when its subject matches, ignoring Re: and Fwd:, and so does its application.
    With no application, the other person has to match too. Reply answers the email showing.
    Archive, Trash and Labels stay on the one you opened from the list, which shows one row per
@@ -759,7 +775,8 @@ failed, and Account says it couldn't confirm the email went out.
    email's subject and application, and on mail you sent it goes to whoever you sent it to.
    **New email** and **Reply** use the Tiptap editor, loaded only when opened
    (`api.email.sendFromApplication`). An application is optional, and picking one aims replies at
-   its company's address. **Save draft** seals it (`api.mailbox.saveDraft`), and sending removes it.
+   its company's address. **Save draft** seals it (`api.mailbox.saveDraft`), **Discard** deletes it, and sending
+   removes it.
 6. **Templates** (`api.mailbox.saveTemplate`): a name, subject and body, up to 100. Picking one
    in a new email fills it in, with `{company}` and `{role}` from the chosen application.
 
@@ -820,13 +837,15 @@ so a recruiter at two companies shows under the latest one.
    events. The view and date live in the address (`?view=`, `?date=`). It reads the
    date's month and the months either side (`api.calendar.list`, `api.email.timeline`),
    or the year in the year view. Repeating events and your fixes come whatever their
-   dates, since either can change what shows here. The list by application reads every
-   event, for each application's next and latest dates.
-2. **Your events:** add, drag or edit (`api.calendar.save`). A title naming one company
+   dates, since either can change what shows here. The list by application reads up to 500
+   events, for each application's next and latest dates.
+2. **Your events:** add from today onward, drag or edit (`api.calendar.save`). Double-click an
+   application's event to open the application. A title naming one company
    links the event to that application, and the title sets its kind (interview,
    follow-up, reminder).
-3. **Events the app made:** editing one saves your version over it; deleting one hides
-   it.
+3. **Events the app made:** interview times and follow-ups can be edited, which saves your
+   version over them, or deleted, which hides them. Applied, status and email events are
+   read-only.
 4. **By application:** a lane per application in the timeline view; drag an event to
    another lane to relink it.
 5. **Import or export:** "Import .ics" adds the file's events (importing again doesn't
@@ -858,12 +877,12 @@ so a recruiter at two companies shows under the latest one.
 **Flows (the guest, `/book/<slug>`)**
 
 1. The page shows free times in the guest's zone, with yours beside it. Busy times come
-   from your events and interview times read from your mail; nothing else about you is
-   shown.
+   from your events and interview times read from your mail. It shows your name and nothing
+   else about you.
 2. The guest picks a time (`?at=`), adds their name, email and a note, and books
    (`api.booking.book`). The server checks the time again: "That time isn't open any
    more. Pick another."
-3. "You're booked." with "Add to your calendar".
+3. "You're booked." with "Add to your calendar" and "Book another time".
 
 **By itself:** a booking becomes an interview on your calendar, linked to the page's
 application or one matched by the guest's email domain. It adds a line in Updates
@@ -883,8 +902,8 @@ the quarter hour.
 - As anyone, I want to choose which Updates kinds I get.
 - As anyone, I want to delete my account and everything in it.
 
-**Flows** (`/account`: Profile, Email, Notifications, Calendar, Booking pages,
-Interface and theme, Account)
+**Flows** (`/account`: Profile, Email, Notifications, Calendar, Booking pages, Applications,
+Prefilled applications, Interface and theme, Account)
 
 1. **Profile** fields save when you leave them (`api.users.updateProfile`). A picture is
    an image up to 5 MB.
@@ -904,7 +923,7 @@ Interface and theme, Account)
 ## Workflows
 
 Steps you build from blocks that run for you: on a schedule, when an email or a booking
-comes in, when an application moves, or when you press Run now. Start from scratch,
+comes in, when an application moves or joins a goal, or when you press Run now. Start from scratch,
 from one of eleven templates (job search, follow-ups, each kind of email, bookings), or
 describe it in a sentence and let Jev draft it. The full story is in
 [workflows.md](workflows.md).
@@ -916,3 +935,4 @@ describe it in a sentence and let Jev draft it. The full story is in
 - Deleting an account doesn't stop a loop run that's in progress; it finds nothing to
   save and stops.
 - A guest with no Calendar time zone gets workflow calendar events in UTC.
+- A repeating event only blocks its first time on a booking page.

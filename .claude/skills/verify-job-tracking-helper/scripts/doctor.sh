@@ -33,7 +33,7 @@ for n in SITE_URL AUTH_PRIVATE_KEY AUTH_JWKS; do
   if printf '%s\n' "$names" | grep -qx "$n"; then ok "env $n is set"; else bad "env $n is missing"; fi
 done
 
-if pnpm exec convex function-spec 2>/dev/null | grep -q '"auth.js:signInAnonymously"'; then
+if pnpm exec convex function-spec 2>/dev/null | grep -q 'auth.js:signInAnonymously"'; then
   ok "deployment serves auth:signInAnonymously"
 else
   bad "deployment lacks the auth functions; wait for 'Convex functions ready!'"

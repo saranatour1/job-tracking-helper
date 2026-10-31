@@ -4,21 +4,15 @@ A job search app. It finds roles that fit what you asked for, fills in their app
 
 ## What's in it
 
-- **Preferences.** You say what you want from your next job in your own words, one section at a time. Saved answers holds what forms keep asking for, like your phone number and LinkedIn.
-- **Jobs.** Every open role from the free feeds of Greenhouse, Lever, Ashby and Personio boards. It refreshes daily, and you can search it.
-- **Loops.** Morning searches of that catalog. Jev judges each role against your Preferences, and a few fits at a time reach your shortlist. What you save or dismiss shapes the next run.
-- **Prefilled applications.** The app reads a posting's form and matches your saved answers. A small model drafts the job-specific questions for you to check. The real form then opens beside your answers, already filled in.
-- **Applications.** A board or a list, one column per status. Each application has one timeline of status changes, notes and mail.
-- **Mail.** Connect your own Cloudflare account to send from your domain and receive replies. Each company can have its own address, like `you+hooli@yourdomain`, so mail lands in the right place, and you can write and reply from an application. Anything unmatched waits in Unsorted.
-- **Email.** Inbox, Sent, Drafts, Archived, Trash and labels, a page at a time, with a Tiptap editor and reusable templates. An open email shows the rest of its thread, and its addresses, subject and date copy with a click.
-- **Contacts.** The people from your application mail, by company, with who you've emailed most marked. Copy, edit, add or remove any of them, or add someone from an email.
-- **Calendar.** Application dates, interview times read from emails and invites, follow-ups and your own events.
-- **Booking pages.** Links like `/book/<code>` to send a recruiter. They show your free time in the guest's zone, and a booking lands on your Calendar.
-- **Workflows.** A trigger and up to 20 steps, built on a canvas. Workflows are data, never code. See [docs/workflows.md](docs/workflows.md).
-- **Activity.** Your account since you joined: what you changed, what the app did for you, and a Failed view that says why anything failed. Each row comes from the same [evlog](https://www.evlog.dev/) event as the logs.
-- **Goals, Views and Updates.** Milestones with applications attached, saved board views, and what just happened.
+- **Preferences and Resume.** Say what you want from your next job, keep the answers forms keep asking for, and check how your resume reads.
+- **Jobs and Loops.** A daily catalog of open roles from Greenhouse, Lever, Ashby and Personio boards, and morning searches where Jev judges roles against your Preferences and puts a few fits on your shortlist.
+- **Prefilled applications.** The app reads a posting's form, matches your saved answers and drafts the job-specific questions. The real form then opens beside your answers for you to check and submit.
+- **Applications, Views and Goals.** A board or list by status, with one timeline per application, saved views, and milestones.
+- **Mail and Contacts.** Connect your own Cloudflare account to send from your domain and receive replies. Each company can have its own address, so mail lands on the right application.
+- **Calendar and Booking pages.** Application dates, interviews read from email and your own events, plus links a recruiter can book from.
+- **Workflows and Activity.** A trigger and up to 20 steps built on a canvas, and a record of everything the app did for you and why anything failed.
 
-[docs/flows.md](docs/flows.md) covers every flow in detail.
+[docs/flows.md](docs/flows.md) covers every flow, and [docs/workflows.md](docs/workflows.md) covers workflows.
 
 ## What happens to your data
 
@@ -26,7 +20,7 @@ Your resume file only gets attached to applications until you press Review on th
 
 Demographic questions are skipped by their wording, and job-site passwords are never stored. Pasted tokens, connection details, mail, contacts and drafts are encrypted with AES-256-GCM, under a key only the server holds. Resumes, saved answers and applications don't get that extra layer.
 
-The site sends page views, web vitals, outgoing link clicks and session replays to Databuddy, except on booking pages. Replays mask text. [src/server.ts](src/server.ts) also reports AI crawler and agent requests from the Worker, again except on booking pages. [/privacy](src/routes/privacy.tsx) has the full list, and it has to stay true when any of this changes.
+The site sends page views, web vitals, outgoing link clicks and session replays to Databuddy, except on booking pages. Replays mask text. [src/server.ts](src/server.ts) also reports AI crawler and agent requests to Databuddy from the server. [/privacy](src/routes/privacy.tsx) lists all of this, and it has to stay true when any of it changes.
 
 ## How to run
 
@@ -44,86 +38,40 @@ pnpm exec convex env set SITE_URL=http://localhost:3000
 pnpm exec auth
 ```
 
-Username and password sign-in and guest sign-in now work. Email needs an encryption key:
+Username and password sign-in and guest sign-in now work. Email, AI, Firecrawl, OAuth and deploying all need more setup, covered in [docs/development.md](docs/development.md).
 
-```bash
-pnpm exec convex env set SECRETS_KEYS "v1:$(openssl rand -base64 32)"
-```
-
-To rotate it, append a new key (`v1:...,v2:...`), run `pnpm exec convex run api/email:resealAll`, then remove the old one.
-
-### Optional keys
-
-- **AI.** Jev and the drafts go through the Convex AI gateway. It needs no key, but it does need a paid Convex Cloud plan.
-- **Firecrawl.** Prefilled applications need `FIRECRAWL_API_KEY` in the Convex env. Loops also use it to find new boards.
-- **context.dev.** `CONTEXT_DEV_API_KEY` is another way for loops to find new boards. With neither key, loops only judge roles from boards they already know.
-- **Google and GitHub sign-in.** Add an item called `job-tracking-helper` to your Private vault in 1Password, with fields `AUTH_GOOGLE_CLIENT_ID`, `AUTH_GOOGLE_CLIENT_SECRET`, `AUTH_GITHUB_CLIENT_ID` and `AUTH_GITHUB_CLIENT_SECRET`. Then run `vp run secrets:push`. Set `OP_VAULT` to use another vault.
-
-### Checks
+Run the checks with:
 
 ```bash
 vp check
 vp run typecheck
 vp test
-sh scripts/push-secrets.test.sh
 ```
-
-### Deploy
-
-The site runs on Cloudflare Workers. In the Cloudflare project, set the build command to `pnpm convex deploy --cmd "vp build"`, which builds the site and ships the backend, and the deploy command to `npx wrangler deploy`. The Worker name in `wrangler.jsonc` must match the project.
-
-The build command needs a production deploy key from the Convex dashboard. Add it in the Cloudflare project's build settings as a secret named `CONVEX_DEPLOY_KEY`. Turn off builds for other branches, since they would deploy their backend to production too.
-
-Production only offers GitHub sign-in until email is set up, so `AUTH_GITHUB_CLIENT_ID` and `AUTH_GITHUB_CLIENT_SECRET` must be set there.
-
-`vp run deploy` does the same from your machine.
 
 ## Folder structure
 
 ```
 convex/
-  api/<feature>.ts        registers each feature's functions, since a file's path is its API name
-  features/<feature>/
-    models.ts             the feature's tables
-    validators.ts         shapes, rules and limits, safe to import from the frontend
-    public.ts             functions the frontend calls
-    internal.ts           functions only the backend calls
-    utils.ts              what those functions share
-    index.ts              collects public and internal into one object
-  components/             local components: cloudflareEmail and notifications
-  lib/                    arktype to Convex, signed-in function builders, secrets
+  api/<feature>.ts      registers each feature's functions, since a file's path is its API name
+  features/<feature>/   a feature's tables, validators and functions
+  components/           local components: cloudflareEmail and notifications
+  lib/                  arktype to Convex, signed-in function builders, secrets, logging
 src/
-  routes/                 pages, which only import a feature. /, /privacy and /terms are public
-  start.ts                security headers on every page
-  features/<feature>/     the feature's components. Applications, Views and Goals are in tracker/
-  components/ui/          shadcn and coss components, managed by the shadcn CLI
-  components/kloq/        the kloq calendar as source, from its registry
-  lib/api.ts              `api`, the functions in convex/api. Import it instead of the generated one
-  lib/route-ids.ts        regular text for routes, instead of table ids
-  lib/seo.ts              site details and publicHead. A route is hidden from search unless it uses it
-scripts/                  dev and secrets scripts
+  routes/               pages. /, /privacy, /terms and /book/$slug are public
+  server.ts             the Worker's entry, which reports AI crawlers to Databuddy
+  features/<feature>/   a feature's components. Applications, Views and Goals are in tracker/
+  components/ui/        shadcn and coss components, managed by the shadcn CLI
+  components/kloq/      the kloq calendar as source, from its registry
+  hooks/, lib/          shared hooks and helpers, like the api import, route text and SEO
+public/                 logos, icons, robots.txt, sitemap.xml and llms.txt
+scripts/                dev and secrets scripts
 docs/
-  database-design.md      the tables, what deleting does, and how to change what's stored
-  flows.md                every user and agent flow, per feature
-  workflows.md            workflows in depth
-.claude/skills/           how an agent runs the app and checks it, and writes commits and PRs
+  development.md        env vars, deploying, code rules
+  flows.md              every user and agent flow, per feature
+  workflows.md          workflows in depth
+  database-design.md    the tables, what deleting does, and how to change what's stored
+.claude/, .agents/      agent skills: running and checking the app, PRs, Convex and arktype
 ```
-
-## Code rules
-
-`vp check` enforces arrow functions only and no `useEffect`. It skips `src/components/kloq` and files the shadcn CLI manages. Frontend imports use `@/` for `src/` and `@convex/` for `convex/`.
-
-Routes use regular text, not table ids: `/pipeline/app-4`, `/prefilled/engineer-figma`, `/email?open=oct-31-3-10-pm`. `src/lib/route-ids.ts` turns ids into text and back. Email, drafts, runs and Updates use their date, so a private subject never reaches a URL.
-
-Lists you scroll through read with `.paginate` and `usePaginatedQuery`, not a big `.take` or `.collect`. A read that needs every row to be right, like the board's columns, keeps a limit, listed in [docs/database-design.md](docs/database-design.md).
-
-Convex loads a function's whole file and its imports on every run that isn't cached, so imports decide how fast it is. Function files don't import `schema`: `docOf` builds a return validator from one table (`convex/lib/docs.ts`). Keep heavy packages, like the AI SDK, out of the helpers that plain reads share, and put actions that need them in their own `convex/api` file, as the `*Actions` files there do.
-
-Anything that can delete many rows goes through `startDelete` (`convex/features/deletes/`), which uses the batch worker.
-
-Tests that run Convex functions are named `*.convex.test.ts` and use `convex-test`.
-
-Arguments use arktype when text has rules Convex can't check, like trimming or lengths. Ids, booleans and fixed choices use `v`. A validator that reads `schema.doc` stays beside its function, because `schema.ts` imports `validators.ts`.
 
 ## Tools
 
@@ -142,7 +90,7 @@ Arguments use arktype when text has rules Convex can't check, like trimming or l
 | Hosting       | Cloudflare Workers, through `@cloudflare/vite-plugin`                   |
 | Analytics     | Databuddy                                                               |
 
-Some of this was written for this repo:
+Written for this repo:
 
 - `scripts/dev.sh` runs Convex and Vite together. It fills in missing Google and GitHub keys with `disabled` so Convex can start, and those two buttons fail until you push real keys.
 - `scripts/push-secrets.sh` copies the OAuth keys from 1Password into Convex without printing them or writing them to disk.

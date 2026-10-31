@@ -6,16 +6,16 @@ Security bugs go through [SECURITY.md](SECURITY.md), not an issue.
 
 ## Set up
 
-[How to run](README.md#how-to-run) in the README covers the install and the first Convex login. You need your own Convex project. Most features work without the optional keys.
+[How to run](README.md#how-to-run) in the README covers the install and the first Convex login. You need your own Convex project. [docs/development.md](docs/development.md) covers the optional keys, and most features work without them.
 
 ## Make a change
 
 Branch from `main`, then keep the change to one thing.
 
-[Code rules](README.md#code-rules) has the project's conventions, and `vp check` enforces some of them. A few are easy to miss:
+[Code rules](docs/development.md#code-rules) has the project's conventions, and `vp check` enforces some of them. A few are easy to miss:
 
 - If you work in `convex/`, read `convex/_generated/ai/guidelines.md` first.
-- Don't use `useEffect` or `useState`. Use form state, URL params, `useActionState` or refs.
+- Don't use `useEffect`, and avoid `useState`. Use form state, URL params, `useActionState` or refs.
 - Lists people scroll through use `.paginate`, and deletes of many rows go through `startDelete`.
 - Never commit `.env` files, even with only public values.
 

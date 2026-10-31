@@ -1,8 +1,8 @@
 # Database design
 
-The schema as it is today: 30 tables in `convex/schema.ts`, grouped by what they're about, plus the components' own tables. Each table is defined in its feature's `models.ts`, from shapes in that feature's `validators.ts`.
+The schema as it is today: 30 tables in `convex/schema.ts`, grouped by what they're about, plus the components' own tables. Each table is defined in its feature's `models.ts` or `models/` folder, mostly from shapes in that feature's `validators.ts`.
 
-[Proposed changes](#proposed-changes) lists what's done, what's waiting on a decision and what's decided against.
+[Proposed changes](#proposed-changes) lists what's waiting on a real problem and what's decided against.
 
 ## When something gets its own table
 
@@ -103,15 +103,15 @@ These have no owner. Deleting an account leaves them.
 
 ### Mail
 
-| Table                                                                                                                          | Holds                                                                                   | Why it's a table                        | Indexes                                                                                                                         |
-| ------------------------------------------------------------------------------------------------------------------------------ | --------------------------------------------------------------------------------------- | --------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------- |
-| `emailConnections`                                                                                                             | one per person: a sealed Cloudflare token and details, what's allowed, incoming mail    | exception: keeps secrets out of `users` | `by_userId`, `by_inboundId`                                                                                                     |
-| `mailEvents`                                                                                                                   | one sorted email: its kind, the application it's about, a sealed note, a suggested move | 1, 4                                    | `by_userId_and_applicationId_and_at`, `by_userId_and_at`, `by_userId_and_kind_and_at`, `by_emailId`, `by_userId_and_messageKey` |
-| `contacts`                                                                                                                     | one person per address: sealed details, a hash of the address, how many emails, when    | 1, 4                                    | `by_userId_and_key`, `by_userId_and_lastAt`, `by_userId_and_applicationId`                                                      |
-| `mailLabels`                                                                                                                   | one per label you use, with how many emails have it                                     | 1                                       | `by_userId_and_name`                                                                                                            |
-| `mailEventLabels`                                                                                                              | one label on one email, so a label's mail is a page and not a scan                      | 1                                       | `by_userId_and_label_and_at`, `by_eventId`                                                                                      |
-| `mailDrafts`                                                                                                                   | one unsent email, sealed                                                                | 1                                       | `by_userId_and_updatedAt`                                                                                                       |
-| `mailTemplates`                                                                                                                | one reusable email: name, subject and body                                              | 1                                       | `by_userId_and_updatedAt`                                                                                                       |
+| Table                                                                                                                          | Holds                                                                                   | Why it's a table                        | Indexes                                                                                                                                                                                     |
+| ------------------------------------------------------------------------------------------------------------------------------ | --------------------------------------------------------------------------------------- | --------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `emailConnections`                                                                                                             | one per person: a sealed Cloudflare token and details, what's allowed, incoming mail    | exception: keeps secrets out of `users` | `by_userId`, `by_inboundId`                                                                                                                                                                 |
+| `mailEvents`                                                                                                                   | one sorted email: its kind, the application it's about, a sealed note, a suggested move | 1, 4                                    | `by_userId_and_applicationId_and_at`, `by_userId_and_at`, `by_userId_and_kind_and_at`, `by_userId_and_box_and_at`, `by_userId_and_box_and_readAt`, `by_emailId`, `by_userId_and_messageKey` |
+| `contacts`                                                                                                                     | one person per address: sealed details, a hash of the address, how many emails, when    | 1, 4                                    | `by_userId_and_key`, `by_userId_and_lastAt`, `by_userId_and_applicationId`                                                                                                                  |
+| `mailLabels`                                                                                                                   | one per label you use, with how many emails have it                                     | 1                                       | `by_userId_and_name`                                                                                                                                                                        |
+| `mailEventLabels`                                                                                                              | one label on one email, so a label's mail is a page and not a scan                      | 1                                       | `by_userId_and_label_and_at`, `by_eventId`                                                                                                                                                  |
+| `mailDrafts`                                                                                                                   | one unsent email, sealed                                                                | 1                                       | `by_userId_and_updatedAt`                                                                                                                                                                   |
+| `mailTemplates`                                                                                                                | one reusable email: name, subject and body                                              | 1                                       | `by_userId_and_updatedAt`                                                                                                                                                                   |
 | The emails themselves live in the `cloudflareEmail` component, sealed. `mailEvents.emailId` is a plain string for that reason. |
 
 ### Time
@@ -149,16 +149,16 @@ These have no owner. Deleting an account leaves them.
 
 ### What the components keep
 
-| Component                  | Keeps                                                      | The app keeps                                      |
-| -------------------------- | ---------------------------------------------------------- | -------------------------------------------------- |
-| `@convex-dev/auth`         | accounts and sessions                                      | `users`                                            |
-| `@convex-dev/batch-worker` | the loop that runs big deletes, one batch at a time        | `deleteJobs`                                       |
-| `@convex-dev/workflow`     | each run's steps, retries and results                      | `loopRuns.workflowId`, `automationRuns.workflowId` |
-| `@convex-dev/workpool`     | `readPool` (fetches, judgments) and `applyPool` (prepares) | `loopRuns.readWorkIds`                             |
-| `@convex-dev/rate-limiter` | per-source and per-person budgets                          | nothing                                            |
-| `@convex-dev/aggregate`    | run and answer counts for workflows                        | nothing                                            |
-| `cloudflareEmail` (local)  | sealed emails                                              | `mailEvents.emailId`                               |
-| `notifications` (local)    | each person's Updates lines and muted kinds                | a `ref` on each line, read back to build it        |
+| Component                  | Keeps                                                                                       | The app keeps                                      |
+| -------------------------- | ------------------------------------------------------------------------------------------- | -------------------------------------------------- |
+| `@convex-dev/auth`         | accounts and sessions                                                                       | `users`                                            |
+| `@convex-dev/batch-worker` | the loops that run big deletes and add finished judgments to their run, one batch at a time | `deleteJobs`, `judgedReads`                        |
+| `@convex-dev/workflow`     | each run's steps, retries and results                                                       | `loopRuns.workflowId`, `automationRuns.workflowId` |
+| `@convex-dev/workpool`     | `readPool` (fetches, judgments) and `applyPool` (prepares)                                  | `loopRuns.readWorkIds`                             |
+| `@convex-dev/rate-limiter` | per-source and per-person budgets                                                           | nothing                                            |
+| `@convex-dev/aggregate`    | run and answer counts for workflows                                                         | nothing                                            |
+| `cloudflareEmail` (local)  | sealed emails                                                                               | `mailEvents.emailId`                               |
+| `notifications` (local)    | each person's Updates lines and muted kinds                                                 | a `ref` on each line, read back to build it        |
 
 ## What happens when something is deleted
 
@@ -182,7 +182,7 @@ Copying isn't always a normalization mistake. These stay, because the copy must 
 | Copy                                                     | From               | Why                                                                                                                                                       |
 | -------------------------------------------------------- | ------------------ | --------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | `jobLeads` and `prefills`: url, title, company           | `jobs`             | boards drop closed roles, and what you were shown shouldn't vanish                                                                                        |
-| `applications`: company, role, url, location             | `jobs`, `jobLeads` | it's your record, and you can edit it                                                                                                                     |
+| `applications`: company, role, url, location             | `jobs`, `jobLeads` | it's your record, and it has to outlive the posting                                                                                                       |
 | `loopRuns.loopName`                                      | `loops`            | a run outlives its loop                                                                                                                                   |
 | `automationRuns.steps`, `name`                           | `automations`      | editing a workflow must never change a run already going                                                                                                  |
 | `jobBoards.jobs`, `jobCatalog`, the counts on `loopRuns` | counted rows       | Convex has no count, and these are read on every page                                                                                                     |
@@ -203,7 +203,7 @@ No query reads a table without a limit. Convex refuses a function that reads too
 | An application's mail, Unsorted              | 25 a page                                                                           | **Load more**. Only that page is decrypted. The count on a card is stored, so it doesn't depend on what's loaded                                                                                                                                                                 |
 | Unsorted count on the board                  | 100                                                                                 | Reads "100+"                                                                                                                                                                                                                                                                     |
 | Mail on the calendar (`email.timeline`)      | newest 300 in the range, newest 100 interview emails                                | Older mail in the range doesn't show, nor does a slot from an email older than those 100. Each one is decrypted. The list by application reads the newest 300 overall                                                                                                            |
-| Calendar events (`calendar.list`)            | what overlaps a month either side of the date, a year in the year view; `maxEvents` | Repeating events and fixes always come, since they count wherever their dates are. The list by application reads every event                                                                                                                                                     |
+| Calendar events (`calendar.list`)            | what overlaps a month either side of the date, a year in the year view; `maxEvents` | Repeating events and fixes always come, since they count wherever their dates are. The list by application reads up to `maxEvents`                                                                                                                                               |
 | A goal's activity (`goalActivity.activity`)  | newest 200 of its applications, newest 1,000 emails in its period, 50 of each shown | Older ones don't show. Only those 50 emails are decrypted                                                                                                                                                                                                                        |
 | Busy times on a booking page                 | events 500, newest 300 mail                                                         | Events stop at `maxEvents` anyway. An interview still ahead is in recent mail                                                                                                                                                                                                    |
 | Matching mail or a booking to an application | newest 200 and 1,000                                                                | An older application isn't offered. You can still file it by hand                                                                                                                                                                                                                |
@@ -213,7 +213,7 @@ No query reads a table without a limit. Convex refuses a function that reads too
 | Workflow history                             | 20 shown, 50 kept                                                                   | The oldest are deleted                                                                                                                                                                                                                                                           |
 | Company filter (`jobs.companies`)            | the 200 boards with the most roles                                                  | Smaller boards aren't offered. Catalog totals are a stored count, with no limit                                                                                                                                                                                                  |
 
-Everything else stops at a limit a write already enforces (goals, views, loops, booking pages, workflows), or is a batch that picks up the rest on its next run (due loops, due boards, closed roles, the Trash sweep, deleting a workflow's runs).
+Everything else stops at a limit a write already enforces (goals, views, loops, booking pages, workflows), or is a batch that picks up the rest on its next run (due loops, due boards, closed roles, the Trash sweep, pruning a workflow's old runs).
 
 ## Changing what's stored
 
@@ -229,28 +229,16 @@ A new index or optional field is safe in one deploy. Removing a table from the s
 
 ## Proposed changes
 
-Measured on the dev deployment on 2026-10-31.
-
-### Done
-
-- Added `applications.by_userId_and_goalId` (deleting a goal no longer scans every application) and `prefills.by_userId_and_applicationId`.
-- Removed `jobLeads.by_runId` and `automationRuns.by_userId_and_status`, which nothing used.
-- Deleting an application now unlinks `prefills`, and removing a loop now clears `goals.loopId`.
-- Grouped `convex/schema.ts` by domain.
-- Removed `autoApplies` from the schema, along with `users.autoApply*`, loops' `answers.digest` and boolean `shown` on old resume reviews. Its 5 rows on dev stay until cleared from the dashboard.
-- `applications.number` and `history` are now required, after a migration filled the 8 rows that lacked them.
-- `users.nextApplicationNumber` replaced reading every application to number a new one, and numbers are no longer reused after a delete.
-- `mailEvents.box`, `loops.show`, `jobLeads.verdict` and the id on `decide` steps are now required, after a migration filled the old rows on dev. Production had no data.
+Rows counted on the dev deployment on 2026-10-31.
 
 ### Waiting on a real problem
 
 Each of these rewrites stored data, so each follows the three deploys above. None is worth doing until it causes trouble.
 
-| Change                                 | Why                                                                                                                                                                                                                                                        | Rows on dev                   | Risk   |
-| -------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ----------------------------- | ------ |
-| **One home for each saved answer**     | Salary, visa, start date and About you live in both `kind: answer` and `kind: field`, copied once and then free to drift. Custom questions too. Fields could point at the answer instead                                                                   | 10 copies, some now differ    | Medium |
-| **A `resumes` table**                  | `preferences` is meant to stay small, but carries the resume's text and review (5.5 KB on dev, up to about 25 KB), and every read of settings loads them. It fails the "one row per parent" rule, so it's only worth it if you'd want more than one resume | 6 rows                        | Medium |
-| **A child table for a run's verdicts** | `loopRuns.candidates` is rewritten on every judgment, up to 100 at about 1.3 KB, by 8 workers at once. It fits in a document, but those writes can conflict and retry. I read this from the code and didn't measure it                                     | clears at the end of each run | Medium |
+| Change                             | Why                                                                                                                                                                                                                                                        | Rows on dev                | Risk   |
+| ---------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | -------------------------- | ------ |
+| **One home for each saved answer** | Salary, visa, start date and About you live in both `kind: answer` and `kind: field`, copied once and then free to drift. Custom questions too. Fields could point at the answer instead                                                                   | 10 copies, some now differ | Medium |
+| **A `resumes` table**              | `preferences` is meant to stay small, but carries the resume's text and review (5.5 KB on dev, up to about 25 KB), and every read of settings loads them. It fails the "one row per parent" rule, so it's only worth it if you'd want more than one resume | 6 rows                     | Medium |
 
 ### Decided against
 
@@ -288,7 +276,7 @@ erDiagram
         string prompt "optional: the job they want, in their words"
         object answers "7 yes/no, keys from the catalog"
         number daily "roles Jev checks: 25 | 50 | 100"
-        number show "shortlist size: 3 | 5 | 10, optional"
+        number show "shortlist size: 3 | 5 | 10"
         string at "07:00 | 08:00 | 09:00"
         string timeZone
         boolean active "auto; false means manual"
@@ -298,7 +286,7 @@ erDiagram
         id loopId
         id userId
         string workflowId "from the workflow component"
-        enum status "queued | running | done | failed | stopped"
+        enum status "queued | running | done | failed | stopped | skipped"
         enum provider "the source that found boards, optional"
         number scanned "roles judged; also kept (fits), saved, credits"
         number cost "Jev, in US dollars"
@@ -347,17 +335,17 @@ erDiagram
     }
 ```
 
-| Table         | Passes rule                                                     | Indexes                                                                                               |
-| ------------- | --------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------- |
-| `loops`       | 4: the cron finds due loops across all users                    | `by_userId`, `by_active_and_nextRunAt`                                                                |
-| `loopRuns`    | 1: one per loop per morning, kept for the Runs tab              | `by_loopId_and_startedAt`, `by_userId_and_startedAt`                                                  |
-| `jobLeads`    | 1 and 4: grows every morning, and "shown this role?" spans runs | `by_userId_and_urlKey`, `by_applicationId`, `by_userId_and_status`, `by_userId_and_feedback`, more    |
-| `jobs`        | 3 and 4: shared by everyone, searched by every run              | `by_urlKey`, `by_boardId_and_seenAt`, `by_postedAt`, `by_remote_and_postedAt`, search index on `text` |
-| `jobBoards`   | 3: shared by everyone; the refresh finds the ones due           | `by_kind_and_slug`, `by_fetchedAt`, `by_jobs`                                                         |
-| `jobCatalog`  | 3: one row of totals, so Jobs needn't add up every board        | none                                                                                                  |
-| `sourceUsage` | 3: shared by everyone, one row per source per month             | `by_provider_and_month`                                                                               |
+| Table         | Passes rule                                                     | Indexes                                                                                                                          |
+| ------------- | --------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------- |
+| `loops`       | 4: the cron finds due loops across all users                    | `by_userId`, `by_active_and_nextRunAt`                                                                                           |
+| `loopRuns`    | 1: one per loop per morning, kept for the Runs tab              | `by_loopId_and_startedAt`, `by_userId_and_startedAt`                                                                             |
+| `jobLeads`    | 1 and 4: grows every morning, and "shown this role?" spans runs | `by_userId_and_urlKey`, `by_applicationId`, `by_userId_and_status`, `by_userId_and_feedback`, more                               |
+| `jobs`        | 3 and 4: shared by everyone, searched by every run              | `by_urlKey`, `by_boardId_and_seenAt`, `by_boardId_and_postedAt`, `by_postedAt`, `by_remote_and_postedAt`, search index on `text` |
+| `jobBoards`   | 3: shared by everyone; the refresh finds the ones due           | `by_kind_and_slug`, `by_fetchedAt`, `by_jobs`                                                                                    |
+| `jobCatalog`  | 3: one row of totals, so Jobs needn't add up every board        | none                                                                                                                             |
+| `sourceUsage` | 3: shared by everyone, one row per source per month             | `by_provider_and_month`                                                                                                          |
 
-A judged role is saved for a person whether or not it fits, so it never comes back. Jev answers one question per thing they asked for: where they want to work (their places and work mode, or the loop's "where"), each interest, the skills they're building, each thing to avoid, the pay they need and their visa situation. Each answer is "the posting shows it holds", "shows it doesn't" or "doesn't say", which becomes a `checks` line under fits, doesn't fit or could fit. Red-flag companies are checked in code. A role is a fit only when it matches well overall, nothing they need or avoid fails, and the posting confirms where they'd work. `verdict` is Jev's call and never changes; `status` is where it stands for the person. `reasons` are sentences a person can read; `checks` and `judgment` keep the per-question answers with their confidence and the model, so an agent or a later check can filter on them. Older leads have no checks or no verdict.
+A judged role is saved for a person whether or not it fits, so it never comes back. Jev answers one question per thing they asked for: where they want to work (their places and work mode, or the loop's "where"), each interest, the skills they're building, each thing to avoid, the pay they need and their visa situation. Each answer is "the posting shows it holds", "shows it doesn't" or "doesn't say", which becomes a `checks` line under fits, doesn't fit or could fit. Red-flag companies are checked in code. A role is a fit only when it matches well overall, nothing they need or avoid fails, and the posting confirms where they'd work. `verdict` is Jev's call and never changes; `status` is where it stands for the person. `reasons` are sentences a person can read; `checks` and `judgment` keep the per-question answers with their confidence and the model, so an agent or a later check can filter on them. Older leads may have no checks.
 
 Not tables: the questions and templates are a list in code, like the built-in Preferences questions, and a loop's answers are one object with the catalog's keys. Deleting an account deletes its loops, runs and leads; `jobs`, `jobBoards` and `sourceUsage` have no owner.
 
@@ -371,7 +359,7 @@ The workflow, workpool and rate limiter components bring their own tables. The a
 | `@convex-dev/workpool`     | `readPool`: every board fetch and every Jev judgment, with its batch worker       | the run's judging tally on `loopRuns` |
 | `@convex-dev/rate-limiter` | per-source call buckets shared by everyone, and 3 runs by hand per person per day | nothing                               |
 
-`readPool` is the batch worker. The hourly refresh hands it the boards that are due, and a run hands it all its roles in one `enqueueActionBatch` call. It runs 8 at a time across everything, and each job retries twice. A judgment's `onComplete` adds the verdict to the run's tally on `loopRuns` (`readsLeft`, `candidates`, cost, failures), and the last one sends the workflow a `judged` event, which it waits for with `step.awaitEvent` before saving every verdict.
+`readPool` is the batch worker. The hourly refresh hands it the boards that are due, and a run hands it all its roles in one `enqueueActionBatch` call. It runs 8 at a time across everything, and each job retries twice. A judgment's `onComplete` leaves a row in `judgedReads`, because 8 workers writing to one run would conflict. One batch worker adds those rows to the run's tally on `loopRuns` (`readsLeft`, `candidates`, cost, failures), up to 25 at a time, and sends the workflow a `judged` event after the last one. The workflow waits for that with `step.awaitEvent` before saving every verdict.
 
 Jev needs no key: `@convex-dev/ai-sdk-provider` signs gateway calls with the deployment's own token, and the gateway bills the Convex team. Search sources' monthly credits come from the Convex env (`FIRECRAWL_MONTHLY_CREDITS`, `CONTEXT_DEV_MONTHLY_CREDITS`) and default to the free plans: 500 for Firecrawl and 1,000 for context.dev.
 
@@ -402,11 +390,12 @@ The workflow machinery and the shared catalog are their own features; everything
 ```text
 convex/features/loops/          tables and the functions the page calls
   catalog.ts                         questions, templates, sizes, estimates
-  models/                            loops.ts, runs.ts, leads.ts, usage.ts, index.ts
+  models/                            loops.ts, runs.ts, leads.ts, usage.ts, judged.ts, index.ts
   validators.ts, schedule.ts         shapes and input checks; the next morning in a time zone
   public.ts, internal.ts             what the page calls; the cron, plan, judging tally and finish
   utils.ts                           starting a run, the profile, usage, the shortlist
-  link.ts                            checking a pasted link
+  link.ts, read.ts                   checking a pasted link; reading one with Firecrawl
+  judged.ts, usage.ts                adding judgments to a run; credits used per source
 convex/features/jobs/           the shared catalog
   boards.ts                          feed URLs, feed parsing (JSON and Personio's XML), starter boards
   models/                            jobs.ts, boards.ts, index.ts
@@ -419,8 +408,8 @@ convex/features/workflows/      what runs a loop
   judge.ts                           the profile, Jev's questions, the breakdown and the verdict rules
   fit.ts                             search words, URL dedupe
   sources/                           firecrawl.ts, contextDev.ts, index.ts (keys and credits)
-convex/crons.ts                      every 15 minutes: start due loops; hourly: refresh boards
-convex/convex.config.ts              app.use(workflow), app.use(workpool, { name: "readPool" }), app.use(rateLimiter)
+convex/crons.ts                      start due loops and workflows, refresh boards, sweeps, restart stuck workers
+convex/convex.config.ts              the components: workflow, readPool, applyPool, rate limiter, batch worker, aggregates
 convex/lib/log.ts                    evlog wide events; features/activity/utils.ts keeps them for their owner
 ```
 

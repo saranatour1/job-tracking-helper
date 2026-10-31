@@ -5,7 +5,7 @@ description: Launch and drive the Job Tracking Helper web app (TanStack Start on
 
 # Verify Job Tracking Helper
 
-The app is a web UI. Users sign in (username and password, guest, or Google/GitHub when configured), then land on a dashboard with a collapsible sidebar and an Applications table with an add form. A brand-new account lands on Preferences first; `Skip for now` or saving there sends later visits to Applications. The backend is a Convex **cloud dev deployment** named in `.env.local` (`CONVEX_DEPLOYMENT`). There is no other surface to drive.
+The app is a web UI. Users sign in (on dev: username and password, guest, Google or GitHub; on production: GitHub only), then land on a board with a collapsible sidebar and a `New application` button. A brand-new account lands on Preferences first; `Skip for now` or saving there sends later visits to Applications. The backend is a Convex **cloud dev deployment** named in `.env.local` (`CONVEX_DEPLOYMENT`). There is no other surface to drive.
 
 Driving uses the Claude Browser tools (`mcp__Claude_Browser__*`). The pane has its own cookies and storage, so signing in there never touches the user's own browser session.
 
@@ -33,7 +33,7 @@ The port is fixed at 3000 (`scripts/dev.sh` runs `vp dev --port 3000`), and ever
 - `pnpm exec convex env set SITE_URL=http://localhost:3000`
 - `pnpm exec auth`, which generates `AUTH_PRIVATE_KEY` and `AUTH_JWKS`
 
-`scripts/dev.sh` then fills the four Google and GitHub variables with `disabled` on every start. If the doctor reports `.env.local` or an env var missing, stop and give the user the matching step. Don't run login flows yourself.
+`scripts/dev.sh` then sets any of the four Google and GitHub variables that are missing to `disabled` on each start. If the doctor reports `.env.local` or an env var missing, stop and give the user the matching step. Don't run login flows yourself.
 
 No seed step exists. The Convex `users` table fills as people sign in, and each user starts with an empty Applications table.
 
@@ -64,9 +64,9 @@ These handles are stable, all from the source:
 | Where         | Handle                                                                                                                                                                                                                                                                                                        |
 | ------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | Sign-in form  | heading `Sign in` or `Create an account`; textboxes `Username` and `Password`; buttons `Sign in`, `Sign up`, `Continue as guest`, `Need an account? Sign up`, `Have an account? Sign in`; error text in `role="alert"`                                                                                        |
-| OAuth buttons | `Continue with Google` and `Continue with GitHub`, rendered only when that provider's variables are real                                                                                                                                                                                                      |
+| OAuth buttons | `Continue with GitHub`, and `Continue with Google` on dev only. Both fail while their variables are `disabled`                                                                                                                                                                                                |
 | Shell         | button `Toggle Sidebar` in the header (a second, `generic` match is the sidebar rail); `Cmd+B` or `Ctrl+B`; sidebar link `Applications`; the footer button `Account menu`, which opens menu items `Account` and `Sign out`; the sidebar root `[data-slot="sidebar"][data-state]` is `expanded` or `collapsed` |
-| Applications  | heading `Applications`; textboxes `company` and `role`; the status select, which `find` returns for `"combobox"`, named after its current value (`applied`, `interviewing`, `offer`, `rejected`); button `Add`; table with columns `Company`, `Role`, `Status`                                                |
+| Applications  | heading `Applications`; button `New application`, which opens a dialog with `Role`, `Company`, `Posting link` and `Notes`, and the submit button `Create application`; a board with one column per status                                                                                                     |
 
 **Test accounts.** Generate a fresh username for each run, letters and digits only, such as `verify` plus a Unix timestamp, and a random password of 12 or more characters. Write both to `<evidence dir>/credentials.txt`. Never type a real password from anywhere else, and don't repeat the values in your reply.
 
