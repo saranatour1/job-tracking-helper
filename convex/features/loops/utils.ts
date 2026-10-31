@@ -5,17 +5,18 @@ import { NewLoop } from "./validators"
 import { isTimeZone, nextRunAt } from "./schedule"
 import { workflow, readPool } from "../workflows/manager"
 import { internal } from "../../_generated/api"
-import { type Provider, type LoopAnswers, defaultShow } from "./catalog"
+import { type LoopAnswers, defaultShow } from "./catalog"
 import { rowLimits } from "../preferences/rows"
 import { criteriaOf } from "../workflows/fit"
 import { profileOf } from "../workflows/judge"
-import { monthOf, apiKeyOf } from "../workflows/sources"
+import { apiKeyOf } from "../workflows/sources"
 import type { WorkflowId } from "@convex-dev/workflow"
 import type { WorkId } from "@convex-dev/workpool"
 import { workLog } from "../../lib/log"
 import { keepLog } from "../activity/utils"
 import { record, post, text } from "../workflows/sources/source"
-import { maxText, companyOf, boardOf, previewOf } from "../jobs/boards"
+import { maxText, companyOf } from "../jobs/boards"
+import { boardOf, previewOf } from "../jobs/links"
 import type { vPasted } from "../workflows/validators"
 import { judge } from "../workflows/utils"
 
@@ -86,12 +87,6 @@ export const startRun = async (ctx: MutationCtx, loop: Doc<"loops">) => {
   return runId
 }
 
-export const usageOf = (ctx: MutationCtx, provider: Provider, month: string) =>
-  ctx.db
-    .query("sourceUsage")
-    .withIndex("by_provider_and_month", (q) => q.eq("provider", provider).eq("month", month))
-    .unique()
-
 export const profileFor = async (
   ctx: QueryCtx,
   userId: Id<"users">,
@@ -131,26 +126,6 @@ export const profileFor = async (
       disliked: await rated("less"),
     }),
   }
-}
-
-export const addUsage = async (
-  ctx: MutationCtx,
-  provider: Provider,
-  credits: number,
-  exhausted: boolean
-) => {
-  const month = monthOf(Date.now())
-  const usage = await usageOf(ctx, provider, month)
-  const exhaustedAt = exhausted ? Date.now() : usage?.exhaustedAt
-  if (usage)
-    await ctx.db.patch("sourceUsage", usage._id, { used: usage.used + credits, exhaustedAt })
-  else
-    await ctx.db.insert("sourceUsage", {
-      provider,
-      month,
-      used: credits,
-      ...(exhaustedAt && { exhaustedAt }),
-    })
 }
 
 // ponytail: a waiting role can close on its board before it's shown; the sheet still

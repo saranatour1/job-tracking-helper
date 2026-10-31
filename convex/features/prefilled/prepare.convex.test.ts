@@ -111,7 +111,7 @@ describe("preparing without AI", () => {
   it("keeps what matched by name when Jev is out of tokens, and opens without AI", async () => {
     const { t, as, id, row } = await setup()
     mocks.decide.mockRejectedValue(new Error("SpendingLimitExceeded"))
-    await t.action(internal.api.prefilled.prepareForm, { id })
+    await t.action(internal.api.prefilledActions.prepareForm, { id })
 
     const prepared = await row()
     expect(prepared.status).toBe("needsAnswers")
@@ -127,7 +127,7 @@ describe("preparing without AI", () => {
       value: { unfilled: [], errors: [] },
       liveUrl: "https://live.example/x",
     })
-    await as.action(api.api.prefilled.startLive, { id })
+    await as.action(api.api.prefilledActions.startLive, { id })
     expect(mocks.decide).not.toHaveBeenCalled()
     expect(mocks.generateText).not.toHaveBeenCalled()
     expect(mocks.interact.mock.calls[1]![1]).toContain("+1 555 0100")
@@ -137,7 +137,7 @@ describe("preparing without AI", () => {
   it("keeps the rest when only the draft fails", async () => {
     const { t, id, row } = await setup()
     mocks.generateText.mockRejectedValue(new Error("402"))
-    await t.action(internal.api.prefilled.prepareForm, { id })
+    await t.action(internal.api.prefilledActions.prepareForm, { id })
     const prepared = await row()
     expect(prepared.aiUnavailable).toBe(true)
     expect(prepared.fields[0]).toMatchObject({ answer: "+1 555 0100", source: "saved" })
@@ -146,9 +146,9 @@ describe("preparing without AI", () => {
   it("clears the note once AI is back", async () => {
     const { t, as, id, row } = await setup()
     mocks.decide.mockRejectedValueOnce(new Error("402"))
-    await t.action(internal.api.prefilled.prepareForm, { id })
+    await t.action(internal.api.prefilledActions.prepareForm, { id })
     await as.mutation(api.api.prefilled.prepareAgain, { id })
-    await t.action(internal.api.prefilled.prepareForm, { id })
+    await t.action(internal.api.prefilledActions.prepareForm, { id })
     const prepared = await row()
     expect(prepared.aiUnavailable).toBeUndefined()
     expect(prepared.fields[1]).toMatchObject({ answer: "It fits.", source: "ai" })
@@ -194,7 +194,7 @@ describe("with each application having its own address", () => {
       ],
     }
     mocks.interact.mockResolvedValue({ value: withEmail, liveUrl: "" })
-    await s.t.action(internal.api.prefilled.prepareForm, { id: s.id })
+    await s.t.action(internal.api.prefilledActions.prepareForm, { id: s.id })
     mocks.interact.mockResolvedValueOnce({ value: withEmail, liveUrl: "" }).mockResolvedValueOnce({
       value: { unfilled: [], errors: [] },
       liveUrl: "https://live.example/x",
@@ -204,7 +204,7 @@ describe("with each application having its own address", () => {
 
   it("makes the application when the browser opens, and fills the form with its address", async () => {
     const { t, as, id, row } = await trackingSetup()
-    await as.action(api.api.prefilled.startLive, { id })
+    await as.action(api.api.prefilledActions.startLive, { id })
     const opened = await row()
     const app = await t.run((ctx) => ctx.db.get("applications", opened.applicationId!))
     expect(app).toMatchObject({ status: "saved", number: 1 })
@@ -228,7 +228,7 @@ describe("with each application having its own address", () => {
       question: "Email",
       answer: "me@other.com",
     })
-    await as.action(api.api.prefilled.startLive, { id })
+    await as.action(api.api.prefilledActions.startLive, { id })
     expect((await row()).fields[0]).toMatchObject({ answer: "me@other.com", source: "you" })
   })
 })
@@ -257,7 +257,7 @@ describe("choosing between answers", () => {
       },
       liveUrl: "",
     })
-    await t.action(internal.api.prefilled.prepareForm, { id })
+    await t.action(internal.api.prefilledActions.prepareForm, { id })
     expect((await row()).fields[0]).toMatchObject({ answer: "Samantha Lee", source: "saved" })
   })
 })
@@ -265,12 +265,12 @@ describe("choosing between answers", () => {
 describe("sending an answer to the open browser", () => {
   const openBrowser = async () => {
     const s = await setup()
-    await s.t.action(internal.api.prefilled.prepareForm, { id: s.id })
+    await s.t.action(internal.api.prefilledActions.prepareForm, { id: s.id })
     mocks.interact.mockResolvedValueOnce({ value: form, liveUrl: "" }).mockResolvedValueOnce({
       value: { unfilled: [], errors: [] },
       liveUrl: "https://live.example/x",
     })
-    await s.as.action(api.api.prefilled.startLive, { id: s.id })
+    await s.as.action(api.api.prefilledActions.startLive, { id: s.id })
     mocks.interact.mockClear()
     mocks.interact.mockResolvedValue({ value: { unfilled: [], errors: [] }, liveUrl: "" })
     return s
@@ -280,7 +280,9 @@ describe("sending an answer to the open browser", () => {
     const { as, id, row } = await openBrowser()
     const before = (await row()).credits ?? 0
     await as.mutation(api.api.prefilled.setAnswer, { id, question: "Why us?", answer: "Edited." })
-    expect(await as.action(api.api.prefilled.sendToForm, { id, question: "Why us?" })).toEqual({
+    expect(
+      await as.action(api.api.prefilledActions.sendToForm, { id, question: "Why us?" })
+    ).toEqual({
       filled: true,
     })
     const script = mocks.interact.mock.calls[0]![1] as string
@@ -300,12 +302,12 @@ describe("sending an answer to the open browser", () => {
   it("marks an answer that wouldn't go in, and a blank required one, as by hand", async () => {
     const s = await setup()
     mocks.generateText.mockResolvedValue({ text: '{"answers":[""]}' })
-    await s.t.action(internal.api.prefilled.prepareForm, { id: s.id })
+    await s.t.action(internal.api.prefilledActions.prepareForm, { id: s.id })
     mocks.interact.mockResolvedValueOnce({ value: form, liveUrl: "" }).mockResolvedValueOnce({
       value: { unfilled: [{ label: "Phone", reason: "no" }], errors: [] },
       liveUrl: "https://live.example/x",
     })
-    await s.as.action(api.api.prefilled.startLive, { id: s.id })
+    await s.as.action(api.api.prefilledActions.startLive, { id: s.id })
     const opened = await s.row()
     expect(opened.fields.map((f) => f.fill)).toEqual(["byHand", "byHand"])
     expect(opened.unfilled).toEqual(expect.arrayContaining(["Phone", "Why us?"]))
@@ -324,13 +326,15 @@ describe("sending an answer to the open browser", () => {
       value: { unfilled: [{ label: "Why us?", reason: "no" }], errors: [] },
       liveUrl: "",
     })
-    expect(await as.action(api.api.prefilled.sendToForm, { id, question: "Why us?" })).toEqual({
+    expect(
+      await as.action(api.api.prefilledActions.sendToForm, { id, question: "Why us?" })
+    ).toEqual({
       filled: false,
     })
     expect((await why())?.fill).toBe("byHand")
     expect((await row()).unfilled).toContain("Why us?")
 
-    await as.action(api.api.prefilled.sendToForm, { id, question: "Why us?" })
+    await as.action(api.api.prefilledActions.sendToForm, { id, question: "Why us?" })
     expect((await why())?.fill).toBe("filled")
     expect((await row()).unfilled).not.toContain("Why us?")
   })
@@ -338,7 +342,9 @@ describe("sending an answer to the open browser", () => {
   it("leaves the mark alone when it only points at a blank question", async () => {
     const { as, id, row } = await openBrowser()
     await as.mutation(api.api.prefilled.setAnswer, { id, question: "Why us?", answer: "" })
-    expect(await as.action(api.api.prefilled.sendToForm, { id, question: "Why us?" })).toEqual({
+    expect(
+      await as.action(api.api.prefilledActions.sendToForm, { id, question: "Why us?" })
+    ).toEqual({
       filled: false,
     })
     expect((await row()).fields.find((f) => f.question === "Why us?")?.fill).toBeUndefined()
@@ -346,22 +352,22 @@ describe("sending an answer to the open browser", () => {
 
   it("says so when a question isn't in the form, and refuses someone else", async () => {
     const { t, as, id } = await openBrowser()
-    await expect(as.action(api.api.prefilled.sendToForm, { id, question: "Gone" })).rejects.toThrow(
-      "can't find that question"
-    )
+    await expect(
+      as.action(api.api.prefilledActions.sendToForm, { id, question: "Gone" })
+    ).rejects.toThrow("can't find that question")
     const other = await t.run((ctx) => ctx.db.insert("users", { name: "Other" }))
     await expect(
       t
         .withIdentity({ subject: other })
-        .action(api.api.prefilled.sendToForm, { id, question: "Why us?" })
+        .action(api.api.prefilledActions.sendToForm, { id, question: "Why us?" })
     ).rejects.toThrow("That isn't yours.")
   })
 
   it("won't send once the browser has closed", async () => {
     const { as, id } = await openBrowser()
-    await as.action(api.api.prefilled.cancelLive, { id })
+    await as.action(api.api.prefilledActions.cancelLive, { id })
     await expect(
-      as.action(api.api.prefilled.sendToForm, { id, question: "Why us?" })
+      as.action(api.api.prefilledActions.sendToForm, { id, question: "Why us?" })
     ).rejects.toThrow("This browser has closed.")
   })
 })

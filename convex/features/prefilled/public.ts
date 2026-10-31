@@ -1,10 +1,11 @@
 import { ConvexError, v } from "convex/values"
-import schema from "../../schema"
+import { docOf } from "../../lib/docs"
+import { prefillsTable } from "./models"
 import type { Id } from "../../_generated/dataModel"
 import type { MutationCtx } from "../../_generated/server"
 import { arkOutputToConvex } from "../../lib/ark"
 import { arkMutation, authedMutation, authedQuery } from "../../lib/functions"
-import { boardOf, previewOf } from "../jobs/boards"
+import { boardOf, previewOf } from "../jobs/links"
 import { fieldOrder, rowLimits, sectionOfOrder } from "../preferences/rows"
 import { rowOf } from "../preferences/utils"
 import { limits } from "../workflows/manager"
@@ -179,7 +180,7 @@ const get = authedQuery({
   returns: v.union(
     v.null(),
     v.object({
-      prefill: schema.doc("prefills"),
+      prefill: docOf("prefills", prefillsTable),
       lead: vLeadSummary,
       preview: v.string(),
       canDraft: v.boolean(),

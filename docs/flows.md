@@ -339,7 +339,7 @@ application.
 8. **Re-evaluate:** on a goal's page, **Re-evaluate** asks Jev, in one request, for each of your
    applications, whether it counts toward the goal, from the goal's name, summary and
    milestones and the application's role, company, status, location, labels and
-   description (`api.goals.evaluate`). Only a sure answer counts (0.7 for yes, 0.3 for
+   description (`api.goalActions.evaluate`). Only a sure answer counts (0.7 for yes, 0.3 for
    no); the panel then lists ones to **Add** and ones to **Take off**, and nothing
    changes until you press one. 10 re-evaluations a day, over your newest 30
    applications.
@@ -411,7 +411,7 @@ Previews are the same text as plain words.
    the limit, press **Prepare** on a role in Jobs or on your shortlist
    (`api.prefilled.prepare`). It needs your email, a resume, and a posting on Greenhouse,
    Lever, Ashby or Personio. One per person and posting.
-2. **Prepare** runs with no one there (`internal.api.prefilled.prepareForm`, on `applyPool`,
+2. **Prepare** runs with no one there (`internal.api.prefilledActions.prepareForm`, on `applyPool`,
    never retried by itself), and nothing is typed into the form:
    - **Open the form:** one Firecrawl scrape of the posting, then `interact` with
      Playwright code: it clicks Apply if the page hides the form, and lists every field
@@ -445,7 +445,7 @@ Previews are the same text as plain words.
    adds it to your Saved answers under "Your questions". **Read the form again** picks up
    answers you've saved since, and keeps what you typed and any draft. **Dismiss** sets it
    aside.
-4. **Open browser** (`api.prefilled.startLive`), at the top of the page: a new browser opens
+4. **Open browser** (`api.prefilledActions.startLive`), at the top of the page: a new browser opens
    the form, puts your answers in and uploads your resume, then shows on the right of the
    page, for you to control. It uses no AI, so it still works if AI ran out while preparing
    (Jev or the draft failed) and the application has only what matched by name. You check it, solve any CAPTCHA, finish anything listed as "do these by
@@ -454,12 +454,12 @@ Previews are the same text as plain words.
    the form's email question gets that address, and the application is added as Saved when
    the browser opens, since a thank-you email can arrive before you say you sent it. It stays
    Saved if you close without sending. **Send to form** on an answer
-   (`api.prefilled.sendToForm`) saves it, puts it in the browser and points the form at it,
+   (`api.prefilledActions.sendToForm`) saves it, puts it in the browser and points the form at it,
    for about 1 Firecrawl credit. While the browser is open, each answer is marked **In the
    form**, **Do by hand** or **Not sent yet**. That's what the app did, not what you've since
    changed in the form itself. A browser left alone closes after 15 minutes
-   (`internal.api.prefilled.closeLive`), and **Close without sending** does it sooner.
-5. **I sent it** (`api.prefilled.confirmSent`) reads the page for a thank-you. If it finds
+   (`internal.api.prefilledActions.closeLive`), and **Close without sending** does it sooner.
+5. **I sent it** (`api.prefilledActions.confirmSent`) reads the page for a thank-you. If it finds
    one, or you press **Mark as sent** when it can't, the posting becomes an application at
    Applied (or moves the one a loop already made), saved answers get their usage stamped,
    and the browser closes. Once only: a sent posting stays closed.

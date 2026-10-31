@@ -1,5 +1,6 @@
 import { ConvexError, v } from "convex/values"
-import schema from "../../schema"
+import { docOf } from "../../lib/docs"
+import { applicationsTable } from "./models"
 import { arkMutation, authedMutation, authedQuery } from "../../lib/functions"
 import { internal } from "../../_generated/api"
 import { fireEvent } from "../automations/fire"
@@ -35,7 +36,7 @@ const list = authedQuery({
 // From a link: its route text ("app-12") or, for older links, its id.
 const get = authedQuery({
   args: { ref: v.string() },
-  returns: v.union(schema.doc("applications"), v.null()),
+  returns: v.union(docOf("applications", applicationsTable), v.null()),
   handler: async (ctx, { ref }) => {
     const number = /^app-(\d+)$/.exec(ref)?.[1]
     const id = ctx.db.normalizeId("applications", ref)

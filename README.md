@@ -103,6 +103,8 @@ Routes use regular text, not table ids: `/pipeline/app-4`, `/prefilled/engineer-
 
 Lists you scroll through read with `.paginate` and `usePaginatedQuery`, not a big `.take` or `.collect`. A read that needs every row to be right, like the board's columns, keeps a limit, listed in [docs/database-design.md](docs/database-design.md).
 
+Convex loads a function's whole file and its imports on every run that isn't cached, so imports decide how fast it is. Function files don't import `schema`: `docOf` builds a return validator from one table (`convex/lib/docs.ts`). Keep heavy packages, like the AI SDK, out of the helpers that plain reads share, and put actions that need them in their own `convex/api` file, as `goalActions` and `prefilledActions` do.
+
 Anything that can delete many rows goes through `startDelete` (`convex/features/deletes/`), which uses the batch worker.
 
 Tests that run Convex functions are named `*.convex.test.ts` and use `convex-test`.

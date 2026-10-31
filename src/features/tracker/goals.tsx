@@ -358,7 +358,7 @@ const GoalSummary = ({ goal }: { goal: Goal }) => {
   const { applications } = source
   const update = useMutation(api.goals.update)
   const remove = useMutation(api.goals.remove)
-  const evaluate = useAction(api.goals.evaluate)
+  const evaluate = useAction(api.goalActions.evaluate)
   const loops = useLoops()
   const navigate = useNavigate()
   const on = todayIso()
@@ -532,7 +532,7 @@ const GoalActivity = ({ goal }: { goal: Goal }) => {
   const { applications, real } = useSource()
   // "~" sorts after any time on the last day.
   const events = useSavedEvents({ from: goal.start, to: `${goal.target}~` }) ?? []
-  const read = useQuery(api.goals.activity, real ? { id: goal.id as Id<"goals"> } : "skip")
+  const read = useQuery(api.goalActivity.activity, real ? { id: goal.id as Id<"goals"> } : "skip")
   const mine = applications.filter((a) => a.goalId === goal.id)
   const byId = new Map(mine.map((a) => [a.id, a]))
   const inPeriod = (at: string) => at.slice(0, 10) >= goal.start && at.slice(0, 10) <= goal.target

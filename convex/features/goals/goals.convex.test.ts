@@ -230,14 +230,17 @@ describe("goals", () => {
         box: "trash",
       })
     })
-    const { notes, mail } = await as.query(api.api.goals.activity, { id })
+    const { notes, mail } = await as.query(api.api.goalActivity.activity, { id })
     expect(notes).toEqual([{ at: during, who: "Hooli", text: "during" }])
     expect(mail.map((e) => e.at)).toEqual([during])
 
     const other = t.withIdentity({
       subject: await t.run((ctx) => ctx.db.insert("users", { name: "Ada" })),
     })
-    expect(await other.query(api.api.goals.activity, { id })).toEqual({ notes: [], mail: [] })
+    expect(await other.query(api.api.goalActivity.activity, { id })).toEqual({
+      notes: [],
+      mail: [],
+    })
   })
 
   it("keeps one person's goals from another", async () => {

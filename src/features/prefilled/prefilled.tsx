@@ -203,7 +203,7 @@ const PlainEmail = ({
 }) => {
   const makePlain = useAction(api.email.makeAddressWithoutPlus)
   const setAnswer = useMutation(api.prefilled.setAnswer)
-  const sendToForm = useAction(api.prefilled.sendToForm)
+  const sendToForm = useAction(api.prefilledActions.sendToForm)
   const [error, swap, pending] = useActionState(async () => {
     try {
       const answer = await makePlain({ applicationId })
@@ -254,7 +254,7 @@ const AnswerRow = ({
   applicationId?: Id<"applications"> | undefined
 }) => {
   const setAnswer = useMutation(api.prefilled.setAnswer)
-  const sendToForm = useAction(api.prefilled.sendToForm)
+  const sendToForm = useAction(api.prefilledActions.sendToForm)
   const formRef = useRef<HTMLFormElement>(null)
   const lastSaved = useRef(field.answer ?? "")
   // The row stays put as you save, and these fields only read their first value.
@@ -449,8 +449,8 @@ const Answers = ({
 // The real form, filled, in a browser you control. Nothing is sent until you press its
 // Submit; the buttons here only say what happened.
 const LiveBrowser = ({ prefill }: { prefill: Prefill }) => {
-  const confirm = useAction(api.prefilled.confirmSent)
-  const cancel = useAction(api.prefilled.cancelLive)
+  const confirm = useAction(api.prefilledActions.confirmSent)
+  const cancel = useAction(api.prefilledActions.cancelLive)
   type State = { unseen?: boolean; error?: string }
   const [state, act, pending] = useActionState(
     async (_: State, step: "check" | "anyway" | "close"): Promise<State> => {
@@ -570,7 +570,7 @@ export const PrefilledMissing = () => (
 export const PrefilledPage = ({ id }: { id: Id<"prefills"> }) => {
   const data = useQuery(api.prefilled.get, { id })
   const application = useApplicationText(data?.prefill.applicationId)
-  const startLive = useAction(api.prefilled.startLive)
+  const startLive = useAction(api.prefilledActions.startLive)
   const dismiss = useMutation(api.prefilled.dismiss)
   const again = useMutation(api.prefilled.prepareAgain)
   const [error, act, pending] = useActionState(

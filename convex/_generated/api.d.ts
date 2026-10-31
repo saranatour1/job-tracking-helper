@@ -17,6 +17,8 @@ import type * as api_calendar from "../api/calendar.js";
 import type * as api_contacts from "../api/contacts.js";
 import type * as api_deletes from "../api/deletes.js";
 import type * as api_email from "../api/email.js";
+import type * as api_goalActions from "../api/goalActions.js";
+import type * as api_goalActivity from "../api/goalActivity.js";
 import type * as api_goals from "../api/goals.js";
 import type * as api_inbox from "../api/inbox.js";
 import type * as api_jobs from "../api/jobs.js";
@@ -25,6 +27,7 @@ import type * as api_mailbox from "../api/mailbox.js";
 import type * as api_migrations from "../api/migrations.js";
 import type * as api_preferences from "../api/preferences.js";
 import type * as api_prefilled from "../api/prefilled.js";
+import type * as api_prefilledActions from "../api/prefilledActions.js";
 import type * as api_resume from "../api/resume.js";
 import type * as api_users from "../api/users.js";
 import type * as api_views from "../api/views.js";
@@ -77,6 +80,7 @@ import type * as features_email_cloudflare from "../features/email/cloudflare.js
 import type * as features_email_inbound from "../features/email/inbound.js";
 import type * as features_email_index from "../features/email/index.js";
 import type * as features_email_internal from "../features/email/internal.js";
+import type * as features_email_jev from "../features/email/jev.js";
 import type * as features_email_match from "../features/email/match.js";
 import type * as features_email_models from "../features/email/models.js";
 import type * as features_email_parse from "../features/email/parse.js";
@@ -87,6 +91,7 @@ import type * as features_email_sort from "../features/email/sort.js";
 import type * as features_email_utils from "../features/email/utils.js";
 import type * as features_email_validators from "../features/email/validators.js";
 import type * as features_goals_actions from "../features/goals/actions.js";
+import type * as features_goals_activity from "../features/goals/activity.js";
 import type * as features_goals_models from "../features/goals/models.js";
 import type * as features_goals_public from "../features/goals/public.js";
 import type * as features_goals_utils from "../features/goals/utils.js";
@@ -95,6 +100,7 @@ import type * as features_jobs_actions from "../features/jobs/actions.js";
 import type * as features_jobs_boards from "../features/jobs/boards.js";
 import type * as features_jobs_index from "../features/jobs/index.js";
 import type * as features_jobs_internal from "../features/jobs/internal.js";
+import type * as features_jobs_links from "../features/jobs/links.js";
 import type * as features_jobs_models_boards from "../features/jobs/models/boards.js";
 import type * as features_jobs_models_index from "../features/jobs/models/index.js";
 import type * as features_jobs_models_jobs from "../features/jobs/models/jobs.js";
@@ -112,6 +118,7 @@ import type * as features_loops_models_runs from "../features/loops/models/runs.
 import type * as features_loops_models_usage from "../features/loops/models/usage.js";
 import type * as features_loops_public from "../features/loops/public.js";
 import type * as features_loops_schedule from "../features/loops/schedule.js";
+import type * as features_loops_usage from "../features/loops/usage.js";
 import type * as features_loops_utils from "../features/loops/utils.js";
 import type * as features_loops_validators from "../features/loops/validators.js";
 import type * as features_mailbox_models from "../features/mailbox/models.js";
@@ -164,11 +171,13 @@ import type * as features_workflows_utils from "../features/workflows/utils.js";
 import type * as features_workflows_validators from "../features/workflows/validators.js";
 import type * as http from "../http.js";
 import type * as lib_ark from "../lib/ark.js";
+import type * as lib_docs from "../lib/docs.js";
 import type * as lib_functions from "../lib/functions.js";
 import type * as lib_jev from "../lib/jev.js";
 import type * as lib_log from "../lib/log.js";
 import type * as lib_markdown from "../lib/markdown.js";
 import type * as lib_secrets from "../lib/secrets.js";
+import type * as lib_unmark from "../lib/unmark.js";
 
 import type {
   ApiFromModules,
@@ -186,6 +195,8 @@ declare const fullApi: ApiFromModules<{
   "api/contacts": typeof api_contacts;
   "api/deletes": typeof api_deletes;
   "api/email": typeof api_email;
+  "api/goalActions": typeof api_goalActions;
+  "api/goalActivity": typeof api_goalActivity;
   "api/goals": typeof api_goals;
   "api/inbox": typeof api_inbox;
   "api/jobs": typeof api_jobs;
@@ -194,6 +205,7 @@ declare const fullApi: ApiFromModules<{
   "api/migrations": typeof api_migrations;
   "api/preferences": typeof api_preferences;
   "api/prefilled": typeof api_prefilled;
+  "api/prefilledActions": typeof api_prefilledActions;
   "api/resume": typeof api_resume;
   "api/users": typeof api_users;
   "api/views": typeof api_views;
@@ -246,6 +258,7 @@ declare const fullApi: ApiFromModules<{
   "features/email/inbound": typeof features_email_inbound;
   "features/email/index": typeof features_email_index;
   "features/email/internal": typeof features_email_internal;
+  "features/email/jev": typeof features_email_jev;
   "features/email/match": typeof features_email_match;
   "features/email/models": typeof features_email_models;
   "features/email/parse": typeof features_email_parse;
@@ -256,6 +269,7 @@ declare const fullApi: ApiFromModules<{
   "features/email/utils": typeof features_email_utils;
   "features/email/validators": typeof features_email_validators;
   "features/goals/actions": typeof features_goals_actions;
+  "features/goals/activity": typeof features_goals_activity;
   "features/goals/models": typeof features_goals_models;
   "features/goals/public": typeof features_goals_public;
   "features/goals/utils": typeof features_goals_utils;
@@ -264,6 +278,7 @@ declare const fullApi: ApiFromModules<{
   "features/jobs/boards": typeof features_jobs_boards;
   "features/jobs/index": typeof features_jobs_index;
   "features/jobs/internal": typeof features_jobs_internal;
+  "features/jobs/links": typeof features_jobs_links;
   "features/jobs/models/boards": typeof features_jobs_models_boards;
   "features/jobs/models/index": typeof features_jobs_models_index;
   "features/jobs/models/jobs": typeof features_jobs_models_jobs;
@@ -281,6 +296,7 @@ declare const fullApi: ApiFromModules<{
   "features/loops/models/usage": typeof features_loops_models_usage;
   "features/loops/public": typeof features_loops_public;
   "features/loops/schedule": typeof features_loops_schedule;
+  "features/loops/usage": typeof features_loops_usage;
   "features/loops/utils": typeof features_loops_utils;
   "features/loops/validators": typeof features_loops_validators;
   "features/mailbox/models": typeof features_mailbox_models;
@@ -333,11 +349,13 @@ declare const fullApi: ApiFromModules<{
   "features/workflows/validators": typeof features_workflows_validators;
   http: typeof http;
   "lib/ark": typeof lib_ark;
+  "lib/docs": typeof lib_docs;
   "lib/functions": typeof lib_functions;
   "lib/jev": typeof lib_jev;
   "lib/log": typeof lib_log;
   "lib/markdown": typeof lib_markdown;
   "lib/secrets": typeof lib_secrets;
+  "lib/unmark": typeof lib_unmark;
 }>;
 
 /**

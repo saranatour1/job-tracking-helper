@@ -9,7 +9,7 @@ import { keepLog } from "../activity/utils"
 import { changeStatus, fitOf, logNewApplication, nextNumber } from "../applications/utils"
 import { companyAddress } from "../email/addresses"
 import { trackingAddressOf } from "../email/utils"
-import { addUsage } from "../loops/utils"
+import { addUsage } from "../loops/usage"
 import { rowLimits } from "../preferences/rows"
 import { rowOf } from "../preferences/utils"
 import { isEmailQuestion, statusFrom } from "./match"
@@ -228,7 +228,7 @@ const goLive = internalMutation({
       unfilled,
       credits: (row.credits ?? 0) + credits,
     })
-    await ctx.scheduler.runAfter(liveMs, internal.api.prefilled.closeLive, { id, scrapeId })
+    await ctx.scheduler.runAfter(liveMs, internal.api.prefilledActions.closeLive, { id, scrapeId })
     return null
   },
 })

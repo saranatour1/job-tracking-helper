@@ -1,4 +1,4 @@
-import { markdownOf, unmark } from "../../lib/markdown"
+import { markdownOf } from "../../lib/markdown"
 
 export const boardKinds = ["greenhouse", "lever", "ashby", "personio"] as const
 export type BoardKind = (typeof boardKinds)[number]
@@ -47,21 +47,6 @@ export const starterBoards: { kind: BoardKind; slug: string }[] = [
   })),
   ...["cloover", "xitaso", "stark"].map((slug) => ({ kind: "personio" as const, slug })),
 ]
-
-export const boardOf = (url: string): { kind: BoardKind; slug: string } | null => {
-  if (!URL.canParse(url)) return null
-  const u = new URL(url)
-  const host = u.hostname.toLowerCase()
-  const personio = /^([a-z0-9-]+)\.jobs\.personio\.(de|com)$/.exec(host)
-  if (personio?.[1]) return { kind: "personio", slug: personio[1] }
-  const slug = u.pathname.split("/").filter(Boolean)[0]?.toLowerCase()
-  if (!slug) return null
-  if (host === "boards.greenhouse.io" || host === "job-boards.greenhouse.io")
-    return { kind: "greenhouse", slug }
-  if (host === "jobs.lever.co") return { kind: "lever", slug }
-  if (host === "jobs.ashbyhq.com") return { kind: "ashby", slug }
-  return null
-}
 
 export const companyOf = (slug: string) =>
   slug.replace(/[-_]/g, " ").replace(/\b\w/g, (c) => c.toUpperCase())
@@ -201,8 +186,3 @@ const parsePersonio = (slug: string, xml: string, now: number): FeedJob[] =>
       }
     })
     .filter((j) => /\/job\/\d+$/.test(j.url))
-
-export const previewOf = (text: string, length = 240) =>
-  unmark(text.split("\n\n").slice(1).join(" ") || text)
-    .replace(/\s+/g, " ")
-    .slice(0, length)

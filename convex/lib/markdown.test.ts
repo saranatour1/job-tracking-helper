@@ -1,7 +1,9 @@
 import { describe, expect, it } from "vite-plus/test"
 
-import { parseFeed, previewOf } from "../features/jobs/boards"
-import { markdownOf, unmark } from "./markdown"
+import { parseFeed } from "../features/jobs/boards"
+import { previewOf } from "../features/jobs/links"
+import { markdownOf } from "./markdown"
+import { unmark } from "./unmark"
 
 describe("markdownOf", () => {
   it("keeps a posting's shape: headings, lists, links and entities", () => {

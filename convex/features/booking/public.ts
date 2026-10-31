@@ -1,5 +1,6 @@
 import { ConvexError, v } from "convex/values"
-import schema from "../../schema"
+import { docOf } from "../../lib/docs"
+import { bookingPagesTable } from "./models"
 import { components } from "../../_generated/api"
 import { type MutationCtx, mutation, query } from "../../_generated/server"
 import { arkToConvex, checked } from "../../lib/ark"
@@ -14,7 +15,7 @@ import { day, busyOf, pageBySlug, hoursOf } from "./utils"
 
 const pages = authedQuery({
   args: {},
-  returns: v.array(schema.doc("bookingPages")),
+  returns: v.array(docOf("bookingPages", bookingPagesTable)),
   handler: (ctx) =>
     ctx.db
       .query("bookingPages")

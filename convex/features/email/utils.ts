@@ -6,14 +6,10 @@ import { internal, components } from "../../_generated/api"
 import { RateLimiter, HOUR } from "@convex-dev/rate-limiter"
 import { getAuthUserId } from "@convex-dev/auth/server"
 import { ConvexError } from "convex/values"
-import { Details, MailNote, Received } from "./validators"
+import { Details, MailNote } from "./validators"
 import { removeInbound } from "./cloudflare"
 import { hasSignature, type SignatureInfo, signed, toBase64 } from "./signature"
 import { rowLimits } from "../preferences/rows"
-import { type Candidate, type Kind, kindLabels, kinds } from "./match"
-import { experimental_decide as decide } from "ai"
-import { convexGateway } from "@convex-dev/ai-sdk-provider"
-import { jevModel } from "../workflows/judge"
 
 export const aad = {
   token: (userId: string) => `email-token:${userId}`,
@@ -217,52 +213,6 @@ export const threadKeyOf = async (userId: string, messageId: string) =>
   )
     .map((b) => b.toString(16).padStart(2, "0"))
     .join("")
-
-export const askJev = async (
-  mail: typeof Received.infer,
-  applications: Candidate[]
-): Promise<{ application?: Candidate; kind: Kind; sureOfKind: number }> => {
-  const options = Object.fromEntries(
-    applications.map((a, i) => [`a${i}`, `${a.company}: ${a.role}`])
-  )
-  const result = await decide({
-    model: convexGateway.evaluationModel(jevModel),
-    state: {
-      email: {
-        from: mail.fromName ? `${mail.fromName} <${mail.from}>` : mail.from,
-        subject: mail.subject,
-        text: (mail.text ?? "").slice(0, 4000),
-      },
-      applications: Object.values(options),
-    },
-    questions: {
-      application: {
-        type: "choice",
-        instructions:
-          "Which of `applications` (company: role) is `email` about? Pick the one the email names or clearly refers to, or none when it's about none of them.",
-        criteria: { ...options, none: "None of these" },
-      },
-      kind: {
-        type: "choice",
-        instructions: "What does `email` tell the person about their job application?",
-        criteria: kindLabels,
-      },
-    },
-  })
-  const answers = result.answers as Record<
-    string,
-    { choice?: string; probabilities?: Record<string, number> }
-  >
-  const sure = (a?: { choice?: string; probabilities?: Record<string, number> }) =>
-    a?.choice && (a.probabilities?.[a.choice] ?? 0) >= 0.5 ? a.choice : undefined
-  const picked = sure(answers.application)
-  const kind = sure(answers.kind)
-  return {
-    application: picked?.startsWith("a") ? applications[Number(picked.slice(1))] : undefined,
-    kind: kinds.find((k) => k === kind) ?? "other",
-    sureOfKind: kind ? (answers.kind?.probabilities?.[kind] ?? 0) : 0,
-  }
-}
 
 export const ownEvent = async (ctx: QueryCtx, userId: Id<"users">, eventId: Id<"mailEvents">) => {
   const event = await ctx.db.get("mailEvents", eventId)
