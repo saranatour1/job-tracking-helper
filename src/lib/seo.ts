@@ -4,6 +4,7 @@ export const site = {
   author: "Sara Natour",
   contact: "privacy@saranatour.dev",
   updated: "October 31, 2026",
+  databuddyId: "8ed4f691-f76a-400e-b1fb-a9233678940e",
 }
 
 const ogImage = `${site.url}/og.png`

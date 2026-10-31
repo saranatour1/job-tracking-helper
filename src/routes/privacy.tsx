@@ -138,6 +138,13 @@ const PrivacyPage = () => (
         Global Privacy Control. You can also turn it off here:
       </p>
       <AnalyticsOptOut />
+      <p>
+        Separately, our server tells Databuddy when an AI crawler or AI agent requests a page. It
+        sends the path, host, user agent, accept header, referrer and the format asked for, on every
+        page except booking pages. An AI browser acting for you can be counted this way, and the
+        button above and browser privacy signals don't stop it, because it doesn't run in your
+        browser.
+      </p>
     </LegalSection>
 
     <LegalSection title="Cookies and browser storage">
