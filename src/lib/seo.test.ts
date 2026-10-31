@@ -29,7 +29,7 @@ describe("robots.txt", () => {
 
   it("leaves the public pages open", () => {
     expect(disallowed).not.toContain("/")
-    for (const path of ["/privacy", "/terms", "/llms.txt", "/sitemap.xml", "/og.png"]) {
+    for (const path of ["/privacy", "/terms", "/llms.txt", "/sitemap.xml", "/assets/og.png"]) {
       expect(disallowed.some((rule) => path.startsWith(rule))).toBe(false)
     }
   })
