@@ -48,6 +48,34 @@ const fields = [
     type: "email",
     autoComplete: "email",
   },
+  {
+    name: "preferredName",
+    label: "Preferred name",
+    description: "What you go by. Mail you send uses this.",
+    type: "text",
+    autoComplete: "nickname",
+  },
+  {
+    name: "linkedin",
+    label: "LinkedIn",
+    description: "A link or your handle. For your email signature.",
+    type: "text",
+    autoComplete: "off",
+  },
+  {
+    name: "github",
+    label: "GitHub",
+    description: "A link or your username. For your email signature.",
+    type: "text",
+    autoComplete: "off",
+  },
+  {
+    name: "x",
+    label: "X",
+    description: "A link or your handle. For your email signature.",
+    type: "text",
+    autoComplete: "off",
+  },
 ] as const
 
 const initialsOf = (me: Me) =>
@@ -129,7 +157,15 @@ const ProfileSection = ({ me }: { me: Me }) => {
       updateProfile(value).then(() => "Saved", messageOf),
     undefined
   )
-  const profile = { name: me.name, email: me.email, userName: me.userName }
+  const profile = {
+    name: me.name,
+    email: me.email,
+    userName: me.userName,
+    preferredName: me.preferredName,
+    linkedin: me.linkedin,
+    github: me.github,
+    x: me.x,
+  }
   const form = useForm({
     defaultValues: profile,
     validators: { onSubmit: Profile },

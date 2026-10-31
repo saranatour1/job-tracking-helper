@@ -142,6 +142,8 @@ export const EmailConnection = type({
   // Random and public: it names this person's inbound URL, nothing else.
   "inboundId?": "string",
   "inbound?": Inbound,
+  // A small copy of your photo for your signature. Set means it goes on mail you write.
+  "signaturePhoto?": arkId("_storage"),
 })
 
 // What a mail event's sealed `note` holds: enough for one timeline line.
@@ -210,8 +212,15 @@ export const vSealedConnection = v.union(
     allow: arkOutputToConvex(Allow),
     inbound: v.optional(arkOutputToConvex(Inbound)),
     userEmail: v.optional(v.string()),
-    // The name to send as: your saved full name, else your account's.
-    senderName: v.optional(v.string()),
+    // Who mail is from, and what its signature says.
+    signature: v.object({
+      name: v.string(),
+      email: v.string(),
+      linkedin: v.string(),
+      github: v.string(),
+      x: v.string(),
+    }),
+    signaturePhoto: v.optional(v.id("_storage")),
   })
 )
 
@@ -252,6 +261,14 @@ export const vConnectionView = v.union(
     forwardTo: v.optional(v.string()),
     // Each application has its own address to give out.
     tracking: v.boolean(),
+    signaturePhotoUrl: v.optional(v.string()),
+    signature: v.object({
+      name: v.string(),
+      email: v.string(),
+      linkedin: v.string(),
+      github: v.string(),
+      x: v.string(),
+    }),
     lastTest: v.union(
       v.null(),
       v.object({

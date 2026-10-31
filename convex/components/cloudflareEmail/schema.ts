@@ -11,6 +11,17 @@ export const vEmail = v.object({
   subject: v.string(),
   text: v.optional(v.string()),
   html: v.optional(v.string()),
+  attachments: v.optional(
+    v.array(
+      v.object({
+        content: v.string(),
+        filename: v.string(),
+        type: v.string(),
+        disposition: v.string(),
+        content_id: v.optional(v.string()),
+      })
+    )
+  ),
   // Threading headers such as In-Reply-To and References. Cloudflare sets Message-ID.
   headers: v.optional(v.record(v.string(), v.string())),
 })

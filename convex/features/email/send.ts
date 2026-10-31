@@ -10,7 +10,7 @@ import { seal } from "../../lib/secrets"
 import { addressWithoutPlus, companyAddress } from "./addresses"
 import { createRule, ruleFor } from "./cloudflare"
 import { messageIdsIn } from "./match"
-import { aad, cloudflare, limits, openConnection, openJson, senderOf, userIdOf } from "./utils"
+import { aad, cloudflare, limits, openConnection, openJson, outgoing, userIdOf } from "./utils"
 import { Received, SendMail } from "./validators"
 
 // What sending needs: the application's number, and the email being answered, sealed.
@@ -107,7 +107,7 @@ const sendFromApplication = action({
     const { error } = await ctx.runAction(components.cloudflareEmail.lib.send, {
       accountId: details.accountId,
       apiToken: token,
-      email: { ...email, from: senderOf(details.fromAddress, row.senderName) },
+      email: await outgoing(ctx, row, email),
     })
     await ctx.runMutation(components.cloudflareEmail.lib.markResult, {
       emailId,
