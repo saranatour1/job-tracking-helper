@@ -137,14 +137,16 @@ const candidates = internalQuery({
       for (const job of results.map((r) => r[i]).filter(Boolean)) {
         const role = roleKey(job)
         if (picked.length >= limit || seen.has(role)) continue
-        seen.add(role)
         if (since && job.postedAt < since) continue
         const company = job.company.toLowerCase()
         if (wanted.length && !wanted.some((c) => company.includes(c) || c.includes(company)))
           continue
         // ponytail: a role reposted under the same title stays skipped for good, even a year
         // later. Compare the lead's age here if people miss real reopenings.
-        if (!(await leadOf(ctx, userId, job))) picked.push(job._id)
+        if (await leadOf(ctx, userId, job)) continue
+        // Only once picked: another posting of this role can pass where this one didn't.
+        seen.add(role)
+        picked.push(job._id)
       }
     return picked
   },

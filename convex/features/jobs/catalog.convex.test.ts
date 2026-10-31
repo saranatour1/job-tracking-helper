@@ -131,6 +131,25 @@ describe("duplicates", () => {
     expect(await pick(t, userId)).toHaveLength(2)
   })
 
+  it("picks a role's newer posting when an older one is too old", async () => {
+    const { t } = await setup()
+    const userId = await owner(t)
+    await save(t, [
+      { ...feedJob("https://x.dev/a?gh_jid=1"), postedAt: 1 },
+      { ...feedJob("https://x.dev/a?gh_jid=2"), postedAt: 100 },
+    ])
+    const picked = await t.query(internal.api.jobs.candidates, {
+      userId,
+      queries: ["support"],
+      remoteOnly: false,
+      companies: [],
+      since: 50,
+      limit: 10,
+    })
+    const jobs = await t.run((ctx) => Promise.all(picked.map((id) => ctx.db.get("jobs", id))))
+    expect(jobs.map((j) => j?.urlKey)).toEqual(["greenhouse/2"])
+  })
+
   it("skips another posting of a role the person was shown", async () => {
     const { t } = await setup()
     const userId = await owner(t)
