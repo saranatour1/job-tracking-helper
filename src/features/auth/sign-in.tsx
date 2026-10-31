@@ -58,7 +58,7 @@ export const SignIn = ({ mode }: { mode: "signIn" | "signUp" }) => {
   const report = (outcome: Outcome) =>
     setFormError(outcome.status === "error" ? messages[outcome.userError.error] : undefined)
   const oauth = [
-    { label: "Continue with Google", signIn: signInWithGoogle },
+    ...(import.meta.env.DEV ? [{ label: "Continue with Google", signIn: signInWithGoogle }] : []),
     { label: "Continue with GitHub", signIn: signInWithGithub },
   ]
 
@@ -111,16 +111,23 @@ export const SignIn = ({ mode }: { mode: "signIn" | "signUp" }) => {
             {label}
           </Button>
         ))}
-        <Button
-          type="button"
-          variant="ghost"
-          onClick={() => signInAnonymously().catch(() => setFormError(messages.OTHER_ERROR))}
-        >
-          Continue as guest
-        </Button>
-        <Button variant="link" render={<Link to={mode === "signIn" ? "/sign-up" : "/sign-in"} />}>
-          {mode === "signIn" ? "Need an account? Sign up" : "Have an account? Sign in"}
-        </Button>
+        {import.meta.env.DEV && (
+          <>
+            <Button
+              type="button"
+              variant="ghost"
+              onClick={() => signInAnonymously().catch(() => setFormError(messages.OTHER_ERROR))}
+            >
+              Continue as guest
+            </Button>
+            <Button
+              variant="link"
+              render={<Link to={mode === "signIn" ? "/sign-up" : "/sign-in"} />}
+            >
+              {mode === "signIn" ? "Need an account? Sign up" : "Have an account? Sign in"}
+            </Button>
+          </>
+        )}
       </form>
     </main>
   )
