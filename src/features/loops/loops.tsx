@@ -454,6 +454,16 @@ const Step = ({
 
 type Where = "anywhere" | "remote" | "near"
 
+// Setup opens from partway down the list; start it at the top, after the click's own
+// scrolling settles. Out here so the ref keeps its identity: an inline one runs again on
+// every render, which sent the page back to the top on each click.
+const scrollToTop = (top: HTMLElement | null) => {
+  if (top)
+    requestAnimationFrame(() =>
+      top.closest("[data-slot=scroll-area-viewport]")?.scrollTo({ top: 0 })
+    )
+}
+
 // Setting up a loop is going through its run, step by step: each step asks a few yes or
 // no questions and shows what the answers make the run do, with the person's own
 // Preferences and the actual search words.
@@ -543,16 +553,7 @@ const Setup = ({
 
   return (
     <>
-      {/* Setup opens from partway down the list; start it at the top, after the click's own
-          scrolling settles. */}
-      <span
-        ref={(top) => {
-          if (top)
-            requestAnimationFrame(() =>
-              top.closest("[data-slot=scroll-area-viewport]")?.scrollTo({ top: 0 })
-            )
-        }}
-      />
+      <span ref={scrollToTop} />
       <PageIntro
         title={loop ? `Edit ${loop.name}` : template.name}
         description="This is what the loop does each morning. Answer each step; the box under it shows what your answers make it do."
