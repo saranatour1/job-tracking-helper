@@ -205,13 +205,16 @@ describe("activity", () => {
     })
     await as.mutation(api.users.updateProfile, { name: "Sam", email: "", userName: "" })
     const rows = await events()
-    expect(rows.map((r) => r.summary)).toEqual([
-      "Updated your profile",
-      "Added an email template",
-      "Added a contact",
-      "Edited Hooli",
-      "Added a note to Hooli",
-    ])
+    // The clock's frozen here, so rows from the same moment can come in either order.
+    expect(new Set(rows.map((r) => r.summary))).toEqual(
+      new Set([
+        "Updated your profile",
+        "Added an email template",
+        "Added a contact",
+        "Edited Hooli",
+        "Added a note to Hooli",
+      ])
+    )
     expect(JSON.stringify(rows)).not.toMatch(/private|pat@hooli/i)
     const user = await t.run((ctx) => ctx.db.get("users", userId))
     expect(await as.query(api.activity.joinedAt, {})).toBe(user?._creationTime)
