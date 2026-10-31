@@ -3,7 +3,8 @@ import { ConvexError, v } from "convex/values"
 import { internal } from "../../_generated/api"
 import { internalMutation } from "../../_generated/server"
 import { authedMutation, authedQuery } from "../../lib/functions"
-import schema from "../../schema"
+import { docOf } from "../../lib/docs"
+import { applicationsTable } from "./models"
 import { startDelete } from "../deletes/utils"
 import { archiveDays, trashDayChoices } from "./validators"
 import {
@@ -19,7 +20,7 @@ import { logEdit } from "../activity/utils"
 
 const trashed = authedQuery({
   args: { paginationOpts: paginationOptsValidator },
-  returns: paginationResultValidator(schema.doc("applications")),
+  returns: paginationResultValidator(docOf("applications", applicationsTable)),
   handler: (ctx, { paginationOpts }) =>
     ctx.db
       .query("applications")

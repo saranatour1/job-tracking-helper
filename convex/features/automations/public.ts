@@ -1,5 +1,6 @@
 import { ConvexError, v } from "convex/values"
-import schema from "../../schema"
+import { docOf } from "../../lib/docs"
+import { automationsTable, automationRunsTable } from "./models"
 import { authedMutation, authedQuery } from "../../lib/functions"
 import { limits as rates } from "../workflows/manager"
 import { choicesOf, countsOf } from "./counts"
@@ -9,7 +10,7 @@ import { logEdit } from "../activity/utils"
 
 const list = authedQuery({
   args: {},
-  returns: v.array(schema.doc("automations")),
+  returns: v.array(docOf("automations", automationsTable)),
   handler: (ctx) =>
     ctx.db
       .query("automations")
@@ -39,7 +40,7 @@ const choices = authedQuery({
 
 const runs = authedQuery({
   args: { automationId: v.id("automations") },
-  returns: v.array(schema.doc("automationRuns")),
+  returns: v.array(docOf("automationRuns", automationRunsTable)),
   handler: async (ctx, { automationId }) => {
     const automation = await ctx.db.get("automations", automationId)
     if (automation?.userId !== ctx.userId) return []

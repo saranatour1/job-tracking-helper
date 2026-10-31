@@ -26,9 +26,9 @@ import {
   openJson,
   syncMailSummary,
   threadKeyOf,
-  askJev,
   ownEvent,
 } from "./utils"
+import { askJev } from "./jev"
 import {
   type Candidate,
   kindOf,

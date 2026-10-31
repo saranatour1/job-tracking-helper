@@ -77,6 +77,7 @@ import type * as features_email_cloudflare from "../features/email/cloudflare.js
 import type * as features_email_inbound from "../features/email/inbound.js";
 import type * as features_email_index from "../features/email/index.js";
 import type * as features_email_internal from "../features/email/internal.js";
+import type * as features_email_jev from "../features/email/jev.js";
 import type * as features_email_match from "../features/email/match.js";
 import type * as features_email_models from "../features/email/models.js";
 import type * as features_email_parse from "../features/email/parse.js";
@@ -164,6 +165,7 @@ import type * as features_workflows_utils from "../features/workflows/utils.js";
 import type * as features_workflows_validators from "../features/workflows/validators.js";
 import type * as http from "../http.js";
 import type * as lib_ark from "../lib/ark.js";
+import type * as lib_docs from "../lib/docs.js";
 import type * as lib_functions from "../lib/functions.js";
 import type * as lib_jev from "../lib/jev.js";
 import type * as lib_log from "../lib/log.js";
@@ -246,6 +248,7 @@ declare const fullApi: ApiFromModules<{
   "features/email/inbound": typeof features_email_inbound;
   "features/email/index": typeof features_email_index;
   "features/email/internal": typeof features_email_internal;
+  "features/email/jev": typeof features_email_jev;
   "features/email/match": typeof features_email_match;
   "features/email/models": typeof features_email_models;
   "features/email/parse": typeof features_email_parse;
@@ -333,6 +336,7 @@ declare const fullApi: ApiFromModules<{
   "features/workflows/validators": typeof features_workflows_validators;
   http: typeof http;
   "lib/ark": typeof lib_ark;
+  "lib/docs": typeof lib_docs;
   "lib/functions": typeof lib_functions;
   "lib/jev": typeof lib_jev;
   "lib/log": typeof lib_log;

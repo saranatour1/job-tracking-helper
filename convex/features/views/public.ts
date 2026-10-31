@@ -1,12 +1,13 @@
 import { ConvexError, v } from "convex/values"
-import schema from "../../schema"
+import { docOf } from "../../lib/docs"
+import { viewsTable } from "./models"
 import { arkMutation, authedMutation, authedQuery } from "../../lib/functions"
 import { maxViews, ViewFields } from "./validators"
 import { logEdit } from "../activity/utils"
 
 const list = authedQuery({
   args: {},
-  returns: v.array(schema.doc("views")),
+  returns: v.array(docOf("views", viewsTable)),
   handler: (ctx) =>
     ctx.db
       .query("views")

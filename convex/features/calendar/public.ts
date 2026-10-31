@@ -1,5 +1,6 @@
 import { ConvexError, v } from "convex/values"
-import schema from "../../schema"
+import { docOf } from "../../lib/docs"
+import { calendarEventsTable } from "./models"
 import { arkOutputToConvex } from "../../lib/ark"
 import { arkMutation, authedMutation, authedQuery } from "../../lib/functions"
 import { ruleMatch } from "../email/match"
@@ -13,7 +14,7 @@ import { logEdit } from "../activity/utils"
 // compared as text: `end` and `start` carry their own offset, so a range should leave room.
 const list = authedQuery({
   args: { from: v.optional(v.string()), to: v.optional(v.string()) },
-  returns: v.array(schema.doc("calendarEvents")),
+  returns: v.array(docOf("calendarEvents", calendarEventsTable)),
   handler: async (ctx, { from, to }) => {
     if (from === undefined || to === undefined)
       return ctx.db

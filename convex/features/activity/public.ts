@@ -3,7 +3,8 @@ import { v } from "convex/values"
 import { internalMutation, internalQuery } from "../../_generated/server"
 import { arkOutputToConvex } from "../../lib/ark"
 import { authedQuery } from "../../lib/functions"
-import schema from "../../schema"
+import { docOf } from "../../lib/docs"
+import { activityEventsTable } from "./models"
 import { startDelete } from "../deletes/utils"
 import { ActivityEvent } from "./validators"
 
@@ -12,7 +13,7 @@ const keepFor = 90 * day
 
 const page = authedQuery({
   args: { failed: v.optional(v.boolean()), paginationOpts: paginationOptsValidator },
-  returns: paginationResultValidator(schema.doc("activityEvents")),
+  returns: paginationResultValidator(docOf("activityEvents", activityEventsTable)),
   handler: async (ctx, { failed, paginationOpts }) => {
     const rows = failed
       ? ctx.db

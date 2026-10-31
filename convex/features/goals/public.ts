@@ -1,6 +1,7 @@
 import { v } from "convex/values"
 import type { Doc } from "../../_generated/dataModel"
-import schema from "../../schema"
+import { docOf } from "../../lib/docs"
+import { goalsTable } from "./models"
 import { internalQuery } from "../../_generated/server"
 import { arkMutation, authedMutation, authedQuery } from "../../lib/functions"
 import {
@@ -18,7 +19,7 @@ import { vTimeline } from "../email/validators"
 
 const list = authedQuery({
   args: {},
-  returns: v.array(schema.doc("goals")),
+  returns: v.array(docOf("goals", goalsTable)),
   handler: (ctx) =>
     ctx.db
       .query("goals")

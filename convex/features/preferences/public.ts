@@ -3,7 +3,9 @@ import { paginationOptsValidator, paginationResultValidator } from "convex/serve
 import { ConvexError, v } from "convex/values"
 import { internalMutation, internalQuery } from "../../_generated/server"
 import type { Doc } from "../../_generated/dataModel"
-import schema from "../../schema"
+import { docOf } from "../../lib/docs"
+import { preferenceTagsTable } from "./models/tags"
+import { profileEntriesTable } from "./models/entries"
 import { arkOutputToConvex } from "../../lib/ark"
 import { arkMutation, authedMutation, authedQuery } from "../../lib/functions"
 import {
@@ -37,7 +39,7 @@ const get = authedQuery({
 
 const tags = authedQuery({
   args: { paginationOpts: paginationOptsValidator },
-  returns: paginationResultValidator(schema.doc("preferenceTags")),
+  returns: paginationResultValidator(docOf("preferenceTags", preferenceTagsTable)),
   handler: (ctx, { paginationOpts }) =>
     ctx.db
       .query("preferenceTags")
@@ -50,7 +52,7 @@ const entries = authedQuery({
     kind: v.union(...entryKinds.map((k) => v.literal(k))),
     paginationOpts: paginationOptsValidator,
   },
-  returns: paginationResultValidator(schema.doc("profileEntries")),
+  returns: paginationResultValidator(docOf("profileEntries", profileEntriesTable)),
   handler: (ctx, { kind, paginationOpts }) =>
     ctx.db
       .query("profileEntries")

@@ -2,7 +2,8 @@ import { paginationOptsValidator, paginationResultValidator } from "convex/serve
 import { fitOf, logNewApplication, nextNumber } from "../applications/utils"
 import { priorityFor } from "../applications/validators"
 import { ConvexError, v } from "convex/values"
-import schema from "../../schema"
+import { docOf } from "../../lib/docs"
+import { loopsTable, loopRunsTable, jobLeadsTable } from "./models"
 import { arkMutation, authedMutation, authedQuery } from "../../lib/functions"
 import { fireEvent } from "../automations/fire"
 import { maxGoals } from "../goals/validators"
@@ -17,7 +18,7 @@ import { logEdit } from "../activity/utils"
 
 const list = authedQuery({
   args: {},
-  returns: v.array(schema.doc("loops")),
+  returns: v.array(docOf("loops", loopsTable)),
   handler: (ctx) =>
     ctx.db
       .query("loops")
@@ -119,7 +120,7 @@ const stopRun = authedMutation({
 
 const runs = authedQuery({
   args: { paginationOpts: paginationOptsValidator },
-  returns: paginationResultValidator(schema.doc("loopRuns")),
+  returns: paginationResultValidator(docOf("loopRuns", loopRunsTable)),
   handler: (ctx, { paginationOpts }) =>
     ctx.db
       .query("loopRuns")
@@ -130,7 +131,7 @@ const runs = authedQuery({
 
 const shortlist = authedQuery({
   args: { status: v.union(v.literal("new"), v.literal("saved")) },
-  returns: v.array(schema.doc("jobLeads")),
+  returns: v.array(docOf("jobLeads", jobLeadsTable)),
   handler: async (ctx, { status }) => {
     const of = (s: "new" | "saved" | "applied") =>
       ctx.db
@@ -149,7 +150,11 @@ const lead = authedQuery({
   args: { leadId: v.id("jobLeads") },
   returns: v.union(
     v.null(),
-    v.object({ lead: schema.doc("jobLeads"), text: v.string(), loopName: v.optional(v.string()) })
+    v.object({
+      lead: docOf("jobLeads", jobLeadsTable),
+      text: v.string(),
+      loopName: v.optional(v.string()),
+    })
   ),
   handler: async (ctx, { leadId }) => {
     const lead = await ctx.db.get("jobLeads", leadId)
@@ -164,7 +169,11 @@ const leadForApplication = authedQuery({
   args: { applicationId: v.id("applications") },
   returns: v.union(
     v.null(),
-    v.object({ lead: schema.doc("jobLeads"), text: v.string(), loopName: v.optional(v.string()) })
+    v.object({
+      lead: docOf("jobLeads", jobLeadsTable),
+      text: v.string(),
+      loopName: v.optional(v.string()),
+    })
   ),
   handler: async (ctx, { applicationId }) => {
     const lead = await ctx.db
