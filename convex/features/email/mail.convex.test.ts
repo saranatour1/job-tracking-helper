@@ -20,6 +20,12 @@ const modules = import.meta.glob([
   "!../../**/*.test.ts",
 ])
 
+const mocks = vi.hoisted(() => ({ decide: vi.fn() }))
+vi.mock("ai", async (actual) => ({
+  ...(await actual<typeof import("ai")>()),
+  experimental_decide: mocks.decide,
+}))
+
 const fetchMock = vi.fn<typeof fetch>()
 
 beforeEach(() => {
@@ -109,6 +115,40 @@ describe("incoming mail", () => {
     expect((await receive({ to: ["reach+app-99@example.com"] }))?.applicationId).toBeUndefined()
     await t.run((ctx) => ctx.db.patch("applications", acme, { trashedAt: 5 }))
     expect((await receive({ to: ["reach+app-4@example.com"] }))?.applicationId).toBeUndefined()
+  })
+})
+
+describe("with Jev reading mail", () => {
+  const withJev = async (answers: object) => {
+    const s = await setup()
+    mocks.decide.mockResolvedValue({ answers })
+    await s.t.run(async (ctx) => {
+      const row = await ctx.db.query("emailConnections").first()
+      await ctx.db.patch("emailConnections", row!._id, { allow: { ...row!.allow, read: true } })
+    })
+    return s
+  }
+  const sure = (choice: string) => ({ choice, probabilities: { [choice]: 0.9 } })
+
+  it("keeps the rules' match when Jev finds none", async () => {
+    const { receive, hooli } = await withJev({ application: sure("none"), kind: sure("other") })
+    expect(await receive({ from: "jobs@hooli.com", subject: "An update" })).toMatchObject({
+      applicationId: hooli,
+      by: "jev",
+    })
+  })
+
+  it("lets Jev change the rules' match", async () => {
+    // Newest first, so a0 is Acme.
+    const { receive, acme } = await withJev({ application: sure("a0"), kind: sure("other") })
+    expect(await receive({ from: "jobs@hooli.com", subject: "An update" })).toMatchObject({
+      applicationId: acme,
+    })
+  })
+
+  it("files what Jev finds when the rules found nothing", async () => {
+    const { receive, acme } = await withJev({ application: sure("a0"), kind: sure("other") })
+    expect((await receive({ from: "x@y.io", subject: "A role" }))?.applicationId).toBe(acme)
   })
 })
 

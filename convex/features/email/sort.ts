@@ -245,7 +245,8 @@ const sortMail = internalAction({
         (answer) => {
           ;({ kind, sureOfKind } = answer)
           // The tag or thread already knows the application; Jev only says what it means.
-          if (!known) application = answer.application
+          // Unsure isn't a no: Jev can change a match the rules found, but not erase one.
+          if (!known) application = answer.application ?? application
           by = "jev"
         },
         () => null
