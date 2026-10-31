@@ -102,12 +102,12 @@ These have no owner. Deleting an account leaves them.
 
 ### Mail
 
-| Table              | Holds                                                                                   | Why it's a table                        | Indexes                                                                 |
-| ------------------ | --------------------------------------------------------------------------------------- | --------------------------------------- | ----------------------------------------------------------------------- |
-| `emailConnections` | one per person: a sealed Cloudflare token and details, what's allowed, incoming mail    | exception: keeps secrets out of `users` | `by_userId`, `by_inboundId`                                             |
-| `mailEvents`       | one sorted email: its kind, the application it's about, a sealed note, a suggested move | 1, 4                                    | `by_userId_and_applicationId`, `by_emailId`, `by_userId_and_messageKey` |
+| Table              | Holds                                                                                   | Why it's a table                        | Indexes                                                                    |
+| ------------------ | --------------------------------------------------------------------------------------- | --------------------------------------- | -------------------------------------------------------------------------- |
+| `emailConnections` | one per person: a sealed Cloudflare token and details, what's allowed, incoming mail    | exception: keeps secrets out of `users` | `by_userId`, `by_inboundId`                                                |
+| `mailEvents`       | one sorted email: its kind, the application it's about, a sealed note, a suggested move | 1, 4                                    | `by_userId_and_applicationId`, `by_emailId`, `by_userId_and_messageKey`    |
+| `contacts`         | one person per address: sealed details, a hash of the address, how many emails, when    | 1, 4                                    | `by_userId_and_key`, `by_userId_and_lastAt`, `by_userId_and_applicationId` |
 
-| `contacts` | one person per address: sealed details, a hash of the address, how many emails, when | 1, 4 | `by_userId_and_key`, `by_userId_and_lastAt`, `by_userId_and_applicationId` |
 The emails themselves live in the `cloudflareEmail` component, sealed. `mailEvents.emailId` is a plain string for that reason.
 
 ### Time
