@@ -141,6 +141,8 @@ export const vRunPlan = v.union(
     userId: v.id("users"),
     profile: vProfile,
     queries: v.array(v.string()),
+    // Optional because a run already underway replays the plan it saved, without this.
+    localSearches: v.optional(v.array(v.object({ what: v.string(), where: v.string() }))),
     perQuery: v.number(),
     daily: v.number(),
     postedToday: v.boolean(),

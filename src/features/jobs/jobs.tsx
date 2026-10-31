@@ -1,4 +1,5 @@
 import { api } from "@/lib/api"
+import { canPrepare } from "@convex/features/jobs/links"
 import { rowLimits } from "@convex/features/preferences/rows"
 import { groupRoles } from "@convex/features/workflows/fit"
 import { PrepareButton } from "@/features/prefilled/prefilled"
@@ -113,7 +114,7 @@ const Evidence = ({ job, now, compact }: { job: Row; now: number; compact?: bool
       <Badge
         variant="warning"
         className="font-normal"
-        title="No company site found for this board yet. Check the company yourself before applying."
+        title="No company site found for this role yet. Check the company yourself before applying."
       >
         Unverified
       </Badge>
@@ -248,8 +249,8 @@ export const Jobs = () => {
             title="Jobs"
             description={
               stats
-                ? `${stats.jobs.toLocaleString("en")} open roles from ${stats.boards} company job boards, refreshed daily and shared by everyone. Your loops pick from these, and Jev judges which fit you.`
-                : "Open roles from company job boards, refreshed daily."
+                ? `${stats.jobs.toLocaleString("en")} open roles from ${stats.boards} job boards, refreshed daily and shared by everyone. Your loops pick from these, and Jev judges which fit you.`
+                : "Open roles from job boards, refreshed daily."
             }
           />
 
@@ -408,7 +409,7 @@ export const Jobs = () => {
               const job = postings.find((p) => p.verdict) ?? postings[0]
               const where = job.location || "Location not listed"
               const row = postings.map((p) => prepared.get(p.url)).find(Boolean)
-              const apply = (
+              const apply = canPrepare(job.url) && (
                 <PrepareButton jobId={job._id} status={row?.status} prefillId={row?._id} />
               )
               const more = (

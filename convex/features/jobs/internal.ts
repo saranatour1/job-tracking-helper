@@ -7,7 +7,7 @@ import { addUsage, usageOf } from "../loops/usage"
 import { roleKey, urlKey } from "../workflows/fit"
 import { readPool } from "../workflows/manager"
 import { apiKeyOf, monthlyCredits, monthOf } from "../workflows/sources"
-import { boardKinds, companyOf, starterBoards } from "./boards"
+import { boardKinds, companyOf, isCompanyBoard, searchSlug, starterBoards } from "./boards"
 import { researchBatch, researchEvery } from "./companies"
 import { leadOf } from "./leads"
 import { boardOf } from "./links"
@@ -78,6 +78,35 @@ const addBoards = internalMutation({
   },
 })
 
+// ponytail: a search nobody runs anymore keeps refreshing, and shares the 25 boards an hour
+// with everything else. Add a last-used date if that crowds out company boards.
+const addSearches = internalMutation({
+  args: { searches: v.array(v.object({ what: v.string(), where: v.string() })) },
+  returns: v.array(v.id("jobBoards")),
+  handler: async (ctx, { searches }) => {
+    const added: Id<"jobBoards">[] = []
+    for (const { what, where } of searches.slice(0, 8)) {
+      const slug = searchSlug(what, where)
+      const known = await ctx.db
+        .query("jobBoards")
+        .withIndex("by_kind_and_slug", (q) => q.eq("kind", "arbeitsagentur").eq("slug", slug))
+        .first()
+      if (known) continue
+      added.push(
+        await ctx.db.insert("jobBoards", {
+          kind: "arbeitsagentur",
+          slug,
+          company: `Arbeitsagentur: ${what.trim().slice(0, 80)}, ${where.trim().slice(0, 80)}`,
+          addedAt: Date.now(),
+          jobs: 0,
+        })
+      )
+    }
+    if (added.length) await countCatalog(ctx, { boards: added.length })
+    return added
+  },
+})
+
 const saveJobs = internalMutation({
   args: { boardId: v.id("jobBoards"), jobs: v.array(vFeedJob), seenAt: v.number() },
   returns: v.null(),
@@ -108,6 +137,13 @@ const boardFetched = internalMutation({
       for (const job of closed) await ctx.db.delete("jobs", job._id)
     }
     const b = await ctx.db.get("jobBoards", boardId)
+    // A search with no roles, often a place outside Germany, isn't worth refreshing. The next
+    // run asks again.
+    if (b?.kind === "arbeitsagentur" && !error && !jobs) {
+      await ctx.db.delete("jobBoards", boardId)
+      await countCatalog(ctx, { boards: -1, jobs: -b.jobs })
+      return null
+    }
     if (b)
       await ctx.db.patch("jobBoards", boardId, {
         fetchedAt: Date.now(),
@@ -196,7 +232,9 @@ const ensureBoard = internalMutation({
 })
 
 // Boards never researched, then ones not researched in a month. A board with no roles waits:
-// nothing shows its company, and a search would cost credits.
+// nothing shows its company, and a search would cost credits. A board of many companies has no
+// one site to find, so its roles stay unverified.
+// ponytail: those are read again every run. Stamp them if saved searches reach the thousands.
 const researchDue = internalMutation({
   args: {},
   returns: v.number(),
@@ -206,7 +244,7 @@ const researchDue = internalMutation({
       .query("jobBoards")
       .withIndex("by_researchedAt", (q) => q.lt("researchedAt", Date.now() - researchEvery))
     for await (const b of due) {
-      if (b.jobs) boardIds.push(b._id)
+      if (b.jobs && isCompanyBoard(b.kind)) boardIds.push(b._id)
       if (boardIds.length === researchBatch) break
     }
     if (boardIds.length)
@@ -303,6 +341,7 @@ export const internalApi = {
   refreshDue,
   board,
   addBoards,
+  addSearches,
   ensureBoard,
   hasBoard,
   saveJobs,

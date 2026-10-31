@@ -324,6 +324,19 @@ describe("which boards are due", () => {
     expect(await due(t)).toBe(2)
   })
 
+  it("leaves out boards of many companies", async () => {
+    const t = setup()
+    await addBoard(t, "remote-ok", ["https://remoteok.com/remote-jobs/1"], { kind: "remoteok" })
+    await addBoard(t, "hacker-news", ["https://news.ycombinator.com/item?id=1"], {
+      kind: "hackernews",
+    })
+    await addBoard(t, "pflege|berlin", ["https://www.arbeitsagentur.de/jobsuche/jobdetail/1"], {
+      kind: "arbeitsagentur",
+    })
+    expect(await due(t)).toBe(0)
+    expect(await t.query(internal.api.migrations.companiesLeft, {})).toBe(0)
+  })
+
   it("takes a batch at a time", async () => {
     const t = setup()
     for (let n = 0; n < 30; n++) await addBoard(t, `board${n}`, [`https://a.test/${n}`])

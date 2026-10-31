@@ -6,7 +6,7 @@ Job Tracking Helper is a web app at https://ye.saranatour.dev. Everything past t
 
 What it does:
 
-- Searches the public job feeds of companies on Greenhouse, Lever, Ashby and Personio.
+- Searches the public job feeds of companies on Greenhouse, Lever, Ashby, Personio, SmartRecruiters and Workable, plus Remote OK, Hacker News and the German Arbeitsagentur.
 - Judges each role against your stated preferences and shortlists the ones that fit.
 - Reads a posting's form, matches your saved answers and drafts job-specific ones for you to check.
 - Tracks applications on a board or list, with status history, notes and related email.

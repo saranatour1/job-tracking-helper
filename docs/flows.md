@@ -433,7 +433,8 @@ and loops can be picked, edited or deleted.
    - **YC Summer 2009:** that site is in the YC directory, and the badge opens its page. It
      adds Inactive, Acquired or Public when that applies.
    - **Domain 31 years:** when the site was registered, marked under a year old.
-   - **Unverified:** no site found, or not researched yet.
+   - **Unverified:** no site found, not researched yet, or a role from a board of many
+     companies (Arbeitsagentur, Remote OK, Hacker News), which isn't researched.
    - **LinkedIn:** a search link in the full view. Nothing is read from LinkedIn.
 
    Compact shows only the first of these.
@@ -442,14 +443,21 @@ and loops can be picked, edited or deleted.
    Applications link here too.
 5. **Prepare** makes the role a prefilled application (`api.prefilled.prepare`); see
    [Prefilled applications and Activity](#prefilled-applications-and-activity). A role
-   already prepared shows its status, which opens it.
+   already prepared shows its status, which opens it. Only roles on Greenhouse, Lever, Ashby
+   and Personio show it (`canPrepare`); you apply to the others on their own page.
 
 **By itself:** every hour (`internal.api.jobs.refreshDue`) up to 25 boards not fetched in 20
 hours go to the batch worker (`internal.api.jobs.fetchBoard`). It reads each public feed
-(Greenhouse, Lever, Ashby, Personio), saves the roles, and drops ones the board no
-longer lists. A board that answers 4xx is noted with no immediate retry, and comes due again 20 hours
-later. Loops and pasted links
-add new boards.
+(Greenhouse, Lever, Ashby, Personio, SmartRecruiters, Workable, Remote OK, Hacker News's latest
+Who is hiring thread, and Arbeitsagentur searches), saves the roles, and drops ones the board
+no longer lists. A board that answers 4xx is noted with no immediate retry, and comes due again
+20 hours later. Loops and pasted links add new boards.
+
+SmartRecruiters and the Arbeitsagentur list roles without their text, so each role costs one
+more request. A SmartRecruiters board keeps its newest 100 roles, and an Arbeitsagentur search
+its first 50. An Arbeitsagentur board is one saved search ("what" and "where"), named
+`Arbeitsagentur: what, where` in the company filter. One with no roles is removed, and the next
+run asks again. Remote OK's roles say "via Remote OK", as its terms ask.
 
 **Researching companies:** every hour, and as soon as the cron is first deployed
 (`internal.api.jobs.researchDue`), up to 25 boards that have roles and were never researched,
@@ -458,7 +466,7 @@ so a backfill doesn't wait for the hour. A new board shows Unverified for up to 
 its first fetch.
 
 1. The site comes from where most of the board's 20 newest postings live, if that isn't a
-   job board's own host. That only happens on Greenhouse, whose feed links to the company's
+   job board's own host. In practice that's Greenhouse, whose feed can link to the company's
    own careers page.
 2. Otherwise Firecrawl searches for the company's name, 4 searches a minute, about 2 credits
    each, charged to `sourceUsage`. Only a domain that is the whole name counts (`stripe.com` or
@@ -636,7 +644,10 @@ call, `internal.ts` the row's steps, `utils.ts` starting one and preparing a loo
 5. **Check a link.** Paste a posting's link and press "Check it" (`api.loopActions.checkLink`).
    A known board is read for free; another page costs one Firecrawl credit. Jev judges
    it and it opens on your shortlist. 10 a day; a link you checked before opens straight
-   away.
+   away. LinkedIn, Xing, Experteer, X, Facebook and Instagram don't allow apps to read their
+   pages, so the app never fetches them (`isClosedSite`). For those, open the section under
+   the box and paste the text (`api.loopActions.checkText`): the link is kept and never
+   fetched, at no credit, counting toward the same 10.
 6. **Runs tab:** each run's source, judged, fit, saved and credits, and totals.
 7. **Sources tab:** each search source's credits this month, and when runs move on to
    the next one.
@@ -648,7 +659,9 @@ call, `internal.ts` the row's steps, `utils.ts` starting one and preparing a loo
 2. A run (`internal.api.workflows.findJobs`):
    1. Builds searches from your Preferences.
    2. Searches for new job boards with the first source that has credits left, and
-      fetches them.
+      fetches them. A loop in your places also saves an Arbeitsagentur search for each topic
+      and place, for German roles. It needs no key or credits, and a place it doesn't know
+      finds nothing. German job titles find far more than English ones.
    3. Picks catalog roles you haven't been shown that pass your hard rules, one posting
       per role, so another opening or a repost of a role you've seen isn't judged again.
    4. Hands them all to the batch worker for Jev, and waits for every verdict.

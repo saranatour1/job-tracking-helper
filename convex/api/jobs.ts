@@ -7,6 +7,7 @@ export const {
   refreshDue,
   board,
   addBoards,
+  addSearches,
   ensureBoard,
   hasBoard,
   saveJobs,

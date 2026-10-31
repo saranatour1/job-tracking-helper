@@ -43,6 +43,18 @@ const findJobs = workflow.define({
       )
       break
     }
+    if (plan.localSearches?.length) {
+      const boards = await step.runMutation(internal.api.jobs.addSearches, {
+        searches: plan.localSearches,
+      })
+      await Promise.all(
+        boards.map((boardId) =>
+          step
+            .runAction(internal.api.jobs.fetchBoard, { boardId }, { retry: true })
+            .catch(() => null)
+        )
+      )
+    }
     const jobIds = await step.runQuery(internal.api.jobs.candidates, {
       userId: plan.userId,
       queries: plan.queries,

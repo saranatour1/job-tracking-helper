@@ -5,8 +5,8 @@ A job search app. It finds roles that fit what you asked for, fills in their app
 ## What's in it
 
 - **Preferences and Resume.** Say what you want from your next job, keep the answers forms keep asking for, and check how your resume reads.
-- **Jobs and Loops.** A daily catalog of open roles from Greenhouse, Lever, Ashby and Personio boards, and morning searches where Jev judges roles against your Preferences and puts a few fits on your shortlist.
-- **Prefilled applications.** The app reads a posting's form, matches your saved answers and drafts the job-specific questions. The real form then opens beside your answers for you to check and submit.
+- **Jobs and Loops.** A daily catalog of open roles from company boards on Greenhouse, Lever, Ashby, Personio, SmartRecruiters and Workable, plus Remote OK, Hacker News and, for German places, the Arbeitsagentur. Morning searches have Jev judge roles against your Preferences and put a few fits on your shortlist. For LinkedIn, Xing, Experteer or X, which the app doesn't read, you paste the text.
+- **Prefilled applications.** On Greenhouse, Lever, Ashby and Personio, the app reads a posting's form, matches your saved answers and drafts the job-specific questions. The real form then opens beside your answers for you to check and submit.
 - **Applications, Views and Goals.** A board or list by status, with one timeline per application, saved views, and milestones.
 - **Mail and Contacts.** Connect your own Cloudflare account to send from your domain and receive replies. Each company can have its own address, so mail lands on the right application.
 - **Calendar and Booking pages.** Application dates, interviews read from email and your own events, plus links a recruiter can book from.

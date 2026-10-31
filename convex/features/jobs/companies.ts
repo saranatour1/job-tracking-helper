@@ -17,6 +17,8 @@ const boardHosts = new Set([
   "ashbyhq.com",
   "personio.de",
   "personio.com",
+  "workable.com",
+  "smartrecruiters.com",
 ])
 
 // ponytail: the last two labels, or three under a suffix like co.uk, not the public suffix list.

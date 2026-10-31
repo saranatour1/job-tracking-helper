@@ -639,7 +639,8 @@ const Setup = ({
             <>
               <span>
                 Searches the shared catalog for these, and finds new job boards for it with
-                Firecrawl, or context.dev once Firecrawl runs low (about {creditsPerRun} credits):
+                Firecrawl, or context.dev once Firecrawl runs low (about {creditsPerRun} credits).
+                {criteria.nearMe && " German places also search the Arbeitsagentur, for free."}
               </span>
               <span className="flex flex-wrap gap-1.5">
                 {searches.map((q) => (

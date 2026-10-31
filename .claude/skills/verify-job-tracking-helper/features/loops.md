@@ -12,6 +12,7 @@ Tables: `loops`, `loopRuns`, `jobLeads`, `sourceUsage`, `jobs`, `jobBoards`. Eac
 - `loops-run` runs a loop: it ends `done`, `Runs` shows roles judged and fits, and `New jobs` lists the fits with reasons.
 - `jobs-search` searches the catalog, filters to remote roles, switches to compact and follows `More like this`.
 - `loops-link` checks a pasted job link and acts on it from the sheet.
+- `loops-paste` a LinkedIn link alone is refused; with its text pasted under `The posting's text`, it opens on the sheet.
 - `loops-log` the run's evlog event appears in the Convex logs.
 
 ## Steps

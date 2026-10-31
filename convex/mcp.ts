@@ -110,7 +110,7 @@ export const mcp: McpServer<Id<"users">> = new McpServer(components.mcp, {
     }),
     search_jobs: tool({
       description:
-        "Search the catalog of open roles from Greenhouse, Lever, Ashby and Personio boards, newest first, or best match when `query` is given. `fitsOnly` keeps roles already judged a fit for this person. Returns up to `limit` (default 10, max 25).",
+        "Search the catalog of open roles from company job boards and the German Arbeitsagentur, newest first, or best match when `query` is given. `fitsOnly` keeps roles already judged a fit for this person. Returns up to `limit` (default 10, max 25).",
       args: {
         query: v.optional(v.string()),
         remoteOnly: v.optional(v.boolean()),
@@ -168,7 +168,7 @@ export const mcp: McpServer<Id<"users">> = new McpServer(components.mcp, {
     }),
     check_job_link: tool({
       description:
-        "Read a job posting from a Greenhouse, Lever, Ashby or Personio link, for a company already in the catalog, and judge it against the person's preferences, adding it to their shortlist. Other sites are refused. New links are limited to 10 a day; a link already checked is free. Returns the role and its fit.",
+        "Read a job posting from a Greenhouse, Lever, Ashby, Personio, SmartRecruiters or Workable link, for a company already in the catalog, and judge it against the person's preferences, adding it to their shortlist. Other sites are refused. New links are limited to 10 a day; a link already checked is free. Returns the role and its fit.",
       args: { url: v.string() },
       returns: vJobOut,
       annotations: { ...web, idempotentHint: true },

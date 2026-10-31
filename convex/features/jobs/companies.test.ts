@@ -41,6 +41,8 @@ describe("a company's own site, from its postings", () => {
       "https://jobs.lever.co/x/1",
       "https://jobs.ashbyhq.com/x/1",
       "https://x.jobs.personio.de/job/1",
+      "https://apply.workable.com/x/j/ABC",
+      "https://jobs.smartrecruiters.com/X/1",
     ])
       expect(postingDomain([url])).toBeNull()
     expect(postingDomain([])).toBeNull()

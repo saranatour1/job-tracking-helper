@@ -6,7 +6,7 @@ import { keepLog } from "../activity/utils"
 import { fillFromJob } from "../applications/utils"
 import { leadOf } from "../jobs/leads"
 import { prepareFits } from "../prefilled/utils"
-import { descriptionsOf, queriesOf, roleKey } from "../workflows/fit"
+import { descriptionsOf, localSearchesOf, queriesOf, roleKey } from "../workflows/fit"
 import { readPool } from "../workflows/manager"
 import { apiKeyOf, monthlyCredits, monthOf } from "../workflows/sources"
 import { vProfile, providerIds } from "../workflows/validators"
@@ -63,6 +63,7 @@ const beginRun = internalMutation({
         ...queriesOf(criteria, descriptionsOf(loop.prompt)),
         ...profile.liked.slice(0, 2).map((l) => l.split(" at ")[0]),
       ],
+      localSearches: localSearchesOf(criteria, descriptionsOf(loop.prompt)),
       perQuery: 5,
       daily: loop.daily,
       postedToday: loop.answers.postedToday,
