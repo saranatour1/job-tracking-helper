@@ -6,6 +6,7 @@ import type { Id } from "../../_generated/dataModel"
 import schema from "../../schema"
 import { arkMutation, authedMutation, authedQuery } from "../../lib/functions"
 import { fireEvent } from "../automations/fire"
+import { maxGoals } from "../goals/validators"
 import { limits } from "../workflows/manager"
 import { apiKeyOf, monthlyCredits } from "../workflows/sources"
 import { maxLoops, switchAt } from "./catalog"
@@ -65,13 +66,19 @@ const setActive = authedMutation({
   },
 })
 
-// Removing a loop keeps its runs and the jobs it found, so the Runs tab still adds up.
+// Removing a loop keeps its runs and the jobs it found, so the Runs tab still adds up. A
+// goal taking roles from it goes back to taking none.
 const remove = authedMutation({
   args: { loopId: v.id("loops") },
   returns: v.null(),
   handler: async (ctx, { loopId }) => {
     await ownLoop(ctx, ctx.userId, loopId)
     await ctx.db.delete("loops", loopId)
+    for (const goal of await ctx.db
+      .query("goals")
+      .withIndex("by_userId", (q) => q.eq("userId", ctx.userId))
+      .take(maxGoals))
+      if (goal.loopId === loopId) await ctx.db.patch("goals", goal._id, { loopId: undefined })
     return null
   },
 })
