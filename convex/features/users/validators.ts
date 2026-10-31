@@ -4,13 +4,18 @@ import { v } from "convex/values"
 
 export const maxImageBytes = 5 * 1024 * 1024
 
+export const maxNameLength = 80
+
 const trimmed = type("string.trim")
 
+// Long enough, and with hyphens, so a GitHub username fits.
+export const UserName = type("/^[a-zA-Z0-9_-]{3,39}$/")
+
 export const Profile = type({
-  name: trimmed.to("string <= 80"),
+  name: trimmed.to(`string <= ${maxNameLength}`),
   email: trimmed.to(type("string.email | ''").describe("an email address")),
   userName: trimmed.to(
-    type("/^[a-zA-Z0-9_]{3,20}$/ | ''").describe("3 to 20 letters, numbers or underscores")
+    UserName.or("''").describe("3 to 39 letters, numbers, hyphens or underscores")
   ),
   "preferredName?": trimmed.to("string <= 80"),
   "linkedin?": trimmed.to("string <= 200"),
@@ -28,6 +33,8 @@ export const User = type({
   "github?": "string",
   "x?": "string",
   "imageId?": arkId("_storage"),
+  "avatarUrl?": "string",
+  "githubImportedAt?": "number",
   "onboardedAt?": "number",
   "trashDays?": "number",
   "nextApplicationNumber?": "number",

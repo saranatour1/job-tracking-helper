@@ -156,7 +156,10 @@ When a data flow changes, `/privacy` changes with it.
 5. **Sign out.** From the sidebar's user menu, or Account.
 
 **By itself:** the first sign-in creates your `users` row
-(`internal.api.auth.createUser`); Google and GitHub fill in your name and email.
+(`internal.api.auth.createUser`); Google fills in your name and email. GitHub
+(`internal.api.auth.onGithubSignIn`) fills in your blank name, email, username and GitHub
+field, and adds your photo, once. A username someone else has is skipped. Upload or Remove
+in Account replaces the GitHub photo for good.
 
 **Rules:** signed-out visits to app pages go to `/sign-in`; signed-in visits to
 `/sign-in` go to `/pipeline`. Production only offers GitHub until email is set up: the
