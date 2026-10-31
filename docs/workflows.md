@@ -55,7 +55,8 @@ and the rules both go by. For the rest of the app, see [flows.md](flows.md).
 4. Or **Describe one** on the Workflows page: write what it should do in a sentence and
    press **Draft it** (`api.automationActions.describe`). Jev answers fixed questions about the
    sentence (what starts it, which blocks, how long to wait, which status), and the
-   draft is built from those answers, with the same checks the templates have. Jev never
+   draft is built from those answers. An email draft that moves, notes or adds an event
+   first checks that the email matched an application. Jev never
    writes a step's text, so nothing typed becomes part of a step. The draft opens unsaved
    (`?draft=…`) for you to check. 20 drafts a day.
 
@@ -78,7 +79,7 @@ and the rules both go by. For the rest of the app, see [flows.md](flows.md).
      role lands on its goal, or Jev's suggestion is added, for some goals (none picked
      means any).
 5. Placeholder buttons under each text box add a name to the end of the text. Which
-   names show depends on the trigger, and on whether a Find roles step comes first.
+   names show depends on the trigger, and on whether the workflow has a Find roles step.
 6. Remove a step with its trash button or **Remove** in its settings. Removing the last
    block on a split's path removes the path; a split left with one path turns back into
    plain steps. An Ask Jev answer keeps its path even when it's empty.
@@ -88,12 +89,13 @@ and the rules both go by. For the rest of the app, see [flows.md](flows.md).
 1. Press **Save**. The builder checks the workflow first and shows the first problem
    next to the button, for example:
    - "Pick a loop to find roles with."
-   - "Pick an application, or start the workflow from an email, a status change or a
-     booking."
+   - "Pick an application, or start the workflow from an email, a status change, a
+     booking or a goal."
    - "Send it to one email address, or a placeholder like {email.from}."
    - "Give each of Jev's answers a different name."
-2. The server checks it again (`api.automations.save`). It refuses an application or
-   loop that isn't yours, and a 31st workflow.
+2. The server checks it again (`api.automations.save`). It refuses a loop that isn't
+   yours, an application that isn't yours on a note or move step, and a 31st workflow. A Put
+   on goal step's application is checked when it runs.
 3. A new workflow moves to its own address. **Run now** stays off while there are
    unsaved edits, because a run uses the saved steps.
 
@@ -140,7 +142,7 @@ and the rules both go by. For the rest of the app, see [flows.md](flows.md).
   matches, up to 200 event runs a day.
 
 - A run started by an event keeps only ids (`context`): the application, the email
-  event, the booking, and the old and new status. An email's subject and sender stay
+  event, the booking, the goal, the loop run, and the old and new status. An email's subject and sender stay
   sealed until a step needs them.
 - A workflow's own **Move application** and **Put on goal** never fire an event, so one
   workflow can't set off another, or itself.

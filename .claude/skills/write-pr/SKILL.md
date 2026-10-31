@@ -70,7 +70,7 @@ One or two sentences: what this PR does and why.
    .claude/skills/write-pr/scripts/upload-screenshots.sh <pr-number> <file>...
    ```
 
-   It prints one Markdown image link per file. Paste the links into the Screenshots table. The repo is private, so the images only show for people with repo access.
+   It prints one Markdown image link per file. Paste the links into the Screenshots table. The repo is public, so anyone can see the images. Check them for personal details first.
 
 ## Squash-merging
 
