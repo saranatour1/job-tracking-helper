@@ -670,14 +670,26 @@ failed, and Account says it couldn't confirm the email went out.
    (`api.mailbox.page`). 25 at a time with **Load more**, and only those rows are decrypted.
 2. **Reading** (`api.mailbox.content`): opened only when you open one. HTML runs in a sandboxed
    frame with no scripts, and images from the web are blocked, since they can report back
-   when an email is opened. Opening one marks it read.
+   when an email is opened. Opening one marks it read, and **Mark as unread**
+   (`api.mailbox.markUnread`) puts it back and closes it. Received mail that's unread has a dot
+   and bolder text, and Inbox shows how many (`api.mailbox.unreadCount`), up to "99+", from an
+   index so nothing gets decrypted. Mail you sent has no read state.
+   Its subject, From, To and date each have a **Copy** button, and an application links to it.
+   **Add to contacts** sits beside the other person's address, or says **In contacts**.
+   **Thread** (`api.mailbox.thread`): the other emails in the conversation sit above and below
+   as one line each, across folders. Picking one opens it, and only that one is decrypted. An
+   email belongs when its subject matches, ignoring Re: and Fwd:, and so does its application.
+   With no application, the other person has to match too. Reply answers the email showing.
+   Archive, Trash and Labels stay on the one you opened from the list, which shows one row per
+   email.
 3. **Archive, Trash, Move back, Restore** (`api.mailbox.move`), and **Delete forever** from the
    Trash (`api.mailbox.deleteForever`). Mail in the Trash also leaves its application's
    activity. Archived mail stays there.
 4. **Labels** (`api.mailbox.setLabels`): up to 10 on an email and 100 in all. One nothing uses
    goes away.
-5. **Reply** is on every row and on an open email, except in the Trash. On mail you sent, it goes
-   to whoever you sent it to. **New email** and **Reply** use the Tiptap editor, loaded only when opened
+5. **Reply** is under an open email, except in the Trash, and opens right there. It keeps the
+   email's subject and application, and on mail you sent it goes to whoever you sent it to.
+   **New email** and **Reply** use the Tiptap editor, loaded only when opened
    (`api.email.sendFromApplication`). An application is optional, and picking one aims replies at
    its company's address. **Save draft** seals it (`api.mailbox.saveDraft`), and sending removes it.
 6. **Templates** (`api.mailbox.saveTemplate`): a name, subject and body, up to 100. Picking one
@@ -707,6 +719,8 @@ labels. Workflow emails also land in Sent. Notify me doesn't.
    what you edited.
 4. **Remove** (`api.contacts.remove`). Someone who came from mail stays hidden, so their next
    email doesn't bring them back. Adding them yourself brings them back.
+5. **Add to contacts** on an open email (`api.contacts.known`, `api.contacts.save`) adds the
+   other person, on any email, with their name and the application's company when there is one.
 
 **By itself** (`internal.contacts.learn`): when mail lands on an application, whether it
 arrived, was imported, was filed by hand or was sent by you, the sender or recipient becomes a

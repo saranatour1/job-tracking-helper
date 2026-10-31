@@ -15,12 +15,13 @@ import { seal } from "../../lib/secrets"
 import { textOfHtml } from "../email/match"
 import { aad, keys, openJson, ownEvent, secretKeys, userIdOf } from "../email/utils"
 import { MailNote, Received } from "../email/validators"
-import { draftAad } from "./utils"
+import { draftAad, sameThread } from "./utils"
 import {
   DraftDetails,
   maxLabelLength,
   maxLabels,
   maxTemplates,
+  maxUnreadCount,
   SaveDraft,
   SaveTemplate,
   vBox,
@@ -121,6 +122,71 @@ const content = authedQuery({
       attachments: mail.attachments,
       sent: event.by === "sent",
     }
+  },
+})
+
+// The conversation an email is part of, oldest first, across folders. Subjects are sealed and
+// Cloudflare's send API returns no Message-ID, so this matches when you read rather than on save.
+// shortcut: looks at the newest 200 of an application's mail, or 100 around an email with none.
+// Store a thread key on each email if conversations outgrow that.
+const thread = authedQuery({
+  args: { eventId: v.id("mailEvents") },
+  returns: v.array(vMailRow),
+  handler: async (ctx, { eventId }) => {
+    const event = await ctx.db.get("mailEvents", eventId)
+    if (event?.userId !== ctx.userId) return []
+    const { applicationId, at } = event
+    const nearby = applicationId
+      ? await ctx.db
+          .query("mailEvents")
+          .withIndex("by_userId_and_applicationId", (q) =>
+            q.eq("userId", ctx.userId).eq("applicationId", applicationId)
+          )
+          .order("desc")
+          .take(200)
+      : [
+          ...(await ctx.db
+            .query("mailEvents")
+            .withIndex("by_userId_and_at", (q) => q.eq("userId", ctx.userId).lte("at", at))
+            .order("desc")
+            .take(50)),
+          ...(await ctx.db
+            .query("mailEvents")
+            .withIndex("by_userId_and_at", (q) => q.eq("userId", ctx.userId).gt("at", at))
+            .take(50)),
+        ]
+    const rows = await rowsOf(ctx, ctx.userId, nearby)
+    const opened = rows.find((r) => r.id === eventId)
+    if (!opened) return []
+    return rows
+      .filter((r) => sameThread(r, opened) && (r.box !== "trash" || r.id === eventId))
+      .sort((a, b) => a.at - b.at)
+  },
+})
+
+// Stops counting at the limit, which the page shows as "99+". Nothing gets decrypted for this.
+const unreadCount = authedQuery({
+  args: {},
+  returns: v.number(),
+  handler: async (ctx) => {
+    const unread = await ctx.db
+      .query("mailEvents")
+      .withIndex("by_userId_and_box_and_readAt", (q) =>
+        q.eq("userId", ctx.userId).eq("box", "inbox").eq("readAt", undefined)
+      )
+      .take(maxUnreadCount)
+    return unread.length
+  },
+})
+
+// Mail you sent has no read state.
+const markUnread = authedMutation({
+  args: { eventId: v.id("mailEvents") },
+  returns: v.null(),
+  handler: async (ctx, { eventId }) => {
+    const event = await ownEvent(ctx, ctx.userId, eventId)
+    if (event.by !== "sent") await ctx.db.patch("mailEvents", eventId, { readAt: undefined })
+    return null
   },
 })
 
@@ -444,7 +510,10 @@ const removeTemplate = authedMutation({
 export const mailboxApi = {
   page,
   content,
+  thread,
+  unreadCount,
   markRead,
+  markUnread,
   move,
   deleteForever,
   setLabels,

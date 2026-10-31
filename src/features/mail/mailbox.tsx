@@ -1,6 +1,6 @@
 import { api } from "@convex/_generated/api"
 import type { Id } from "@convex/_generated/dataModel"
-import type { Box } from "@convex/features/mailbox/validators"
+import { type Box, maxUnreadCount } from "@convex/features/mailbox/validators"
 import { getRouteApi, Link, useNavigate } from "@tanstack/react-router"
 import { useAction, useMutation } from "convex/react"
 import type { FunctionReturnType } from "convex/server"
@@ -25,6 +25,7 @@ import { Popover, PopoverPopup, PopoverTitle, PopoverTrigger } from "@/component
 import { ScrollArea } from "@/components/ui/scroll-area"
 import { Skeleton } from "@/components/ui/skeleton"
 import { messageOf } from "@/features/account/settings"
+import { CopyButton } from "@/features/contacts/contacts"
 import { PageHeader } from "@/features/shell/page-header"
 import { cn } from "@/lib/utils"
 
@@ -50,6 +51,8 @@ export type MailSearch = {
   view?: View
   label?: string
   open?: string
+  // Another email in the open email's thread, when you've picked one.
+  message?: string
   // "new", or a draft's id.
   compose?: string
   // The email being answered.
@@ -62,9 +65,10 @@ const stringOf = (value: unknown) => (typeof value === "string" && value ? value
 
 export const mailSearch = (search: Record<string, unknown>): MailSearch => {
   const view = views.find((v) => v === search.view)
-  const [label, open, compose, reply, template] = [
+  const [label, open, message, compose, reply, template] = [
     stringOf(search.label),
     stringOf(search.open),
+    stringOf(search.message),
     stringOf(search.compose),
     stringOf(search.reply),
     stringOf(search.template),
@@ -73,6 +77,7 @@ export const mailSearch = (search: Record<string, unknown>): MailSearch => {
     ...(view && { view }),
     ...(label && { label }),
     ...(open && { open }),
+    ...(message && { message }),
     ...(compose && { compose }),
     ...(reply && { reply }),
     ...(template && { template }),
@@ -157,30 +162,113 @@ const LabelsMenu = ({ row }: { row: Row }) => {
   )
 }
 
-const ReplyButton = ({ id, className }: { id: Row["id"]; className?: string }) => (
-  <Button
-    size="xs"
-    variant="outline"
-    className={className}
-    render={<Link from="/email" search={(s) => ({ ...s, reply: id })} />}
-  >
-    Reply
-  </Button>
+// One line of the email's details: easy to read, select and copy.
+const HeaderValue = ({
+  label,
+  value,
+  children,
+}: {
+  label: string
+  value: string
+  children?: React.ReactNode
+}) => (
+  <>
+    <dt className="text-muted-foreground">{label}</dt>
+    <dd className="flex min-w-0 flex-wrap items-center gap-x-1">
+      <span className="min-w-0 break-words">{value}</span>
+      <CopyButton text={value} label={`Copy ${label.toLowerCase()}`} />
+      {children}
+    </dd>
+  </>
 )
 
+const AddContact = ({ email, name, company }: { email: string; name: string; company: string }) => {
+  const known = useQuery(api.contacts.known, { email })
+  const save = useAction(api.contacts.save)
+  const [error, add, pending] = useActionState(
+    async () =>
+      save({ company, name, email, title: "", phone: "", notes: "" }).then(
+        () => undefined,
+        messageOf
+      ),
+    undefined
+  )
+  if (known === undefined) return null
+  if (known) return <span className="text-muted-foreground">In contacts</span>
+  return (
+    <>
+      <Button size="xs" variant="ghost" disabled={pending} onClick={() => startTransition(add)}>
+        Add to contacts
+      </Button>
+      {error && (
+        <span role="alert" className="text-destructive">
+          {error}
+        </span>
+      )}
+    </>
+  )
+}
+
+// Always takes up its space, so senders line up whether or not there's a dot.
+const UnreadDot = ({ unread, className }: { unread: boolean; className?: string }) => (
+  <span className={cn("size-2 shrink-0 rounded-full", unread && "bg-primary", className)}>
+    {unread && <span className="sr-only">Unread</span>}
+  </span>
+)
+
+// A collapsed email in a thread. Only the one you're reading gets opened.
+const ThreadLine = ({ message }: { message: Row }) => {
+  const markRead = useMutation(api.mailbox.markRead)
+  return (
+    <Link
+      from="/email"
+      search={(s) => ({ ...s, message: message.id })}
+      onClick={() => {
+        if (!message.read) void markRead({ eventId: message.id })
+      }}
+      className="hover:bg-accent/40 flex items-center gap-2 border-b px-4 py-1.5 text-xs"
+    >
+      <UnreadDot unread={!message.read} />
+      <span className={cn("min-w-0 flex-1 truncate", !message.read && "font-semibold")}>
+        {message.sent ? `You to ${message.to ?? ""}` : message.from}
+      </span>
+      <span className="text-muted-foreground shrink-0">{fullDate(message.at)}</span>
+    </Link>
+  )
+}
+
+const ThreadLines = ({ messages }: { messages: Row[] }) =>
+  messages.length > 0 && (
+    <div className="max-h-[25%] shrink-0 overflow-y-auto border-t">
+      {messages.map((message) => (
+        <ThreadLine key={message.id} message={message} />
+      ))}
+    </div>
+  )
+
 const Reader = ({ row }: { row: Row }) => {
-  const mail = useQuery(api.mailbox.content, { eventId: row.id })
+  const { reply, message } = route.useSearch()
+  const thread = useQuery(api.mailbox.thread, { eventId: row.id })
+  const messages = thread?.some((m) => m.id === row.id) ? thread : [row]
+  const shown = messages.find((m) => m.id === message) ?? row
+  const shownAt = messages.findIndex((m) => m.id === shown.id)
+  const mail = useQuery(api.mailbox.content, { eventId: shown.id })
   const move = useMutation(api.mailbox.move)
   const remove = useMutation(api.mailbox.deleteForever)
+  const markUnread = useMutation(api.mailbox.markUnread)
   const navigate = useNavigate({ from: "/email" })
-  const close = () => void navigate({ search: ({ open: _open, ...rest }) => rest })
+  const close = () =>
+    void navigate({
+      search: ({ open: _open, message: _message, reply: _reply, ...rest }) => rest,
+    })
+  const closeReply = () => void navigate({ search: ({ reply: _reply, ...rest }) => rest })
+  const other = mail && (mail.sent ? mail.to : mail.from)
   return (
     <section aria-label="Email" className="flex min-h-0 min-w-0 flex-1 flex-col">
       <div className="flex flex-wrap items-center gap-1 border-b px-3 py-2">
         <Button size="xs" variant="ghost" className="md:hidden" onClick={close}>
           Back
         </Button>
-        {row.box !== "trash" && <ReplyButton id={row.id} />}
         {row.box === "trash" || row.box === "archived" ? (
           <Button
             size="xs"
@@ -220,29 +308,65 @@ const Reader = ({ row }: { row: Row }) => {
           </Button>
         )}
         <LabelsMenu row={row} />
-      </div>
-      <div className="flex flex-col gap-1 border-b px-4 py-3">
-        <h2 className="text-base font-semibold">{row.subject}</h2>
-        <p className="text-muted-foreground text-xs break-words">
-          {mail
-            ? `From ${mail.fromName ? `${mail.fromName} <${mail.from}>` : mail.from} to ${mail.to}`
-            : " "}
-        </p>
-        <p className="text-muted-foreground text-xs">
-          {fullDate(row.at)}
-          {row.applicationId && row.company && (
-            <>
-              {" · "}
-              <Link to="/" search={{ app: row.applicationId }} className="underline">
-                {row.company}
-              </Link>
-            </>
-          )}
-        </p>
-        {mail && mail.attachments.length > 0 && (
-          <p className="text-muted-foreground text-xs">Attached: {mail.attachments.join(", ")}</p>
+        {shown.read && !shown.sent && (
+          <Button
+            size="xs"
+            variant="ghost"
+            onClick={() => void markUnread({ eventId: shown.id }).then(close)}
+          >
+            Mark as unread
+          </Button>
         )}
       </div>
+      <div className="flex flex-wrap items-center gap-x-1 px-4 py-3">
+        <h2 className="min-w-0 text-base font-semibold break-words">{shown.subject}</h2>
+        <CopyButton key={shown.id} text={shown.subject} label="Copy subject" />
+      </div>
+      <ThreadLines messages={messages.slice(0, shownAt)} />
+      <dl
+        key={shown.id}
+        className={cn(
+          "grid grid-cols-[auto_minmax(0,1fr)] items-baseline gap-x-3 border-b px-4 pb-3 text-xs",
+          shownAt > 0 && "pt-3"
+        )}
+      >
+        {mail && (
+          <>
+            <HeaderValue label="From" value={mail.from}>
+              {mail.fromName && <span className="text-muted-foreground">{mail.fromName}</span>}
+              {!mail.sent && (
+                <AddContact
+                  email={mail.from}
+                  name={mail.fromName ?? ""}
+                  company={shown.company ?? ""}
+                />
+              )}
+            </HeaderValue>
+            <HeaderValue label="To" value={mail.to}>
+              {mail.sent && other && (
+                <AddContact email={other} name="" company={shown.company ?? ""} />
+              )}
+            </HeaderValue>
+          </>
+        )}
+        <HeaderValue label="Date" value={fullDate(shown.at)} />
+        {shown.applicationId && shown.company && (
+          <>
+            <dt className="text-muted-foreground">Application</dt>
+            <dd className="py-0.5">
+              <Link to="/" search={{ app: shown.applicationId }} className="underline">
+                {shown.company}
+              </Link>
+            </dd>
+          </>
+        )}
+        {mail && mail.attachments.length > 0 && (
+          <>
+            <dt className="text-muted-foreground">Attached</dt>
+            <dd className="py-0.5 break-words">{mail.attachments.join(", ")}</dd>
+          </>
+        )}
+      </dl>
       {mail === undefined ? (
         <div className="p-4">
           <Skeleton className="h-32 w-full" />
@@ -251,7 +375,7 @@ const Reader = ({ row }: { row: Row }) => {
         <p className="text-muted-foreground p-4 text-[13px]">This email can't be read anymore.</p>
       ) : mail.html ? (
         <iframe
-          title={`Email: ${row.subject}`}
+          title={`Email: ${shown.subject}`}
           // No scripts, and links open outside it.
           sandbox="allow-popups allow-popups-to-escape-sandbox"
           srcDoc={frameOf(mail.html)}
@@ -264,6 +388,35 @@ const Reader = ({ row }: { row: Row }) => {
           </p>
         </ScrollArea>
       )}
+      <ThreadLines messages={messages.slice(shownAt + 1)} />
+      {mail && other && row.box !== "trash" && (
+        <div className="max-h-[70%] shrink-0 overflow-y-auto border-t">
+          {reply === row.id ? (
+            <ComposeForm
+              key={shown.id}
+              inline
+              start={{
+                // Your own sent mail gets answered to whoever you sent it to.
+                to: other,
+                subject: /^re:/i.test(mail.subject) ? mail.subject : `Re: ${mail.subject}`,
+                replyTo: shown.id,
+                ...(shown.applicationId && { applicationId: shown.applicationId }),
+              }}
+              onDone={closeReply}
+            />
+          ) : (
+            <div className="p-3">
+              <Button
+                size="sm"
+                variant="outline"
+                render={<Link from="/email" search={(s) => ({ ...s, reply: row.id })} />}
+              >
+                Reply
+              </Button>
+            </div>
+          )}
+        </div>
+      )}
     </section>
   )
 }
@@ -271,44 +424,55 @@ const Reader = ({ row }: { row: Row }) => {
 const MailRow = ({ row, open }: { row: Row; open: boolean }) => {
   const markRead = useMutation(api.mailbox.markRead)
   return (
-    <li className="relative">
+    <li>
       <Link
         from="/email"
-        search={(s) => ({ ...s, open: row.id })}
+        search={({ message: _message, ...s }) => ({ ...s, open: row.id })}
         onClick={() => {
           if (!row.read) void markRead({ eventId: row.id })
         }}
         aria-current={open ? "true" : undefined}
         className={cn(
-          "hover:bg-accent/40 flex flex-col gap-0.5 border-b px-3 py-2.5 text-[13px]",
+          "hover:bg-accent/40 flex gap-2 border-b px-3 py-3 text-[13px]",
           open && "bg-accent/60"
         )}
       >
-        <span className="flex items-baseline gap-2">
-          <span className={cn("min-w-0 flex-1 truncate", !row.read && "font-semibold")}>
-            {row.sent ? `To ${row.to ?? ""}` : row.from}
+        <UnreadDot unread={!row.read} className="mt-1.5" />
+        <span className="flex min-w-0 flex-1 flex-col gap-1">
+          <span className="flex items-baseline gap-2">
+            <span
+              className={cn(
+                "min-w-0 flex-1 truncate",
+                row.read ? "text-muted-foreground" : "font-semibold"
+              )}
+            >
+              {row.sent ? `To ${row.to ?? ""}` : row.from}
+            </span>
+            <span
+              className={cn("shrink-0 text-xs", row.read ? "text-muted-foreground" : "font-medium")}
+            >
+              {shortDate(row.at)}
+            </span>
           </span>
-          <span className="text-muted-foreground shrink-0 text-xs">{shortDate(row.at)}</span>
-        </span>
-        <span className={cn("truncate pe-14", !row.read ? "font-medium" : "text-muted-foreground")}>
-          {row.subject}
-        </span>
-        {(row.company || row.labels.length > 0) && (
-          <span className="mt-0.5 flex flex-wrap gap-1">
-            {row.company && (
-              <Badge variant="secondary" size="sm" className="font-normal">
-                {row.company}
-              </Badge>
-            )}
-            {row.labels.map((label) => (
-              <Badge key={label} variant="outline" size="sm" className="font-normal">
-                {label}
-              </Badge>
-            ))}
+          <span className={cn("truncate", row.read ? "text-muted-foreground" : "font-medium")}>
+            {row.subject}
           </span>
-        )}
+          {(row.company || row.labels.length > 0) && (
+            <span className="flex flex-wrap gap-1">
+              {row.company && (
+                <Badge variant="secondary" size="sm" className="font-normal">
+                  {row.company}
+                </Badge>
+              )}
+              {row.labels.map((label) => (
+                <Badge key={label} variant="outline" size="sm" className="font-normal">
+                  {label}
+                </Badge>
+              ))}
+            </span>
+          )}
+        </span>
       </Link>
-      {row.box !== "trash" && <ReplyButton id={row.id} className="absolute end-2 bottom-2" />}
     </li>
   )
 }
@@ -529,6 +693,7 @@ const ComposeForm = ({
   start,
   onDone,
   onSaved,
+  inline = false,
 }: {
   draftId?: Id<"mailDrafts">
   start: {
@@ -539,7 +704,9 @@ const ComposeForm = ({
     replyTo?: Id<"mailEvents">
   }
   onDone: () => void
-  onSaved: (id: Id<"mailDrafts">) => void
+  onSaved?: (id: Id<"mailDrafts">) => void
+  // Under the email it answers, rather than in a dialog.
+  inline?: boolean
 }) => {
   const send = useAction(api.email.sendFromApplication)
   const saveDraft = useAction(api.mailbox.saveDraft)
@@ -547,6 +714,8 @@ const ComposeForm = ({
   const templates = useQuery(api.mailbox.templates)
   const editor = useRef<EditorHandle>(null)
   const formRef = useRef<HTMLFormElement>(null)
+  // An inline reply stays put when saved, so later saves and sending need to know its draft.
+  const savedDraft = useRef(draftId)
   type State = { error?: string; saved?: boolean }
   const [state, act, pending] = useActionState<State, "send" | "save">(async (_, step) => {
     const form = new FormData(formRef.current!)
@@ -561,12 +730,16 @@ const ComposeForm = ({
     }
     try {
       if (step === "save") {
-        const id = await saveDraft({ ...body, ...(draftId && { id: draftId }) })
-        onSaved(id)
+        const id = await saveDraft({
+          ...body,
+          ...(savedDraft.current && { id: savedDraft.current }),
+        })
+        savedDraft.current = id
+        onSaved?.(id)
         return { saved: true }
       }
       if (editor.current?.isEmpty()) return { error: "Write something first." }
-      await send({ ...body, ...(draftId && { draftId }) })
+      await send({ ...body, ...(savedDraft.current && { draftId: savedDraft.current }) })
       onDone()
       return {}
     } catch (cause) {
@@ -579,10 +752,24 @@ const ComposeForm = ({
     if (!template || !formRef.current) return
     const chosen = new FormData(formRef.current).get("application")
     const application = applications?.find((a) => a._id === chosen)
-    const subject = formRef.current.elements.namedItem("subject") as HTMLInputElement
-    subject.value = fillIn(template.subject, application)
+    // A reply keeps the subject of the email it answers.
+    if (!inline) {
+      const subject = formRef.current.elements.namedItem("subject") as HTMLInputElement
+      subject.value = fillIn(template.subject, application)
+    }
     editor.current?.setHtml(fillIn(template.html, application))
   }
+  const Fields = inline ? "div" : DialogPanel
+  const actions = (
+    <>
+      <Button type="button" variant="outline" disabled={pending} onClick={() => run("save")}>
+        Save draft
+      </Button>
+      <Button type="submit" disabled={pending}>
+        {pending ? "Working…" : "Send"}
+      </Button>
+    </>
+  )
   return (
     <form
       ref={formRef}
@@ -592,58 +779,68 @@ const ComposeForm = ({
         run("send")
       }}
     >
-      <DialogHeader>
-        <DialogTitle>{start.replyTo ? "Reply" : draftId ? "Draft" : "New email"}</DialogTitle>
-        {draftId && <DialogDescription>Saved in your Drafts.</DialogDescription>}
-      </DialogHeader>
-      <DialogPanel className="grid gap-3">
+      {!inline && (
+        <DialogHeader>
+          <DialogTitle>{draftId ? "Draft" : "New email"}</DialogTitle>
+          {draftId && <DialogDescription>Saved in your Drafts.</DialogDescription>}
+        </DialogHeader>
+      )}
+      <Fields className={cn("grid gap-3", inline && "p-3")}>
         <div className="grid gap-1.5">
           <Label htmlFor="mail-to">To</Label>
           <Input id="mail-to" name="to" type="email" defaultValue={start.to} required />
         </div>
+        {inline ? (
+          <>
+            {/* A reply keeps its subject and application, so neither needs asking. */}
+            <input type="hidden" name="subject" value={start.subject} />
+            <input type="hidden" name="application" value={start.applicationId ?? ""} />
+          </>
+        ) : (
+          <>
+            <div className="grid gap-1.5">
+              <Label htmlFor="mail-subject">Subject</Label>
+              <Input
+                id="mail-subject"
+                name="subject"
+                defaultValue={start.subject}
+                maxLength={500}
+                required
+              />
+            </div>
+            <div className="grid gap-1.5">
+              <Label htmlFor="mail-application">Application</Label>
+              <select
+                id="mail-application"
+                name="application"
+                defaultValue={start.applicationId ?? ""}
+                className="border-input bg-background h-8 min-w-0 rounded-md border px-2 text-[13px]"
+              >
+                <option value="">None</option>
+                {applications?.map((a) => (
+                  <option key={a._id} value={a._id}>
+                    {a.company}: {a.role}
+                  </option>
+                ))}
+              </select>
+            </div>
+          </>
+        )}
         <div className="grid gap-1.5">
-          <Label htmlFor="mail-subject">Subject</Label>
-          <Input
-            id="mail-subject"
-            name="subject"
-            defaultValue={start.subject}
-            maxLength={500}
-            required
-          />
-        </div>
-        <div className="grid gap-3 sm:grid-cols-2">
-          <div className="grid gap-1.5">
-            <Label htmlFor="mail-application">Application</Label>
-            <select
-              id="mail-application"
-              name="application"
-              defaultValue={start.applicationId ?? ""}
-              className="border-input bg-background h-8 min-w-0 rounded-md border px-2 text-[13px]"
-            >
-              <option value="">None</option>
-              {applications?.map((a) => (
-                <option key={a._id} value={a._id}>
-                  {a.company}: {a.role}
-                </option>
-              ))}
-            </select>
-          </div>
-          <div className="grid gap-1.5">
-            <Label htmlFor="mail-template">Template</Label>
-            <select
-              id="mail-template"
-              defaultValue=""
-              onChange={(e) => applyTemplate(e.target.value)}
-              className="border-input bg-background h-8 min-w-0 rounded-md border px-2 text-[13px]"
-            >
-              <option value="">None</option>
-              {templates?.map((t) => (
-                <option key={t.id} value={t.id}>
-                  {t.name}
-                </option>
-              ))}
-            </select>
-          </div>
+          <Label htmlFor="mail-template">Template</Label>
+          <select
+            id="mail-template"
+            defaultValue=""
+            onChange={(e) => applyTemplate(e.target.value)}
+            className="border-input bg-background h-8 min-w-0 rounded-md border px-2 text-[13px]"
+          >
+            <option value="">None</option>
+            {templates?.map((t) => (
+              <option key={t.id} value={t.id}>
+                {t.name}
+              </option>
+            ))}
+          </select>
         </div>
         <Editor
           handle={editor}
@@ -655,16 +852,23 @@ const ComposeForm = ({
             {state.error}
           </p>
         )}
-      </DialogPanel>
-      <DialogFooter>
-        <DialogClose render={<Button variant="ghost" />}>Close</DialogClose>
-        <Button type="button" variant="outline" disabled={pending} onClick={() => run("save")}>
-          Save draft
-        </Button>
-        <Button type="submit" disabled={pending}>
-          {pending ? "Working…" : "Send"}
-        </Button>
-      </DialogFooter>
+        {inline && state.saved && (
+          <p className="text-muted-foreground text-xs">Saved in your Drafts.</p>
+        )}
+      </Fields>
+      {inline ? (
+        <div className="flex justify-end gap-2 px-3 pb-3">
+          <Button type="button" variant="ghost" onClick={onDone}>
+            Cancel
+          </Button>
+          {actions}
+        </div>
+      ) : (
+        <DialogFooter>
+          <DialogClose render={<Button variant="ghost" />}>Close</DialogClose>
+          {actions}
+        </DialogFooter>
+      )}
     </form>
   )
 }
@@ -682,27 +886,6 @@ const FromDraft = (props: {
       key={props.id}
       draftId={props.id}
       start={draft}
-      onDone={props.onDone}
-      onSaved={props.onSaved}
-    />
-  )
-}
-
-const FromReply = (props: {
-  id: Id<"mailEvents">
-  onDone: () => void
-  onSaved: (id: Id<"mailDrafts">) => void
-}) => {
-  const mail = useQuery(api.mailbox.content, { eventId: props.id })
-  if (!mail) return <DialogPanel>{mail === null ? "That email is gone." : "Opening…"}</DialogPanel>
-  return (
-    <ComposeForm
-      start={{
-        // Your own sent mail gets answered to whoever you sent it to.
-        to: mail.sent ? mail.to : mail.from,
-        subject: /^re:/i.test(mail.subject) ? mail.subject : `Re: ${mail.subject}`,
-        replyTo: props.id,
-      }}
       onDone={props.onDone}
       onSaved={props.onSaved}
     />
@@ -727,14 +910,15 @@ export const Mailbox = () => {
   const search = route.useSearch()
   const navigate = useNavigate({ from: "/email" })
   const labels = useQuery(api.mailbox.labels)
+  const unread = useQuery(api.mailbox.unreadCount)
   const view = search.view ?? "inbox"
-  const dialog = search.compose ?? search.reply ?? search.template
+  const dialog = search.compose ?? search.template
   const closeDialog = () =>
     void navigate({
-      search: ({ compose: _c, reply: _r, template: _t, ...rest }) => rest,
+      search: ({ compose: _c, template: _t, ...rest }) => rest,
     })
   const onSaved = (id: Id<"mailDrafts">) =>
-    void navigate({ search: ({ reply: _r, ...rest }) => ({ ...rest, compose: id }), replace: true })
+    void navigate({ search: (rest) => ({ ...rest, compose: id }), replace: true })
   const navItem = (active: boolean) =>
     cn(
       "hover:bg-accent/40 shrink-0 rounded-md px-2 py-1.5 text-[13px] md:truncate",
@@ -764,9 +948,18 @@ export const Mailbox = () => {
               to="/email"
               search={v === "inbox" ? {} : { view: v }}
               aria-current={view === v && !search.label ? "page" : undefined}
-              className={navItem(view === v && !search.label)}
+              className={cn(
+                navItem(view === v && !search.label),
+                "flex items-center justify-between gap-2"
+              )}
             >
               {viewNames[v]}
+              {v === "inbox" && !!unread && (
+                <span className="bg-primary text-primary-foreground rounded-full px-1.5 text-xs font-medium tabular-nums">
+                  {unread >= maxUnreadCount ? "99+" : unread}
+                  <span className="sr-only"> unread</span>
+                </span>
+              )}
             </Link>
           ))}
           {labels && labels.length > 0 && (
@@ -804,12 +997,6 @@ export const Mailbox = () => {
         <DialogPopup className="sm:max-w-2xl">
           {search.template ? (
             <FromTemplate id={search.template} onDone={closeDialog} />
-          ) : search.reply ? (
-            <FromReply
-              id={search.reply as Id<"mailEvents">}
-              onDone={closeDialog}
-              onSaved={onSaved}
-            />
           ) : search.compose && search.compose !== "new" ? (
             <FromDraft
               id={search.compose as Id<"mailDrafts">}

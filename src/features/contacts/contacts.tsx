@@ -133,11 +133,16 @@ const EditContact = ({ contact, trigger }: { contact?: Contact; trigger: React.R
 const lineOf = (c: Contact) =>
   [c.name, c.title, c.company, c.email, c.phone].filter(Boolean).join(", ")
 
-const CopyButton = ({ text, label }: { text: string; label: string }) => {
-  const [copied, copy] = useActionState(async () => {
-    await navigator.clipboard.writeText(text)
-    return true
-  }, false)
+export const CopyButton = ({ text, label }: { text: string; label: string }) => {
+  // A browser can refuse, and an action that throws takes the whole page down with it.
+  const [result, copy] = useActionState(
+    () =>
+      navigator.clipboard.writeText(text).then(
+        () => "Copied",
+        () => "Couldn't copy"
+      ),
+    "Copy"
+  )
   return (
     <Button
       size="xs"
@@ -145,7 +150,7 @@ const CopyButton = ({ text, label }: { text: string; label: string }) => {
       aria-label={`${label}: ${text}`}
       onClick={() => startTransition(copy)}
     >
-      {copied ? "Copied" : "Copy"}
+      {result}
     </Button>
   )
 }

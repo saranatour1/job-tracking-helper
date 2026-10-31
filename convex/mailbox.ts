@@ -4,7 +4,10 @@ import { mailboxApi } from "./features/mailbox/public"
 export const {
   page,
   content,
+  thread,
+  unreadCount,
   markRead,
+  markUnread,
   move,
   deleteForever,
   setLabels,

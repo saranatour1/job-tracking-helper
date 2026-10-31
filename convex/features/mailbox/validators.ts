@@ -15,6 +15,7 @@ export const maxLabelLength = 30
 // More than a real email needs, and small enough to stay well inside a document.
 export const maxHtml = 200_000
 export const maxTemplates = 100
+export const maxUnreadCount = 100
 
 // A label you've used, with how many emails have it, so one nothing uses goes away.
 export const MailLabel = type({ userId: arkId("users"), name: "string", count: "number" })
