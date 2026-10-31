@@ -77,21 +77,21 @@ docs/
 
 ## Tools
 
-| Area          | Used                                                                    |
-| ------------- | ----------------------------------------------------------------------- |
-| Toolchain     | Vite+ (`vp`) for the dev server, build, lint and format                 |
-| Frontend      | React 19, TanStack Start, Router, Table and Form, Tiptap                |
-| UI            | Tailwind CSS v4, shadcn CLI with coss ui, Hugeicons, kloq, React Flow   |
-| Backend       | Convex, Convex Auth v2, convex-helpers, batch worker for big deletes    |
-| Agents        | `@convex-dev/mcp`                                                       |
-| AI            | Jev and Gemini Flash Lite, through the Convex AI gateway and the AI SDK |
-| Forms and web | Firecrawl, RDAP, the community YC list                                  |
-| Validation    | arktype                                                                 |
-| Type checking | tsrs                                                                    |
-| Convex lint   | `@convex-dev/eslint-plugin`, loaded by oxlint                           |
-| Secrets       | 1Password CLI (`op`)                                                    |
-| Hosting       | Cloudflare Workers, through `@cloudflare/vite-plugin`                   |
-| Analytics     | Databuddy                                                               |
+| Area          | Used                                                                  |
+| ------------- | --------------------------------------------------------------------- |
+| Toolchain     | Vite+ (`vp`) for the dev server, build, lint and format               |
+| Frontend      | React 19, TanStack Start, Router, Table and Form, Tiptap              |
+| UI            | Tailwind CSS v4, shadcn CLI with coss ui, Hugeicons, kloq, React Flow |
+| Backend       | Convex, Convex Auth v2, convex-helpers, batch worker for big deletes  |
+| Agents        | `@convex-dev/mcp`                                                     |
+| AI            | Jev and Claude Haiku, through the Convex AI gateway and the AI SDK    |
+| Forms and web | Firecrawl, RDAP, the community YC list                                |
+| Validation    | arktype                                                               |
+| Type checking | tsrs                                                                  |
+| Convex lint   | `@convex-dev/eslint-plugin`, loaded by oxlint                         |
+| Secrets       | 1Password CLI (`op`)                                                  |
+| Hosting       | Cloudflare Workers, through `@cloudflare/vite-plugin`                 |
+| Analytics     | Databuddy                                                             |
 
 Written for this repo:
 
