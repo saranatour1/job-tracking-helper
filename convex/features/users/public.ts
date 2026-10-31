@@ -2,18 +2,10 @@ import { ConvexError, v } from "convex/values"
 import { components } from "../../_generated/api"
 import { arkMutation, authedMutation, authedQuery } from "../../lib/functions"
 import { deleteEmail } from "../email/utils"
-import { deleteLoops } from "../loops/utils"
 import { deleteNotifications } from "../notifications/utils"
-import { deleteViews } from "../views/utils"
-import { deleteGoals } from "../goals/utils"
-import { deleteContacts } from "../contacts/utils"
-import { deleteActivity, logEdit } from "../activity/utils"
-import { deleteMailbox } from "../mailbox/utils"
-import { deletePrefills } from "../prefilled/utils"
-import { deleteCalendar } from "../calendar/utils"
-import { deleteBookingPages } from "../booking/utils"
-import { deleteAutomations } from "../automations/utils"
-import { deletePreferences } from "../preferences/utils"
+import { logEdit } from "../activity/utils"
+import { startDelete } from "../deletes/utils"
+import { deleteResumeFile } from "../preferences/utils"
 import { maxImageBytes, Profile, vMe } from "./validators"
 
 const me = authedQuery({
@@ -101,28 +93,15 @@ const deleteAccount = authedMutation({
   args: {},
   returns: v.null(),
   handler: async (ctx) => {
-    for await (const application of ctx.db
-      .query("applications")
-      .withIndex("by_userId", (q) => q.eq("userId", ctx.userId))) {
-      await ctx.db.delete("applications", application._id)
-    }
     const user = await ctx.db.get("users", ctx.userId)
     if (user?.imageId) await ctx.storage.delete(user.imageId)
-    await deletePreferences(ctx, ctx.userId)
-    await deleteLoops(ctx, ctx.userId)
+    await deleteResumeFile(ctx, ctx.userId)
     await deleteEmail(ctx, ctx.userId)
-    await deleteContacts(ctx, ctx.userId)
-    await deleteMailbox(ctx, ctx.userId)
-    await deleteActivity(ctx, ctx.userId)
     await deleteNotifications(ctx, ctx.userId)
-    await deleteViews(ctx, ctx.userId)
-    await deleteGoals(ctx, ctx.userId)
-    await deletePrefills(ctx, ctx.userId)
-    await deleteCalendar(ctx, ctx.userId)
-    await deleteBookingPages(ctx, ctx.userId)
-    await deleteAutomations(ctx, ctx.userId)
     await ctx.runMutation(components.authUsername.public.deleteUsername, { userId: ctx.userId })
     await ctx.db.replace("users", ctx.userId, {})
+    // Everything else goes in batches, moments after this.
+    await startDelete(ctx, { kind: "account", userId: ctx.userId, before: Date.now() })
     return null
   },
 })

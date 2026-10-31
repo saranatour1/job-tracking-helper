@@ -30,10 +30,3 @@ export const roomFor = async (ctx: MutationCtx, userId: Id<"users">) => {
   if (existing.length >= maxGoals) throw new ConvexError(`You can keep ${maxGoals} goals.`)
 }
 
-// For account deletion.
-export const deleteGoals = async (ctx: MutationCtx, userId: Id<"users">) => {
-  for await (const goal of ctx.db
-    .query("goals")
-    .withIndex("by_userId", (q) => q.eq("userId", userId)))
-    await ctx.db.delete("goals", goal._id)
-}

@@ -101,6 +101,8 @@ docs/
 
 Routes use regular text, not table ids: `/pipeline/app-4`, `/prefilled/engineer-figma`, `/email?open=oct-31-3-10-pm`. `src/lib/route-ids.ts` turns ids into text and back. Email, drafts, runs and Updates use their date, so a private subject never reaches a URL.
 
+Anything that can delete many rows goes through `startDelete` (`convex/features/deletes/`), which uses the batch worker.
+
 Tests that run Convex functions are named `*.convex.test.ts` and use `convex-test`. The typecheck leaves them out, because the component test helpers are typed against another copy of `convex`.
 
 Arguments use arktype when text has rules Convex can't check, like trimming or lengths. Ids, booleans and fixed choices use `v`. A validator that reads `schema.doc` stays beside its function, because `schema.ts` imports `validators.ts`.
@@ -112,7 +114,7 @@ Arguments use arktype when text has rules Convex can't check, like trimming or l
 | Toolchain     | Vite+ (`vp`) for the dev server, build, lint and format                 |
 | Frontend      | React 19, TanStack Start, Router, Table and Form, Tiptap                |
 | UI            | Tailwind CSS v4, shadcn CLI with coss ui, Hugeicons, kloq, React Flow   |
-| Backend       | Convex, Convex Auth v2, convex-helpers                                  |
+| Backend       | Convex, Convex Auth v2, convex-helpers, batch worker for big deletes    |
 | AI            | Jev and Gemini Flash Lite, through the Convex AI gateway and the AI SDK |
 | Forms and web | Firecrawl                                                               |
 | Validation    | arktype                                                                 |

@@ -2,6 +2,7 @@
 /// <reference types="vite/client" />
 import rateLimiter from "@convex-dev/rate-limiter/test"
 import workpool from "@convex-dev/workpool/test"
+import batchWorker from "@convex-dev/batch-worker/test"
 import { convexTest } from "convex-test"
 import { beforeEach, describe, expect, it, vi } from "vite-plus/test"
 
@@ -38,6 +39,7 @@ const first = { numItems: 25, cursor: null }
 
 const setup = async () => {
   const t = convexTest(schema, modules)
+  batchWorker.register(t as never)
   rateLimiter.register(t as never)
   workpool.register(t as never, "applyPool")
   t.registerComponent(
@@ -262,6 +264,7 @@ describe("activity", () => {
     })
     await failed(userId, now - 91 * 24 * 60 * 60 * 1000, "ancient")
     await t.mutation(internal.api.activity.sweep, {})
+    await t.finishAllScheduledFunctions(vi.runAllTimers)
     const left = await t.run((ctx) => ctx.db.query("activityEvents").collect())
     expect(new Set(left.map((r) => r.error))).toEqual(new Set(["newer", "older", "theirs"]))
   })

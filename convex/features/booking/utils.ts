@@ -1,4 +1,4 @@
-import type { QueryCtx, MutationCtx } from "../../_generated/server"
+import type { QueryCtx } from "../../_generated/server"
 import type { Id } from "../../_generated/dataModel"
 import { type Window, fromWall, type Hours } from "./slots"
 import { keys, openJson, aad } from "../email/utils"
@@ -70,10 +70,3 @@ export const hoursOf = (page: Hours): Hours => ({
   timeZone: page.timeZone,
 })
 
-// For account deletion.
-export const deleteBookingPages = async (ctx: MutationCtx, userId: Id<"users">) => {
-  for await (const row of ctx.db
-    .query("bookingPages")
-    .withIndex("by_userId", (q) => q.eq("userId", userId)))
-    await ctx.db.delete("bookingPages", row._id)
-}

@@ -94,10 +94,3 @@ export const ownPrefill = async (ctx: MutationCtx, userId: Id<"users">, id: Id<"
   return row
 }
 
-// For account deletion.
-export const deletePrefills = async (ctx: MutationCtx, userId: Id<"users">) => {
-  for await (const row of ctx.db
-    .query("prefills")
-    .withIndex("by_userId", (q) => q.eq("userId", userId)))
-    await ctx.db.delete("prefills", row._id)
-}

@@ -10,6 +10,7 @@ import rateLimiter from "@convex-dev/rate-limiter/convex.config.js"
 import workflow from "@convex-dev/workflow/convex.config.js"
 import aggregate from "@convex-dev/aggregate/convex.config.js"
 import workpool from "@convex-dev/workpool/convex.config.js"
+import batchWorker from "@convex-dev/batch-worker/convex.config.js"
 import cloudflareEmail from "./components/cloudflareEmail/convex.config"
 import notifications from "./components/notifications/convex.config"
 
@@ -68,6 +69,8 @@ app.use(workpool, { name: "readPool" })
 // Auto-apply runs: a few at a time, and never retried, so a form is never submitted twice.
 app.use(workpool, { name: "applyPool" })
 app.use(rateLimiter)
+// Big deletes, in batches, by one loop (features/deletes).
+app.use(batchWorker)
 
 // Counters: each workflow's runs bucketed by how they ended (see automations/counts).
 app.use(aggregate, { name: "automationRunCounts" })

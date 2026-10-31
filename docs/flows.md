@@ -40,6 +40,10 @@ Workflows have their own page, [workflows.md](workflows.md).
 
 ## Across the app
 
+### Big deletes
+
+Anything that can touch many rows goes through one batch worker (`@convex-dev/batch-worker`, `convex/features/deletes/`): deleting an account, emptying the Trash, Trash past its date, and Activity past 90 days. Each is a row in `deleteJobs`. The worker finds the next rows in a query, deletes them in a mutation, and moves on, so no single mutation can hit Convex's limits. It rechecks each row first, so an application you restored after pressing Empty the Trash stays. If a job fails partway, it's logged as `delete.job` and dropped, so the jobs behind it still run. Every 15 minutes, a job waiting too long restarts the worker (`internal.api.deletes.restartIfStuck`).
+
 ### What's in a URL
 
 Routes and search params carry regular text, never a table id (`src/lib/route-ids.ts`):
@@ -276,7 +280,7 @@ of 50 fields, with no names twice.
 11. **Delete one:** Move to Trash (or the bin icon in its panel) puts it in the **Trash**
     tab, out of everything else: the board, mail matching, bookings and workflows
     (`api.applications.trash`). In the Trash, Restore puts it back on the board, Delete
-    forever removes it now, and Empty the Trash removes them all, a batch at a time.
+    forever removes it now, and Empty the Trash removes them all, through the batch worker.
 
 **By itself:** a status change fires the `status` event for workflows; a sorted email
 can suggest a move, or make it when you let Jev (see [Email](#email)). Each day
@@ -841,7 +845,7 @@ Interface and theme, Account)
 5. **Delete account:** confirm, then everything goes: applications, Preferences and
    resume, loops and their runs and roles, email connection and mail, notifications,
    views, goals, prefilled applications, calendar, booking pages and workflows. Your username is
-   freed.
+   freed. Your profile, files and mail connection go at once, and the rest follows in batches moments later.
 
 **Files:** `src/features/account/`, `convex/features/users/`.
 

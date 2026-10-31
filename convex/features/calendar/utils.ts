@@ -16,15 +16,3 @@ export const byKey = (ctx: MutationCtx, userId: Id<"users">, key: string) =>
     .withIndex("by_userId_and_key", (q) => q.eq("userId", userId).eq("key", key))
     .unique()
 
-// For account deletion.
-export const deleteCalendar = async (ctx: MutationCtx, userId: Id<"users">) => {
-  for await (const row of ctx.db
-    .query("calendarEvents")
-    .withIndex("by_userId_and_key", (q) => q.eq("userId", userId)))
-    await ctx.db.delete("calendarEvents", row._id)
-  const row = await ctx.db
-    .query("calendarSettings")
-    .withIndex("by_userId", (q) => q.eq("userId", userId))
-    .unique()
-  if (row) await ctx.db.delete("calendarSettings", row._id)
-}

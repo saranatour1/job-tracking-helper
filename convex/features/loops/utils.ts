@@ -206,22 +206,6 @@ export const stopRunNow = async (ctx: MutationCtx, run: Doc<"loopRuns">) => {
   await keepLog(ctx, log)
 }
 
-// Everything Loops stored for a user, for deleting an account. Usage is shared, so it stays.
-export const deleteLoops = async (ctx: MutationCtx, userId: Id<"users">) => {
-  for await (const loop of ctx.db
-    .query("loops")
-    .withIndex("by_userId", (q) => q.eq("userId", userId)))
-    await ctx.db.delete("loops", loop._id)
-  for await (const run of ctx.db
-    .query("loopRuns")
-    .withIndex("by_userId_and_startedAt", (q) => q.eq("userId", userId)))
-    await ctx.db.delete("loopRuns", run._id)
-  for await (const lead of ctx.db
-    .query("jobLeads")
-    .withIndex("by_userId_and_status", (q) => q.eq("userId", userId)))
-    await ctx.db.delete("jobLeads", lead._id)
-}
-
 // Reads a page that isn't on a job board, once, through Firecrawl (1 credit).
 export const scrape = async (url: string) => {
   const apiKey = apiKeyOf("firecrawl")

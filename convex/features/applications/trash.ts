@@ -4,6 +4,7 @@ import { internal } from "../../_generated/api"
 import { internalMutation } from "../../_generated/server"
 import { authedMutation, authedQuery } from "../../lib/functions"
 import schema from "../../schema"
+import { startDelete } from "../deletes/utils"
 import { archiveDays, trashDayChoices } from "./validators"
 import {
   day,
@@ -13,7 +14,6 @@ import {
   purgeAtOf,
   deleteApplication,
   moveToTrash,
-  emptySome,
 } from "./utils"
 import { logEdit } from "../activity/utils"
 
@@ -95,20 +95,15 @@ const deleteForever = authedMutation({
   },
 })
 
-/** Deletes everything in the Trash for good. Returns how many went in this first batch. */
+/** Deletes everything in the Trash for good, in batches. */
 const emptyTrash = authedMutation({
   args: {},
-  returns: v.number(),
+  returns: v.null(),
   handler: async (ctx) => {
+    await startDelete(ctx, { kind: "trash", userId: ctx.userId, before: Date.now() })
     await logEdit(ctx, ctx.userId, "application.delete", "Emptied the Trash")
-    return emptySome(ctx, ctx.userId)
+    return null
   },
-})
-
-const emptyTrashFor = internalMutation({
-  args: { userId: v.id("users") },
-  returns: v.number(),
-  handler: (ctx, { userId }) => emptySome(ctx, userId),
 })
 
 /** How long the Trash keeps things; what's already in it moves to the new date. */
@@ -140,12 +135,12 @@ const trashSettings = authedQuery({
   }),
 })
 
-/** The daily sweep: archived applications past `archiveDays` move to the Trash, and
- * trashed ones past their `purgeAt` are deleted, a batch of each at a time; it runs again
- * at once while a batch came back full. Returns how many it moved and deleted. */
+/** The daily sweep: archived applications past `archiveDays` move to the Trash, a batch at a
+ * time, running again at once while a batch came back full. Trashed ones past their `purgeAt`
+ * go to the batch worker. Returns how many it moved, and whether any were due. */
 const sweep = internalMutation({
   args: {},
-  returns: v.object({ trashed: v.number(), deleted: v.number() }),
+  returns: v.object({ trashed: v.number(), due: v.boolean() }),
   handler: async (ctx) => {
     const now = Date.now()
     // Trashing clears archivedAt, so everything in this range still needs moving.
@@ -159,11 +154,11 @@ const sweep = internalMutation({
     const due = await ctx.db
       .query("applications")
       .withIndex("by_purgeAt", (q) => q.gt("purgeAt", 0).lte("purgeAt", now))
-      .take(batch)
-    for (const application of due) await deleteApplication(ctx, application)
-    if (stale.length === batch * 2 || due.length === batch)
+      .first()
+    if (due) await startDelete(ctx, { kind: "expiredTrash", before: now })
+    if (stale.length === batch * 2)
       await ctx.scheduler.runAfter(0, internal.api.applications.sweep, {})
-    return { trashed: stale.length, deleted: due.length }
+    return { trashed: stale.length, due: due !== null }
   },
 })
 
@@ -174,7 +169,6 @@ export const trashApi = {
   restore,
   deleteForever,
   emptyTrash,
-  emptyTrashFor,
   setTrashDays,
   trashSettings,
   sweep,

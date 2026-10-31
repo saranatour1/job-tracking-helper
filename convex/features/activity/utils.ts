@@ -96,9 +96,3 @@ export const reasonOf = (cause: unknown) =>
       ? cause.message
       : "Something went wrong."
 
-export const deleteActivity = async (ctx: MutationCtx, userId: Id<"users">) => {
-  for await (const row of ctx.db
-    .query("activityEvents")
-    .withIndex("by_userId_and_at", (q) => q.eq("userId", userId)))
-    await ctx.db.delete("activityEvents", row._id)
-}
