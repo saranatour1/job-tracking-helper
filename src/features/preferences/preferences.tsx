@@ -250,7 +250,7 @@ const ResumeStep = ({ resume }: { resume: { name: string; url: string | null } |
   return (
     <Section
       title="Resume, if you have one"
-      description="Optional. It's read only when you press Review on the Resume page, or when auto-apply sends it with an application."
+      description="Optional. It's read only when you press Review on the Resume page, or when you send it with an application."
     >
       <p className="text-muted-foreground text-xs leading-relaxed">
         Kept so you can attach it when an application form asks for one, and so the Resume page can
@@ -522,11 +522,11 @@ const Prefilled = ({
       <ScrollArea className="min-h-0 flex-1">
         <div className={cn(pageBody, "animate-in fade-in duration-300 motion-reduce:animate-none")}>
           <PageIntro
-            title="Prefilled"
+            title="Saved answers"
             description={
               <>
-                What to put in the fields application forms ask for, ready to copy. Rename, add or
-                remove any field or section. Nothing gets filled in anywhere without you.
+                What to put in the fields application forms ask for. Prefilled applications answer
+                from these. Rename, add or remove any field or section. Nothing is sent without you.
                 {!saved && " Suggested from your account and answers until you save."}
               </>
             }
@@ -749,7 +749,7 @@ export const preferencesSearch = (
   add: typeof search.add === "string" && search.add.trim() ? search.add.slice(0, 200) : undefined,
 })
 
-// When auto-apply last used each Prefilled answer, by section and label.
+// When an application last used each saved answer, by section and label.
 export type Usage = Record<string, { lastUsedAt?: number; useCount?: number }>
 export const usageKey = (section: string, label: string) => `${section}\n${label}`
 
@@ -1258,7 +1258,7 @@ const PreferencesForm = ({
           <TabsList size="sm">
             <TabsTab value="overview">Overview</TabsTab>
             <TabsTab value="edit">Edit</TabsTab>
-            <TabsTab value="prefilled">Prefilled</TabsTab>
+            <TabsTab value="prefilled">Saved answers</TabsTab>
           </TabsList>
         </div>
         <TabsPanel value="overview" className="flex min-h-0">

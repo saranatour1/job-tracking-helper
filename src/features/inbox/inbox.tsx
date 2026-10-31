@@ -263,8 +263,8 @@ export const Inbox = () => {
                       ? "Open loops"
                       : note.link === "/calendar"
                         ? "Open calendar"
-                        : note.link === "/activity"
-                          ? "Open activity"
+                        : note.link === "/prefilled"
+                          ? "Open prefilled applications"
                           : "Open applications"}
                   </Button>
                 )}

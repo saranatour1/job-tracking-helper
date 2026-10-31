@@ -26,7 +26,7 @@ Workflows have their own page, [workflows.md](workflows.md).
 6. [Applications](#applications)
 7. [Views and goals](#views-and-goals)
 8. [Jobs](#jobs)
-9. [Auto-apply and Activity](#auto-apply-and-activity)
+9. [Prefilled applications and Activity](#prefilled-applications-and-activity)
 10. [Loops](#loops)
 11. [Inbox](#inbox)
 12. [Email](#email)
@@ -161,16 +161,16 @@ pasted links that aren't on a known board. A source without a key is skipped.
 5. **Resume:** upload a PDF, Word or text file up to 10 MB
    (`api.preferences.setResume`). One at a time; a new one replaces the old.
 6. **Overview** shows every answer; clicking one opens that step.
-7. **Prefilled** keeps form fields to copy into applications. "Fill" suggests them from
+7. **Saved answers** keeps form fields to copy, and that prefilled applications answer from. "Fill" suggests them from
    your answers, each field has a copy button, and Save keeps them
-   (`api.preferences.savePrefilled`). Under a field auto-apply has put in a form, "Used
+   (`api.preferences.savePrefilled`). Under a field an application has used, "Used
    3× · last Oct 30". Opening the tab with `?add=<question>` (Activity's **Add to
-   Prefilled**) adds that question to "Your questions", empty, for you to answer and
+   saved answers**) adds that question to "Your questions", empty, for you to answer and
    save.
 
 **By itself:** loops and pasted links read your Preferences (`profileFor`) along with
-the roles you liked and dismissed, and loop templates start from your tags. Auto-apply
-fills forms from Prefilled, your custom questions and your account name and email.
+the roles you liked and dismissed, and loop templates start from your tags. Prefilled
+applications answer from Saved answers, your custom questions and your account name and email.
 
 **Rules:** each tag is 1 to 60 characters, 40 per list; Prefilled has up to 20 sections
 of 50 fields, with no names twice.
@@ -347,9 +347,9 @@ and loops can be picked, edited or deleted.
    days) and Remote. Compact turns them into one line each.
 4. "More like this" searches by a role's title; the link icon opens the posting.
    Applications link here too.
-5. **Auto-apply** puts the role in your auto-apply pile (`api.autoApply.queue`); see
-   [Auto-apply and Activity](#auto-apply-and-activity). A role already in the pile
-   shows where it is instead: Queued, Applying, Needs you, Previewed or Applied.
+5. **Prepare** makes the role a prefilled application (`api.prefilled.prepare`); see
+   [Prefilled applications and Activity](#prefilled-applications-and-activity). A role
+   already prepared shows its status, which opens it.
 
 **By itself:** every hour (`internal.jobs.refreshDue`) up to 25 boards not fetched in 20
 hours go to the batch worker (`internal.jobs.fetchBoard`). It reads each public feed
@@ -367,68 +367,70 @@ Previews are the same text as plain words.
 
 **Files:** `src/features/jobs/`, `convex/features/jobs/`.
 
-## Auto-apply and Activity
+## Prefilled applications and Activity
 
 **Stories**
 
-- As a job seeker, I want the app to apply to roles I pick, with my saved answers and
-  resume, and to tell me what it couldn't answer.
-- As a job seeker, I want to see what it did, which answers it used, and what to add.
+- As a job seeker, I want roles that fit me found and made ready, so applying takes a
+  minute of checking instead of an evening of forms.
+- As a job seeker, I want to see why a role fits and exactly what would be sent before
+  anything goes out, and to send it myself.
+- As a job seeker, I want a question I answered once to be answered for me next time.
 
 **Flows**
 
-1. **Turn it on** under Account → Auto-apply (`api.autoApply.setSwitch`). It needs a
-   resume on the Resume page, your email under Profile, and a Firecrawl key on the
-   deployment. **Fill, but don't send yet** makes every run a dry run: filled and
-   reported, nothing sent.
-2. **Queue a role** with **Auto-apply** on Jobs. Only Greenhouse, Lever, Ashby and
-   Personio postings; one row per posting and person, 10 a day. A posting that was ever
-   sent can't be queued again. The row goes to the `applyPool` Workpool: 2 at a time,
-   never retried by itself.
-3. **The run** (`internal.autoApply.run`): Firecrawl opens the posting (`/v2/scrape`) and
-   runs Playwright scripts in that browser (`/v2/scrape/{id}/interact`):
-   - **Read the form:** every field with its label, type, options and whether it's
-     required. A password field or a sign-in address stops it as Needs you ("wants you to
-     sign in"); a visible CAPTCHA frame does too.
-   - **Match** (`autoApply/match.ts`): plain fields by synonym (name, first and last from
-     your full name, email, phone, LinkedIn, website, location, work authorization, visa,
-     salary, start date, pronouns). Gender, race, veteran, disability and other EEO
-     questions, and cover letters, are left blank. Everything else goes to Jev in one call:
-     per question, which saved answer fits, or which option on a pick list, or none; a
-     pick counts only when Jev is at least 60% sure. Jev never writes an answer; the text
-     that reaches the form is always yours, verbatim. A required question nobody
-     answered stops the run as Needs you, with the questions listed.
-   - **Fill:** the resume first (fetched inside the browser from a short-lived storage
-     link), then each field; required consent boxes ("I agree to the privacy policy") are
-     ticked. Anything that wouldn't take its value stops it as Needs you.
-   - **Submit:** a dry run stops here as Previewed. Otherwise the row is marked
-     `submittedAt` first, then Submit is clicked and the page watched for 25 seconds: a
-     "thank you for applying" line or a confirmation address means Applied; a field error
-     means Needs you; a CAPTCHA on submit means Needs you with the link; nothing at all
-     means Failed ("check your email before applying again"), and that posting stays
-     closed to auto-apply.
-   - The browser session is always closed at the end. Each run costs Firecrawl credits
-     (counted on `sourceUsage`) and one Jev call.
-4. **Applied** makes an `applications` row at Applied with the posting's company, role
-   and link (or moves the application a loop already made), stamps each used Prefilled
-   answer's usage, and sends an Inbox line (`apply.done`). Needs you sends `apply.needsYou`.
-5. **Activity** in the sidebar (`/activity`): one tile per run, newest first, with its
-   status, when, "Used: Full name, Email, Phone…", the questions with no saved answer
-   (each with **Add to Prefilled**), the posting link, the application, **Try again** for a
-   stopped run that wasn't sent, and **Take out** for a queued one. A line on top: last
-   run, applied in 30 days, saved answers used.
+1. **Turn it on** under Account → Prefilled applications
+   (`api.prefilled.setAutoPrepare`): each new fit a loop puts on your shortlist gets
+   prepared, up to 10 a day, while Firecrawl has credits this month. With it off, or past
+   the limit, press **Prepare** on a role in Jobs or on your shortlist
+   (`api.prefilled.prepare`). It needs your email, a resume, and a posting on Greenhouse,
+   Lever, Ashby or Personio. One per person and posting.
+2. **Prepare** runs with no one there (`internal.prefilled.prepareForm`, on `applyPool`,
+   never retried by itself), and nothing is typed into the form:
+   - **Open the form:** one Firecrawl scrape of the posting, then `interact` with
+     Playwright code: it clicks Apply if the page hides the form, and lists every field
+     with its label, whether it's required, and its options (opening each pick list to
+     read them). It reads forms outside a `<form>` tag and Yes/No button pairs (Ashby),
+     and skips hidden twin fields and search boxes.
+   - **Match:** common fields by name from your saved answers (a full name splits into
+     first and last; a one-word name leaves the last name to you). Demographic questions
+     and cover letters are left out and never stored. Everything else goes to Jev in one
+     call: per question, which saved answer fits, or which option on a pick list, or none;
+     a pick counts only when Jev is at least 60% sure. Jev never writes an answer; the
+     text that reaches a form is always yours, verbatim.
+   - The questions and answers are saved on the row, the browser closes, and the Inbox
+     gets one line. About 2 Firecrawl credits (counted on `sourceUsage`) and one Jev call.
+     A login wall, a CAPTCHA or no form ends as Failed, with **Try again**.
+3. **Review** at `/prefilled/$id` (`/prefilled` lists what's waiting): what Jev judged
+   (fit, reasons, breakdown), the posting's opening lines, and every question with where
+   its answer came from: Saved, Jev picked, You, or Needs you. Change any answer for this
+   application (`api.prefilled.setAnswer`). **Keep for future forms** also adds it to your
+   Saved answers under "Your questions". **Read the form again** picks up answers you've
+   saved since, and keeps what you typed. **Dismiss** sets it aside.
+4. **Apply now** (`api.prefilled.startLive`): a new browser opens the form, puts your
+   answers in and uploads your resume, then shows inside the page, for you to control. You
+   check it, solve any CAPTCHA, finish anything listed as "do these by hand", and **press
+   the form's own Submit**. The app never presses it. A location list that doesn't have
+   your city tries your country. A browser left alone closes after 15 minutes
+   (`internal.prefilled.closeLive`), and **Close without sending** does it sooner.
+5. **I sent it** (`api.prefilled.confirmSent`) reads the page for a thank-you. If it finds
+   one, or you press **Mark as sent** when it can't, the posting becomes an application at
+   Applied (or moves the one a loop already made), saved answers get their usage stamped,
+   and the browser closes. Once only: a sent posting stays closed.
+6. **Activity** (`/activity`) shows what's finished: sent, failed or dismissed, with the
+   answers used, what had no saved answer (each with **Add to saved answers**), and
+   **Try again**. A line on top: applied in 30 days, saved answers used.
 
-**Rules:** nothing is ever guessed or written for you; a question without a saved answer
-stops the run. Demographic questions are always left blank. Try again follows the Account
-switch, so a dry run stays a dry run. A location list that doesn't have your saved city
-tries your saved country. No logins and no stored job-site passwords. A posting is submitted at
-most once, even if a run dies mid-way. Answers' values never go in the log, only their
-labels.
+**Rules:** nothing can be sent without you pressing the form's Submit. Nothing is guessed
+or written for you. No logins and no stored job-site passwords. The live browser's address
+controls that browser, so only its owner's `get` returns it, never a list, and it's cleared
+when the session ends. Answers' values never go in the log.
 
-**Files:** `src/features/activity/`, `src/features/jobs/jobs.tsx`,
-`src/features/account/account.tsx`, `convex/features/autoApply/` (`match.ts` the
-matcher and Jev's questions, `firecrawl.ts` the calls and scripts, `actions.ts` the run,
-`public.ts` the queue, `internal.ts` claim, the submit fence and finish).
+**Files:** `src/features/prefilled/`, `src/features/activity/`, `src/features/jobs/jobs.tsx`,
+`src/features/loops/shortlist.tsx`, `src/features/account/account.tsx`,
+`convex/features/prefilled/` (`match.ts` the matcher and Jev's questions, `firecrawl.ts` the
+calls and scripts, `actions.ts` prepare and the live browser, `public.ts` what the pages
+call, `internal.ts` the row's steps, `utils.ts` starting one and preparing a loop's fits).
 
 ## Loops
 
@@ -508,17 +510,16 @@ day; links 10 a day; a source moves on at 90% of its monthly credits.
 
 **Kinds**
 
-| Kind                | What                         | Made by           |
-| ------------------- | ---------------------------- | ----------------- |
-| `mail.news`         | Interview invites and offers | The email sorter  |
-| `mail.rejection`    | Rejections                   | The email sorter  |
-| `mail.update`       | Other company mail           | The email sorter  |
-| `mail.unsorted`     | Mail that needs filing       | The email sorter  |
-| `booking.new`       | New bookings                 | A booking         |
-| `automation.notify` | Messages from your workflows | A Notify me step  |
-| `loop.found`        | New roles from loops         | A loop run        |
-| `apply.done`        | Applications sent for you    | An auto-apply run |
-| `apply.needsYou`    | Applications that need you   | An auto-apply run |
+| Kind                | What                         | Made by                       |
+| ------------------- | ---------------------------- | ----------------------------- |
+| `mail.news`         | Interview invites and offers | The email sorter              |
+| `mail.rejection`    | Rejections                   | The email sorter              |
+| `mail.update`       | Other company mail           | The email sorter              |
+| `mail.unsorted`     | Mail that needs filing       | The email sorter              |
+| `booking.new`       | New bookings                 | A booking                     |
+| `automation.notify` | Messages from your workflows | A Notify me step              |
+| `loop.found`        | New roles from loops         | A loop run                    |
+| `prefill.ready`     | Applications ready for you   | Preparing one, the first time |
 
 **Rules:** a kind turned off under Account is never recorded. A line whose source is gone
 isn't shown. Email lines are opened from their sealed note only when you look.
@@ -675,12 +676,11 @@ Interface and theme, Account)
 3. **Applications:** how long the Trash keeps applications before deleting them: 30, 90
    (the default), 180 or 365 days, or never (`api.applications.setTrashDays`). Changing it
    moves the date for what's already in the Trash.
-4. **Auto-apply:** the switch that lets the app submit applications for you, and "Fill,
-   but don't send yet" (`api.autoApply.setSwitch`); see
-   [Auto-apply and Activity](#auto-apply-and-activity).
+4. **Prefilled applications:** the switch that prepares applications for new fits. See
+   [Prefilled applications and Activity](#prefilled-applications-and-activity).
 5. **Delete account:** confirm, then everything goes: applications, Preferences and
    resume, loops and their runs and roles, email connection and mail, notifications,
-   views, goals, auto-apply runs, calendar, booking pages and workflows. Your username is
+   views, goals, prefilled applications, calendar, booking pages and workflows. Your username is
    freed.
 
 **Files:** `src/features/account/`, `convex/features/users/`.

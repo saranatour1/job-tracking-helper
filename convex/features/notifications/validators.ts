@@ -13,7 +13,7 @@ export const vInboxLines = v.array(
       v.literal("/"),
       v.literal("/loops"),
       v.literal("/calendar"),
-      v.literal("/activity"),
+      v.literal("/prefilled"),
       v.null()
     ),
     company: v.optional(v.string()),

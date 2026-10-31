@@ -32,7 +32,8 @@ export const scrape = async (url: string) => {
   return { scrapeId, markdown: text(data.markdown) }
 }
 
-/** Runs a script in the session and returns the JSON line it printed. */
+/** Runs a script in the session. Returns the JSON line it printed, and the address of a
+ * browser a person can control in the same session. */
 export const interact = async (scrapeId: string, code: string, timeout: number) => {
   const res = record(
     await post(
@@ -52,7 +53,7 @@ export const interact = async (scrapeId: string, code: string, timeout: number) 
     throw new Error(
       `The form script printed nothing${text(res.stderr) ? `: ${text(res.stderr).slice(0, 200)}` : ""}`
     )
-  return JSON.parse(line) as unknown
+  return { value: JSON.parse(line) as unknown, liveUrl: text(res.interactiveLiveViewUrl) }
 }
 
 export const endSession = async (scrapeId: string) => {
@@ -110,7 +111,8 @@ const read = await frame.locator('body').evaluate((body) => {
     if (grouped) seen.add(el.name);
     const own = labelOf(el);
     const head = entryOf(el)?.querySelector('label,legend,[class*=label]');
-    const legend = grouped ? text(el.closest('fieldset')?.querySelector('legend')) : '';
+    // A group's question is its heading: its first input's own label is just an option.
+    const legend = grouped ? text(el.closest('fieldset')?.querySelector('legend')) || text(head && !head.contains(el) && head.htmlFor !== el.id ? head : null) : '';
     if (!el.id && !el.name) el.setAttribute('data-jth-field', String(i));
     const selector = grouped || yesNo ? byName(el) : el.id ? '#' + CSS.escape(el.id) : el.name ? byName(el) : '[data-jth-field="' + i + '"]';
     fields.push({ selector, name: el.name || el.id || '', type, label: (legend || own).replace(/\\s*\\*\\s*$/, ''),
@@ -198,24 +200,15 @@ const errors = await frame.locator('[aria-invalid=true], .field-error, .error-me
 console.log(JSON.stringify({ unfilled, errors: errors.map((e) => e.trim()).filter(Boolean).slice(0, 20) }));
 `
 
-/** Clicks submit and watches for a confirmation, an error, or a CAPTCHA. */
-export const submitScript = (submit: string | null | undefined) => `
+/** Reads the page after you've pressed Submit, for a thank-you. It only reads: the app
+ * never presses Submit. */
+export const confirmScript = () => `
 ${frame}
-const before = page.url();
-await frame.locator(${JSON.stringify(submit || "button[type=submit],input[type=submit]")}).first().click();
-const deadline = Date.now() + 25000;
-let outcome = 'unknown', found = '';
-const confirmed = /thank you for (applying|your application)|application (has been |was )?(submitted|received)|we('ve| have) received your application|successfully (submitted|applied)|vielen dank/i;
-while (Date.now() < deadline) {
-  await page.waitForTimeout(1000);
-  const body = (await page.locator('body').innerText().catch(() => '')).slice(0, 20000);
-  const url = page.url();
-  if (await page.locator('iframe[src*="hcaptcha.com"], iframe[src*="recaptcha/api2/bframe"]').filter({ visible: true }).count()) { outcome = 'captcha'; break; }
-  const errs = await frame.locator('[aria-invalid=true], .field-error, .error-message, [role=alert]').filter({ visible: true }).allInnerTexts().catch(() => []);
-  if (errs.length) { outcome = 'errors'; found = errs.join(' | '); break; }
-  if ((url !== before && /thanks|confirmation|submitted|success/i.test(url)) || confirmed.test(body)) {
-    outcome = 'confirmed'; found = (body.match(confirmed)?.[0] ?? body.slice(0, 300)); break;
-  }
-}
-console.log(JSON.stringify({ outcome, url: page.url(), text: found.slice(0, 500) }));
+const confirmed = /thank you for (applying|your application)|thanks for applying|application (has been |was )?(submitted|received)|we('ve| have) received your application|successfully (submitted|applied)|vielen dank/i;
+const inFrame = await frame.locator('body').innerText().catch(() => '');
+const inPage = await page.locator('body').innerText().catch(() => '');
+const body = (inFrame + ' ' + inPage).slice(0, 40000);
+const match = body.match(confirmed);
+const byUrl = /\\/(thanks|confirmation|submitted|success)\\b/i.test(page.url());
+console.log(JSON.stringify({ confirmed: Boolean(match) || byUrl, text: (match?.[0] ?? (byUrl ? page.url() : '')).slice(0, 300) }));
 `

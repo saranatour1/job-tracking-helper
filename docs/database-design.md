@@ -536,7 +536,7 @@ Phase 1 needs a migration, because `applications.company` is a string today. For
 - **Plans.** Which Firecrawl and context.dev plans will this run on? Their monthly credits become `sourceUsage.limit`. Search now only finds boards, so the free plans go a long way.
 
 - **Interviews.** Are notes in `history` enough, or do you want dates, rounds and calendar reminders? Reminders would make interviews pass rule 4 and need their own table.
-- **Autofill.** Answered: both. Prefilled keeps answers to copy, and auto-apply (`autoApplies`) fills the posting's form itself through Firecrawl, from the same `profileEntries`, which now carry `lastUsedAt` and `useCount`.
+- **Autofill.** Answered: both. Saved answers (`profileEntries`) are there to copy, and `prefills` reads a posting's form through Firecrawl, matches them to it, and fills it in a live browser for the person to send. Used answers get `lastUsedAt` and `useCount`.
 - **Rate limits.** Do you mean a personal monthly target, as above, or a hard limit on something costly like AI-written cover letters? The second would use the `@convex-dev/rate-limiter` component, which brings its own tables.
 - **Audit scope.** Should the log cover data changes only, as above, or also sign-ins, sign-outs and failed sign-ins? Auth events come from Convex Auth, not table writes, so they'd need their own hook.
 - **Postings.** Will one posting ever need more than one application, for example when reapplying later? If yes, a `postings` table passes rule 2.

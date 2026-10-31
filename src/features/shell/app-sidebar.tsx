@@ -1,6 +1,7 @@
 import { Link, useRouterState } from "@tanstack/react-router"
 import {
   Activity01Icon,
+  FileEditIcon,
   Briefcase01Icon,
   Calendar03Icon,
   File01Icon,
@@ -57,6 +58,7 @@ const groups: { label?: string; items: readonly Item[] }[] = [
     label: "Done for you",
     items: [
       { title: "Workflows", to: "/workflows", icon: WorkflowSquare03Icon },
+      { title: "Prefilled applications", to: "/prefilled", icon: FileEditIcon },
       { title: "Activity", to: "/activity", icon: Activity01Icon },
     ],
   },

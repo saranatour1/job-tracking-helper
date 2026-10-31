@@ -22,23 +22,21 @@ const inbox = authedQuery({
     const lines = await Promise.all(
       rows.map(async (n) => {
         const base = { id: n._id, at: n.at, unread: n.readAt === undefined }
-        const applyId =
-          (n.kind === "apply.done" || n.kind === "apply.needsYou") &&
-          n.ref &&
-          ctx.db.normalizeId("autoApplies", n.ref)
-        if (applyId) {
-          const row = await ctx.db.get("autoApplies", applyId)
+        const prefillId =
+          n.kind === "prefill.ready" && n.ref && ctx.db.normalizeId("prefills", n.ref)
+        if (prefillId) {
+          const row = await ctx.db.get("prefills", prefillId)
+          const left = row?.fields.filter((f) => f.required && !f.answer).length ?? 0
           return (
             row?.userId === ctx.userId && {
               ...base,
               title: `${row.title} · ${row.company}`,
-              message:
-                n.kind === "apply.done"
-                  ? "Applied for you."
-                  : (row.error ?? "Needs you before it can be sent."),
-              link: "/activity" as const,
+              message: left
+                ? `Prepared. ${left} ${left === 1 ? "question needs" : "questions need"} you.`
+                : "Prepared and ready for you to check and send.",
+              link: "/prefilled" as const,
               company: row.company,
-              status: row.status === "applied" ? ("applied" as const) : undefined,
+              status: undefined,
             }
           )
         }

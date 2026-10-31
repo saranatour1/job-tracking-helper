@@ -5,6 +5,7 @@ import { components, internal } from "../../_generated/api"
 import { internalMutation, internalQuery } from "../../_generated/server"
 import { workLog } from "../../lib/log"
 import { fillFromJob } from "../applications/utils"
+import { prepareFits } from "../prefilled/utils"
 import { descriptionsOf, queriesOf } from "../workflows/fit"
 import { readPool, workflow } from "../workflows/manager"
 import { apiKeyOf, monthlyCredits, monthOf } from "../workflows/sources"
@@ -203,7 +204,9 @@ const finishRun = internalMutation({
       })
       fits += Number(fit)
     }
-    const shown = await fillShortlist(ctx, run.userId, run.loopId)
+    const best = await fillShortlist(ctx, run.userId, run.loopId)
+    const shown = best.length
+    await prepareFits(ctx, run.userId, best)
     for (const p of providerIds) {
       const credits = spent.filter((s) => s.provider === p).reduce((n, s) => n + s.credits, 0)
       if (credits || exhausted.includes(p)) await addUsage(ctx, p, credits, exhausted.includes(p))
