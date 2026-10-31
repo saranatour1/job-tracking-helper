@@ -91,6 +91,13 @@ export type ComponentApi<Name extends string | undefined = string | undefined> =
         string,
         Name
       >;
+      remove: FunctionReference<
+        "mutation",
+        "internal",
+        { emailId: string; owner: string },
+        null,
+        Name
+      >;
       removeOwner: FunctionReference<
         "mutation",
         "internal",

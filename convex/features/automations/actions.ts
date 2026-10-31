@@ -110,10 +110,11 @@ const sendMail = internalAction({
         error: error && (await seal(k, error, aad.email(mail.userId))),
       })
       if (error) throw new ConvexError("Cloudflare didn't send the email.")
-      if (mail.application)
+      // Notify me is a note to yourself, not mail you sent anyone.
+      if (mail.to)
         await ctx.runMutation(internal.email.recordSent, {
           userId: mail.userId,
-          applicationId: mail.application.id,
+          ...(mail.application && { applicationId: mail.application.id }),
           emailId,
           note: await seal(
             k,

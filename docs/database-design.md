@@ -1,6 +1,6 @@
 # Database design
 
-The schema as it is today: 23 tables in `convex/schema.ts`, grouped by what they're about, plus the components' own tables. Each table is defined in its feature's `models.ts`, from shapes in that feature's `validators.ts`.
+The schema as it is today: 27 tables in `convex/schema.ts`, grouped by what they're about, plus the components' own tables. Each table is defined in its feature's `models.ts`, from shapes in that feature's `validators.ts`.
 
 [Proposed changes](#proposed-changes) lists what's done, what's waiting on a decision and what's decided against.
 
@@ -102,13 +102,16 @@ These have no owner. Deleting an account leaves them.
 
 ### Mail
 
-| Table              | Holds                                                                                   | Why it's a table                        | Indexes                                                                    |
-| ------------------ | --------------------------------------------------------------------------------------- | --------------------------------------- | -------------------------------------------------------------------------- |
-| `emailConnections` | one per person: a sealed Cloudflare token and details, what's allowed, incoming mail    | exception: keeps secrets out of `users` | `by_userId`, `by_inboundId`                                                |
-| `mailEvents`       | one sorted email: its kind, the application it's about, a sealed note, a suggested move | 1, 4                                    | `by_userId_and_applicationId`, `by_emailId`, `by_userId_and_messageKey`    |
-| `contacts`         | one person per address: sealed details, a hash of the address, how many emails, when    | 1, 4                                    | `by_userId_and_key`, `by_userId_and_lastAt`, `by_userId_and_applicationId` |
-
-The emails themselves live in the `cloudflareEmail` component, sealed. `mailEvents.emailId` is a plain string for that reason.
+| Table                                                                                                                          | Holds                                                                                   | Why it's a table                        | Indexes                                                                    |
+| ------------------------------------------------------------------------------------------------------------------------------ | --------------------------------------------------------------------------------------- | --------------------------------------- | -------------------------------------------------------------------------- |
+| `emailConnections`                                                                                                             | one per person: a sealed Cloudflare token and details, what's allowed, incoming mail    | exception: keeps secrets out of `users` | `by_userId`, `by_inboundId`                                                |
+| `mailEvents`                                                                                                                   | one sorted email: its kind, the application it's about, a sealed note, a suggested move | 1, 4                                    | `by_userId_and_applicationId`, `by_emailId`, `by_userId_and_messageKey`    |
+| `contacts`                                                                                                                     | one person per address: sealed details, a hash of the address, how many emails, when    | 1, 4                                    | `by_userId_and_key`, `by_userId_and_lastAt`, `by_userId_and_applicationId` |
+| `mailLabels`                                                                                                                   | one per label you use, with how many emails have it                                     | 1                                       | `by_userId_and_name`                                                       |
+| `mailEventLabels`                                                                                                              | one label on one email, so a label's mail is a page and not a scan                      | 1                                       | `by_userId_and_label_and_at`, `by_eventId`                                 |
+| `mailDrafts`                                                                                                                   | one unsent email, sealed                                                                | 1                                       | `by_userId_and_updatedAt`                                                  |
+| `mailTemplates`                                                                                                                | one reusable email: name, subject and body                                              | 1                                       | `by_userId_and_updatedAt`                                                  |
+| The emails themselves live in the `cloudflareEmail` component, sealed. `mailEvents.emailId` is a plain string for that reason. |
 
 ### Time
 

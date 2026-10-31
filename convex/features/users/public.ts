@@ -7,6 +7,7 @@ import { deleteNotifications } from "../notifications/utils"
 import { deleteViews } from "../views/utils"
 import { deleteGoals } from "../goals/utils"
 import { deleteContacts } from "../contacts/utils"
+import { deleteMailbox } from "../mailbox/utils"
 import { deletePrefills } from "../prefilled/utils"
 import { deleteCalendar } from "../calendar/utils"
 import { deleteBookingPages } from "../booking/utils"
@@ -103,6 +104,7 @@ const deleteAccount = authedMutation({
     await deleteLoops(ctx, ctx.userId)
     await deleteEmail(ctx, ctx.userId)
     await deleteContacts(ctx, ctx.userId)
+    await deleteMailbox(ctx, ctx.userId)
     await deleteNotifications(ctx, ctx.userId)
     await deleteViews(ctx, ctx.userId)
     await deleteGoals(ctx, ctx.userId)

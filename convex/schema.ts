@@ -5,6 +5,12 @@ import { bookingPagesTable } from "./features/booking/models"
 import { calendarEventsTable, calendarSettingsTable } from "./features/calendar/models"
 import { contactsTable } from "./features/contacts/models"
 import { emailConnectionsTable, mailEventsTable } from "./features/email/models"
+import {
+  mailDraftsTable,
+  mailEventLabelsTable,
+  mailLabelsTable,
+  mailTemplatesTable,
+} from "./features/mailbox/models"
 import { goalsTable } from "./features/goals/models"
 import { jobBoardsTable, jobsTable } from "./features/jobs/models"
 import { jobLeadsTable, loopRunsTable, loopsTable, sourceUsageTable } from "./features/loops/models"
@@ -46,6 +52,10 @@ export default defineSchema({
   emailConnections: emailConnectionsTable,
   mailEvents: mailEventsTable,
   contacts: contactsTable,
+  mailLabels: mailLabelsTable,
+  mailEventLabels: mailEventLabelsTable,
+  mailDrafts: mailDraftsTable,
+  mailTemplates: mailTemplatesTable,
 
   // Time.
   calendarEvents: calendarEventsTable,

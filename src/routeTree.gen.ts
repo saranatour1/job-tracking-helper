@@ -16,6 +16,7 @@ import { Route as AppAccountRouteImport } from './routes/_app/account'
 import { Route as AppActivityRouteImport } from './routes/_app/activity'
 import { Route as AppCalendarRouteImport } from './routes/_app/calendar'
 import { Route as AppContactsRouteImport } from './routes/_app/contacts'
+import { Route as AppEmailRouteImport } from './routes/_app/email'
 import { Route as AppInboxRouteImport } from './routes/_app/inbox'
 import { Route as AppJobsRouteImport } from './routes/_app/jobs'
 import { Route as AppLoopsRouteImport } from './routes/_app/loops'
@@ -66,6 +67,11 @@ const AppCalendarRoute = AppCalendarRouteImport.update({
 const AppContactsRoute = AppContactsRouteImport.update({
   id: '/contacts',
   path: '/contacts',
+  getParentRoute: () => AppRoute,
+} as any)
+const AppEmailRoute = AppEmailRouteImport.update({
+  id: '/email',
+  path: '/email',
   getParentRoute: () => AppRoute,
 } as any)
 const AppInboxRoute = AppInboxRouteImport.update({
@@ -165,6 +171,7 @@ export interface FileRoutesByFullPath {
   '/activity': typeof AppActivityRoute
   '/calendar': typeof AppCalendarRoute
   '/contacts': typeof AppContactsRoute
+  '/email': typeof AppEmailRoute
   '/inbox': typeof AppInboxRoute
   '/jobs': typeof AppJobsRoute
   '/loops': typeof AppLoopsRoute
@@ -190,6 +197,7 @@ export interface FileRoutesByTo {
   '/activity': typeof AppActivityRoute
   '/calendar': typeof AppCalendarRoute
   '/contacts': typeof AppContactsRoute
+  '/email': typeof AppEmailRoute
   '/inbox': typeof AppInboxRoute
   '/jobs': typeof AppJobsRoute
   '/loops': typeof AppLoopsRoute
@@ -217,6 +225,7 @@ export interface FileRoutesById {
   '/_app/activity': typeof AppActivityRoute
   '/_app/calendar': typeof AppCalendarRoute
   '/_app/contacts': typeof AppContactsRoute
+  '/_app/email': typeof AppEmailRoute
   '/_app/inbox': typeof AppInboxRoute
   '/_app/jobs': typeof AppJobsRoute
   '/_app/loops': typeof AppLoopsRoute
@@ -245,6 +254,7 @@ export interface FileRouteTypes {
     | '/activity'
     | '/calendar'
     | '/contacts'
+    | '/email'
     | '/inbox'
     | '/jobs'
     | '/loops'
@@ -270,6 +280,7 @@ export interface FileRouteTypes {
     | '/activity'
     | '/calendar'
     | '/contacts'
+    | '/email'
     | '/inbox'
     | '/jobs'
     | '/loops'
@@ -296,6 +307,7 @@ export interface FileRouteTypes {
     | '/_app/activity'
     | '/_app/calendar'
     | '/_app/contacts'
+    | '/_app/email'
     | '/_app/inbox'
     | '/_app/jobs'
     | '/_app/loops'
@@ -372,6 +384,13 @@ declare module '@tanstack/react-router' {
       path: '/contacts'
       fullPath: '/contacts'
       preLoaderRoute: typeof AppContactsRouteImport
+      parentRoute: typeof AppRoute
+    }
+    '/_app/email': {
+      id: '/_app/email'
+      path: '/email'
+      fullPath: '/email'
+      preLoaderRoute: typeof AppEmailRouteImport
       parentRoute: typeof AppRoute
     }
     '/_app/inbox': {
@@ -508,6 +527,7 @@ interface AppRouteChildren {
   AppActivityRoute: typeof AppActivityRoute
   AppCalendarRoute: typeof AppCalendarRoute
   AppContactsRoute: typeof AppContactsRoute
+  AppEmailRoute: typeof AppEmailRoute
   AppInboxRoute: typeof AppInboxRoute
   AppJobsRoute: typeof AppJobsRoute
   AppLoopsRoute: typeof AppLoopsRoute
@@ -531,6 +551,7 @@ const AppRouteChildren: AppRouteChildren = {
   AppActivityRoute: AppActivityRoute,
   AppCalendarRoute: AppCalendarRoute,
   AppContactsRoute: AppContactsRoute,
+  AppEmailRoute: AppEmailRoute,
   AppInboxRoute: AppInboxRoute,
   AppJobsRoute: AppJobsRoute,
   AppLoopsRoute: AppLoopsRoute,

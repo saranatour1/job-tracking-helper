@@ -70,10 +70,12 @@ export const hasSignature = (info: SignatureInfo, photo: boolean) =>
 export const signed = (
   text: string,
   info: SignatureInfo,
-  photo?: { base64: string; type: string }
+  photo?: { base64: string; type: string },
+  // Written in the editor, as HTML. Without it the plain text is the body.
+  html?: string
 ) => ({
   text: `${text}\n\n-- \n${signatureText(info)}`,
-  html: `<div style="font-family:Arial,sans-serif;font-size:14px;white-space:pre-wrap">${escape(text)}</div>${signatureHtml(info, photo && "cid:signature-photo")}`,
+  html: `<div style="font-family:Arial,sans-serif;font-size:14px${html ? "" : ";white-space:pre-wrap"}">${html ?? escape(text)}</div>${signatureHtml(info, photo && "cid:signature-photo")}`,
   ...(photo && {
     attachments: [
       {

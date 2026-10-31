@@ -1,0 +1,272 @@
+// @vitest-environment edge-runtime
+/// <reference types="vite/client" />
+import rateLimiter from "@convex-dev/rate-limiter/test"
+import workpool from "@convex-dev/workpool/test"
+import { convexTest } from "convex-test"
+import { beforeEach, describe, expect, it, vi } from "vite-plus/test"
+
+import { api, components, internal } from "../../_generated/api"
+import cloudflareSchema from "../../components/cloudflareEmail/schema"
+import notificationsSchema from "../../components/notifications/schema"
+import { seal } from "../../lib/secrets"
+import schema from "../../schema"
+import { aad, keys } from "../email/utils"
+
+const modules = import.meta.glob([
+  "../../**/*.ts",
+  "!../../components/notifications/**",
+  "!../../components/cloudflareEmail/**",
+  "!../../**/*.test.ts",
+])
+
+const fetchMock = vi.fn<typeof fetch>()
+
+beforeEach(() => {
+  vi.useFakeTimers()
+  vi.stubEnv("SECRETS_KEYS", `v1:${btoa(String.fromCharCode(...new Uint8Array(32).fill(7)))}`)
+  vi.stubGlobal("fetch", fetchMock)
+  fetchMock.mockReset()
+  fetchMock.mockImplementation(
+    async () =>
+      new Response(JSON.stringify({ success: true, result: { delivered: ["a"] } }), { status: 200 })
+  )
+})
+
+const first = { numItems: 25, cursor: null }
+
+const setup = async () => {
+  const t = convexTest(schema, modules)
+  rateLimiter.register(t as never)
+  workpool.register(t as never, "applyPool")
+  t.registerComponent(
+    "notifications",
+    notificationsSchema,
+    import.meta.glob("../../components/notifications/**/*.ts")
+  )
+  t.registerComponent(
+    "cloudflareEmail",
+    cloudflareSchema,
+    import.meta.glob("../../components/cloudflareEmail/**/*.ts")
+  )
+  const k = await keys()
+  const { userId, hooli } = await t.run(async (ctx) => {
+    const userId = await ctx.db.insert("users", { name: "Sam", email: "sam@example.com" })
+    await ctx.db.insert("emailConnections", {
+      userId,
+      details: await seal(
+        k,
+        JSON.stringify({ accountId: "a", fromAddress: "jobs@example.com" }),
+        aad.details(userId)
+      ),
+      token: await seal(k, "token", aad.token(userId)),
+      tokenAddedAt: 1,
+      access: { workers: true, routing: true },
+      allow: { send: true, setup: true, receive: true, read: false },
+    })
+    const hooli = await ctx.db.insert("applications", {
+      userId,
+      company: "Hooli",
+      role: "Engineer",
+      status: "applied",
+      number: 1,
+      history: [],
+    })
+    return { userId, hooli }
+  })
+  const as = t.withIdentity({ subject: userId })
+  const receive = async (mail: object) => {
+    const emailId: string = await t.run(async (ctx) =>
+      ctx.runMutation(components.cloudflareEmail.lib.receive, {
+        owner: userId,
+        payload: await seal(
+          k,
+          JSON.stringify({
+            subject: "Hi",
+            from: "pat@hooli.com",
+            to: [],
+            attachments: [],
+            ...mail,
+          }),
+          aad.email(userId)
+        ),
+      })
+    )
+    await t.action(internal.email.sortMail, { userId, emailId })
+    await t.finishAllScheduledFunctions(vi.runAllTimers)
+  }
+  const box = async (name: "inbox" | "sent" | "archived" | "trash") =>
+    (await as.query(api.mailbox.page, { box: name, paginationOpts: first })).page
+  return { t, as, userId, hooli, receive, box }
+}
+
+describe("folders", () => {
+  it("puts new mail in the Inbox, unread, with its application", async () => {
+    const { as, receive, box } = await setup()
+    await receive({ subject: "Hello from Hooli" })
+    const [row] = await box("inbox")
+    expect(row).toMatchObject({ subject: "Hello from Hooli", read: false, company: "Hooli" })
+    await as.mutation(api.mailbox.markRead, { eventId: row!.id })
+    expect((await box("inbox"))[0]?.read).toBe(true)
+  })
+
+  it("moves between folders, and back to where it came from", async () => {
+    const { as, receive, box, hooli } = await setup()
+    await receive({})
+    const [row] = await box("inbox")
+    await as.mutation(api.mailbox.move, { eventId: row!.id, to: "archived" })
+    expect(await box("inbox")).toHaveLength(0)
+    expect(await box("archived")).toHaveLength(1)
+    await as.mutation(api.mailbox.move, { eventId: row!.id, to: "back" })
+    expect(await box("inbox")).toHaveLength(1)
+
+    await as.action(api.email.sendFromApplication, {
+      applicationId: hooli,
+      to: "pat@hooli.com",
+      subject: "Sent one",
+      text: "Hi",
+    })
+    const [sent] = await box("sent")
+    await as.mutation(api.mailbox.move, { eventId: sent!.id, to: "trash" })
+    await as.mutation(api.mailbox.move, { eventId: sent!.id, to: "back" })
+    expect(await box("sent")).toHaveLength(1)
+  })
+
+  it("takes trashed mail off an application's timeline, but not archived", async () => {
+    const { as, receive, box } = await setup()
+    await receive({})
+    const [row] = await box("inbox")
+    await as.mutation(api.mailbox.move, { eventId: row!.id, to: "archived" })
+    expect(await as.query(api.email.timeline, {})).toHaveLength(1)
+    await as.mutation(api.mailbox.move, { eventId: row!.id, to: "trash" })
+    expect(await as.query(api.email.timeline, {})).toHaveLength(0)
+  })
+
+  it("only deletes for good from the Trash, and takes the email with it", async () => {
+    const { t, as, receive, box } = await setup()
+    await receive({})
+    const [row] = await box("inbox")
+    await expect(as.mutation(api.mailbox.deleteForever, { eventId: row!.id })).rejects.toThrow(
+      "Trash first"
+    )
+    await as.mutation(api.mailbox.move, { eventId: row!.id, to: "trash" })
+    await as.mutation(api.mailbox.deleteForever, { eventId: row!.id })
+    expect(await t.run((ctx) => ctx.db.query("mailEvents").collect())).toHaveLength(0)
+    expect(await as.query(api.email.recentMail, {})).toHaveLength(0)
+  })
+
+  it("pages, so a big folder only opens what's on screen", async () => {
+    const { as, receive } = await setup()
+    await receive({ subject: "One" })
+    await receive({ subject: "Two" })
+    await receive({ subject: "Three" })
+    const page = await as.query(api.mailbox.page, {
+      box: "inbox",
+      paginationOpts: { numItems: 2, cursor: null },
+    })
+    expect(page.page).toHaveLength(2)
+    expect(page.isDone).toBe(false)
+  })
+})
+
+describe("labels", () => {
+  it("adds, finds by label, and forgets one nothing uses", async () => {
+    const { as, receive, box } = await setup()
+    await receive({ subject: "One" })
+    await receive({ subject: "Two" })
+    const [row] = await box("inbox")
+    await as.mutation(api.mailbox.setLabels, {
+      eventId: row!.id,
+      labels: [" Urgent ", "Urgent", "Later"],
+    })
+    expect((await as.query(api.mailbox.labels, {})).sort()).toEqual(["Later", "Urgent"])
+    const found = await as.query(api.mailbox.page, { label: "Urgent", paginationOpts: first })
+    expect(found.page.map((r) => r.id)).toEqual([row!.id])
+    expect(found.page[0]?.labels).toEqual(["Urgent", "Later"])
+
+    await as.mutation(api.mailbox.setLabels, { eventId: row!.id, labels: ["Later"] })
+    expect(await as.query(api.mailbox.labels, {})).toEqual(["Later"])
+    expect(
+      (await as.query(api.mailbox.page, { label: "Urgent", paginationOpts: first })).page
+    ).toHaveLength(0)
+  })
+
+  it("leaves trashed mail out of a label", async () => {
+    const { as, receive, box } = await setup()
+    await receive({})
+    const [row] = await box("inbox")
+    await as.mutation(api.mailbox.setLabels, { eventId: row!.id, labels: ["Keep"] })
+    await as.mutation(api.mailbox.move, { eventId: row!.id, to: "trash" })
+    expect(
+      (await as.query(api.mailbox.page, { label: "Keep", paginationOpts: first })).page
+    ).toHaveLength(0)
+  })
+})
+
+describe("drafts", () => {
+  const body = { to: "pat@hooli.com", subject: "Draft", html: "<p>Hi</p>", text: "Hi" }
+
+  it("saves, updates, and goes once it's sent", async () => {
+    const { as, box } = await setup()
+    const id = await as.action(api.mailbox.saveDraft, body)
+    await as.action(api.mailbox.saveDraft, { ...body, id, subject: "Better" })
+    const { page } = await as.query(api.mailbox.drafts, { paginationOpts: first })
+    expect(page.map((d) => d.subject)).toEqual(["Better"])
+    expect((await as.query(api.mailbox.draft, { id }))?.html).toBe("<p>Hi</p>")
+
+    await as.action(api.email.sendFromApplication, {
+      to: body.to,
+      subject: "Better",
+      text: "Hi",
+      html: "<p>Hi</p>",
+      draftId: id,
+    })
+    expect((await as.query(api.mailbox.drafts, { paginationOpts: first })).page).toHaveLength(0)
+    const [sent] = await box("sent")
+    expect(sent).toMatchObject({ subject: "Better", sent: true })
+    expect(sent?.applicationId).toBeUndefined()
+    expect(JSON.parse(fetchMock.mock.calls[0]![1]!.body as string).html).toBe("<p>Hi</p>")
+  })
+
+  it("keeps a draft away from someone else", async () => {
+    const { t, as } = await setup()
+    const id = await as.action(api.mailbox.saveDraft, body)
+    const other = t.withIdentity({
+      subject: await t.run((ctx) => ctx.db.insert("users", { name: "Other" })),
+    })
+    expect(await other.query(api.mailbox.draft, { id })).toBeNull()
+  })
+})
+
+describe("templates", () => {
+  it("saves, edits, removes, and stays yours", async () => {
+    const { t, as } = await setup()
+    const id = await as.mutation(api.mailbox.saveTemplate, {
+      name: "Follow up",
+      subject: "About {role}",
+      html: "<p>Hello {company}</p>",
+    })
+    await as.mutation(api.mailbox.saveTemplate, {
+      id,
+      name: "Nudge",
+      subject: "x",
+      html: "<p>y</p>",
+    })
+    expect((await as.query(api.mailbox.templates, {})).map((x) => x.name)).toEqual(["Nudge"])
+    const other = t.withIdentity({
+      subject: await t.run((ctx) => ctx.db.insert("users", { name: "Other" })),
+    })
+    expect(await other.query(api.mailbox.templates, {})).toEqual([])
+    await expect(
+      other.mutation(api.mailbox.saveTemplate, { id, name: "Mine", subject: "", html: "" })
+    ).rejects.toThrow("isn't here")
+    await as.mutation(api.mailbox.removeTemplate, { id })
+    expect(await as.query(api.mailbox.templates, {})).toEqual([])
+  })
+
+  it("wants a name", async () => {
+    const { as } = await setup()
+    await expect(
+      as.mutation(api.mailbox.saveTemplate, { name: " ", subject: "", html: "" })
+    ).rejects.toThrow("Give it a name")
+  })
+})
