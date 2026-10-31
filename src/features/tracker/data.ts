@@ -1,5 +1,7 @@
 import { useSyncExternalStore } from "react"
 
+import type { Kind as MailKind } from "@convex/features/email/match"
+
 import type { Display } from "./display-options"
 
 // shortcut: hard-coded sample data while the tracker UI has no backend; replace
@@ -38,7 +40,8 @@ export type Method = (typeof methods)[number]
 
 export type Event = { status: Status; at: string; note?: string }
 
-export type Application = {
+// A row on the board. The long fields wait until the application opens.
+export type ApplicationCard = {
   id: string
   // A short code to show, like APP-21.
   code?: string
@@ -53,16 +56,20 @@ export type Application = {
   location: string
   goalId?: string
   createdAt: string
-  description: string
   history: Event[]
   tasks?: Task[]
-  notes?: Note[]
+  // When the last note was written.
+  lastNoteAt?: string
+  // How much mail is filed under it, and the newest.
+  mail?: { count: number; at: number; kind: MailKind }
   // Jev's fit score, 0 to 100, when a loop found the role or its link was checked.
   fit?: number
   isFit?: boolean
   // Off the board, in the Archived tab.
   archived?: boolean
 }
+
+export type Application = ApplicationCard & { description: string; notes?: Note[] }
 
 export type Task = { title: string; done: boolean }
 export type Note = { text: string; at: string }
@@ -375,7 +382,7 @@ export const goalName = (from: Goal[], id?: string) =>
 export const findApplication = (id: string) => applications.find((a) => a.id === id)
 
 // Returns an application's values for one filter field, in the form filters store them.
-export const fieldValues = (a: Application, field: FilterField): string[] => {
+export const fieldValues = (a: ApplicationCard, field: FilterField): string[] => {
   switch (field) {
     case "label":
       return a.labels
@@ -386,7 +393,7 @@ export const fieldValues = (a: Application, field: FilterField): string[] => {
   }
 }
 
-export const matches = (a: Application, filters: Filters) =>
+export const matches = (a: ApplicationCard, filters: Filters) =>
   Object.entries(filters).every(
     ([field, values]) =>
       !values?.length || fieldValues(a, field as FilterField).some((v) => values.includes(v))
@@ -396,7 +403,7 @@ export const matches = (a: Application, filters: Filters) =>
 // come from what's on screen, real or sample.
 export const fieldOptions = (
   field: FilterField,
-  from: Application[] = applications,
+  from: ApplicationCard[] = applications,
   goalList: Goal[] = goals
 ): { value: string; label: string }[] => {
   switch (field) {

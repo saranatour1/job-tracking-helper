@@ -1,4 +1,4 @@
-import { useApplicationRoutes, usePrefillRoutes } from "@/lib/route-ids"
+import { useApplicationText, usePrefillRoutes } from "@/lib/route-ids"
 import { api } from "@/lib/api"
 import type { Doc, Id } from "@convex/_generated/dataModel"
 import { isEmailQuestion } from "@convex/features/prefilled/match"
@@ -568,8 +568,8 @@ export const PrefilledMissing = () => (
 )
 
 export const PrefilledPage = ({ id }: { id: Id<"prefills"> }) => {
-  const applications = useApplicationRoutes()
   const data = useQuery(api.prefilled.get, { id })
+  const application = useApplicationText(data?.prefill.applicationId)
   const startLive = useAction(api.prefilled.startLive)
   const dismiss = useMutation(api.prefilled.dismiss)
   const again = useMutation(api.prefilled.prepareAgain)
@@ -646,9 +646,7 @@ export const PrefilledPage = ({ id }: { id: Id<"prefills"> }) => {
                     <Button
                       size="sm"
                       variant="ghost"
-                      render={
-                        <Link to="/" search={{ app: applications.text(prefill.applicationId) }} />
-                      }
+                      render={<Link to="/" search={{ app: application }} />}
                     >
                       Open the application
                     </Button>

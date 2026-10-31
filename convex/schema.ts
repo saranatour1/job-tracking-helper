@@ -14,7 +14,7 @@ import {
   mailTemplatesTable,
 } from "./features/mailbox/models"
 import { goalsTable } from "./features/goals/models"
-import { jobBoardsTable, jobsTable } from "./features/jobs/models"
+import { jobBoardsTable, jobCatalogTable, jobsTable } from "./features/jobs/models"
 import { jobLeadsTable, loopRunsTable, loopsTable, sourceUsageTable } from "./features/loops/models"
 import {
   preferencesTable,
@@ -36,6 +36,7 @@ export default defineSchema({
   views: viewsTable,
 
   jobBoards: jobBoardsTable,
+  jobCatalog: jobCatalogTable,
   jobs: jobsTable,
   sourceUsage: sourceUsageTable,
 

@@ -1,12 +1,13 @@
 import { api } from "@/lib/api"
 import type { Id } from "@convex/_generated/dataModel"
 import { companyAddress } from "@convex/features/email/addresses"
+import { maxUnsortedCount } from "@convex/features/email/validators"
 import { Mail01Icon } from "@hugeicons/core-free-icons"
 import { HugeiconsIcon } from "@hugeicons/react"
 import { Link } from "@tanstack/react-router"
 import { useAction } from "convex/react"
 import type { FunctionReturnType } from "convex/server"
-import { useQuery } from "convex-helpers/react/cache/hooks"
+import { usePaginatedQuery, useQuery } from "convex-helpers/react/cache/hooks"
 import { startTransition, useActionState, useState } from "react"
 
 import { Badge } from "@/components/ui/badge"
@@ -28,7 +29,7 @@ import { Popover, PopoverPopup, PopoverTitle, PopoverTrigger } from "@/component
 import { Textarea } from "@/components/ui/textarea"
 import { messageOf } from "@/features/account/settings"
 
-import { type Application, formatDate, statusLabels } from "./data"
+import { type Application, type ApplicationCard, formatDate, statusLabels } from "./data"
 import { useSource } from "./source"
 
 // Company mail filed under applications, from the email feature. Only real applications
@@ -226,8 +227,15 @@ export const MailStatus = ({ a }: { a: Application }) => {
   )
 }
 
-/** An application's mail, newest first. */
-export const useMailFor = (id: string) => useSource().mail.filter((e) => e.applicationId === id)
+export const mailPage = 25
+
+/** An application's mail, newest first, a page at a time. */
+export const useMailFor = (id: string) =>
+  usePaginatedQuery(
+    api.email.forApplication,
+    useSource().real ? { applicationId: id as Id<"applications"> } : "skip",
+    { initialNumItems: mailPage }
+  )
 
 // The email itself, fetched only once someone opens it.
 const MailBody = ({ id, e }: { id: MailEvent["id"]; e: MailEvent }) => {
@@ -340,56 +348,74 @@ export const Suggestion = ({ mail }: { mail: MailEvent[] }) => {
 }
 
 /** The newest email on a card or row, with how many there are. */
-export const MailBadge = ({ id }: { id: string }) => {
-  const mail = useMailFor(id)
-  const latest = mail[0]
-  if (!latest) return null
+export const MailBadge = ({ a: { mail } }: { a: ApplicationCard }) => {
+  if (!mail) return null
   return (
-    <Badge variant={kindVariant(latest.kind)} size="sm" className="gap-1">
+    <Badge variant={kindVariant(mail.kind)} size="sm" className="gap-1">
       <HugeiconsIcon icon={Mail01Icon} className="size-3" />
-      {kindNames[latest.kind]}
-      {mail.length > 1 && <span className="opacity-70">· {mail.length}</span>}
+      {kindNames[mail.kind]}
+      {mail.count > 1 && <span className="opacity-70">· {mail.count}</span>}
     </Badge>
+  )
+}
+
+// Opened only with the button, since each email has to be decrypted to show.
+const UnsortedList = () => {
+  const { applications, fileMail } = useSource()
+  const {
+    results: unsorted,
+    status,
+    loadMore,
+  } = usePaginatedQuery(api.email.unsorted, {}, { initialNumItems: mailPage })
+  return (
+    <ol className="grid max-h-96 gap-3 overflow-y-auto">
+      {unsorted.map((e) => (
+        <li key={e.id} className="grid gap-1.5 text-[13px]">
+          <div className="flex items-start gap-2.5">
+            <MailLine e={e} />
+          </div>
+          <select
+            aria-label={`Application for ${e.subject}`}
+            className="border-input h-8 rounded-md border bg-transparent px-2 text-xs"
+            value=""
+            onChange={(event) => fileMail(e.id, event.target.value)}
+          >
+            <option value="" disabled>
+              File under…
+            </option>
+            {applications.map((a) => (
+              <option key={a.id} value={a.id}>
+                {a.company}: {a.role}
+              </option>
+            ))}
+          </select>
+        </li>
+      ))}
+      {status === "CanLoadMore" && (
+        <li>
+          <Button variant="ghost" size="xs" onClick={() => loadMore(mailPage)}>
+            Load more
+          </Button>
+        </li>
+      )}
+    </ol>
   )
 }
 
 /** Mail that matched no application, each with a picker to file it. */
 export const UnsortedMail = () => {
-  const { applications, mail, fileMail } = useSource()
-  const unsorted = mail.filter((e) => e.applicationId === null)
-  if (!unsorted.length) return null
+  const { real } = useSource()
+  const count = useQuery(api.email.unsortedCount, real ? {} : "skip")
+  if (!count) return null
   return (
     <Popover>
       <PopoverTrigger render={<Button size="xs" variant="outline" />}>
         <HugeiconsIcon icon={Mail01Icon} />
-        {unsorted.length} unsorted
+        {count >= maxUnsortedCount ? `${maxUnsortedCount}+` : count} unsorted
       </PopoverTrigger>
       <PopoverPopup align="end" className="w-96">
         <PopoverTitle className="mb-2 text-sm">Unsorted mail</PopoverTitle>
-        <ol className="grid gap-3">
-          {unsorted.map((e) => (
-            <li key={e.id} className="grid gap-1.5 text-[13px]">
-              <div className="flex items-start gap-2.5">
-                <MailLine e={e} />
-              </div>
-              <select
-                aria-label={`Application for ${e.subject}`}
-                className="border-input h-8 rounded-md border bg-transparent px-2 text-xs"
-                value=""
-                onChange={(event) => fileMail(e.id, event.target.value)}
-              >
-                <option value="" disabled>
-                  File under…
-                </option>
-                {applications.map((a) => (
-                  <option key={a.id} value={a.id}>
-                    {a.company}: {a.role}
-                  </option>
-                ))}
-              </select>
-            </li>
-          ))}
-        </ol>
+        <UnsortedList />
       </PopoverPopup>
     </Popover>
   )

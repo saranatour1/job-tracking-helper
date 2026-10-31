@@ -7,14 +7,36 @@ import { CalendarSettings, maxEvents, SaveEvent, SaveSettings } from "./validato
 import { kindOf, byKey } from "./utils"
 import { logEdit } from "../activity/utils"
 
+// Your events, or with two days the ones that can show between them. A repeating event can
+// start long before and still fall here, and a fix hides the worked-out event it replaces
+// wherever the fix itself has moved to, so those come whatever their dates. Times are
+// compared as text: `end` and `start` carry their own offset, so a range should leave room.
 const list = authedQuery({
-  args: {},
+  args: { from: v.optional(v.string()), to: v.optional(v.string()) },
   returns: v.array(schema.doc("calendarEvents")),
-  handler: (ctx) =>
-    ctx.db
-      .query("calendarEvents")
-      .withIndex("by_userId_and_key", (q) => q.eq("userId", ctx.userId))
-      .take(maxEvents),
+  handler: async (ctx, { from, to }) => {
+    if (from === undefined || to === undefined)
+      return ctx.db
+        .query("calendarEvents")
+        .withIndex("by_userId_and_key", (q) => q.eq("userId", ctx.userId))
+        .take(maxEvents)
+    const rows = await Promise.all([
+      ctx.db
+        .query("calendarEvents")
+        .withIndex("by_userId_and_end", (q) => q.eq("userId", ctx.userId).gte("end", from))
+        .filter((q) => q.lt(q.field("start"), to))
+        .take(maxEvents),
+      ctx.db
+        .query("calendarEvents")
+        .withIndex("by_userId_and_replaces", (q) => q.eq("userId", ctx.userId).gte("replaces", ""))
+        .take(maxEvents),
+      ctx.db
+        .query("calendarEvents")
+        .withIndex("by_userId_and_rrule", (q) => q.eq("userId", ctx.userId).gte("rrule", ""))
+        .take(maxEvents),
+    ])
+    return [...new Map(rows.flat().map((row) => [row._id, row])).values()]
+  },
 })
 
 const save = arkMutation({

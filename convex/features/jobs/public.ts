@@ -96,19 +96,24 @@ const companies = authedQuery({
   args: {},
   returns: v.array(v.object({ boardId: v.id("jobBoards"), company: v.string(), jobs: v.number() })),
   handler: async (ctx) =>
-    (await ctx.db.query("jobBoards").take(1000))
-      .filter((b) => b.jobs > 0)
+    (
+      await ctx.db
+        .query("jobBoards")
+        .withIndex("by_jobs", (q) => q.gt("jobs", 0))
+        .order("desc")
+        .take(200)
+    )
       .sort((a, b) => b.jobs - a.jobs || a.company.localeCompare(b.company))
-      .slice(0, 200)
       .map((b) => ({ boardId: b._id, company: b.company, jobs: b.jobs })),
 })
 
+// Null until it's first counted.
 const stats = authedQuery({
   args: {},
-  returns: v.object({ boards: v.number(), jobs: v.number() }),
+  returns: v.union(v.object({ boards: v.number(), jobs: v.number() }), v.null()),
   handler: async (ctx) => {
-    const boards = await ctx.db.query("jobBoards").take(1000)
-    return { boards: boards.length, jobs: boards.reduce((n, b) => n + b.jobs, 0) }
+    const row = await ctx.db.query("jobCatalog").first()
+    return row && { boards: row.boards, jobs: row.jobs }
   },
 })
 

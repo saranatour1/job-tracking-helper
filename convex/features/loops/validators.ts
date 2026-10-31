@@ -165,10 +165,6 @@ export const vRunEndedArgs = {
 
 export const UpdateLoop = NewLoop.and({ loopId: arkId("loops") })
 
-export const vFits = v.array(
-  v.object({ applicationId: v.id("applications"), fit: v.number(), isFit: v.boolean() })
-)
-
 export const vRespondArgs = {
   leadId: v.id("jobLeads"),
   action: v.union(v.literal("save"), v.literal("favorite"), v.literal("dismiss")),

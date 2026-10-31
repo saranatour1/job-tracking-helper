@@ -24,7 +24,7 @@ const accountTables: { table: TableNames; index: string; size?: number }[] = [
   { table: "loopRuns", index: "by_userId_and_startedAt" },
   { table: "jobLeads", index: "by_userId_and_status" },
   { table: "prefills", index: "by_userId" },
-  { table: "mailEvents", index: "by_userId_and_applicationId" },
+  { table: "mailEvents", index: "by_userId_and_applicationId_and_at" },
   { table: "contacts", index: "by_userId_and_lastAt" },
   { table: "mailLabels", index: "by_userId_and_name" },
   { table: "mailEventLabels", index: "by_userId_and_label_and_at" },

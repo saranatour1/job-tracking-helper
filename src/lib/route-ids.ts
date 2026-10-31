@@ -1,3 +1,4 @@
+import type { Id } from "@convex/_generated/dataModel"
 import { useQuery } from "convex-helpers/react/cache/hooks"
 import { useMemo, useRef } from "react"
 
@@ -73,12 +74,12 @@ export const applicationText = (a: { id: string; code?: string | undefined }) =>
   // Sample ids are their code already.
   a.code && a.code !== a.id ? routeText(a.code) : a.id
 
-export const useApplicationRoutes = () =>
-  useRoutes<{ _id: string; number: number }, string>(
-    useQuery(api.applications.list),
-    (a) => a._id,
-    (a) => `app-${a.number}`
-  )
+/** The text for an application known only by its id. Until its number loads that's the id,
+ * which a route takes too. */
+export const useApplicationText = (id: string | undefined) => {
+  const number = useQuery(api.applications.numberOf, id ? { id: id as Id<"applications"> } : "skip")
+  return number ? `app-${number}` : id
+}
 
 export const useGoalRoutes = () =>
   useRoutes<{ _id: string; name: string }, string>(

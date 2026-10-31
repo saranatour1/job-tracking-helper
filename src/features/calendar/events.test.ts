@@ -7,6 +7,7 @@ import {
   dayKey,
   eventsOf,
   followUpAfter,
+  rangeOf,
   type SavedEvent,
   timeOf,
   toKloq,
@@ -40,9 +41,28 @@ const mail = (patch: Partial<MailEvent>): MailEvent =>
     ...patch,
   }) as MailEvent
 
+describe("rangeOf", () => {
+  it("reads a month either side, whatever day of the month you're on", () => {
+    const range = { from: "2026-09-01", to: "2027-01-01" }
+    expect(rangeOf("2026-10-01")).toEqual(range)
+    expect(rangeOf("2026-10-31", "week")).toEqual(range)
+  })
+  it("crosses the year", () => {
+    expect(rangeOf("2026-01-15")).toEqual({ from: "2025-12-01", to: "2026-04-01" })
+    expect(rangeOf("2026-12-15")).toEqual({ from: "2026-11-01", to: "2027-03-01" })
+  })
+  it("reads the whole year for the year view", () => {
+    expect(rangeOf("2026-06-15", "year")).toEqual({ from: "2025-12-01", to: "2027-02-01" })
+  })
+})
+
 describe("eventsOf", () => {
   it("dates applying, mail, interview slots and a follow-up after the last news", () => {
-    const events = eventsOf([app({})], [mail({ slot: Date.UTC(2026, 10, 3, 10, 30) })])
+    const at = Date.parse("2026-10-05T12:00:00.000Z")
+    const events = eventsOf(
+      [app({ mail: { count: 1, at, kind: "interview" } })],
+      [mail({ slot: Date.UTC(2026, 10, 3, 10, 30) })]
+    )
     expect(events.map((e) => e.kind)).toEqual(["applied", "email", "followup", "interview"])
     const followUp = events.find((e) => e.kind === "followup")!
     expect(followUp.at).toBe(Date.parse("2026-10-05T12:00:00.000Z") + followUpAfter)

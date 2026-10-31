@@ -1,4 +1,4 @@
-import { dateText, routeIds, useApplicationRoutes } from "@/lib/route-ids"
+import { dateText, routeIds, useApplicationText } from "@/lib/route-ids"
 import { api } from "@/lib/api"
 import type { Id } from "@convex/_generated/dataModel"
 import { type Box, maxUnreadCount } from "@convex/features/mailbox/validators"
@@ -261,8 +261,8 @@ const Reader = ({ row }: { row: Row }) => {
   const thread = useQuery(api.mailbox.thread, { eventId: row.id })
   const messages = thread?.some((m) => m.id === row.id) ? thread : [row]
   const routes = mailRoutes(messages)
-  const applications = useApplicationRoutes()
   const shown = messages.find((m) => m.id === routes.id(message ?? "")) ?? row
+  const application = useApplicationText(shown.applicationId)
   const shownAt = messages.findIndex((m) => m.id === shown.id)
   const mail = useQuery(api.mailbox.content, { eventId: shown.id })
   const move = useMutation(api.mailbox.move)
@@ -366,11 +366,7 @@ const Reader = ({ row }: { row: Row }) => {
           <>
             <dt className="text-muted-foreground">Application</dt>
             <dd className="py-0.5">
-              <Link
-                to="/"
-                search={{ app: applications.text(shown.applicationId) }}
-                className="underline"
-              >
+              <Link to="/" search={{ app: application }} className="underline">
                 {shown.company}
               </Link>
             </dd>

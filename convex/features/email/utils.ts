@@ -1,12 +1,12 @@
 import { parseKeys, type Keys, open, seal } from "../../lib/secrets"
 import { env, type QueryCtx, type MutationCtx, type ActionCtx } from "../../_generated/server"
 import { type Type, type } from "arktype"
-import type { Id } from "../../_generated/dataModel"
+import type { Doc, Id } from "../../_generated/dataModel"
 import { internal, components } from "../../_generated/api"
 import { RateLimiter, HOUR } from "@convex-dev/rate-limiter"
 import { getAuthUserId } from "@convex-dev/auth/server"
 import { ConvexError } from "convex/values"
-import { Details, Received } from "./validators"
+import { Details, MailNote, Received } from "./validators"
 import { removeInbound } from "./cloudflare"
 import { hasSignature, type SignatureInfo, signed, toBase64 } from "./signature"
 import { rowLimits } from "../preferences/rows"
@@ -22,6 +22,54 @@ export const aad = {
 }
 
 export const keys = () => parseKeys(env.SECRETS_KEYS)
+
+export const lineOf = async (k: Keys, userId: Id<"users">, e: Doc<"mailEvents">) => {
+  const note = await openJson(k, e.note, aad.email(userId), MailNote)
+  return (
+    note && {
+      id: e._id,
+      applicationId: e.applicationId ?? null,
+      kind: e.kind,
+      from: note.from,
+      subject: note.subject || "(no subject)",
+      portalUrl: note.portalUrl,
+      slot: note.slot,
+      slotZone: note.slotZone,
+      at: e.at,
+      sent: e.by === "sent",
+      to: note.to,
+      suggest: e.suggest,
+      moved: e.moved,
+    }
+  )
+}
+
+export const linesOf = async (k: Keys, userId: Id<"users">, events: Doc<"mailEvents">[]) =>
+  (await Promise.all(events.map((e) => lineOf(k, userId, e)))).filter((e) => e !== null)
+
+/** An application's mail count and newest email, on the application so cards don't read any.
+ * Every write that files, moves or deletes mail calls this, in the same mutation.
+ * ponytail: recounts its mail each time. An application gets little mail, and a running
+ * count is one more thing that can drift. Keep a count if one ever gets thousands. */
+export const syncMailSummary = async (ctx: MutationCtx, id: Id<"applications"> | undefined) => {
+  const application = id && (await ctx.db.get("applications", id))
+  if (!application) return
+  let count = 0
+  let latest: Doc<"mailEvents"> | undefined
+  for await (const mail of ctx.db
+    .query("mailEvents")
+    .withIndex("by_userId_and_applicationId_and_at", (q) =>
+      q.eq("userId", application.userId).eq("applicationId", application._id)
+    )
+    .order("desc")) {
+    if (mail.box === "trash") continue
+    latest ??= mail
+    count++
+  }
+  await ctx.db.patch("applications", application._id, {
+    mail: latest && { count, at: latest.at, kind: latest.kind },
+  })
+}
 
 export const openJson = async <T extends Type>(
   k: Keys,

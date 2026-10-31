@@ -48,8 +48,8 @@ import {
 import { PriorityBadge, TopBadges } from "./badges"
 import { PriorityIcon, StatusIcon } from "./icons"
 import { JobContext } from "./job"
-import { MailLine, MailStatus, Suggestion, useMailFor } from "./mail"
-import { useSource } from "./source"
+import { MailLine, mailPage, MailStatus, Suggestion, useMailFor } from "./mail"
+import { useApplication, useSource } from "./source"
 
 const icon = (field: FilterField, value: string) =>
   field === "status" ? (
@@ -222,7 +222,7 @@ const Content = ({ a, properties }: { a: Application; properties?: React.ReactNo
   const set = (patch: Parameters<typeof source.update>[1]) => source.update(a.id, patch)
   const tasks = a.tasks ?? []
   const notes = a.notes ?? []
-  const mail = useMailFor(a.id)
+  const { results: mail, status: moreMail, loadMore } = useMailFor(a.id)
   // Merges status changes, notes and mail into one timeline. The sort is stable, so
   // same-day items keep their order.
   const activity = [
@@ -346,6 +346,16 @@ const Content = ({ a, properties }: { a: Application; properties?: React.ReactNo
             </li>
           ))}
         </ol>
+        {moreMail === "CanLoadMore" && (
+          <Button
+            variant="ghost"
+            size="xs"
+            className="text-muted-foreground self-start"
+            onClick={() => loadMore(mailPage)}
+          >
+            Load older mail
+          </Button>
+        )}
         <form
           className="focus-within:border-ring/60 rounded-lg border transition-colors"
           onSubmit={(e) => {
@@ -374,9 +384,8 @@ const Content = ({ a, properties }: { a: Application; properties?: React.ReactNo
 }
 
 export const ApplicationDetail = ({ id }: { id: string }) => {
-  const { applications, loaded } = useSource()
-  const a = applications.find((x) => x.id === id)
-  if (!loaded) return null
+  const a = useApplication(id)
+  if (a === undefined) return null
   if (!a) {
     return (
       <>
@@ -413,7 +422,8 @@ export const ApplicationDetail = ({ id }: { id: string }) => {
 // The same application in the pipeline's side panel, with a link to the full page.
 export const ApplicationPeek = ({ id, onClose }: { id: string; onClose: () => void }) => {
   const source = useSource()
-  const a = source.applications.find((x) => x.id === id)
+  const a = useApplication(id)
+  if (a === undefined) return null
   // Trashed, deleted, or a link to someone else's: say so, and keep a way out.
   if (!a)
     return (

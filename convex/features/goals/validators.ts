@@ -24,6 +24,8 @@ export const maxGoals = 50
 
 export const maxEvaluated = 30
 
+export const maxGoalApplications = 200
+
 export const loopField = { "loopId?": arkId("loops").or("null") }
 
 export const vVerdicts = v.object({

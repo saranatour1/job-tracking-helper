@@ -1,4 +1,7 @@
+import { paginationOptsValidator, paginationResultValidator } from "convex/server"
+import type { PaginationOptions } from "convex/server"
 import { ConvexError, v } from "convex/values"
+import type { CustomCtx } from "convex-helpers/server/customFunctions"
 import { components, internal } from "../../_generated/api"
 import {
   type ActionCtx,
@@ -15,7 +18,17 @@ import { boardOf } from "../jobs/boards"
 import { fireEvent } from "../automations/fire"
 import { mailNotificationKind } from "../notifications/kinds"
 import { tagIn } from "./addresses"
-import { secretKeys, aad, keys, openJson, threadKeyOf, askJev, ownEvent } from "./utils"
+import {
+  secretKeys,
+  aad,
+  keys,
+  linesOf,
+  openJson,
+  syncMailSummary,
+  threadKeyOf,
+  askJev,
+  ownEvent,
+} from "./utils"
 import {
   type Candidate,
   kindOf,
@@ -28,7 +41,15 @@ import {
   suggestionOf,
   tagMatch,
 } from "./match"
-import { MailNote, Received, vSortContext, vRecordArgs, vTimeline, vMailBody } from "./validators"
+import {
+  maxUnsortedCount,
+  Received,
+  vMailLine,
+  vSortContext,
+  vRecordArgs,
+  vTimeline,
+  vMailBody,
+} from "./validators"
 import { keepLog, keepLogFromAction, logEdit, reasonOf } from "../activity/utils"
 
 const threadOf = internalQuery({
@@ -163,6 +184,7 @@ const record = internalMutation({
           moved: { from: application.status, to: event.suggest },
         }),
     })
+    await syncMailSummary(ctx, event.applicationId)
     if (event.applicationId)
       await ctx.scheduler.runAfter(0, internal.api.contacts.learn, { eventId: id })
     if (quiet) return null
@@ -276,43 +298,87 @@ const sortMail = internalAction({
   },
 })
 
+// An interview's slot is sealed and can be weeks after its email, so between two times the
+// newest interview mail is opened too, for slots in that range.
 const timeline = authedQuery({
-  args: {},
+  args: { from: v.optional(v.number()), to: v.optional(v.number()) },
   returns: vTimeline,
-  handler: async (ctx) => {
+  handler: async (ctx, { from, to }) => {
     const k = await keys().catch(() => null)
     if (!k) return []
-    const events = await ctx.db
+    const ranged = from !== undefined && to !== undefined
+    const recent = await ctx.db
       .query("mailEvents")
-      .withIndex("by_userId_and_at", (q) => q.eq("userId", ctx.userId))
+      .withIndex("by_userId_and_at", (q) =>
+        ranged
+          ? q.eq("userId", ctx.userId).gte("at", from).lte("at", to)
+          : q.eq("userId", ctx.userId)
+      )
       .order("desc")
       .take(300)
-    const opened = await Promise.all(
-      events
-        .filter((e) => e.box !== "trash")
-        .map(async (e) => {
-          const note = await openJson(k, e.note, aad.email(ctx.userId), MailNote)
-          return (
-            note && {
-              id: e._id,
-              applicationId: e.applicationId ?? null,
-              kind: e.kind,
-              from: note.from,
-              subject: note.subject || "(no subject)",
-              portalUrl: note.portalUrl,
-              slot: note.slot,
-              slotZone: note.slotZone,
-              at: e.at,
-              sent: e.by === "sent",
-              to: note.to,
-              suggest: e.suggest,
-              moved: e.moved,
-            }
+    const interviews = ranged
+      ? await ctx.db
+          .query("mailEvents")
+          .withIndex("by_userId_and_kind_and_at", (q) =>
+            q.eq("userId", ctx.userId).eq("kind", "interview")
           )
-        })
-    )
-    return opened.filter((e) => e !== null).sort((a, b) => b.at - a.at)
+          .order("desc")
+          .take(100)
+      : []
+    const shown = new Set(recent.map((e) => e._id))
+    const lines = await linesOf(k, ctx.userId, [
+      ...recent.filter((e) => e.box !== "trash"),
+      ...interviews.filter((e) => e.box !== "trash" && !shown.has(e._id)),
+    ])
+    return lines
+      .filter((e) => shown.has(e.id) || (e.slot !== undefined && e.slot >= from! && e.slot <= to!))
+      .sort((a, b) => b.at - a.at)
   },
+})
+
+const pageOfMail = async (
+  ctx: CustomCtx<typeof authedQuery>,
+  applicationId: Id<"applications"> | undefined,
+  paginationOpts: PaginationOptions
+) => {
+  const page = await ctx.db
+    .query("mailEvents")
+    .withIndex("by_userId_and_applicationId_and_at", (q) =>
+      q.eq("userId", ctx.userId).eq("applicationId", applicationId)
+    )
+    .order("desc")
+    .filter((q) => q.neq(q.field("box"), "trash"))
+    .paginate(paginationOpts)
+  const k = await keys().catch(() => null)
+  return { ...page, page: k ? await linesOf(k, ctx.userId, page.page) : [] }
+}
+
+const forApplication = authedQuery({
+  args: { applicationId: v.id("applications"), paginationOpts: paginationOptsValidator },
+  returns: paginationResultValidator(vMailLine),
+  handler: (ctx, { applicationId, paginationOpts }) =>
+    pageOfMail(ctx, applicationId, paginationOpts),
+})
+
+const unsorted = authedQuery({
+  args: { paginationOpts: paginationOptsValidator },
+  returns: paginationResultValidator(vMailLine),
+  handler: (ctx, { paginationOpts }) => pageOfMail(ctx, undefined, paginationOpts),
+})
+
+const unsortedCount = authedQuery({
+  args: {},
+  returns: v.number(),
+  handler: async (ctx) =>
+    (
+      await ctx.db
+        .query("mailEvents")
+        .withIndex("by_userId_and_applicationId_and_at", (q) =>
+          q.eq("userId", ctx.userId).eq("applicationId", undefined)
+        )
+        .filter((q) => q.neq(q.field("box"), "trash"))
+        .take(maxUnsortedCount)
+    ).length,
 })
 
 const resolveSuggestion = authedMutation({
@@ -377,6 +443,8 @@ const assign = authedMutation({
       by: "you",
       suggest: application ? suggestionOf(event.kind, application.status) : undefined,
     })
+    await syncMailSummary(ctx, event.applicationId)
+    if (applicationId !== event.applicationId) await syncMailSummary(ctx, applicationId)
     if (application && !event.applicationId)
       await ctx.scheduler.runAfter(0, internal.api.contacts.learn, { eventId })
     await logEdit(
@@ -399,6 +467,9 @@ export const sortApi = {
   record,
   sortMail,
   timeline,
+  forApplication,
+  unsorted,
+  unsortedCount,
   resolveSuggestion,
   undoMove,
   assign,

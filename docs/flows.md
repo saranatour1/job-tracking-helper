@@ -44,6 +44,10 @@ Workflows have their own page, [workflows.md](workflows.md).
 
 Anything that can touch many rows goes through one batch worker (`@convex-dev/batch-worker`, `convex/features/deletes/`): deleting an account, emptying the Trash, Trash past its date, and Activity past 90 days. Each is a row in `deleteJobs`. The worker finds the next rows in a query, deletes them in a mutation, and moves on, so no single mutation can hit Convex's limits. It rechecks each row first, so an application you restored after pressing Empty the Trash stays. If a job fails partway, it's logged as `delete.job` and dropped, so the jobs behind it still run. Every 15 minutes, a job waiting too long restarts the worker (`internal.api.deletes.restartIfStuck`).
 
+### Big reads
+
+Lists you scroll through use `.paginate`: an application's mail, Unsorted, Contacts, the Trash. A read that has to see every row to be right keeps a limit instead, and takes less from each row. The board's columns, filters, counts and insights, a view's count and a goal's stats need every application, so `api.applications.list` loads them all, without the description or note text, and opening one reads the rest (`api.applications.get`). What a card shows about its mail and fit is stored on the application, so the board reads no mail and opens none. [docs/database-design.md](database-design.md#how-much-each-read-takes) lists each limit and what happens at it.
+
 ### What's in a URL
 
 Routes and search params carry regular text, never a table id (`src/lib/route-ids.ts`):
@@ -55,7 +59,7 @@ Routes and search params carry regular text, never a table id (`src/lib/route-id
 | Goal, workflow, view, loop, template     | its name                                            | `/goals/three-offers`, `/?view=hot-roles` |
 | Email, draft, workflow run, Updates line | its date, so a private subject stays out of the URL | `/email?open=oct-31-3-10-pm`              |
 
-A repeat gets a number (`-2`), and a real id still finds its row, so old links work. Text is looked up in the list the page already reads, so it's only as good as that list: rename something and its old link stops finding it after you leave the page, and an email past what's loaded won't open from a link. `?filters=` and a workflow's `?draft=` can still hold ids, because they're saved filters and drafts rather than addresses.
+A repeat gets a number (`-2`), and a real id still finds its row, so old links work. An application's text is looked up by its number (`api.applications.get`), so a link finds it whether or not it's on the board. Other text is looked up in the list the page already reads, so it's only as good as that list: rename something and its old link stops finding it after you leave the page, and an email past what's loaded won't open from a link. `?filters=` and a workflow's `?draft=` can still hold ids, because they're saved filters and drafts rather than addresses.
 
 ### Who acts
 
@@ -253,9 +257,9 @@ of 50 fields, with no names twice.
    open application live in the address (`?tab=`, `?filters=`, `?display=`, `?app=`), so
    a link opens the same view.
    Each card shows the company, the role, and badges: its status, how well it fits
-   (when a loop found it or Jev checked its link, from `api.loops.fits`), Active or
+   (when a loop found it or Jev checked its link, stored on the application), Active or
    Quiet for open applications (no news in two weeks), then priority, labels,
-   location, mail and tasks done.
+   location, mail (kind of the newest and how many, also stored) and tasks done.
 3. **Move one.** Drag a card to another column, use "Move to" on right-click, or the
    Status picker. All go through `api.applications.setStatus`, which adds to the
    history and may start workflows.
@@ -264,13 +268,15 @@ of 50 fields, with no names twice.
 5. **Edit one.** Status, priority, labels, how you applied, company and location
    (`api.applications.update`). Tasks: type and press Enter, click to check off. Notes:
    "Leave a note…" (`api.applications.addNote`).
-6. **Its activity:** status changes, notes and emails in one timeline.
+6. **Its activity:** status changes, notes and emails in one timeline. Mail comes 25 at
+   a time, newest first (`api.email.forApplication`), with **Load older mail**.
 7. **Its job:** if a loop found it or Jev checked its link, its fit, why, and the
    posting.
 8. **Its emails:** each with a "Read" toggle, a portal link if there is one, and the
    sorter's suggestion ("The email “X” suggests moving this to Y." Yes or No), or Jev's
-   move with an Undo. "N unsorted" in the toolbar lets you file mail by hand
-   (`api.email.assign`).
+   move with an Undo. "N unsorted" in the toolbar (`api.email.unsortedCount`, "100+" past
+   that) lets you file mail by hand (`api.email.assign`). Its list opens 25 at a time, and
+   only then is any of it decrypted (`api.email.unsorted`).
 9. **Right-click:** a card offers Open, Move to, Archive, Move to Trash, "Roles at
    <company> in Jobs", "Roles like this in Jobs", Open posting, Copy link. The board
    offers "Save as a view" and Clear filters.
@@ -355,7 +361,8 @@ and loops can be picked, edited or deleted.
 
 **Flows**
 
-1. `/jobs` says how many roles are in the shared catalog, from how many boards.
+1. `/jobs` says how many roles are in the shared catalog, from how many boards, from a
+   stored count (`api.jobs.stats`).
 2. Search by words (`?q=`), or pick a "Try" chip from your Preferences (interests,
    places, companies). Narrow it down with Remote only, Fits me (only roles Jev said fit
    you, best first), Posted (past day, week or month) and a company (`api.jobs.companies`,
@@ -768,9 +775,13 @@ so a recruiter at two companies shows under the latest one.
 
 **Flows**
 
-1. `/calendar` shows applied and status changes, every email, interview times read from
+1. `/calendar` shows applied and status changes, email, interview times read from
    emails, a follow-up a week after an application goes quiet at Applied, and your own
-   events. The view and date live in the address (`?view=`, `?date=`).
+   events. The view and date live in the address (`?view=`, `?date=`). It reads the
+   date's month and the months either side (`api.calendar.list`, `api.email.timeline`),
+   or the year in the year view. Repeating events and your fixes come whatever their
+   dates, since either can change what shows here. The list by application reads every
+   event, for each application's next and latest dates.
 2. **Your events:** add, drag or edit (`api.calendar.save`). A title naming one company
    links the event to that application, and the title sets its kind (interview,
    follow-up, reminder).

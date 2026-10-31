@@ -2,10 +2,10 @@ import { ArrowUpRight01Icon } from "@hugeicons/core-free-icons"
 import { HugeiconsIcon } from "@hugeicons/react"
 import { Link } from "@tanstack/react-router"
 
-import { useApplicationRoutes } from "@/lib/route-ids"
+import { applicationText } from "@/lib/route-ids"
 import { EVENT_COLORS } from "@/components/kloq"
 import type { CalEvent } from "@/components/kloq/lib/event-types"
-import type { Application } from "@/features/tracker/data"
+import type { ApplicationCard } from "@/features/tracker/data"
 import { cn } from "@/lib/utils"
 
 import { type CalendarEvent, dayIn, kinds, whenOf } from "./events"
@@ -19,8 +19,17 @@ const longDay = (day: string) =>
     day: "numeric",
   })
 
-const Row = ({ item, onPick, showDay }: { item: Item; onPick: () => void; showDay?: boolean }) => {
-  const routes = useApplicationRoutes()
+const Row = ({
+  item,
+  application,
+  onPick,
+  showDay,
+}: {
+  item: Item
+  application?: ApplicationCard | undefined
+  onPick: () => void
+  showDay?: boolean
+}) => {
   const color = item.ev.color ?? kinds[item.e.kind].color
   return (
     <li className="group flex items-center gap-1">
@@ -48,7 +57,7 @@ const Row = ({ item, onPick, showDay }: { item: Item; onPick: () => void; showDa
       {item.e.applicationId && (
         <Link
           to="/pipeline/$id"
-          params={{ id: routes.text(item.e.applicationId) }}
+          params={{ id: application ? applicationText(application) : item.e.applicationId }}
           aria-label="Open its application"
           className="text-muted-foreground hover:text-foreground rounded-md p-1 opacity-0 transition-opacity group-hover:opacity-100 focus-visible:opacity-100"
         >
@@ -73,14 +82,14 @@ export const EventList = ({
 }: {
   events: CalendarEvent[]
   kloq: Map<string, CalEvent>
-  applications: Application[]
+  applications: ApplicationCard[]
   from: string
   zone?: string
   hour12?: boolean
   group: "day" | "application"
   onPick: (day: string) => void
 }) => {
-  const routes = useApplicationRoutes()
+  const appsById = new Map(applications.map((a) => [a.id, a]))
   const items = events.flatMap((e): Item[] => {
     const ev = kloq.get(e.id)
     return ev ? [{ e, ev, ...whenOf(ev, zone, hour12) }] : []
@@ -105,7 +114,12 @@ export const EventList = ({
             <h3 className="text-muted-foreground px-2 text-xs font-medium">{longDay(day)}</h3>
             <ul>
               {list.map((i) => (
-                <Row key={i.e.id} item={i} onPick={() => onPick(i.day)} />
+                <Row
+                  key={i.e.id}
+                  item={i}
+                  application={appsById.get(i.e.applicationId ?? "")}
+                  onPick={() => onPick(i.day)}
+                />
               ))}
             </ul>
           </section>
@@ -127,7 +141,6 @@ export const EventList = ({
     return { id, list: [...past, ...next.slice(0, 5)], soonest: next[0]?.at ?? Infinity }
   })
   groups.sort((a, b) => a.soonest - b.soonest)
-  const appsById = new Map(applications.map((a) => [a.id, a]))
   return (
     <div className="flex flex-col gap-4">
       {groups.map(({ id, list }) => {
@@ -138,7 +151,7 @@ export const EventList = ({
               {a ? (
                 <Link
                   to="/pipeline/$id"
-                  params={{ id: routes.text(id) }}
+                  params={{ id: applicationText(a) }}
                   className="truncate hover:underline"
                 >
                   {a.company} · {a.role}
@@ -150,7 +163,7 @@ export const EventList = ({
             </h3>
             <ul>
               {list.map((i) => (
-                <Row key={i.e.id} item={i} showDay onPick={() => onPick(i.day)} />
+                <Row key={i.e.id} item={i} application={a} showDay onPick={() => onPick(i.day)} />
               ))}
             </ul>
           </section>

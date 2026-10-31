@@ -2,7 +2,7 @@ import type { Doc, Id } from "@convex/_generated/dataModel"
 
 import type { CalEvent, EventColor } from "@/components/kloq/lib/event-types"
 import { formatInstant, instantPlus, parseInstant } from "@/components/kloq/lib/instant"
-import { type Application, statusLabels } from "@/features/tracker/data"
+import { type ApplicationCard, statusLabels } from "@/features/tracker/data"
 import type { MailEvent } from "@/features/tracker/mail"
 
 export type EventKind = "applied" | "moved" | "email" | "interview" | "followup" | "reminder"
@@ -49,10 +49,10 @@ export const timeOf = (e: CalendarEvent) => {
   return e.wallClock && h === 0 && m === 0 ? undefined : `${pad(h)}:${pad(m)}`
 }
 
-// Everything worth a date: each application's applied day and later moves, every email,
-// interview slots the emails proposed, and a follow-up a week after an application last
+// Everything worth a date: each application's applied day and later moves, the email given,
+// interview slots those emails proposed, and a follow-up a week after an application last
 // heard anything while it's still at Applied.
-export const eventsOf = (applications: Application[], mail: MailEvent[]): CalendarEvent[] => {
+export const eventsOf = (applications: ApplicationCard[], mail: MailEvent[]): CalendarEvent[] => {
   const byId = new Map(applications.map((a) => [a.id, a]))
   const events: CalendarEvent[] = []
   for (const a of applications) {
@@ -69,10 +69,7 @@ export const eventsOf = (applications: Application[], mail: MailEvent[]): Calend
       })
     })
     if (a.status === "applied") {
-      const last = Math.max(
-        ...a.history.map((h) => Date.parse(h.at)),
-        ...mail.filter((m) => m.applicationId === a.id).map((m) => m.at)
-      )
+      const last = Math.max(...a.history.map((h) => Date.parse(h.at)), a.mail?.at ?? 0)
       events.push({
         id: `${a.id}:follow-up`,
         at: last + followUpAfter,
@@ -106,6 +103,17 @@ export const eventsOf = (applications: Application[], mail: MailEvent[]): Calend
       })
   }
   return events.sort((x, y) => x.at - y.at)
+}
+
+/** The days to read for the calendar on `date`: its month and the months either side, so
+ * moving around a month reads nothing new and what a grid or list shows past its edges is
+ * there. The year view reads its year. */
+export const rangeOf = (date: string, view?: unknown) => {
+  const [year = 0, month = 1] = date.split("-").map(Number)
+  const first = (m: number) => new Date(Date.UTC(year, m, 1)).toISOString().slice(0, 10)
+  return view === "year"
+    ? { from: first(-1), to: first(13) }
+    : { from: first(month - 2), to: first(month + 2) }
 }
 
 /** How each kind looks in kloq, and how long a timed one lasts (0: always all-day). */

@@ -13,7 +13,7 @@ import {
   ContextMenuTrigger,
 } from "@/components/ui/context-menu"
 
-import { type Application, type Filters, type View, statusLabels, statuses } from "./data"
+import { type ApplicationCard, type Filters, type View, statusLabels, statuses } from "./data"
 import type { Display } from "./display-options"
 import { StatusIcon } from "./icons"
 import { useRemoveView } from "./saved-views"
@@ -35,7 +35,7 @@ export const ApplicationMenu = ({
   onTrashed,
   children,
 }: {
-  a: Application
+  a: ApplicationCard
   onOpen: () => void
   // So the board can close the application's panel when it goes to the Trash.
   onTrashed?: () => void

@@ -1,8 +1,7 @@
 import { paginationOptsValidator, paginationResultValidator } from "convex/server"
-import { logNewApplication, nextNumber } from "../applications/utils"
+import { fitOf, logNewApplication, nextNumber } from "../applications/utils"
 import { priorityFor } from "../applications/validators"
 import { ConvexError, v } from "convex/values"
-import type { Id } from "../../_generated/dataModel"
 import schema from "../../schema"
 import { arkMutation, authedMutation, authedQuery } from "../../lib/functions"
 import { fireEvent } from "../automations/fire"
@@ -12,7 +11,7 @@ import { apiKeyOf, monthlyCredits } from "../workflows/sources"
 import { maxLoops, switchAt } from "./catalog"
 import { startRun, stopRunNow, ownLoop, rowOf, lastRunOf, ownLead, countOnRun } from "./utils"
 import { nextRunAt } from "./schedule"
-import { NewLoop, UpdateLoop, vFits, vRespondArgs, vSourceStatus } from "./validators"
+import { NewLoop, UpdateLoop, vRespondArgs, vSourceStatus } from "./validators"
 import { providerIds } from "../workflows/validators"
 import { logEdit } from "../activity/utils"
 
@@ -179,28 +178,6 @@ const leadForApplication = authedQuery({
   },
 })
 
-const fits = authedQuery({
-  args: {},
-  returns: vFits,
-  handler: async (ctx) => {
-    // A missing applicationId sorts before any string, so this skips leads without one.
-    const leads = await ctx.db
-      .query("jobLeads")
-      .withIndex("by_userId_and_applicationId", (q) =>
-        q.eq("userId", ctx.userId).gte("applicationId", "" as Id<"applications">)
-      )
-      .take(1000)
-    const seen = new Set<Id<"applications">>()
-    const out = []
-    for (const { applicationId, fit, verdict } of leads) {
-      if (!applicationId || seen.has(applicationId)) continue
-      seen.add(applicationId)
-      out.push({ applicationId, fit, isFit: verdict === "fit" })
-    }
-    return out
-  },
-})
-
 const respond = authedMutation({
   args: vRespondArgs,
   returns: v.null(),
@@ -263,6 +240,7 @@ const track = authedMutation({
       ...(lead.snippet && { description: lead.snippet.slice(0, 5000) }),
       method: "Company site",
       priority: priorityFor(lead.fit),
+      ...fitOf(lead),
       history: [{ status: "saved", at: Date.now() }],
     })
     await logNewApplication(ctx, ctx.userId, applicationId, lead.company)
@@ -305,7 +283,6 @@ const sourceStatus = authedQuery({
 export const publicApi = {
   list,
   leadForApplication,
-  fits,
   create,
   update,
   setActive,

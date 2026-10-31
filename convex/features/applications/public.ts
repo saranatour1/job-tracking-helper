@@ -11,12 +11,13 @@ import {
   SetStatus,
   AddNote,
 } from "./validators"
-import { own, capped, logNewApplication, nextNumber, changeStatus } from "./utils"
+import { vCard } from "./models"
+import { own, capped, cardOf, logNewApplication, nextNumber, changeStatus } from "./utils"
 import { logEdit } from "../activity/utils"
 
 const list = authedQuery({
   args: {},
-  returns: v.array(schema.doc("applications")),
+  returns: v.array(vCard),
   handler: async (ctx) =>
     (
       await ctx.db
@@ -26,7 +27,39 @@ const list = authedQuery({
         )
         .order("desc")
         .take(maxApplications)
-    ).reverse(),
+    )
+      .reverse()
+      .map(cardOf),
+})
+
+// From a link: its route text ("app-12") or, for older links, its id.
+const get = authedQuery({
+  args: { ref: v.string() },
+  returns: v.union(schema.doc("applications"), v.null()),
+  handler: async (ctx, { ref }) => {
+    const number = /^app-(\d+)$/.exec(ref)?.[1]
+    const id = ctx.db.normalizeId("applications", ref)
+    const application = number
+      ? await ctx.db
+          .query("applications")
+          .withIndex("by_userId_and_number", (q) =>
+            q.eq("userId", ctx.userId).eq("number", Number(number))
+          )
+          .first()
+      : id && (await ctx.db.get("applications", id))
+    return application?.userId === ctx.userId && application.trashedAt === undefined
+      ? application
+      : null
+  },
+})
+
+const numberOf = authedQuery({
+  args: { id: v.id("applications") },
+  returns: v.union(v.number(), v.null()),
+  handler: async (ctx, { id }) => {
+    const application = await ctx.db.get("applications", id)
+    return application?.userId === ctx.userId ? application.number : null
+  },
 })
 
 const add = arkMutation({
@@ -106,4 +139,4 @@ const addNote = arkMutation({
   },
 })
 
-export const publicApi = { list, add, update, setStatus, addNote, setGoal }
+export const publicApi = { list, get, numberOf, add, update, setStatus, addNote, setGoal }

@@ -1,4 +1,4 @@
-import { useApplicationRoutes, usePrefillRoutes, useWorkflowRoutes } from "@/lib/route-ids"
+import { useApplicationText, usePrefillRoutes, useWorkflowRoutes } from "@/lib/route-ids"
 import { api } from "@/lib/api"
 import { getRouteApi, Link } from "@tanstack/react-router"
 import type { FunctionReturnType } from "convex/server"
@@ -61,7 +61,7 @@ const when = (ms: number) =>
 
 // One finished application: what it used, what it was missing, and what to do about it.
 const RunTile = ({ run }: { run: Run }) => {
-  const applications = useApplicationRoutes()
+  const application = useApplicationText(run.applicationId)
   const again = useMutation(api.prefilled.prepareAgain)
   const used = run.fields.filter((f) => f.source === "saved" || f.source === "jev")
   const missing = run.fields.filter((f) => !f.answer)
@@ -125,11 +125,7 @@ const RunTile = ({ run }: { run: Run }) => {
           Open the posting
         </Button>
         {run.applicationId && (
-          <Button
-            size="xs"
-            variant="ghost"
-            render={<Link to="/" search={{ app: applications.text(run.applicationId) }} />}
-          >
+          <Button size="xs" variant="ghost" render={<Link to="/" search={{ app: application }} />}>
             Open the application
           </Button>
         )}
@@ -149,7 +145,7 @@ const RunTile = ({ run }: { run: Run }) => {
 
 // Where to go to see or fix it.
 const EventLink = ({ event }: { event: Event }) => {
-  const applications = useApplicationRoutes()
+  const application = useApplicationText(event.applicationId)
   const prefills = usePrefillRoutes()
   const workflows = useWorkflowRoutes()
   const open = (link: React.ReactElement) => (
@@ -161,8 +157,7 @@ const EventLink = ({ event }: { event: Event }) => {
     return open(<Link to="/prefilled/$id" params={{ id: prefills.text(event.prefillId) }} />)
   if (event.automationId)
     return open(<Link to="/workflows/$id" params={{ id: workflows.text(event.automationId) }} />)
-  if (event.applicationId)
-    return open(<Link to="/" search={{ app: applications.text(event.applicationId) }} />)
+  if (event.applicationId) return open(<Link to="/" search={{ app: application }} />)
   if (event.work === "loop.run") return open(<Link to="/loops" />)
   if (
     event.work.startsWith("account.") ||

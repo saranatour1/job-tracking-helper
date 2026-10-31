@@ -35,6 +35,13 @@ beforeEach(() => {
 
 const first = { numItems: 25, cursor: null }
 
+const withoutSystemFields = <T extends object>(
+  row: T & { _id: unknown; _creationTime: unknown }
+) => {
+  const { _id, _creationTime, ...fields } = row
+  return fields
+}
+
 const setup = async () => {
   const t = convexTest(schema, modules)
   rateLimiter.register(t)
@@ -140,6 +147,52 @@ describe("folders", () => {
     expect(await as.query(api.api.email.timeline, {})).toHaveLength(1)
     await as.mutation(api.api.mailbox.move, { eventId: row!.id, to: "trash" })
     expect(await as.query(api.api.email.timeline, {})).toHaveLength(0)
+  })
+
+  it("keeps the count on the application's card right through every move", async () => {
+    const { t, as, receive, box, hooli } = await setup()
+    const summary = async () => (await t.run((ctx) => ctx.db.get("applications", hooli)))?.mail
+    expect(await summary()).toBeUndefined()
+
+    await receive({ subject: "One" })
+    await receive({ subject: "Two" })
+    expect(await summary()).toMatchObject({ count: 2 })
+    const rows = await box("inbox")
+    const [newest, older] = rows
+    expect((await summary())?.at).toBe(newest!.at)
+
+    // Binning the newest drops it from the count, and the older one is the latest again.
+    await as.mutation(api.api.mailbox.move, { eventId: newest!.id, to: "trash" })
+    expect(await summary()).toMatchObject({ count: 1, at: older!.at })
+    await as.mutation(api.api.mailbox.move, { eventId: newest!.id, to: "back" })
+    expect(await summary()).toMatchObject({ count: 2, at: newest!.at })
+    // Archived still counts.
+    await as.mutation(api.api.mailbox.move, { eventId: newest!.id, to: "archived" })
+    expect(await summary()).toMatchObject({ count: 2 })
+
+    // Filed elsewhere, it leaves this card and joins that one.
+    const acme = await t.run(async (ctx) => {
+      const self = (await ctx.db.get("applications", hooli))!
+      return ctx.db.insert("applications", { ...withoutSystemFields(self), number: 2 })
+    })
+    await as.mutation(api.api.email.assign, { eventId: older!.id, applicationId: acme })
+    expect(await summary()).toMatchObject({ count: 1, at: newest!.at })
+    expect((await t.run((ctx) => ctx.db.get("applications", acme)))?.mail).toMatchObject({
+      count: 1,
+      at: older!.at,
+    })
+
+    // Deleted for good, and sent mail counts too.
+    await as.mutation(api.api.mailbox.move, { eventId: newest!.id, to: "trash" })
+    await as.mutation(api.api.mailbox.deleteForever, { eventId: newest!.id })
+    expect(await summary()).toBeUndefined()
+    await as.action(api.api.email.sendFromApplication, {
+      applicationId: hooli,
+      to: "pat@hooli.com",
+      subject: "Sent one",
+      text: "Hi",
+    })
+    expect(await summary()).toMatchObject({ count: 1, kind: "other" })
   })
 
   it("only deletes for good from the Trash, and takes the email with it", async () => {

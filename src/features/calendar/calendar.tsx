@@ -1,5 +1,7 @@
 import { Link, useNavigate, useSearch } from "@tanstack/react-router"
-import { useApplicationRoutes } from "@/lib/route-ids"
+import { useQuery } from "convex-helpers/react/cache/hooks"
+import { api } from "@/lib/api"
+import { applicationText } from "@/lib/route-ids"
 import { useCallback, useMemo, useRef } from "react"
 
 import {
@@ -28,7 +30,7 @@ import { Button } from "@/components/ui/button"
 import { ScrollArea } from "@/components/ui/scroll-area"
 import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group"
 import { PageHeader } from "@/features/shell/page-header"
-import type { Application } from "@/features/tracker/data"
+import type { ApplicationCard } from "@/features/tracker/data"
 import { useSource } from "@/features/tracker/source"
 import { cn } from "@/lib/utils"
 
@@ -38,11 +40,12 @@ import {
   eventsOf,
   kinds,
   noApplication,
+  rangeOf,
   toKloq,
   toSaved,
   withSaved,
 } from "./events"
-import { useCalendarSettings, useRemoveEvent, useSaveEvent, useSavedEvents } from "./saved"
+import { useCalendarSettings, useLast, useRemoveEvent, useSaveEvent, useSavedEvents } from "./saved"
 
 const views = ["day", "week", "month", "agenda", "year", "timeline"] as const
 const kindKeys = Object.keys(kinds) as EventKind[]
@@ -79,7 +82,7 @@ export const calendarSearch = (search: Record<string, unknown>): CalendarSearch 
 // Applications are kloq "calendars", so its event panel names the one an event is about
 // and lets you pick another for your own events. Registered for as long as the page is.
 const account = "job-search"
-const sourcesOf = (applications: Application[]): CalendarSource[] => [
+const sourcesOf = (applications: ApplicationCard[]): CalendarSource[] => [
   { id: noApplication, name: "No application", color: "blue", accountId: account, isDefault: true },
   ...applications.map((a) => ({
     id: a.id,
@@ -169,20 +172,28 @@ const IcsButtons = () => {
 // each move and email, interview slots from invites, follow-ups, and your own events.
 // Click an event for its details; double-click opens its application.
 export const CalendarPage = () => {
-  const { applications, mail } = useSource()
-  const saved = useSavedEvents() ?? []
+  const { applications } = useSource()
   const settings = useCalendarSettings() ?? {}
   const save = useSaveEvent()
   const remove = useRemoveEvent()
   const search = useSearch({ from: "/_app/calendar" })
   const navigate = useNavigate({ from: "/calendar" })
-  const applicationRoutes = useApplicationRoutes()
   const write = (patch: CalendarSearch) =>
     void navigate({ search: (prev) => ({ ...prev, ...patch }), replace: true })
 
   const zone = settings.timeZone
   const today = keyOf(new Date())
   const date = search.date ?? today
+  // The list by application takes each one's next and latest dates, wherever they are.
+  const range = search.list === "application" ? undefined : rangeOf(date, search.view)
+  const saved = useLast(useSavedEvents(range)) ?? []
+  const mail =
+    useLast(
+      useQuery(
+        api.email.timeline,
+        range ? { from: Date.parse(range.from), to: Date.parse(range.to) } : {}
+      )
+    ) ?? []
   const appsById = new Map(applications.map((a) => [a.id, a]))
   const appIds = new Set(appsById.keys())
   const all = withSaved(eventsOf(applications, mail), saved, (id) => appsById.get(id)?.company)
@@ -238,7 +249,8 @@ export const CalendarPage = () => {
     onCommit: commit,
     onEventDoubleClick: (e: CalEvent) => {
       const id = byId.get(e.id)?.applicationId
-      if (id) void navigate({ to: "/pipeline/$id", params: { id: applicationRoutes.text(id) } })
+      const a = id && appsById.get(id)
+      if (a) void navigate({ to: "/pipeline/$id", params: { id: applicationText(a) } })
     },
     theme: "coss",
     designMode: false,
