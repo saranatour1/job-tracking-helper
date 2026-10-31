@@ -107,6 +107,68 @@ describe("preparing an application", () => {
     expect([row?.status, row?.company]).toEqual(["preparing", "Hooli"])
   })
 
+  describe("a role listed on the company's own site", () => {
+    const catalogRole = (t: Awaited<ReturnType<typeof setup>>["t"], url: string) =>
+      t.run(async (ctx) => {
+        const board = await ctx.db.query("jobBoards").first()
+        return ctx.db.insert("jobs", {
+          boardId: board!._id,
+          urlKey: url,
+          url,
+          title: "Backend Engineer",
+          company: "Hooli",
+          location: "Remote",
+          remote: true,
+          postedAt: 0,
+          seenAt: 0,
+          text: "Backend Engineer\n\nBuild the API.",
+        })
+      })
+
+    it("prepares a Greenhouse role, keeping the link the page shows", async () => {
+      const { t, as } = await setup()
+      const url = "https://www.hooli.com/careers/positions/8333273?gh_jid=8333273"
+      const id = await as.mutation(api.api.prefilled.prepare, {
+        jobId: await catalogRole(t, url),
+      })
+      expect(await t.run((ctx) => ctx.db.get("prefills", id))).toMatchObject({ url })
+    })
+
+    it("still turns down a site it has no form for", async () => {
+      const { t, as } = await setup()
+      const jobId = await catalogRole(t, "https://www.hooli.com/careers/positions/8333273")
+      await expect(as.mutation(api.api.prefilled.prepare, { jobId })).rejects.toThrow(
+        "This works on Greenhouse, Lever, Ashby and Personio postings."
+      )
+    })
+
+    it("still turns down a pasted link with no catalog role behind it", async () => {
+      const { t, as, userId } = await setup()
+      const leadId = await t.run((ctx) =>
+        ctx.db.insert(
+          "jobLeads",
+          lead(userId, 1, "https://www.hooli.com/careers/positions/1?gh_jid=1")
+        )
+      )
+      await expect(as.mutation(api.api.prefilled.prepare, { leadId })).rejects.toThrow(
+        "This works on Greenhouse, Lever, Ashby and Personio postings."
+      )
+    })
+
+    it("is prepared by itself when a loop finds it", async () => {
+      const { t, as, userId } = await setup()
+      await as.mutation(api.api.prefilled.setAutoPrepare, { on: true })
+      const url = "https://www.hooli.com/careers/positions/8333273?gh_jid=8333273"
+      const jobId = await catalogRole(t, url)
+      const prepared = await t.run(async (ctx) => {
+        const id = await ctx.db.insert("jobLeads", { ...lead(userId, 1, url), jobId })
+        await prepareFits(ctx, userId, [(await ctx.db.get("jobLeads", id))!])
+        return ctx.db.query("prefills").collect()
+      })
+      expect(prepared.map((p) => [p.url, p.jobId])).toEqual([[url, jobId]])
+    })
+  })
+
   it("needs a resume first", async () => {
     const { t, as, jobId, userId } = await setup()
     await t.run(async (ctx) => {

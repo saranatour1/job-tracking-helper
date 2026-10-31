@@ -513,7 +513,9 @@ posting stays in the catalog, since each has its own link.
    prepared, until Firecrawl has used 90% of this month's credits. With it off, press
    **Prepare** on a role in Jobs or on your shortlist (`api.prefilled.prepare`). Both share a
    limit of 10 a day. It needs your email, a resume, a Firecrawl key on the server, and a
-   posting on Greenhouse, Lever, Ashby or Personio. One per person and posting.
+   posting on Greenhouse, Lever, Ashby or Personio. A catalog role from a Greenhouse board
+   that links to the company's own site counts: the row keeps that link, and the form is read
+   and opened from Greenhouse's embed page. One per person and posting.
 2. **Prepare** runs with no one there (`internal.api.prefilledActions.prepareForm`, on `applyPool`,
    never retried by itself), and nothing is typed into the form:
    - **Open the form:** one Firecrawl scrape of the posting, then `interact` with
