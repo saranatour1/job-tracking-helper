@@ -1,6 +1,15 @@
 import { describe, expect, it } from "vite-plus/test"
 
-import { type Answer, type FormField, planFor, questionsFor, resolve } from "./match"
+import {
+  type Answer,
+  type FormField,
+  liveFillsFrom,
+  planFor,
+  prefillFieldsFrom,
+  questionsFor,
+  resolve,
+  statusFrom,
+} from "./match"
 
 const field = (label: string, more: Partial<FormField> = {}): FormField => ({
   selector: `#${label.toLowerCase().replace(/\W+/g, "-")}`,
@@ -176,5 +185,57 @@ describe("questionsFor and resolve", () => {
       { question: "Location (City)", required: true },
     ])
     expect(planFor([field("Search", { required: false })], answers).ask).toEqual([])
+  })
+})
+
+describe("a prepared application", () => {
+  const form = [
+    field("First Name"),
+    field("Gender", { type: "custom", options: ["Female", "Male"] }),
+    field("Resume", { type: "file" }),
+    field("Do you require visa sponsorship?", { type: "custom", options: ["Yes", "No"] }),
+    field("Why this role?", { type: "textarea" }),
+  ]
+
+  it("keeps each question with its answer and source, and never a demographic one", () => {
+    const plan = planFor(form, answers)
+    const fields = prefillFieldsFrom(form, plan, resolve(plan.ask, answers, { q0: "o1" }))
+    expect(fields.map((f) => [f.question, f.answer, f.source])).toEqual([
+      ["First Name", "Sara", "saved"],
+      ["Do you require visa sponsorship?", "No", "jev"],
+      ["Why this role?", undefined, "none"],
+    ])
+    expect(fields[1]?.entryKey).toBeUndefined()
+    expect(statusFrom(fields)).toBe("needsAnswers")
+    expect(statusFrom(fields.slice(0, 2))).toBe("ready")
+  })
+
+  it("lines answers up with the form as it reads now, and lists what's left to do by hand", () => {
+    const { fills, unfilled } = liveFillsFrom(
+      [field("First Name", { selector: "#new-first", type: "text" })],
+      [
+        {
+          question: "First Name",
+          type: "text",
+          required: true,
+          answer: "Sara",
+          source: "saved",
+          entryKey: "name",
+        },
+        {
+          question: "Gone from the form",
+          type: "text",
+          required: false,
+          answer: "x",
+          source: "you",
+        },
+        { question: "Why this role?", type: "textarea", required: true, source: "none" },
+        { question: "Optional blank", type: "text", required: false, source: "none" },
+      ]
+    )
+    expect(fills).toEqual([
+      { selector: "#new-first", value: "Sara", key: "name", type: "text", label: "First Name" },
+    ])
+    expect(unfilled).toEqual(["Gone from the form", "Why this role?"])
   })
 })

@@ -252,45 +252,20 @@ const ApplicationsSection = () => {
 }
 
 // The switch that lets the app submit applications for you, from the Jobs page.
-const AutoApplySection = () => {
-  const settings = useQuery(api.autoApply.settings)
-  const setSwitch = useMutation(api.autoApply.setSwitch)
+const PrefilledSection = () => {
+  const settings = useQuery(api.prefilled.settings)
+  const setAutoPrepare = useMutation(api.prefilled.setAutoPrepare)
   return (
-    <Section title="Auto-apply">
+    <Section title="Prefilled applications">
       <Row
-        label="Apply for me"
-        description={
-          <>
-            With this on, <strong>Auto-apply</strong> on a role in Jobs fills the posting's form
-            from your saved answers and resume and submits it. Only Greenhouse, Lever, Ashby and
-            Personio forms that need no account; a question with no saved answer stops it as Needs
-            you, and required consent boxes are ticked for you. 10 a day. Each run shows on the
-            Activity page.
-            {settings && !settings.ready && !settings.on && (
-              <>
-                {" "}
-                Needs a resume on the Resume page, your email under Profile, and a Firecrawl key.
-              </>
-            )}
-          </>
-        }
+        label="Prepare applications for new fits"
+        description="When a loop finds a role that fits, the app reads its form and matches your saved answers, so it's waiting under Prefilled applications. Up to 10 a day, on Greenhouse, Lever, Ashby and Personio. Nothing is ever sent without you: you press Submit yourself."
       >
         <Switch
-          aria-label="Apply for me"
+          aria-label="Prepare applications for new fits"
           checked={settings?.on ?? false}
           disabled={!settings}
-          onCheckedChange={(on) => void setSwitch({ on })}
-        />
-      </Row>
-      <Row
-        label="Fill, but don't send yet"
-        description="Each run fills the form and shows on Activity what it would use, then stops before Submit. Turn it off once you're happy with the answers."
-      >
-        <Switch
-          aria-label="Fill, but don't send yet"
-          checked={settings?.dryRun ?? false}
-          disabled={!settings}
-          onCheckedChange={(dryRun) => void setSwitch({ dryRun })}
+          onCheckedChange={(on) => void setAutoPrepare({ on })}
         />
       </Row>
     </Section>
@@ -347,7 +322,7 @@ export const Account = () => {
           <CalendarSection />
           <BookingSection />
           <ApplicationsSection />
-          <AutoApplySection />
+          <PrefilledSection />
           <Section title="Interface and theme">
             <Row label="Theme" description="Light, dark, or follow your system.">
               <div className="w-32">

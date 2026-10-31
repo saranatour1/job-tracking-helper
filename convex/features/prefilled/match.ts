@@ -1,3 +1,5 @@
+import { maxFields, maxOptions, type PrefillField } from "./validators"
+
 // Matches an application form's fields to the person's saved answers. Plain labels are
 // matched here by synonym; what's left goes to Jev as a choice between saved answers,
 // never as text to write. Kept free of convex/server imports so tests stay plain.
@@ -159,6 +161,70 @@ export const questionsFor = (ask: FormField[], answers: Answer[]) =>
       ]
     })
   )
+
+type Fields = PrefillField[]
+
+/** What a prepared application keeps: every question left to answer, and its answer so far. */
+export const prefillFieldsFrom = (
+  fields: FormField[],
+  plan: Plan,
+  resolved: { fills: Fill[] }
+): Fields => {
+  const filled = new Map<string, Fill & { source: "saved" | "jev" }>([
+    ...plan.fills.map((f) => [f.selector, { ...f, source: "saved" as const }] as const),
+    ...resolved.fills.map((f) => [f.selector, { ...f, source: "jev" as const }] as const),
+  ])
+  const asked = new Set(plan.ask.map((f) => f.selector))
+  return fields
+    .filter((f) => filled.has(f.selector) || asked.has(f.selector))
+    .slice(0, maxFields)
+    .map((f) => {
+      const fill = filled.get(f.selector)
+      const options = f.options?.length && f.options.length <= maxOptions ? f.options : undefined
+      return {
+        question: f.label || f.name,
+        type: f.type,
+        required: f.required,
+        ...(options && { options }),
+        source: fill?.source ?? "none",
+        ...(fill && { answer: fill.value }),
+        ...(fill && fill.key !== "option" && { entryKey: fill.key }),
+        ...(fill?.fallback && { fallback: fill.fallback }),
+      }
+    })
+}
+
+export const statusFrom = (fields: Fields) =>
+  fields.some((f) => f.required && !f.answer) ? ("needsAnswers" as const) : ("ready" as const)
+
+/** Lines a prepared application's answers up with the form as it reads right now. A
+ * question the form no longer asks, or doesn't find, goes on the list to do by hand. */
+export const liveFillsFrom = (fields: FormField[], saved: Fields) => {
+  const left = [...fields]
+  const fills: (Fill & { type: string; label: string })[] = []
+  const unfilled: string[] = []
+  for (const s of saved) {
+    if (!s.answer) {
+      if (s.required) unfilled.push(s.question)
+      continue
+    }
+    const at = left.findIndex((f) => (f.label || f.name) === s.question)
+    if (at < 0) {
+      unfilled.push(s.question)
+      continue
+    }
+    const [f] = left.splice(at, 1)
+    fills.push({
+      selector: f!.selector,
+      value: s.answer,
+      key: s.entryKey ?? "you",
+      type: f!.type,
+      label: s.question,
+      ...(s.fallback && { fallback: s.fallback }),
+    })
+  }
+  return { fills, unfilled }
+}
 
 /** Turns Jev's picks into fills, and lists what stays unanswered. */
 export const resolve = (

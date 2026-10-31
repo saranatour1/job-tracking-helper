@@ -27,6 +27,8 @@ import { Route as AppGoalsIndexRouteImport } from './routes/_app/goals/index'
 import { Route as AppGoalsIdRouteImport } from './routes/_app/goals/$id'
 import { Route as AppPipelineIndexRouteImport } from './routes/_app/pipeline/index'
 import { Route as AppPipelineIdRouteImport } from './routes/_app/pipeline/$id'
+import { Route as AppPrefilledIndexRouteImport } from './routes/_app/prefilled/index'
+import { Route as AppPrefilledIdRouteImport } from './routes/_app/prefilled/$id'
 import { Route as AppViewsIndexRouteImport } from './routes/_app/views/index'
 import { Route as AppViewsNewRouteImport } from './routes/_app/views/new'
 import { Route as AppWorkflowsIndexRouteImport } from './routes/_app/workflows/index'
@@ -120,6 +122,16 @@ const AppPipelineIdRoute = AppPipelineIdRouteImport.update({
   path: '/pipeline/$id',
   getParentRoute: () => AppRoute,
 } as any)
+const AppPrefilledIndexRoute = AppPrefilledIndexRouteImport.update({
+  id: '/prefilled/',
+  path: '/prefilled/',
+  getParentRoute: () => AppRoute,
+} as any)
+const AppPrefilledIdRoute = AppPrefilledIdRouteImport.update({
+  id: '/prefilled/$id',
+  path: '/prefilled/$id',
+  getParentRoute: () => AppRoute,
+} as any)
 const AppViewsIndexRoute = AppViewsIndexRouteImport.update({
   id: '/views/',
   path: '/views/',
@@ -156,10 +168,12 @@ export interface FileRoutesByFullPath {
   '/book/$slug': typeof BookSlugRoute
   '/goals/$id': typeof AppGoalsIdRoute
   '/pipeline/$id': typeof AppPipelineIdRoute
+  '/prefilled/$id': typeof AppPrefilledIdRoute
   '/views/new': typeof AppViewsNewRoute
   '/workflows/$id': typeof AppWorkflowsIdRoute
   '/goals/': typeof AppGoalsIndexRoute
   '/pipeline/': typeof AppPipelineIndexRoute
+  '/prefilled/': typeof AppPrefilledIndexRoute
   '/views/': typeof AppViewsIndexRoute
   '/workflows/': typeof AppWorkflowsIndexRoute
 }
@@ -178,10 +192,12 @@ export interface FileRoutesByTo {
   '/book/$slug': typeof BookSlugRoute
   '/goals/$id': typeof AppGoalsIdRoute
   '/pipeline/$id': typeof AppPipelineIdRoute
+  '/prefilled/$id': typeof AppPrefilledIdRoute
   '/views/new': typeof AppViewsNewRoute
   '/workflows/$id': typeof AppWorkflowsIdRoute
   '/goals': typeof AppGoalsIndexRoute
   '/pipeline': typeof AppPipelineIndexRoute
+  '/prefilled': typeof AppPrefilledIndexRoute
   '/views': typeof AppViewsIndexRoute
   '/workflows': typeof AppWorkflowsIndexRoute
 }
@@ -203,10 +219,12 @@ export interface FileRoutesById {
   '/_app/': typeof AppIndexRoute
   '/_app/goals/$id': typeof AppGoalsIdRoute
   '/_app/pipeline/$id': typeof AppPipelineIdRoute
+  '/_app/prefilled/$id': typeof AppPrefilledIdRoute
   '/_app/views/new': typeof AppViewsNewRoute
   '/_app/workflows/$id': typeof AppWorkflowsIdRoute
   '/_app/goals/': typeof AppGoalsIndexRoute
   '/_app/pipeline/': typeof AppPipelineIndexRoute
+  '/_app/prefilled/': typeof AppPrefilledIndexRoute
   '/_app/views/': typeof AppViewsIndexRoute
   '/_app/workflows/': typeof AppWorkflowsIndexRoute
 }
@@ -227,10 +245,12 @@ export interface FileRouteTypes {
     | '/book/$slug'
     | '/goals/$id'
     | '/pipeline/$id'
+    | '/prefilled/$id'
     | '/views/new'
     | '/workflows/$id'
     | '/goals/'
     | '/pipeline/'
+    | '/prefilled/'
     | '/views/'
     | '/workflows/'
   fileRoutesByTo: FileRoutesByTo
@@ -249,10 +269,12 @@ export interface FileRouteTypes {
     | '/book/$slug'
     | '/goals/$id'
     | '/pipeline/$id'
+    | '/prefilled/$id'
     | '/views/new'
     | '/workflows/$id'
     | '/goals'
     | '/pipeline'
+    | '/prefilled'
     | '/views'
     | '/workflows'
   id:
@@ -273,10 +295,12 @@ export interface FileRouteTypes {
     | '/_app/'
     | '/_app/goals/$id'
     | '/_app/pipeline/$id'
+    | '/_app/prefilled/$id'
     | '/_app/views/new'
     | '/_app/workflows/$id'
     | '/_app/goals/'
     | '/_app/pipeline/'
+    | '/_app/prefilled/'
     | '/_app/views/'
     | '/_app/workflows/'
   fileRoutesById: FileRoutesById
@@ -415,6 +439,20 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AppPipelineIdRouteImport
       parentRoute: typeof AppRoute
     }
+    '/_app/prefilled/': {
+      id: '/_app/prefilled/'
+      path: '/prefilled'
+      fullPath: '/prefilled/'
+      preLoaderRoute: typeof AppPrefilledIndexRouteImport
+      parentRoute: typeof AppRoute
+    }
+    '/_app/prefilled/$id': {
+      id: '/_app/prefilled/$id'
+      path: '/prefilled/$id'
+      fullPath: '/prefilled/$id'
+      preLoaderRoute: typeof AppPrefilledIdRouteImport
+      parentRoute: typeof AppRoute
+    }
     '/_app/views/': {
       id: '/_app/views/'
       path: '/views'
@@ -458,10 +496,12 @@ interface AppRouteChildren {
   AppIndexRoute: typeof AppIndexRoute
   AppGoalsIdRoute: typeof AppGoalsIdRoute
   AppPipelineIdRoute: typeof AppPipelineIdRoute
+  AppPrefilledIdRoute: typeof AppPrefilledIdRoute
   AppViewsNewRoute: typeof AppViewsNewRoute
   AppWorkflowsIdRoute: typeof AppWorkflowsIdRoute
   AppGoalsIndexRoute: typeof AppGoalsIndexRoute
   AppPipelineIndexRoute: typeof AppPipelineIndexRoute
+  AppPrefilledIndexRoute: typeof AppPrefilledIndexRoute
   AppViewsIndexRoute: typeof AppViewsIndexRoute
   AppWorkflowsIndexRoute: typeof AppWorkflowsIndexRoute
 }
@@ -478,10 +518,12 @@ const AppRouteChildren: AppRouteChildren = {
   AppIndexRoute: AppIndexRoute,
   AppGoalsIdRoute: AppGoalsIdRoute,
   AppPipelineIdRoute: AppPipelineIdRoute,
+  AppPrefilledIdRoute: AppPrefilledIdRoute,
   AppViewsNewRoute: AppViewsNewRoute,
   AppWorkflowsIdRoute: AppWorkflowsIdRoute,
   AppGoalsIndexRoute: AppGoalsIndexRoute,
   AppPipelineIndexRoute: AppPipelineIndexRoute,
+  AppPrefilledIndexRoute: AppPrefilledIndexRoute,
   AppViewsIndexRoute: AppViewsIndexRoute,
   AppWorkflowsIndexRoute: AppWorkflowsIndexRoute,
 }

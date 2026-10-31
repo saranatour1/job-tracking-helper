@@ -81,8 +81,9 @@ src/
   features/<feature>/                  the feature's components
   features/tracker/                    Applications, Views and Goals on Convex
   features/preferences/                Preferences: the form, the assistant prompt, the profile blocks; and the Resume page
-  features/jobs/                       Jobs: the shared catalog of open roles, with Auto-apply
-  features/activity/                   Activity: what auto-apply did, used and still needs
+  features/jobs/                       Jobs: the shared catalog of open roles, with Prepare
+  features/prefilled/                  Prefilled applications: roles made ready, reviewed and sent by you
+  features/activity/                   Activity: what's been sent, what stopped, and what it used
   features/loops/                      Loops: morning job searches, their runs and sources
   features/account/                    Account: profile, email connection, notifications, theme, sign-out
   features/inbox/                      Inbox: notifications from mail and loops

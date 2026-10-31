@@ -161,7 +161,7 @@ export const addUsage = async (
 }
 
 // Puts a loop's best waiting fits on the shortlist, as many as the person has room for:
-// the loop's size, less the roles from it still on their shortlist. Returns how many.
+// the loop's size, less the roles from it still on their shortlist. Returns them.
 // ponytail: a waiting role can close on its board before it's shown; the sheet still
 // opens it, and the link says so.
 export const fillShortlist = async (ctx: MutationCtx, userId: Id<"users">, loopId: Id<"loops">) => {
@@ -176,7 +176,7 @@ export const fillShortlist = async (ctx: MutationCtx, userId: Id<"users">, loopI
   const room = Math.max(0, (loop?.show ?? defaultShow) - (await of("new")).length)
   const best = (await of("waiting")).sort((a, b) => b.fit - a.fit).slice(0, room)
   for (const lead of best) await ctx.db.patch("jobLeads", lead._id, { status: "new" })
-  return best.length
+  return best
 }
 
 // Stops a run in progress: cancels its workflow and the judgments not started yet.

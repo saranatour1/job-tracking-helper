@@ -1,4 +1,5 @@
 import { api } from "@convex/_generated/api"
+import { PrepareButton } from "@/features/prefilled/prefilled"
 import type { Doc, Id } from "@convex/_generated/dataModel"
 import {
   Bookmark01Icon,
@@ -226,6 +227,7 @@ export const JobPanel = ({ leadId, onClose }: { leadId: Id<"jobLeads">; onClose:
   const data = useQuery(api.loops.lead, { leadId })
   const [status, act] = useDecide()
   const lead = data?.lead
+  const prepared = useQuery(api.prefilled.list)?.find((r) => r.url === lead?.url)
   return (
     <div className="flex h-full flex-col">
       <header className="flex h-10 shrink-0 items-center gap-1 border-b px-3">
@@ -298,6 +300,7 @@ export const JobPanel = ({ leadId, onClose }: { leadId: Id<"jobLeads">; onClose:
             </div>
           </ScrollArea>
           <footer className="flex flex-wrap items-center gap-2 border-t p-3">
+            <PrepareButton leadId={lead._id} status={prepared?.status} prefillId={prepared?._id} />
             {decisions
               .filter(([action]) => !(action === "track" && lead.applicationId))
               .map(([action, label, icon]) => (
