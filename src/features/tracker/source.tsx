@@ -89,7 +89,7 @@ const isoOf = (at: number) => new Date(at).toISOString()
 // as empty, and an application from before history was kept starts at its creation.
 export const fromDoc = (d: Doc<"applications">): Application => ({
   id: d._id,
-  ...(d.number && { code: `APP-${d.number}` }),
+  code: `APP-${d.number}`,
   role: d.role,
   company: d.company,
   status: d.status,
@@ -101,7 +101,7 @@ export const fromDoc = (d: Doc<"applications">): Application => ({
   createdAt: isoOf(d._creationTime),
   description: d.description ?? "",
   url: d.url,
-  history: (d.history ?? [{ status: d.status, at: d._creationTime }]).map((e) => ({
+  history: d.history.map((e) => ({
     status: e.status,
     at: isoOf(e.at),
     ...(e.note && { note: e.note }),

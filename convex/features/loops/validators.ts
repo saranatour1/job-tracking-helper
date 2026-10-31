@@ -136,7 +136,7 @@ export const Loop = type({
   name: "string",
   template: "string",
   // `digest` is optional so loops saved before that question was dropped stay valid.
-  answers: LoopAnswers.and({ "digest?": "boolean" }),
+  answers: LoopAnswers,
   // The person's own words for the job they want; Jev judges each role against it.
   "prompt?": "string",
   daily: "number",

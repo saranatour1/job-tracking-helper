@@ -1,6 +1,6 @@
 import { defineTable } from "convex/server"
 import { arkOutputToConvex } from "../../lib/ark"
-import { AutoApply, Prefill } from "./validators"
+import { Prefill } from "./validators"
 
 export const prefillsTable = defineTable(arkOutputToConvex(Prefill))
   // Newest first for the lists; the other one sorts by posting.
@@ -9,7 +9,3 @@ export const prefillsTable = defineTable(arkOutputToConvex(Prefill))
   .index("by_userId_and_urlKey", ["userId", "urlKey"])
   // What to unlink when an application is deleted.
   .index("by_userId_and_applicationId", ["userId", "applicationId"])
-
-export const autoAppliesTable = defineTable(arkOutputToConvex(AutoApply))
-  .index("by_userId_and_queuedAt", ["userId", "queuedAt"])
-  .index("by_userId_and_urlKey", ["userId", "urlKey"])

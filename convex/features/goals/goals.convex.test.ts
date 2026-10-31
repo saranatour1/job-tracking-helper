@@ -29,6 +29,8 @@ const setup = async () => {
   const addApplication = () =>
     t.run((ctx) =>
       ctx.db.insert("applications", {
+        number: 1,
+        history: [],
         userId,
         role: "Engineer",
         company: "Hooli",

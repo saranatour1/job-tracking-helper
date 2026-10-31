@@ -59,6 +59,7 @@ const setup = async () => {
       method: "Company site",
       location: "",
       description: "",
+      number: 1,
       history: [],
     } as never)
     return { userId, applicationId }
