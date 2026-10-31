@@ -31,7 +31,7 @@ import { runBlock, startRun, setLog, factsOf, doBlock, matches } from "./utils"
 const run = workflow.define({
   args: { runId: v.id("automationRuns") },
   handler: async (step, { runId }): Promise<void> => {
-    const shape = await step.runQuery(internal.automations.shapeOf, { runId })
+    const shape = await step.runQuery(internal.api.automations.shapeOf, { runId })
     for (const [i, branch] of shape.entries()) {
       const at = String(i)
       if (branch === null) {
@@ -40,14 +40,14 @@ const run = workflow.define({
         if (done !== "next") throw new Error(done.error)
         continue
       }
-      await step.runMutation(internal.automations.startBranch, { runId, at, kind: branch.kind })
+      await step.runMutation(internal.api.automations.startBranch, { runId, at, kind: branch.kind })
       if (branch.kind === "decide") {
-        const { path, error } = await step.runAction(internal.automations.askJev, { runId, at })
+        const { path, error } = await step.runAction(internal.api.automations.askJev, { runId, at })
         if (error || path === null) throw new Error(error ?? "Jev didn't answer.")
         for (let j = 0; j < (branch.lengths[path] ?? 0); j++) {
           const done = await runBlock(step, runId, `${i}.${path}.${j}`)
           if (done === "stop") {
-            await step.runMutation(internal.automations.finishStep, { runId, at })
+            await step.runMutation(internal.api.automations.finishStep, { runId, at })
             return
           }
           if (done !== "next") throw new Error(done.error)
@@ -58,13 +58,13 @@ const run = workflow.define({
         // there and says why; the others still finish first.
         const errors = await Promise.all(
           branch.lengths.map((length, path) =>
-            step.runWorkflow(internal.automations.runPath, { runId, split: i, path, length })
+            step.runWorkflow(internal.api.automations.runPath, { runId, split: i, path, length })
           )
         )
         const error = errors.find((e) => e !== null)
         if (error) throw new Error(error)
       }
-      await step.runMutation(internal.automations.finishStep, { runId, at })
+      await step.runMutation(internal.api.automations.finishStep, { runId, at })
     }
   },
 })
@@ -172,7 +172,7 @@ const ended = internalMutation({
   returns: v.null(),
   handler: async (ctx, { workflowId, result, context }) => {
     // The run keeps its own history, so the workflow's journal can go once it's over.
-    await ctx.scheduler.runAfter(0, internal.automations.forgetWorkflow, { workflowId })
+    await ctx.scheduler.runAfter(0, internal.api.automations.forgetWorkflow, { workflowId })
     const found = await ctx.db.get("automationRuns", context.runId)
     if (!found || found.status !== "running") return null
     const finishedAt = Date.now()

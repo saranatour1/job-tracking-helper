@@ -120,7 +120,7 @@ describe("rotating the key", () => {
   it("leaves everything readable once the old key is gone", async () => {
     const { t, as } = await setup()
     vi.stubEnv("SECRETS_KEYS", `${oldKey},${newKey}`)
-    expect(await t.action(internal.email.resealAll, {})).toEqual({
+    expect(await t.action(internal.api.email.resealAll, {})).toEqual({
       connections: 1,
       emails: 1,
       notes: 1,
@@ -129,30 +129,30 @@ describe("rotating the key", () => {
     })
 
     vi.stubEnv("SECRETS_KEYS", newKey)
-    const [line] = await as.query(api.email.timeline, {})
+    const [line] = await as.query(api.api.email.timeline, {})
     expect(line).toMatchObject({ from: "Pat", subject: "Hello there" })
     expect(
-      (await as.query(api.mailbox.page, { box: "inbox", paginationOpts: first })).page
+      (await as.query(api.api.mailbox.page, { box: "inbox", paginationOpts: first })).page
     ).toHaveLength(1)
-    expect((await as.query(api.email.mailBody, { eventId: line!.id }))?.text).toBe("Body")
-    expect((await as.query(api.contacts.list, {}))[0]?.email).toBe("pat@hooli.com")
-    expect((await as.query(api.mailbox.drafts, { paginationOpts: first })).page[0]?.subject).toBe(
+    expect((await as.query(api.api.email.mailBody, { eventId: line!.id }))?.text).toBe("Body")
+    expect((await as.query(api.api.contacts.list, {}))[0]?.email).toBe("pat@hooli.com")
+    expect((await as.query(api.api.mailbox.drafts, { paginationOpts: first })).page[0]?.subject).toBe(
       "Draft"
     )
-    expect((await as.query(api.email.connection, {}))?.fromAddress).toBe("jobs@example.com")
+    expect((await as.query(api.api.email.connection, {}))?.fromAddress).toBe("jobs@example.com")
   })
 
   it("loses mail notes if the pass is skipped, which is what this guards against", async () => {
     const { as } = await setup()
     vi.stubEnv("SECRETS_KEYS", newKey)
-    expect(await as.query(api.email.timeline, {})).toEqual([])
+    expect(await as.query(api.api.email.timeline, {})).toEqual([])
   })
 
   it("has nothing left to do the second time", async () => {
     const { t } = await setup()
     vi.stubEnv("SECRETS_KEYS", `${oldKey},${newKey}`)
-    await t.action(internal.email.resealAll, {})
-    expect(await t.action(internal.email.resealAll, {})).toEqual({
+    await t.action(internal.api.email.resealAll, {})
+    expect(await t.action(internal.api.email.resealAll, {})).toEqual({
       connections: 0,
       emails: 0,
       notes: 0,
@@ -164,7 +164,7 @@ describe("rotating the key", () => {
   it("leaves alone a note that changed while it ran", async () => {
     const { t, noteBefore } = await setup()
     const id = await t.run(async (ctx) => (await ctx.db.query("mailEvents").first())!._id)
-    await t.mutation(internal.email.resealNote, { id, from: "something else", note: "replacement" })
+    await t.mutation(internal.api.email.resealNote, { id, from: "something else", note: "replacement" })
     expect(await t.run(async (ctx) => (await ctx.db.get("mailEvents", id))?.note)).toBe(noteBefore)
   })
 })

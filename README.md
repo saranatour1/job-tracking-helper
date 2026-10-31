@@ -48,7 +48,7 @@ Username and password sign-in and guest sign-in now work. Email needs an encrypt
 pnpm exec convex env set SECRETS_KEYS "v1:$(openssl rand -base64 32)"
 ```
 
-To rotate it, append a new key (`v1:...,v2:...`), run `pnpm exec convex run email:resealAll`, then remove the old one.
+To rotate it, append a new key (`v1:...,v2:...`), run `pnpm exec convex run api/email:resealAll`, then remove the old one.
 
 ### Optional keys
 
@@ -70,7 +70,7 @@ sh scripts/push-secrets.test.sh
 
 ```
 convex/
-  <feature>.ts            registers api.<feature>.*, since the file's name is the API's name
+  api/<feature>.ts        registers each feature's functions, since a file's path is its API name
   features/<feature>/
     models.ts             the feature's tables
     validators.ts         shapes, rules and limits, safe to import from the frontend
@@ -85,6 +85,7 @@ src/
   features/<feature>/     the feature's components. Applications, Views and Goals are in tracker/
   components/ui/          shadcn and coss components, managed by the shadcn CLI
   components/kloq/        the kloq calendar as source, from its registry
+  lib/api.ts              `api`, the functions in convex/api. Import it instead of the generated one
 scripts/                  dev and secrets scripts
 docs/
   database-design.md      the tables, what deleting does, and how to change what's stored

@@ -34,20 +34,20 @@ const page = {
 describe("booking pages", () => {
   it("cuts a long title instead of refusing it", async () => {
     const { as } = await setup()
-    await as.mutation(api.booking.savePage, { ...page, title: "t".repeat(81) })
-    const [saved] = await as.query(api.booking.pages, {})
+    await as.mutation(api.api.booking.savePage, { ...page, title: "t".repeat(81) })
+    const [saved] = await as.query(api.api.booking.pages, {})
     expect(saved?.title).toHaveLength(80)
   })
 
   it("cleans up what it stores", async () => {
     const { as } = await setup()
-    await as.mutation(api.booking.savePage, {
+    await as.mutation(api.api.booking.savePage, {
       ...page,
       title: "  Intro call ",
       days: [1, 1, 3, 9],
       location: "  ",
     })
-    const [saved] = await as.query(api.booking.pages, {})
+    const [saved] = await as.query(api.api.booking.pages, {})
     expect(saved).toMatchObject({ title: "Intro call", days: [1, 3] })
     expect(saved?.location).toBeUndefined()
     expect(saved?.slug).toHaveLength(12)
@@ -56,7 +56,7 @@ describe("booking pages", () => {
   it("says what's wrong with a page", async () => {
     const { as } = await setup()
     const save = (change: Partial<typeof page>) =>
-      as.mutation(api.booking.savePage, { ...page, ...change })
+      as.mutation(api.api.booking.savePage, { ...page, ...change })
     await expect(save({ title: " " })).rejects.toThrow("Give the page a title.")
     await expect(save({ minutes: 20 })).rejects.toThrow("Pick a length from the list.")
     await expect(save({ endHour: 25 })).rejects.toThrow("Hours run from 0 to 24.")
@@ -72,12 +72,12 @@ describe("booking a time", () => {
 
   it("checks the guest's details before anything else", async () => {
     const { t } = await setup()
-    await expect(t.mutation(api.booking.book, { ...guest, name: " " })).rejects.toThrow(
+    await expect(t.mutation(api.api.booking.book, { ...guest, name: " " })).rejects.toThrow(
       "Add your name."
     )
-    await expect(t.mutation(api.booking.book, { ...guest, email: "pat" })).rejects.toThrow(
+    await expect(t.mutation(api.api.booking.book, { ...guest, email: "pat" })).rejects.toThrow(
       "That email doesn't look right."
     )
-    await expect(t.mutation(api.booking.book, guest)).rejects.toThrow("isn't open")
+    await expect(t.mutation(api.api.booking.book, guest)).rejects.toThrow("isn't open")
   })
 })

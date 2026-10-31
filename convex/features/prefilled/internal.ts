@@ -238,7 +238,7 @@ const goLive = internalMutation({
       unfilled,
       credits: (row.credits ?? 0) + credits,
     })
-    await ctx.scheduler.runAfter(liveMs, internal.prefilled.closeLive, { id, scrapeId })
+    await ctx.scheduler.runAfter(liveMs, internal.api.prefilled.closeLive, { id, scrapeId })
     return null
   },
 })

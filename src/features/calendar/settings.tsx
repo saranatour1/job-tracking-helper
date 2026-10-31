@@ -1,7 +1,7 @@
 import { Cancel01Icon } from "@hugeicons/core-free-icons"
 import { HugeiconsIcon } from "@hugeicons/react"
 import type { FunctionReturnType } from "convex/server"
-import type { api } from "@convex/_generated/api"
+import type { api } from "@/lib/api"
 
 import { Button } from "@/components/ui/button"
 import {

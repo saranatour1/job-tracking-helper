@@ -1,4 +1,4 @@
-import { api } from "@convex/_generated/api"
+import { api } from "@/lib/api"
 import { PrepareButton } from "@/features/prefilled/prefilled"
 import type { Doc, Id } from "@convex/_generated/dataModel"
 import {

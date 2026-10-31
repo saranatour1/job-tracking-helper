@@ -1,4 +1,4 @@
-import { api } from "@convex/_generated/api"
+import { api } from "@/lib/api"
 import { useQuery } from "convex-helpers/react/cache/hooks"
 import { lazy, Suspense } from "react"
 

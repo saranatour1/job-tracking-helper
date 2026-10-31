@@ -1,4 +1,4 @@
-import { api } from "@convex/_generated/api"
+import { api } from "@/lib/api"
 import type { Id } from "@convex/_generated/dataModel"
 import { companyAddress } from "@convex/features/email/addresses"
 import { Mail01Icon } from "@hugeicons/core-free-icons"

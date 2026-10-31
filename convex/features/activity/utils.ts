@@ -52,7 +52,7 @@ export const keepLog = async (ctx: MutationCtx, log: WorkLog) => {
 /** The same from an action. A failed write mustn't fail the work it's describing. */
 export const keepLogFromAction = async (ctx: ActionCtx, log: WorkLog) => {
   const row = activityOf(log.emit() as Record<string, unknown> | null)
-  if (row) await ctx.runMutation(internal.activity.record, { event: row }).catch(() => null)
+  if (row) await ctx.runMutation(internal.api.activity.record, { event: row }).catch(() => null)
 }
 
 type Links = {

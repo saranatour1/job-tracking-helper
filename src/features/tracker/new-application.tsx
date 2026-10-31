@@ -1,4 +1,4 @@
-import { api } from "@convex/_generated/api"
+import { api } from "@/lib/api"
 import { useMutation } from "convex/react"
 import { ConvexError } from "convex/values"
 import { useRef, useState } from "react"

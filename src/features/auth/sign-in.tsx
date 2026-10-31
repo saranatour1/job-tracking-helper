@@ -9,7 +9,7 @@ import {
   useSignInWithGoogle,
   type OauthFlowError,
 } from "@convex-dev/auth/methods/google/react"
-import { api } from "@convex/_generated/api"
+import { api } from "@/lib/api"
 import { Link } from "@tanstack/react-router"
 import { useState } from "react"
 

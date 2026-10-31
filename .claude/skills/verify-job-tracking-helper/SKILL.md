@@ -49,7 +49,7 @@ It is read-only and prints one `ok` or `FAIL` line per check, exiting 1 on any f
 - `http://localhost:3000/` serves `<title>Job Tracking Helper</title>`.
 - `.env.local` names a deployment.
 - `SITE_URL`, `AUTH_PRIVATE_KEY`, and `AUTH_JWKS` exist. It checks names only and never prints values.
-- The deployment serves `auth:signInAnonymously`.
+- The deployment serves `api/auth:signInAnonymously`.
 
 Vite serves source directly, so a passing doctor means the running UI is the working tree. Run the doctor first whenever anything looks off.
 

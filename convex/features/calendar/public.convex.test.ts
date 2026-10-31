@@ -30,9 +30,9 @@ const event = {
 describe("calendar events", () => {
   it("names an untitled event, and guesses its kind from the title", async () => {
     const as = await setup()
-    await as.mutation(api.calendar.save, event)
-    await as.mutation(api.calendar.save, { ...event, key: "e2", title: "   " })
-    const saved = await as.query(api.calendar.list, {})
+    await as.mutation(api.api.calendar.save, event)
+    await as.mutation(api.api.calendar.save, { ...event, key: "e2", title: "   " })
+    const saved = await as.query(api.api.calendar.list, {})
     expect(saved.map((e) => [e.title, e.kind])).toEqual([
       ["Call with Hooli", "interview"],
       ["Untitled", "reminder"],
@@ -41,27 +41,27 @@ describe("calendar events", () => {
 
   it("refuses times it can't read, or that run backwards", async () => {
     const as = await setup()
-    await expect(as.mutation(api.calendar.save, { ...event, start: "soon" })).rejects.toThrow(
+    await expect(as.mutation(api.api.calendar.save, { ...event, start: "soon" })).rejects.toThrow(
       "isn't one the calendar can read"
     )
     await expect(
-      as.mutation(api.calendar.save, { ...event, end: "2026-11-03T09:00:00+01:00" })
+      as.mutation(api.api.calendar.save, { ...event, end: "2026-11-03T09:00:00+01:00" })
     ).rejects.toThrow("can't end before it starts")
     await expect(
-      as.mutation(api.calendar.save, { ...event, allDay: true, start: "2026-11-03" })
+      as.mutation(api.api.calendar.save, { ...event, allDay: true, start: "2026-11-03" })
     ).rejects.toThrow("isn't one the calendar can read")
   })
 
   it("cuts what runs long instead of refusing it", async () => {
     const as = await setup()
-    await as.mutation(api.calendar.save, {
+    await as.mutation(api.api.calendar.save, {
       ...event,
       title: "t".repeat(201),
       description: "d".repeat(2001),
       exdates: Array.from({ length: 201 }, (_, i) => `d${i}`),
       reminders: Array.from({ length: 11 }, () => ({ minutesBefore: 5 })),
     })
-    const [saved] = await as.query(api.calendar.list, {})
+    const [saved] = await as.query(api.api.calendar.list, {})
     expect(saved?.title).toHaveLength(200)
     expect(saved?.description).toHaveLength(2000)
     expect(saved?.reminders).toHaveLength(10)
@@ -74,22 +74,22 @@ describe("calendar events", () => {
 describe("calendar settings", () => {
   it("round-trips, and replaces what was there", async () => {
     const as = await setup()
-    await as.mutation(api.calendar.saveSettings, { timeZone: "Asia/Amman", weekStartsOn: 6 })
-    await expect(as.query(api.calendar.settings, {})).resolves.toEqual({
+    await as.mutation(api.api.calendar.saveSettings, { timeZone: "Asia/Amman", weekStartsOn: 6 })
+    await expect(as.query(api.api.calendar.settings, {})).resolves.toEqual({
       timeZone: "Asia/Amman",
       weekStartsOn: 6,
     })
-    await as.mutation(api.calendar.saveSettings, { hour12: true })
-    await expect(as.query(api.calendar.settings, {})).resolves.toEqual({ hour12: true })
+    await as.mutation(api.api.calendar.saveSettings, { hour12: true })
+    await expect(as.query(api.api.calendar.settings, {})).resolves.toEqual({ hour12: true })
   })
 
   it("refuses zones that don't exist and days that run backwards", async () => {
     const as = await setup()
-    await expect(as.mutation(api.calendar.saveSettings, { timeZone: "Mars/Base" })).rejects.toThrow(
+    await expect(as.mutation(api.api.calendar.saveSettings, { timeZone: "Mars/Base" })).rejects.toThrow(
       "Mars/Base isn't a time zone."
     )
     await expect(
-      as.mutation(api.calendar.saveSettings, { dayStartHour: 20, dayEndHour: 8 })
+      as.mutation(api.api.calendar.saveSettings, { dayStartHour: 20, dayEndHour: 8 })
     ).rejects.toThrow("has to start before it ends")
   })
 })

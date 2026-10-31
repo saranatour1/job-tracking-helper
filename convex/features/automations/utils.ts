@@ -65,21 +65,21 @@ export const runBlock = async (
   runId: Id<"automationRuns">,
   at: string
 ): Promise<"next" | "stop" | { error: string }> => {
-  const done = await step.runMutation(internal.automations.runStep, { runId, at })
+  const done = await step.runMutation(internal.api.automations.runStep, { runId, at })
   if (done.error) return { error: done.error }
   if ("stop" in done && done.stop) return "stop"
   const { waitMs } = done
   if ("email" in done && done.email) {
-    const failed = await step.runAction(internal.automations.sendMail, { runId, at })
+    const failed = await step.runAction(internal.api.automations.sendMail, { runId, at })
     if (failed) return { error: failed }
   }
   if ("loopRunId" in done && done.loopRunId) {
     const loopRunId = done.loopRunId
     const error = await step
-      .runWorkflow(internal.workflows.findJobs, { runId: loopRunId })
+      .runWorkflow(internal.api.workflows.findJobs, { runId: loopRunId })
       .then(() => undefined)
       .catch((cause: unknown) => (cause instanceof Error ? cause.message : "it failed"))
-    const failed = await step.runMutation(internal.automations.foundRoles, {
+    const failed = await step.runMutation(internal.api.automations.foundRoles, {
       runId,
       at,
       loopRunId,
@@ -89,7 +89,7 @@ export const runBlock = async (
   }
   if (waitMs > 0) {
     await step.sleep(waitMs, { name: `wait ${at}` })
-    await step.runMutation(internal.automations.finishStep, { runId, at })
+    await step.runMutation(internal.api.automations.finishStep, { runId, at })
   }
   return "next"
 }
@@ -117,9 +117,9 @@ export const startRun = async (
   })
   const workflowId = await workflow.start(
     ctx,
-    internal.automations.run,
+    internal.api.automations.run,
     { runId },
-    { onComplete: internal.automations.ended, context: { runId } }
+    { onComplete: internal.api.automations.ended, context: { runId } }
   )
   await ctx.db.patch("automationRuns", runId, { workflowId })
   // Keep the newest runs: the oldest finished ones go, a few at a time.

@@ -79,7 +79,7 @@ const connect = action({
     const { ok } = await limits.limit(ctx, "connectEmail", { key: userId })
     if (!ok) throw new ConvexError("Too many tries. Wait an hour and try again.")
     const k = await secretKeys()
-    const saved = await ctx.runQuery(internal.email.sealed, { userId })
+    const saved = await ctx.runQuery(internal.api.email.sealed, { userId })
     const before = saved && (await openJson(k, saved.details, aad.details(userId), Details))
     // The routing rule points at the old address, so it has to go first.
     if (saved?.inbound) {
@@ -107,7 +107,7 @@ const connect = action({
       zoneId,
       ...(before?.forwardTo && { forwardTo: before.forwardTo }),
     }
-    await ctx.runMutation(internal.email.save, {
+    await ctx.runMutation(internal.api.email.save, {
       userId,
       details: await seal(k, JSON.stringify(details), aad.details(userId)),
       token: reuse ? reuse.token : await seal(k, apiToken, aad.token(userId)),

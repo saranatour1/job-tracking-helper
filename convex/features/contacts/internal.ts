@@ -56,7 +56,7 @@ const learn = internalAction({
   args: { eventId: v.id("mailEvents") },
   returns: v.null(),
   handler: async (ctx, { eventId }) => {
-    const context = await ctx.runQuery(internal.contacts.learnContext, { eventId })
+    const context = await ctx.runQuery(internal.api.contacts.learnContext, { eventId })
     if (!context) return null
     const k = await keys()
     const { userId } = context
@@ -79,7 +79,7 @@ const learn = internalAction({
       phone: "",
       notes: "",
     }
-    await ctx.runMutation(internal.contacts.learned, {
+    await ctx.runMutation(internal.api.contacts.learned, {
       userId,
       key: await threadKeyOf(userId, email.toLowerCase()),
       details: await seal(k, JSON.stringify(details), contactAad(userId)),

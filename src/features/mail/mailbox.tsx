@@ -1,4 +1,4 @@
-import { api } from "@convex/_generated/api"
+import { api } from "@/lib/api"
 import type { Id } from "@convex/_generated/dataModel"
 import { type Box, maxUnreadCount } from "@convex/features/mailbox/validators"
 import { getRouteApi, Link, useNavigate } from "@tanstack/react-router"

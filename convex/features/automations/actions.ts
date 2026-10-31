@@ -22,7 +22,7 @@ const askJev = internalAction({
   returns: v.object({ path: v.union(v.number(), v.null()), error: v.optional(v.string()) }),
   handler: async (ctx, { runId, at }): Promise<{ path: number | null; error?: string }> => {
     const asked: { question: string; answers: string[]; facts: Record<string, string> } | null =
-      await ctx.runQuery(internal.automations.decisionOf, { runId, at })
+      await ctx.runQuery(internal.api.automations.decisionOf, { runId, at })
     if (!asked) return { path: null, error: "The run stopped." }
     try {
       const criteria = Object.fromEntries(asked.answers.map((answer, i) => [`p${i}`, answer]))
@@ -40,7 +40,7 @@ const askJev = internalAction({
         ?.choice
       const path = choice?.startsWith("p") ? Number(choice.slice(1)) : -1
       if (!(path >= 0 && path < asked.answers.length)) throw new Error("it picked none")
-      await ctx.runMutation(internal.automations.answered, {
+      await ctx.runMutation(internal.api.automations.answered, {
         runId,
         at,
         choice: asked.answers[path],
@@ -48,7 +48,7 @@ const askJev = internalAction({
       return { path }
     } catch (cause) {
       const error = `Jev couldn't answer: ${cause instanceof Error ? cause.message : "unknown"}`
-      await ctx.runMutation(internal.automations.answered, {
+      await ctx.runMutation(internal.api.automations.answered, {
         runId,
         at,
         error: error.slice(0, 300),
@@ -73,7 +73,7 @@ const sendMail = internalAction({
       subject: string
       text: string
       application?: { id: Id<"applications">; company: string }
-    } | null = await ctx.runQuery(internal.automations.emailOf, { runId, at })
+    } | null = await ctx.runQuery(internal.api.automations.emailOf, { runId, at })
     if (!mail) return null
     try {
       const { row, k, details, token: apiToken } = await openConnection(ctx, mail.userId)
@@ -112,7 +112,7 @@ const sendMail = internalAction({
       if (error) throw new ConvexError("Cloudflare didn't send the email.")
       // Notify me is a note to yourself, not mail you sent anyone.
       if (mail.to)
-        await ctx.runMutation(internal.email.recordSent, {
+        await ctx.runMutation(internal.api.email.recordSent, {
           userId: mail.userId,
           ...(mail.application && { applicationId: mail.application.id }),
           emailId,
@@ -122,12 +122,12 @@ const sendMail = internalAction({
             aad.email(mail.userId)
           ),
         })
-      await ctx.runMutation(internal.automations.emailed, { runId, at })
+      await ctx.runMutation(internal.api.automations.emailed, { runId, at })
       return null
     } catch (cause) {
       const error =
         cause instanceof ConvexError ? String(cause.data) : "The email couldn't be sent."
-      await ctx.runMutation(internal.automations.emailed, { runId, at, error })
+      await ctx.runMutation(internal.api.automations.emailed, { runId, at, error })
       return error
     }
   },
@@ -160,7 +160,7 @@ const describe = action({
         .filter(([, a]) => a.type === "choice" || a.type === "boolean")
         .map(([key, a]) => [key, a.type === "choice" ? a.choice : (a.probability ?? 0) >= 0.5])
     ) as DescribeAnswers
-    const loopId: Id<"loops"> | null = await ctx.runQuery(internal.automations.firstLoopOf, {
+    const loopId: Id<"loops"> | null = await ctx.runQuery(internal.api.automations.firstLoopOf, {
       userId,
     })
     return draftFrom(answers, { request: said, zone, ...(loopId && { loopId }) })

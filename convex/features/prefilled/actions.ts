@@ -44,8 +44,8 @@ const prepareForm = internalAction({
   args: { id: v.id("prefills") },
   returns: v.null(),
   handler: async (ctx, { id }): Promise<null> => {
-    const found: FunctionReturnType<typeof internal.prefilled.plan> = await ctx.runQuery(
-      internal.prefilled.plan,
+    const found: FunctionReturnType<typeof internal.api.prefilled.plan> = await ctx.runQuery(
+      internal.api.prefilled.plan,
       { id }
     )
     if (found?.status !== "preparing") return null
@@ -55,7 +55,7 @@ const prepareForm = internalAction({
     let scrapeId: string | undefined
     let credits = 0
     const stop = async (error: string) => {
-      await ctx.runMutation(internal.prefilled.fail, { id, error, credits })
+      await ctx.runMutation(internal.api.prefilled.fail, { id, error, credits })
       log.set({ outcome: "failed", credits, runMs: Date.now() - startedAt, error })
       return null
     }
@@ -138,7 +138,7 @@ const prepareForm = internalAction({
           aiFailed(cause)
         }
       }
-      await ctx.runMutation(internal.prefilled.savePrepared, {
+      await ctx.runMutation(internal.api.prefilled.savePrepared, {
         id,
         fields: prepared,
         credits,
@@ -171,13 +171,13 @@ const startLive = action({
   handler: async (ctx, { id }): Promise<null> => {
     const userId = await getAuthUserId(ctx)
     if (!userId) throw new Error("Not signed in")
-    await ctx.runMutation(internal.prefilled.beginLive, { userId, id })
+    await ctx.runMutation(internal.api.prefilled.beginLive, { userId, id })
     const log = workLog("prefill.live", { prefillId: id, userId })
     let scrapeId: string | undefined
     let credits = 0
     try {
-      const found: FunctionReturnType<typeof internal.prefilled.plan> = await ctx.runQuery(
-        internal.prefilled.plan,
+      const found: FunctionReturnType<typeof internal.api.prefilled.plan> = await ctx.runQuery(
+        internal.api.prefilled.plan,
         { id }
       )
       if (found) log.set({ summary: `${found.title} · ${found.company}` })
@@ -209,7 +209,7 @@ const startLive = action({
       const result = FillResult.assert(filled.value)
       if (!filled.liveUrl.startsWith("https://"))
         throw new ConvexError("Firecrawl didn't give us a browser to show you.")
-      await ctx.runMutation(internal.prefilled.goLive, {
+      await ctx.runMutation(internal.api.prefilled.goLive, {
         id,
         scrapeId,
         liveUrl: filled.liveUrl,
@@ -231,7 +231,7 @@ const startLive = action({
         cause instanceof ConvexError && typeof cause.data === "string"
           ? cause.data
           : problemOf(cause)
-      await ctx.runMutation(internal.prefilled.endLive, { id, error: message, credits })
+      await ctx.runMutation(internal.api.prefilled.endLive, { id, error: message, credits })
       throw new ConvexError(message)
     } finally {
       await keepLogFromAction(ctx, log)
@@ -247,7 +247,7 @@ const sendToForm = action({
   handler: async (ctx, { id, question }): Promise<{ filled: boolean }> => {
     const userId = await getAuthUserId(ctx)
     if (!userId) throw new Error("Not signed in")
-    const found = await ctx.runQuery(internal.prefilled.session, { id })
+    const found = await ctx.runQuery(internal.api.prefilled.session, { id })
     if (found?.userId !== userId) throw new ConvexError("That isn't yours.")
     if (found.status !== "live" || !found.scrapeId)
       throw new ConvexError("This browser has closed.")
@@ -276,7 +276,7 @@ const sendToForm = action({
       60
     )
     const filled = field.answer ? FillResult.assert(sent.value).unfilled.length === 0 : undefined
-    await ctx.runMutation(internal.prefilled.sent, {
+    await ctx.runMutation(internal.api.prefilled.sent, {
       id,
       question,
       credits: 1,
@@ -294,7 +294,7 @@ const confirmSent = action({
   handler: async (ctx, { id, anyway }): Promise<{ sent: boolean }> => {
     const userId = await getAuthUserId(ctx)
     if (!userId) throw new Error("Not signed in")
-    const found = await ctx.runQuery(internal.prefilled.session, { id })
+    const found = await ctx.runQuery(internal.api.prefilled.session, { id })
     if (found?.userId !== userId) throw new ConvexError("That isn't yours.")
     if (found.status === "applied") return { sent: true }
     if (found.status !== "live" || !found.scrapeId)
@@ -308,7 +308,7 @@ const confirmSent = action({
       if (!seen?.confirmed) return { sent: false }
       confirmation = seen.text
     }
-    await ctx.runMutation(internal.prefilled.finish, { userId, id, confirmation, credits: 1 })
+    await ctx.runMutation(internal.api.prefilled.finish, { userId, id, confirmation, credits: 1 })
     await endSession(found.scrapeId).catch(() => null)
     return { sent: true }
   },
@@ -321,10 +321,10 @@ const cancelLive = action({
   handler: async (ctx, { id }): Promise<null> => {
     const userId = await getAuthUserId(ctx)
     if (!userId) throw new Error("Not signed in")
-    const found = await ctx.runQuery(internal.prefilled.session, { id })
+    const found = await ctx.runQuery(internal.api.prefilled.session, { id })
     if (found?.userId !== userId) throw new ConvexError("That isn't yours.")
     if (found.scrapeId) await endSession(found.scrapeId).catch(() => null)
-    await ctx.runMutation(internal.prefilled.endLive, { id })
+    await ctx.runMutation(internal.api.prefilled.endLive, { id })
     return null
   },
 })
@@ -334,10 +334,10 @@ const closeLive = internalAction({
   args: { id: v.id("prefills"), scrapeId: v.string() },
   returns: v.null(),
   handler: async (ctx, { id, scrapeId }): Promise<null> => {
-    const found = await ctx.runQuery(internal.prefilled.session, { id })
+    const found = await ctx.runQuery(internal.api.prefilled.session, { id })
     if (found?.status !== "live" || found.scrapeId !== scrapeId) return null
     await endSession(scrapeId).catch(() => null)
-    await ctx.runMutation(internal.prefilled.endLive, {
+    await ctx.runMutation(internal.api.prefilled.endLive, {
       id,
       scrapeId,
       error: "The browser closed after 15 minutes. Nothing was sent unless you pressed Submit.",

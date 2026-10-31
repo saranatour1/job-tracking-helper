@@ -84,9 +84,9 @@ export const startRun = async (ctx: MutationCtx, loop: Doc<"loops">) => {
   const runId = await insertLoopRun(ctx, loop)
   const workflowId = await workflow.start(
     ctx,
-    internal.workflows.findJobs,
+    internal.api.workflows.findJobs,
     { runId },
-    { onComplete: internal.loops.runEnded, context: { runId } }
+    { onComplete: internal.api.loops.runEnded, context: { runId } }
   )
   await ctx.db.patch("loopRuns", runId, { workflowId })
   return runId
@@ -267,15 +267,15 @@ export const readAndJudge = async (
   const board = boardOf(link)
   let job: Doc<"jobs"> | null = null
   if (board) {
-    job = await ctx.runQuery(internal.jobs.byUrlKey, { urlKey: key })
+    job = await ctx.runQuery(internal.api.jobs.byUrlKey, { urlKey: key })
     if (!job) {
-      const boardId = await ctx.runMutation(internal.jobs.ensureBoard, board)
-      await ctx.runAction(internal.jobs.fetchBoard, { boardId }).catch(() => null)
-      job = await ctx.runQuery(internal.jobs.byUrlKey, { urlKey: key })
+      const boardId = await ctx.runMutation(internal.api.jobs.ensureBoard, board)
+      await ctx.runAction(internal.api.jobs.fetchBoard, { boardId }).catch(() => null)
+      job = await ctx.runQuery(internal.api.jobs.byUrlKey, { urlKey: key })
     }
   }
   const page = job ?? (await scrape(link))
-  const profile = await ctx.runQuery(internal.loops.profileForLink, { userId })
+  const profile = await ctx.runQuery(internal.api.loops.profileForLink, { userId })
   const { cost: _cost, ...verdict } = await judge(profile, page)
   return {
     credits: job ? 0 : 1,

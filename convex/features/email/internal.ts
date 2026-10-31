@@ -193,10 +193,10 @@ const resealAll = internalAction({
         page: { userId: Id<"users">; details: string; token: string }[]
         isDone: boolean
         continueCursor: string
-      } = await ctx.runQuery(internal.email.connectionsPage, { cursor })
+      } = await ctx.runQuery(internal.api.email.connectionsPage, { cursor })
       for (const row of result.page) {
         if (!isStale(k, row.token) && !isStale(k, row.details)) continue
-        await ctx.runMutation(internal.email.resealConnection, {
+        await ctx.runMutation(internal.api.email.resealConnection, {
           userId: row.userId,
           from: row.token,
           details: await reseal(k, row.details, aad.details(row.userId)),
@@ -233,10 +233,10 @@ const resealAll = internalAction({
         page: { id: Id<"mailEvents">; userId: string; note: string }[]
         isDone: boolean
         continueCursor: string
-      } = await ctx.runQuery(internal.email.notesPage, { cursor })
+      } = await ctx.runQuery(internal.api.email.notesPage, { cursor })
       for (const event of result.page) {
         if (!isStale(k, event.note)) continue
-        await ctx.runMutation(internal.email.resealNote, {
+        await ctx.runMutation(internal.api.email.resealNote, {
           id: event.id,
           from: event.note,
           note: await reseal(k, event.note, aad.email(event.userId)),
@@ -252,10 +252,10 @@ const resealAll = internalAction({
         page: { id: Id<"contacts">; userId: string; details: string }[]
         isDone: boolean
         continueCursor: string
-      } = await ctx.runQuery(internal.contacts.contactsPage, { cursor })
+      } = await ctx.runQuery(internal.api.contacts.contactsPage, { cursor })
       for (const contact of result.page) {
         if (!isStale(k, contact.details)) continue
-        await ctx.runMutation(internal.contacts.resealContact, {
+        await ctx.runMutation(internal.api.contacts.resealContact, {
           id: contact.id,
           from: contact.details,
           details: await reseal(k, contact.details, `contact:${contact.userId}`),
@@ -271,10 +271,10 @@ const resealAll = internalAction({
         page: { id: Id<"mailDrafts">; userId: string; details: string }[]
         isDone: boolean
         continueCursor: string
-      } = await ctx.runQuery(internal.mailbox.draftsPage, { cursor })
+      } = await ctx.runQuery(internal.api.mailbox.draftsPage, { cursor })
       for (const draft of result.page) {
         if (!isStale(k, draft.details)) continue
-        await ctx.runMutation(internal.mailbox.resealDraft, {
+        await ctx.runMutation(internal.api.mailbox.resealDraft, {
           id: draft.id,
           from: draft.details,
           details: await reseal(k, draft.details, `mail-draft:${draft.userId}`),
@@ -292,7 +292,7 @@ const removeEmails = internalMutation({
   returns: v.null(),
   handler: async (ctx, { owner }) => {
     const more = await ctx.runMutation(components.cloudflareEmail.lib.removeOwner, { owner })
-    if (more) await ctx.scheduler.runAfter(0, internal.email.removeEmails, { owner })
+    if (more) await ctx.scheduler.runAfter(0, internal.api.email.removeEmails, { owner })
     return null
   },
 })

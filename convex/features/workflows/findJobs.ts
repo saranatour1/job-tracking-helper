@@ -10,7 +10,7 @@ import { workflow } from "./manager"
 const findJobs = workflow.define({
   args: { runId: v.id("loopRuns") },
   handler: async (step, { runId }): Promise<void> => {
-    const plan = await step.runMutation(internal.loops.beginRun, {
+    const plan = await step.runMutation(internal.api.loops.beginRun, {
       runId,
       workflowId: step.workflowId,
     })
@@ -20,7 +20,7 @@ const findJobs = workflow.define({
     let provider: Provider | undefined
     for (const source of plan.sources) {
       const found = await step.runAction(
-        internal.workflows.search,
+        internal.api.workflows.search,
         {
           provider: source,
           queries: plan.queries,
@@ -35,19 +35,19 @@ const findJobs = workflow.define({
         continue
       }
       provider = source
-      const boards = await step.runMutation(internal.jobs.addBoards, {
+      const boards = await step.runMutation(internal.api.jobs.addBoards, {
         urls: found.postings.map((p) => p.url),
       })
       // New boards are fetched now, so this run can already pick from them. One that
       // keeps failing is left for the hourly refresh rather than failing the run.
       await Promise.all(
         boards.map((boardId) =>
-          step.runAction(internal.jobs.fetchBoard, { boardId }, { retry: true }).catch(() => null)
+          step.runAction(internal.api.jobs.fetchBoard, { boardId }, { retry: true }).catch(() => null)
         )
       )
       break
     }
-    const jobIds = await step.runQuery(internal.jobs.candidates, {
+    const jobIds = await step.runQuery(internal.api.jobs.candidates, {
       userId: plan.userId,
       queries: plan.queries,
       remoteOnly: plan.remoteOnly,
@@ -56,7 +56,7 @@ const findJobs = workflow.define({
       limit: plan.daily,
     })
     if (jobIds.length) {
-      await step.runMutation(internal.loops.queueJudging, {
+      await step.runMutation(internal.api.loops.queueJudging, {
         runId,
         jobIds,
         profile: plan.profile,
@@ -64,7 +64,7 @@ const findJobs = workflow.define({
       // `judged` sends this once the batch worker has finished every judgment.
       await step.awaitEvent({ name: "judged" })
     }
-    await step.runMutation(internal.loops.finishRun, { runId, provider, spent, exhausted })
+    await step.runMutation(internal.api.loops.finishRun, { runId, provider, spent, exhausted })
   },
 })
 

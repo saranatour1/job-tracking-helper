@@ -43,7 +43,7 @@ const add = arkMutation({
     })
     await logNewApplication(ctx, ctx.userId, applicationId, application.company)
     if (application.url)
-      await ctx.scheduler.runAfter(0, internal.loops.enrichApplication, {
+      await ctx.scheduler.runAfter(0, internal.api.loops.enrichApplication, {
         userId: ctx.userId,
         applicationId,
         url: application.url,

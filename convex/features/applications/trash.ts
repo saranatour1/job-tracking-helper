@@ -162,7 +162,7 @@ const sweep = internalMutation({
       .take(batch)
     for (const application of due) await deleteApplication(ctx, application)
     if (stale.length === batch * 2 || due.length === batch)
-      await ctx.scheduler.runAfter(0, internal.applications.sweep, {})
+      await ctx.scheduler.runAfter(0, internal.api.applications.sweep, {})
     return { trashed: stale.length, deleted: due.length }
   },
 })

@@ -1,6 +1,6 @@
-// Registers `api.prefilled.*` and `internal.prefilled.*`. Definitions live in
-// ./features/prefilled.
-import { prefilledApi } from "./features/prefilled"
+// Registers `api.api.prefilled.*` and `internal.api.prefilled.*`. Definitions live in
+// ../features/prefilled.
+import { prefilledApi } from "../features/prefilled"
 
 export const {
   settings,

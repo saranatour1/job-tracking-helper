@@ -1,4 +1,4 @@
-import { api } from "@convex/_generated/api"
+import { api } from "@/lib/api"
 import {
   CheckmarkCircle02Icon,
   InboxIcon,

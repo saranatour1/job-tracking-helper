@@ -56,7 +56,7 @@ Workflows have their own page, [workflows.md](workflows.md).
 
 `fireEvent` (`convex/features/automations/fire.ts`) is called when:
 
-- the sorter files an email (`internal.email.record`);
+- the sorter files an email (`internal.api.email.record`);
 - an application changes status (`changeStatus`), except a move a workflow made;
 - someone books time (`api.booking.book`).
 
@@ -67,7 +67,7 @@ It only schedules a check when you have an active workflow with that kind of tri
 - Email details, the Cloudflare token, every email, mail notes and send errors are
   sealed with AES-256-GCM, bound to their owner and purpose (`convex/lib/secrets.ts`).
 - Keys come from `SECRETS_KEYS` (`v1:<base64>,v2:…`): the last one seals, any one opens.
-  `npx convex run email:resealAll` reseals everything with the newest key.
+  `npx convex run api/email:resealAll` reseals everything with the newest key.
 - Without `SECRETS_KEYS`, email features say "Email isn't set up on this server yet:
   SECRETS_KEYS is missing."
 
@@ -101,7 +101,7 @@ pasted links that aren't on a known board. A source without a key is skipped.
 5. **Sign out.** From the sidebar's user menu, or Account.
 
 **By itself:** the first sign-in creates your `users` row
-(`internal.auth.createUser`); Google and GitHub fill in your name and email.
+(`internal.api.auth.createUser`); Google and GitHub fill in your name and email.
 
 **Rules:** signed-out visits to app pages go to `/sign-in`; signed-in visits to
 `/sign-in` go to `/`.
@@ -267,7 +267,7 @@ of 50 fields, with no names twice.
 
 **By itself:** a status change fires the `status` event for workflows; a sorted email
 can suggest a move, or make it when you let Jev (see [Email](#email)). Each day
-(`internal.applications.sweep`), applications archived 30 days ago move to the Trash, and
+(`internal.api.applications.sweep`), applications archived 30 days ago move to the Trash, and
 ones in the Trash longer than you keep them (90 days unless you change it) are deleted
 for good. Deleting one leaves its mail unfiled, its events on the calendar, and its job
 lead marked tracked, so loops never offer the role again.
@@ -353,8 +353,8 @@ and loops can be picked, edited or deleted.
    [Prefilled applications and Activity](#prefilled-applications-and-activity). A role
    already prepared shows its status, which opens it.
 
-**By itself:** every hour (`internal.jobs.refreshDue`) up to 25 boards not fetched in 20
-hours go to the batch worker (`internal.jobs.fetchBoard`). It reads each public feed
+**By itself:** every hour (`internal.api.jobs.refreshDue`) up to 25 boards not fetched in 20
+hours go to the batch worker (`internal.api.jobs.fetchBoard`). It reads each public feed
 (Greenhouse, Lever, Ashby, Personio), saves the roles, and drops ones the board no
 longer lists. A board that answers 4xx is noted and not retried. Loops and pasted links
 add new boards.
@@ -387,7 +387,7 @@ Previews are the same text as plain words.
    the limit, press **Prepare** on a role in Jobs or on your shortlist
    (`api.prefilled.prepare`). It needs your email, a resume, and a posting on Greenhouse,
    Lever, Ashby or Personio. One per person and posting.
-2. **Prepare** runs with no one there (`internal.prefilled.prepareForm`, on `applyPool`,
+2. **Prepare** runs with no one there (`internal.api.prefilled.prepareForm`, on `applyPool`,
    never retried by itself), and nothing is typed into the form:
    - **Open the form:** one Firecrawl scrape of the posting, then `interact` with
      Playwright code: it clicks Apply if the page hides the form, and lists every field
@@ -434,7 +434,7 @@ Previews are the same text as plain words.
    for about 1 Firecrawl credit. While the browser is open, each answer is marked **In the
    form**, **Do by hand** or **Not sent yet**. That's what the app did, not what you've since
    changed in the form itself. A browser left alone closes after 15 minutes
-   (`internal.prefilled.closeLive`), and **Close without sending** does it sooner.
+   (`internal.api.prefilled.closeLive`), and **Close without sending** does it sooner.
 5. **I sent it** (`api.prefilled.confirmSent`) reads the page for a thank-you. If it finds
    one, or you press **Mark as sent** when it can't, the posting becomes an application at
    Applied (or moves the one a loop already made), saved answers get their usage stamped,
@@ -456,7 +456,7 @@ Previews are the same text as plain words.
      top: applied in 30 days, saved answers used.
 
    Rows go after 90 days. Whoever runs the app can see each person's failures by what failed
-   with `npx convex run activity:failures`, or `'{"days": 30}'` for further back. Work with
+   with `npx convex run api/activity:failures`, or `'{"days": 30}'` for further back. Work with
    no owner, like refreshing a job board, is only in the Convex logs. So is importing old
    mail, which can be hundreds of emails.
 
@@ -510,9 +510,9 @@ call, `internal.ts` the row's steps, `utils.ts` starting one and preparing a loo
 
 **By itself**
 
-1. Every 15 minutes, loops whose morning has come start (`internal.loops.startDue`) and
+1. Every 15 minutes, loops whose morning has come start (`internal.api.loops.startDue`) and
    move to the next morning.
-2. A run (`internal.workflows.findJobs`):
+2. A run (`internal.api.workflows.findJobs`):
    1. Builds searches from your Preferences.
    2. Searches for new job boards with the first source that has credits left, and
       fetches them.
@@ -630,7 +630,7 @@ isn't shown. Email lines are opened from their sealed note only when you look.
    - The hook refuses a wrong secret (401) and mail you've stopped (403).
    - Past the limit it answers 503, so Cloudflare tries again.
    - Otherwise it seals the email, keeps only ids, and sorts it.
-2. **Sorting** (`internal.email.sortMail`):
+2. **Sorting** (`internal.api.email.sortMail`):
    1. Mail to a company's address goes to its application, and nothing can override that.
       With several at one company, a role named in the subject wins, then the one still
       going, then the newest.
@@ -642,7 +642,7 @@ isn't shown. Email lines are opened from their sealed note only when you look.
    5. If you let Jev read your mail, Jev answers which application and what kind. Only
       answers it's at least 50% sure of count.
    6. The sorter also keeps any portal link and interview time.
-3. **Filing** (`internal.email.record`):
+3. **Filing** (`internal.api.email.record`):
    - It suggests a move (an interview suggests Interviewing).
    - When you let Jev move cards and Jev is at least 80% sure, it moves the card itself,
      with an Undo.
@@ -726,7 +726,7 @@ labels. Workflow emails also land in Sent. Notify me doesn't.
 5. **Add to contacts** on an open email (`api.contacts.known`, `api.contacts.save`) adds the
    other person, on any email, with their name and the application's company when there is one.
 
-**By itself** (`internal.contacts.learn`): when mail lands on an application, whether it
+**By itself** (`internal.api.contacts.learn`): when mail lands on an application, whether it
 arrived, was imported, was filed by hand or was sent by you, the sender or recipient becomes a
 contact at that company. No-reply senders, hiring tools' addresses and your own domain are left
 out.

@@ -1,4 +1,4 @@
-import { api } from "@convex/_generated/api"
+import { api } from "@/lib/api"
 import type { Id } from "@convex/_generated/dataModel"
 import { type allowKeys, Connect } from "@convex/features/email/validators"
 import { SquareLock02Icon } from "@hugeicons/core-free-icons"

@@ -176,7 +176,7 @@ const record = internalMutation({
         }),
     })
     if (event.applicationId)
-      await ctx.scheduler.runAfter(0, internal.contacts.learn, { eventId: id })
+      await ctx.scheduler.runAfter(0, internal.api.contacts.learn, { eventId: id })
     // Old mail you're importing isn't news here either, and there can be hundreds.
     if (quiet) return null
     const filedUnder =
@@ -211,7 +211,7 @@ const sortOne = async (
   ctx: ActionCtx,
   { userId, emailId }: { userId: Id<"users">; emailId: string }
 ) => {
-  const context = await ctx.runQuery(internal.email.sortContext, { userId, emailId })
+  const context = await ctx.runQuery(internal.api.email.sortContext, { userId, emailId })
   if (!context) return
   const k = await secretKeys()
   const mail = await openJson(k, context.payload, aad.email(userId), Received)
@@ -227,7 +227,7 @@ const sortOne = async (
     )
   )
   const threadApp = parents.length
-    ? await ctx.runQuery(internal.email.threadOf, { userId, keys: parents })
+    ? await ctx.runQuery(internal.api.email.threadOf, { userId, keys: parents })
     : null
   const inThread = context.applications.find((a) => a.id === threadApp)
   const known = tagged ?? inThread
@@ -250,7 +250,7 @@ const sortOne = async (
     )
   const chosen = tagged ?? context.applications.find((a) => a.id === application?.id)
   const portalUrl = portalOf(kind, text, mail.html)
-  await ctx.runMutation(internal.email.record, {
+  await ctx.runMutation(internal.api.email.record, {
     event: {
       userId,
       emailId,
@@ -407,7 +407,7 @@ const assign = authedMutation({
     })
     // Filed by hand, so nothing has learned from it yet.
     if (application && !event.applicationId)
-      await ctx.scheduler.runAfter(0, internal.contacts.learn, { eventId })
+      await ctx.scheduler.runAfter(0, internal.api.contacts.learn, { eventId })
     await logEdit(
       ctx,
       ctx.userId,

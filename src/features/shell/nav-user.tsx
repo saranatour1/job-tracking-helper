@@ -1,5 +1,5 @@
 import { useAuthActions } from "@convex-dev/auth/react"
-import { api } from "@convex/_generated/api"
+import { api } from "@/lib/api"
 import { Logout01Icon, UnfoldMoreIcon, UserIcon } from "@hugeicons/core-free-icons"
 import { HugeiconsIcon } from "@hugeicons/react"
 import { Link } from "@tanstack/react-router"

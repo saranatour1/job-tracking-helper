@@ -8,15 +8,27 @@
  * @module
  */
 
-import type * as activity from "../activity.js";
-import type * as applications from "../applications.js";
-import type * as auth from "../auth.js";
-import type * as automations from "../automations.js";
-import type * as booking from "../booking.js";
-import type * as calendar from "../calendar.js";
-import type * as contacts from "../contacts.js";
+import type * as api_activity from "../api/activity.js";
+import type * as api_applications from "../api/applications.js";
+import type * as api_auth from "../api/auth.js";
+import type * as api_automations from "../api/automations.js";
+import type * as api_booking from "../api/booking.js";
+import type * as api_calendar from "../api/calendar.js";
+import type * as api_contacts from "../api/contacts.js";
+import type * as api_email from "../api/email.js";
+import type * as api_goals from "../api/goals.js";
+import type * as api_inbox from "../api/inbox.js";
+import type * as api_jobs from "../api/jobs.js";
+import type * as api_loops from "../api/loops.js";
+import type * as api_mailbox from "../api/mailbox.js";
+import type * as api_migrations from "../api/migrations.js";
+import type * as api_preferences from "../api/preferences.js";
+import type * as api_prefilled from "../api/prefilled.js";
+import type * as api_resume from "../api/resume.js";
+import type * as api_users from "../api/users.js";
+import type * as api_views from "../api/views.js";
+import type * as api_workflows from "../api/workflows.js";
 import type * as crons from "../crons.js";
-import type * as email from "../email.js";
 import type * as features_activity_models from "../features/activity/models.js";
 import type * as features_activity_public from "../features/activity/public.js";
 import type * as features_activity_utils from "../features/activity/utils.js";
@@ -147,25 +159,13 @@ import type * as features_workflows_sources_index from "../features/workflows/so
 import type * as features_workflows_sources_source from "../features/workflows/sources/source.js";
 import type * as features_workflows_utils from "../features/workflows/utils.js";
 import type * as features_workflows_validators from "../features/workflows/validators.js";
-import type * as goals from "../goals.js";
 import type * as http from "../http.js";
-import type * as inbox from "../inbox.js";
-import type * as jobs from "../jobs.js";
 import type * as lib_ark from "../lib/ark.js";
 import type * as lib_functions from "../lib/functions.js";
 import type * as lib_jev from "../lib/jev.js";
 import type * as lib_log from "../lib/log.js";
 import type * as lib_markdown from "../lib/markdown.js";
 import type * as lib_secrets from "../lib/secrets.js";
-import type * as loops from "../loops.js";
-import type * as mailbox from "../mailbox.js";
-import type * as migrations from "../migrations.js";
-import type * as preferences from "../preferences.js";
-import type * as prefilled from "../prefilled.js";
-import type * as resume from "../resume.js";
-import type * as users from "../users.js";
-import type * as views from "../views.js";
-import type * as workflows from "../workflows.js";
 
 import type {
   ApiFromModules,
@@ -174,15 +174,27 @@ import type {
 } from "convex/server";
 
 declare const fullApi: ApiFromModules<{
-  activity: typeof activity;
-  applications: typeof applications;
-  auth: typeof auth;
-  automations: typeof automations;
-  booking: typeof booking;
-  calendar: typeof calendar;
-  contacts: typeof contacts;
+  "api/activity": typeof api_activity;
+  "api/applications": typeof api_applications;
+  "api/auth": typeof api_auth;
+  "api/automations": typeof api_automations;
+  "api/booking": typeof api_booking;
+  "api/calendar": typeof api_calendar;
+  "api/contacts": typeof api_contacts;
+  "api/email": typeof api_email;
+  "api/goals": typeof api_goals;
+  "api/inbox": typeof api_inbox;
+  "api/jobs": typeof api_jobs;
+  "api/loops": typeof api_loops;
+  "api/mailbox": typeof api_mailbox;
+  "api/migrations": typeof api_migrations;
+  "api/preferences": typeof api_preferences;
+  "api/prefilled": typeof api_prefilled;
+  "api/resume": typeof api_resume;
+  "api/users": typeof api_users;
+  "api/views": typeof api_views;
+  "api/workflows": typeof api_workflows;
   crons: typeof crons;
-  email: typeof email;
   "features/activity/models": typeof features_activity_models;
   "features/activity/public": typeof features_activity_public;
   "features/activity/utils": typeof features_activity_utils;
@@ -313,25 +325,13 @@ declare const fullApi: ApiFromModules<{
   "features/workflows/sources/source": typeof features_workflows_sources_source;
   "features/workflows/utils": typeof features_workflows_utils;
   "features/workflows/validators": typeof features_workflows_validators;
-  goals: typeof goals;
   http: typeof http;
-  inbox: typeof inbox;
-  jobs: typeof jobs;
   "lib/ark": typeof lib_ark;
   "lib/functions": typeof lib_functions;
   "lib/jev": typeof lib_jev;
   "lib/log": typeof lib_log;
   "lib/markdown": typeof lib_markdown;
   "lib/secrets": typeof lib_secrets;
-  loops: typeof loops;
-  mailbox: typeof mailbox;
-  migrations: typeof migrations;
-  preferences: typeof preferences;
-  prefilled: typeof prefilled;
-  resume: typeof resume;
-  users: typeof users;
-  views: typeof views;
-  workflows: typeof workflows;
 }>;
 
 /**

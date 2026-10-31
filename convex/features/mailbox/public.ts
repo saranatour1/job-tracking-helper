@@ -408,7 +408,7 @@ const saveDraft = action({
     const userId = await userIdOf(ctx)
     const { id, ...details } = checked(SaveDraft, args)
     const k = await secretKeys()
-    const saved = await ctx.runMutation(internal.mailbox.storeDraft, {
+    const saved = await ctx.runMutation(internal.api.mailbox.storeDraft, {
       userId,
       ...(id && { id }),
       details: await seal(k, JSON.stringify(details), draftAad(userId)),
