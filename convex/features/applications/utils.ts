@@ -30,8 +30,9 @@ export const purgeAtOf = (trashedAt: number, days: number) =>
   days ? trashedAt + days * day : undefined
 
 /** Deletes an application for good, and unlinks what pointed at it: its mail stays as
- * unfiled, events stay on the calendar, booking pages go back to matching by email, and a
- * job lead stays tracked so loops never offer the role again. */
+ * unfiled, events stay on the calendar, booking pages go back to matching by email, a job
+ * lead stays tracked so loops never offer the role again, and a prefilled application stays
+ * in Activity, still closed so it's never sent twice. */
 export const deleteApplication = async (ctx: MutationCtx, application: Doc<"applications">) => {
   const { userId, _id: applicationId } = application
   for (const mail of await ctx.db
@@ -59,6 +60,13 @@ export const deleteApplication = async (ctx: MutationCtx, application: Doc<"appl
     .take(50))
     if (page.applicationId === applicationId)
       await ctx.db.patch("bookingPages", page._id, { applicationId: undefined })
+  for (const prefill of await ctx.db
+    .query("prefills")
+    .withIndex("by_userId_and_applicationId", (q) =>
+      q.eq("userId", userId).eq("applicationId", applicationId)
+    )
+    .take(50))
+    await ctx.db.patch("prefills", prefill._id, { applicationId: undefined })
   await ctx.db.delete("applications", applicationId)
 }
 

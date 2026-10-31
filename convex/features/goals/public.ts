@@ -48,9 +48,8 @@ const remove = authedMutation({
     await ctx.db.delete("goals", id)
     for await (const application of ctx.db
       .query("applications")
-      .withIndex("by_userId", (q) => q.eq("userId", ctx.userId)))
-      if (application.goalId === id)
-        await ctx.db.patch("applications", application._id, { goalId: undefined })
+      .withIndex("by_userId_and_goalId", (q) => q.eq("userId", ctx.userId).eq("goalId", id)))
+      await ctx.db.patch("applications", application._id, { goalId: undefined })
     return null
   },
 })

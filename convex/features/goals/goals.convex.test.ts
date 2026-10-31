@@ -136,6 +136,50 @@ describe("goals", () => {
     expect((await as.query(api.goals.list))[0]?.loopId).toBe(undefined)
   })
 
+  it("stops taking roles from a loop that's removed", async () => {
+    const { t, as } = await setup()
+    const owner = (await t.run((ctx) => ctx.db.query("users").first()))!._id
+    const loopId = await t.run((ctx) =>
+      ctx.db.insert("loops", {
+        userId: owner,
+        name: "Mornings",
+        template: "custom",
+        answers: {
+          usePreferences: false,
+          stretch: false,
+          remoteOnly: false,
+          nearMe: false,
+          listedCompanies: false,
+          skipRedFlags: false,
+          postedToday: false,
+        },
+        daily: 25,
+        at: "08:00",
+        timeZone: "UTC",
+        active: false,
+        nextRunAt: 0,
+      })
+    )
+    const id = await as.mutation(api.goals.create, { ...goal, loopId })
+    await as.mutation(api.loops.remove, { loopId })
+    const row = (await as.query(api.goals.list)).find((g) => g._id === id)
+    expect(row?.loopId).toBe(undefined)
+  })
+
+  it("takes applications off a goal that's removed, and only those", async () => {
+    const { as, addApplication } = await setup()
+    const id = await as.mutation(api.goals.create, goal)
+    const kept = await as.mutation(api.goals.create, { ...goal, name: "Other" })
+    const on = await addApplication()
+    const elsewhere = await addApplication()
+    await as.mutation(api.applications.setGoal, { id: on, goalId: id })
+    await as.mutation(api.applications.setGoal, { id: elsewhere, goalId: kept })
+    await as.mutation(api.goals.remove, { id })
+    const goals = new Map((await as.query(api.applications.list)).map((a) => [a._id, a.goalId]))
+    expect(goals.get(on)).toBe(undefined)
+    expect(goals.get(elsewhere)).toBe(kept)
+  })
+
   it("keeps one person's goals from another", async () => {
     const { t, as, addApplication } = await setup()
     const other = t.withIdentity({

@@ -9,6 +9,7 @@ import { api, internal } from "../../_generated/api"
 import type { Id } from "../../_generated/dataModel"
 import notificationsSchema from "../../components/notifications/schema"
 import schema from "../../schema"
+import { deleteApplication } from "../applications/utils"
 import { prepareFits } from "./utils"
 
 const modules = import.meta.glob([
@@ -300,6 +301,26 @@ describe("applying with you there", () => {
     expect(await s.as.mutation(api.prefilled.prepare, { jobId: s.jobId })).toBe(id)
     expect((await s.as.query(api.prefilled.get, { id }))?.prefill.status).toBe("applied")
     await expect(s.as.mutation(api.prefilled.dismiss, { id })).rejects.toThrow("can't be dismissed")
+  })
+
+  it("stays closed, without the link, when its application is deleted", async () => {
+    const s = await setup()
+    const id = await s.prepared()
+    await live(s, id)
+    await s.t.mutation(internal.prefilled.finish, {
+      userId: s.userId,
+      id,
+      confirmation: "Thank you for applying",
+      credits: 1,
+    })
+    const { applicationId } = (await s.as.query(api.prefilled.get, { id }))!.prefill
+    await s.t.run(async (ctx) => {
+      const application = await ctx.db.get("applications", applicationId!)
+      await deleteApplication(ctx, application!)
+    })
+    const row = (await s.as.query(api.prefilled.get, { id }))!.prefill
+    expect([row.status, row.applicationId]).toEqual(["applied", undefined])
+    expect(await s.as.mutation(api.prefilled.prepare, { jobId: s.jobId })).toBe(id)
   })
 
   it("goes back to waiting when the browser closes, unless it's a newer one", async () => {

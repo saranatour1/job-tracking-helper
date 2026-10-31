@@ -30,6 +30,4 @@ export const automationRunsTable = defineTable({
   finishedAt: v.optional(v.number()),
   log: v.array(vLogEntry),
   error: v.optional(v.string()),
-})
-  .index("by_automationId_and_startedAt", ["automationId", "startedAt"])
-  .index("by_userId_and_status", ["userId", "status"])
+}).index("by_automationId_and_startedAt", ["automationId", "startedAt"])

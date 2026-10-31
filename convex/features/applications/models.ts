@@ -23,6 +23,9 @@ export const applicationsTable = defineTable(
     })
   )
 )
+  // Oldest first for the board; the next one finds a goal's applications.
+  // eslint-disable-next-line @convex-dev/no-duplicate-indexes
   .index("by_userId", ["userId"])
+  .index("by_userId_and_goalId", ["userId", "goalId"])
   .index("by_archivedAt", ["archivedAt"])
   .index("by_purgeAt", ["purgeAt"])

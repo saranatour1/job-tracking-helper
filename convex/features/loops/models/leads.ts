@@ -4,7 +4,6 @@ import { JobLead } from "../validators"
 
 export const jobLeadsTable = defineTable(arkOutputToConvex(JobLead))
   .index("by_userId_and_urlKey", ["userId", "urlKey"])
-  .index("by_runId", ["runId"])
   .index("by_userId_and_status", ["userId", "status"])
   .index("by_userId_and_feedback", ["userId", "feedback"])
   // Someone's fits, best first, for the Jobs page's "Fits me".
