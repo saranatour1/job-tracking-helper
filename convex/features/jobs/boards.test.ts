@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vite-plus/test"
 
 import { parseFeed, plainText } from "./boards"
-import { boardOf, previewOf } from "./links"
+import { boardOf, formUrlOf, previewOf } from "./links"
 
 const now = Date.parse("2026-10-28T08:00:00Z")
 
@@ -22,6 +22,30 @@ describe("boardOf", () => {
     })
     expect(boardOf("https://careers.stripe.com/x")).toBeNull()
     expect(boardOf("not a url")).toBeNull()
+  })
+})
+
+describe("formUrlOf", () => {
+  const greenhouse = { kind: "greenhouse" as const, slug: "coinbase" }
+  const ownSite = "https://www.coinbase.com/careers/positions/8333273?gh_jid=8333273"
+
+  it("keeps a link already on a board", () => {
+    const url = "https://job-boards.greenhouse.io/hook/jobs/1"
+    expect(formUrlOf(url, null)).toBe(url)
+  })
+
+  it("sends a Greenhouse role on the company's site to Greenhouse's embedded form", () => {
+    expect(formUrlOf(ownSite, greenhouse)).toBe(
+      "https://job-boards.greenhouse.io/embed/job_app?for=coinbase&token=8333273"
+    )
+  })
+
+  it("finds no form without the board, its id, or a Greenhouse board", () => {
+    expect(formUrlOf(ownSite, null)).toBeNull()
+    expect(formUrlOf(ownSite, { kind: "lever", slug: "coinbase" })).toBeNull()
+    expect(formUrlOf("https://www.coinbase.com/careers/1", greenhouse)).toBeNull()
+    expect(formUrlOf("https://www.coinbase.com/careers?gh_jid=1%26for=x", greenhouse)).toBeNull()
+    expect(formUrlOf("not a url", greenhouse)).toBeNull()
   })
 })
 
