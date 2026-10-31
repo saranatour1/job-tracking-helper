@@ -31,3 +31,5 @@ dist-ssr
 .verify-evidence
 
 .env*
+!.env.production
+.wrangler
