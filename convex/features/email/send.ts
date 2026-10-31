@@ -145,7 +145,7 @@ const sendFromApplication = action({
       userId,
       ...(args.applicationId && { applicationId: args.applicationId }),
     })
-    log.set({ summary: "Email" })
+    log.set({ summary: "Sending an email" })
     try {
       await sendOne(ctx, userId, args, log)
       log.set({ outcome: "sent" })
