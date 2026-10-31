@@ -106,8 +106,8 @@ const NavItems = ({ items }: { items: readonly Item[] }) => {
 }
 
 export const AppSidebar = (props: React.ComponentProps<typeof Sidebar>) => {
-  // The Inbox carries its unread count, so it's built here.
-  const inbox = { title: "Inbox", to: "/inbox", icon: InboxIcon, badge: useUnreadCount() }
+  // Updates carries its unread count, so it's built here.
+  const inbox = { title: "Updates", to: "/inbox", icon: InboxIcon, badge: useUnreadCount() }
   return (
     <Sidebar collapsible="icon" {...props}>
       <SidebarHeader className="flex-row items-center justify-between">

@@ -34,7 +34,7 @@ export const blocks = {
   notify: {
     label: "Notify me",
     group: "Tell me",
-    hint: "A line in your Inbox",
+    hint: "A line in your Updates",
     icon: Notification03Icon,
     color: "violet",
     make: (): Block => ({ kind: "notify", message: "{workflow.name} ran on {run.date}" }),
@@ -173,7 +173,7 @@ export const testLabels = {
   atLeast: "is at least",
 } as const
 
-const sendLabels = { inbox: "", email: " · by email", both: " · Inbox and email" }
+const sendLabels = { inbox: "", email: " · by email", both: " · Updates and email" }
 
 /** A card's second line. `nameOf` names an application (its company), a loop or a goal. */
 export const summaryOf = (step: Step, nameOf: (id: string) => string | undefined) => {

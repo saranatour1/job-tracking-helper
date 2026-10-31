@@ -303,7 +303,7 @@ export const vSortContext = v.union(
 export const vRecordArgs = {
   event: arkOutputToConvex(MailEvent.omit("moved")),
   move: v.boolean(),
-  // Old mail being imported: no Inbox line or workflow event.
+  // Old mail being imported: no line in Updates or workflow event.
   quiet: v.optional(v.boolean()),
 }
 

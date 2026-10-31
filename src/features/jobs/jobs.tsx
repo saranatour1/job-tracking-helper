@@ -346,12 +346,15 @@ export const Jobs = () => {
                   <HugeiconsIcon icon={LinkSquare02Icon} />
                 </Button>
               )
-              const title = (
+              const title = (wrap: boolean) => (
                 <a
                   href={job.url}
                   target="_blank"
                   rel="noopener noreferrer"
-                  className="truncate font-medium hover:underline"
+                  className={cn(
+                    "font-medium hover:underline",
+                    wrap ? "min-w-0 sm:truncate" : "truncate"
+                  )}
                 >
                   {job.title}
                 </a>
@@ -359,7 +362,7 @@ export const Jobs = () => {
               return compact ? (
                 <div key={job._id} className={cn(compactRow, "hover:bg-accent/30")}>
                   <span className="flex min-w-0 items-center gap-2">
-                    {title}
+                    {title(false)}
                     <span className="hidden shrink-0 gap-1 lg:flex">
                       <Badges job={job} now={now} />
                     </span>
@@ -371,19 +374,20 @@ export const Jobs = () => {
                   </span>
                   <span className="flex items-center justify-end gap-0.5">
                     {apply}
-                    {more}
+                    {/* On a phone the title needs the room, and the full view has this. */}
+                    <span className="hidden md:contents">{more}</span>
                     {open}
                   </span>
                 </div>
               ) : (
                 <div
                   key={job._id}
-                  className="hover:bg-accent/30 flex items-start gap-3 rounded-md px-2.5 py-2.5 text-[13px]"
+                  className="hover:bg-accent/30 grid grid-cols-[auto_minmax(0,1fr)] items-start gap-x-3 gap-y-1.5 rounded-md px-2.5 py-2.5 text-[13px] sm:grid-cols-[auto_minmax(0,1fr)_auto]"
                 >
                   <Initial company={job.company} />
-                  <div className="flex min-w-0 flex-1 flex-col gap-1">
+                  <div className="flex min-w-0 flex-col gap-1">
                     <div className="flex min-w-0 items-baseline gap-2">
-                      {title}
+                      {title(true)}
                       <span className="text-muted-foreground shrink-0 text-xs tabular-nums">
                         {ago(job.postedAt, now)}
                       </span>
@@ -400,7 +404,7 @@ export const Jobs = () => {
                       </p>
                     )}
                   </div>
-                  <div className="flex shrink-0 items-center gap-0.5">
+                  <div className="col-start-2 flex flex-wrap items-center gap-0.5 sm:col-start-3">
                     {apply}
                     {more}
                     {open}

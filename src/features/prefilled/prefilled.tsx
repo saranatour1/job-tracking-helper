@@ -4,7 +4,7 @@ import { isEmailQuestion } from "@convex/features/prefilled/match"
 import { Link } from "@tanstack/react-router"
 import { useAction, useMutation } from "convex/react"
 import { useQuery } from "convex-helpers/react/cache/hooks"
-import { startTransition, useActionState } from "react"
+import { startTransition, useActionState, useRef } from "react"
 
 import { ArrowLeft01Icon, ArrowRight01Icon } from "@hugeicons/core-free-icons"
 import { HugeiconsIcon } from "@hugeicons/react"
@@ -231,8 +231,12 @@ const PlainEmail = ({
   )
 }
 
-// One question and its answer. Saving it here changes this application only, unless you
-// tick Keep for future forms.
+// Whether this one still needs you. An AI draft does, until you've accepted or changed it.
+const needsYou = (field: Field) => field.required && (!field.answer || field.source === "ai")
+
+// One question and its answer. Before the browser opens it saves as you go, for this application
+// only unless you tick Keep for future forms. With the browser open, each send costs a credit,
+// so that stays a button.
 const AnswerRow = ({
   id,
   field,
@@ -248,40 +252,75 @@ const AnswerRow = ({
 }) => {
   const setAnswer = useMutation(api.prefilled.setAnswer)
   const sendToForm = useAction(api.prefilled.sendToForm)
-  const [error, save, pending] = useActionState(async (_: string | undefined, form: FormData) => {
-    const answer = form.get("answer")
-    try {
-      await setAnswer({
-        id,
-        question: field.question,
-        answer: typeof answer === "string" ? answer : "",
-        keep: form.get("keep") === "on",
-      })
-      if (live) {
-        const { filled } = await sendToForm({ id, question: field.question })
-        if (answer && !filled) return "It wouldn't go in. Type it in the form."
+  const formRef = useRef<HTMLFormElement>(null)
+  const lastSaved = useRef(field.answer ?? "")
+  // The row stays put as you save, and these fields only read their first value.
+  const startedWith = useRef(field.answer)
+  type State = { error?: string; saved?: boolean }
+  const [state, save, pending] = useActionState(
+    async (_: State, form: FormData): Promise<State> => {
+      const answer = form.get("answer")
+      const value = typeof answer === "string" ? answer : ""
+      try {
+        await setAnswer({
+          id,
+          question: field.question,
+          answer: value,
+          keep: form.get("keep") === "on",
+        })
+        lastSaved.current = value
+        if (live) {
+          const { filled } = await sendToForm({ id, question: field.question })
+          if (answer && !filled) return { error: "It wouldn't go in. Type it in the form." }
+        }
+        return { saved: true }
+      } catch (cause) {
+        return { error: messageOf(cause) }
       }
-      return undefined
-    } catch (cause) {
-      return messageOf(cause)
-    }
-  }, undefined)
+    },
+    {}
+  )
+  const submit = (answer?: string) => {
+    if (!formRef.current) return
+    const form = new FormData(formRef.current)
+    if (answer !== undefined) form.set("answer", answer)
+    startTransition(() => save(form))
+  }
+  const saveIfChanged = () => {
+    if (live || !formRef.current) return
+    const answer = new FormData(formRef.current).get("answer")
+    if (typeof answer === "string" && answer !== lastSaved.current) submit()
+  }
   const items = field.options?.map((o) => ({ value: o, label: o }))
   const draft = field.source === "ai"
-  const needed = field.required && (!field.answer || draft)
   return (
-    <form action={save} className="flex flex-col gap-1.5 border-t pt-3 first:border-t-0 first:pt-0">
+    <form
+      ref={formRef}
+      onSubmit={(e) => {
+        e.preventDefault()
+        submit()
+      }}
+      className="flex flex-col gap-1.5 border-t pt-3 first:border-t-0 first:pt-0"
+    >
       <div className="flex items-start gap-2">
         <label htmlFor={field.question} className="me-auto text-[13px] font-medium">
           {field.question}
         </label>
         {live && <FillBadge field={field} />}
-        <Badge variant={needed ? "warning" : "secondary"} className="shrink-0 font-normal">
+        <Badge variant={needsYou(field) ? "warning" : "secondary"} className="shrink-0 font-normal">
           {sourceLabel(field)}
         </Badge>
       </div>
       {items ? (
-        <Select name="answer" items={items} defaultValue={field.answer} disabled={locked}>
+        <Select
+          name="answer"
+          items={items}
+          defaultValue={startedWith.current}
+          disabled={locked}
+          onValueChange={(value) => {
+            if (!live && typeof value === "string") submit(value)
+          }}
+        >
           <SelectTrigger id={field.question} aria-label={field.question}>
             <SelectValue placeholder="Pick one" />
           </SelectTrigger>
@@ -297,49 +336,110 @@ const AnswerRow = ({
         <Textarea
           id={field.question}
           name="answer"
-          defaultValue={field.answer}
+          defaultValue={startedWith.current}
           maxLength={2000}
           rows={3}
           disabled={locked}
+          onBlur={saveIfChanged}
         />
       ) : (
         <Input
           id={field.question}
           name="answer"
-          defaultValue={field.answer}
+          defaultValue={startedWith.current}
           maxLength={2000}
           disabled={locked}
+          onBlur={saveIfChanged}
         />
       )}
       {draft && (
         <p className="text-muted-foreground text-xs">
           Drafted by AI from your resume. Make sure it's true and sounds like you, then{" "}
-          {live ? "send it" : "Save"}.
+          {live ? "send it" : "accept it or change it"}.
         </p>
       )}
       {!locked && (
-        <div className="flex items-center gap-3">
+        <div className="flex min-h-6 items-center gap-3">
           {field.source !== "saved" && field.source !== "jev" && (
             <label className="text-muted-foreground flex items-center gap-1.5 text-xs">
-              <input type="checkbox" name="keep" />
+              <input
+                type="checkbox"
+                name="keep"
+                onChange={() => {
+                  if (!live) submit()
+                }}
+              />
               Keep for future forms
             </label>
           )}
-          <Button type="submit" size="xs" variant="outline" className="ms-auto" disabled={pending}>
-            {live ? (pending ? "Sending…" : "Send to form") : "Save"}
-            {live && <HugeiconsIcon icon={ArrowRight01Icon} className="size-3.5" />}
-          </Button>
+          <span aria-live="polite" className="text-muted-foreground ms-auto text-xs">
+            {!live && (pending ? "Saving…" : state.saved && "Saved to this application")}
+          </span>
+          {(live || draft) && (
+            <Button type="submit" size="xs" variant="outline" disabled={pending}>
+              {live ? (pending ? "Sending…" : "Send to form") : "Accept draft"}
+              {live && <HugeiconsIcon icon={ArrowRight01Icon} className="size-3.5" />}
+            </Button>
+          )}
         </div>
       )}
       {live && applicationId && isEmailQuestion(field.question) && field.answer?.includes("+") && (
         <PlainEmail id={id} applicationId={applicationId} question={field.question} />
       )}
-      {error && (
+      {state.error && (
         <span role="alert" className="text-destructive text-xs">
-          {error}
+          {state.error}
         </span>
       )}
     </form>
+  )
+}
+
+// What needs you first, and the rest folded away. Who goes where is settled when the page opens,
+// so a row you've just answered doesn't jump out from under you; next time it's with the rest.
+const Answers = ({
+  id,
+  questions,
+  locked,
+  live,
+  applicationId,
+}: {
+  id: Id<"prefills">
+  questions: Field[]
+  locked: boolean
+  live: boolean
+  applicationId?: Id<"applications"> | undefined
+}) => {
+  const first = useRef(new Set(questions.filter(needsYou).map((f) => f.question)))
+  const row = (field: Field) => (
+    <AnswerRow
+      key={field.question}
+      id={id}
+      field={field}
+      locked={locked}
+      live={live}
+      applicationId={applicationId}
+    />
+  )
+  const needed = questions.filter((f) => first.current.has(f.question))
+  const rest = questions.filter((f) => !first.current.has(f.question))
+  return (
+    <>
+      {needed.map(row)}
+      {rest.length > 0 && (
+        <details
+          open={live || locked || needed.length === 0}
+          className={cn("flex flex-col", needed.length > 0 && "border-t pt-3")}
+        >
+          <summary className="text-muted-foreground cursor-pointer text-[13px] font-medium">
+            {needed.length > 0
+              ? `Everything else · ${rest.length}`
+              : `All answers · ${rest.length}`}
+          </summary>
+          <div className="mt-3 flex flex-col gap-3">{rest.map(row)}</div>
+        </details>
+      )}
+    </>
   )
 }
 
@@ -554,15 +654,16 @@ export const PrefilledPage = ({ id }: { id: Id<"prefills"> }) => {
               {prefill.confirmation && (
                 <p className="text-muted-foreground text-[13px]">{prefill.confirmation}</p>
               )}
-              {prefill.aiUnavailable && canApply && (
-                <Button
-                  size="sm"
-                  className="self-start"
-                  disabled={pending}
-                  onClick={() => run("apply")}
-                >
-                  {pending ? "Opening…" : "Open browser with my answers"}
-                </Button>
+              {canApply && (
+                <div className="flex flex-wrap items-center gap-x-3 gap-y-1.5">
+                  <Button size="sm" disabled={pending} onClick={() => run("apply")}>
+                    {pending ? "Opening…" : "Open browser"}
+                  </Button>
+                  <p className="text-muted-foreground min-w-0 flex-1 basis-64 text-[13px]">
+                    The real form opens here with your answers in. You check it and press its
+                    Submit. About 3 Firecrawl credits.
+                  </p>
+                </div>
               )}
               <div
                 className={cn(
@@ -597,17 +698,17 @@ export const PrefilledPage = ({ id }: { id: Id<"prefills"> }) => {
                         Firecrawl credit.
                       </p>
                     )}
-                    {questions?.map((field) => (
-                      <AnswerRow
-                        // Keeps its place while sending, so a problem can show beside it.
-                        key={open ? field.question : `${field.question}:${field.answer ?? ""}`}
+                    {questions && (
+                      <Answers
+                        // A fresh read of the form starts over.
+                        key={prefill.preparedAt ?? "new"}
                         id={id}
-                        field={field}
+                        questions={questions}
                         locked={!canApply && !open}
                         live={Boolean(open && prefill.liveUrl)}
                         applicationId={prefill.applicationId}
                       />
-                    ))}
+                    )}
                   </div>
                 </Tile>
                 <div
@@ -617,19 +718,6 @@ export const PrefilledPage = ({ id }: { id: Id<"prefills"> }) => {
                   )}
                 >
                   {open && <LiveBrowser prefill={prefill} />}
-                  {canApply && (
-                    <Tile title="The real form">
-                      <div className="flex flex-col items-start gap-3 px-1">
-                        <p className="text-muted-foreground text-[13px]">
-                          Opens here with your answers already in. You check it and press its
-                          Submit. About 3 Firecrawl credits.
-                        </p>
-                        <Button size="sm" disabled={pending} onClick={() => run("apply")}>
-                          {pending ? "Opening…" : "Open browser"}
-                        </Button>
-                      </div>
-                    </Tile>
-                  )}
                   {!open && (
                     <Tile title="The role">
                       <div className="flex flex-col gap-3 px-1">

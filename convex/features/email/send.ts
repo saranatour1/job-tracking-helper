@@ -46,7 +46,7 @@ const sendContext = internalQuery({
   },
 })
 
-// A line on the application's timeline. It's your own mail, so no Inbox line or workflow.
+// A line on the application's timeline. It's your own mail, so no line in Updates or workflow.
 const recordSent = internalMutation({
   args: {
     userId: v.id("users"),

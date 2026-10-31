@@ -63,7 +63,7 @@ const plan = internalQuery({
 })
 
 // A prepare is done. Answers you typed stay, a draft stays unless a saved answer now covers
-// the question, and it tells the Inbox it's ready to look at.
+// the question, and it tells Updates it's ready to look at.
 const savePrepared = internalMutation({
   args: vSavePreparedArgs,
   returns: v.null(),

@@ -109,7 +109,7 @@ and the rules both go by. For the rest of the app, see [flows.md](flows.md).
    count again.
 4. **Stop run** stops a run that's still going. Steps still running or waiting are
    marked failed with "Stopped.", and a loop run that Find roles started stops too.
-5. A Notify me line in the **Inbox** opens its run.
+5. A Notify me line in **Updates** opens its run.
 
 ### Change it
 
@@ -120,7 +120,7 @@ and the rules both go by. For the rest of the app, see [flows.md](flows.md).
 
 - The switch on the list or in the builder turns a workflow off. It then never starts on
   its own; Run now still works.
-- **Delete** asks first, stops its runs, and removes them with their Inbox lines.
+- **Delete** asks first, stops its runs, and removes them with their Updates lines.
 
 ## What the app does by itself
 
@@ -182,7 +182,7 @@ workflow's journal is cleaned up. Each workflow keeps its newest 50 runs.
 
 | Block              | What it does                                                                                 | Needs                                                   |
 | ------------------ | -------------------------------------------------------------------------------------------- | ------------------------------------------------------- |
-| Notify me          | A line in your Inbox, an email to you, or both                                               | For email: a Cloudflare connection with “Send email” on |
+| Notify me          | A line in your Updates, an email to you, or both                                             | For email: a Cloudflare connection with “Send email” on |
 | Find roles         | Runs one of your loops now                                                                   | A loop that isn't already running; 5 a day              |
 | Send email         | Emails one address from your Cloudflare address                                              | “Send email” on; 20 a day                               |
 | Add note           | Adds a note to an application                                                                | An application picked, or one from the trigger          |
