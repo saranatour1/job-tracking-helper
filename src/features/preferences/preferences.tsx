@@ -986,7 +986,7 @@ const PreferencesForm = ({
     async (_: string | undefined, action: "save" | "skip"): Promise<string | undefined> => {
       if (action === "skip") {
         await skipPreferences()
-        await navigate({ to: "/" })
+        await navigate({ to: "/pipeline" })
         return undefined
       }
       try {

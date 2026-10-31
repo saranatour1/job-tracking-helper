@@ -15,7 +15,7 @@ A user can create an account with a username and password, sign out, and sign ba
 
 - Open `http://localhost:3000/sign-in`, or any page while signed out, which redirects there.
 - Open `http://localhost:3000/sign-up`, or follow the `Need an account? Sign up` link. `Have an account? Sign in` links back.
-- Signed-in users who open either page are sent to `/`.
+- Signed-in users who open either page are sent to `/pipeline`.
 
 ## Driving it with Claude Browser
 

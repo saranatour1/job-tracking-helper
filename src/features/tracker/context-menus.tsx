@@ -124,7 +124,7 @@ export const ViewMenu = ({
         {children}
       </ContextMenuTrigger>
       <ContextMenuPopup className="min-w-48">
-        <ContextMenuLinkItem render={<Link to="/" search={{ view: routes.text(view.id) }} />}>
+        <ContextMenuLinkItem render={<Link to="/pipeline" search={{ view: routes.text(view.id) }} />}>
           Open
         </ContextMenuLinkItem>
         <ContextMenuLinkItem
@@ -140,7 +140,7 @@ export const ViewMenu = ({
           onClick={async () => {
             if (!window.confirm(`Delete the view “${view.name}”?`)) return
             await remove({ id: view.id as never })
-            if (open) void navigate({ to: "/" })
+            if (open) void navigate({ to: "/pipeline" })
           }}
         >
           Delete view

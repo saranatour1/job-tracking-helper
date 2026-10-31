@@ -45,7 +45,7 @@ type Item = { title: string; to: string; icon: typeof InboxIcon; badge?: number 
 const groups: { label?: string; items: readonly Item[] }[] = [
   {
     items: [
-      { title: "Applications", to: "/", icon: Briefcase01Icon },
+      { title: "Applications", to: "/pipeline", icon: Briefcase01Icon },
       { title: "Email", to: "/email", icon: Mail01Icon },
       { title: "Calendar", to: "/calendar", icon: Calendar03Icon },
     ],
@@ -91,7 +91,7 @@ const NavItems = ({ items }: { items: readonly Item[] }) => {
         <SidebarMenuItem key={item.to}>
           <SidebarMenuButton
             render={<Link to={item.to} />}
-            isActive={item.to === "/" ? path === "/" : path.startsWith(item.to)}
+            isActive={path.startsWith(item.to)}
             tooltip={item.title}
             onClick={() => setOpenMobile(false)}
           >

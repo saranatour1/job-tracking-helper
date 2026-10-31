@@ -9,7 +9,7 @@ import { AppShell } from "@/features/shell/app-shell"
 const FirstRun = () => {
   const me = useQuery(api.users.me)
   const path = useRouterState({ select: (s) => s.location.pathname })
-  return me && !me.onboarded && path === "/" ? <Navigate to="/preferences" replace /> : null
+  return me && !me.onboarded && path === "/pipeline" ? <Navigate to="/preferences" replace /> : null
 }
 
 const AppLayout = () => (

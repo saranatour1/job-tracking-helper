@@ -4,7 +4,7 @@
 
 ## Sub-features
 
-- `prefs-first-run` sends a new account from `/` to `/preferences` until they save or click `Skip for now`.
+- `prefs-first-run` sends a new account from `/pipeline` to `/preferences` until they save or click `Skip for now`.
 - `prefs-save` stores the answers; they come back after a reload, and `Skip for now` disappears.
 - `prefs-prefill` fills the form from an assistant's JSON reply, even inside a code fence, and drops unknown fields.
 - `prefs-prefill-error` shows a message for a reply with no JSON, broken JSON, or a wrong value such as `"workMode": "sometimes"`.
@@ -31,7 +31,7 @@ Steps:
 - **Prefill.** On step 1, `find` `"Paste the reply"` and fill it with a sentence followed by a JSON object, such as `Here you go: {"interests":["climate"],"workMode":"remote","answers":{"pay":"60k EUR"},"extra":1}`. Click `Fill the form`. A status reads `Filled 3 answers`, and the side panel's `What you're drawn to` line reads `climate`.
 - **Prefilled.** Open the `Prefilled` tab. `Salary expectation` reads `60k EUR`. Rename `Contact label 3` to `email` and click `Save prefilled`: the status reads `"email" is listed twice`. Rename it back, click `Add section`, title it `References`, fill `References label 1` and its value, and save: the status reads `Saved.` and `evidence.sh table "$dir" profileEntries` shows a `field` row with group `References`. Rows' copy and remove buttons appear on hover.
 - **Save.** Click `Save preferences`. A status reads `Saved.` and `Skip for now` is gone. Run `evidence.sh table "$dir" preferences after-save`: there is one row for this user. `evidence.sh table "$dir" preferenceTags after-save` has one row per tag.
-- **Persist.** Navigate to `/`: the URL stays `/`. Navigate back to `/preferences`: it opens on `Overview`, and the answers are still there.
+- **Persist.** Navigate to `/pipeline`: the URL stays `/pipeline`. Navigate back to `/preferences`: it opens on `Overview`, and the answers are still there.
 - **Overview.** `find` `"When could you start"` and click it: the `Edit` tab opens on `Step 8 of 10`. Then add a company on step 5. Add a company, go back to `Overview`: it shows there before saving.
 - **Resume.** `form_input` can't set files. Use `javascript_tool` to put a `File` into `#resume` through a `DataTransfer` and dispatch `change`. A `.png` shows `Upload a PDF, Word or plain text file.`; a `.pdf` shows its name as a link with `Remove`.
 

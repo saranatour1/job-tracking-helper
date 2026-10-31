@@ -389,7 +389,7 @@ export const ApplicationDetail = ({ id }: { id: string }) => {
   if (!a) {
     return (
       <>
-        <PageHeader crumbs={[{ label: "Applications", to: "/" }, { label: id }]} />
+        <PageHeader crumbs={[{ label: "Applications", to: "/pipeline" }, { label: id }]} />
         <p className="text-muted-foreground p-6 text-sm">No application with id {id}.</p>
       </>
     )
@@ -398,7 +398,7 @@ export const ApplicationDetail = ({ id }: { id: string }) => {
     <>
       <PageHeader
         crumbs={[
-          { label: "Applications", to: "/" },
+          { label: "Applications", to: "/pipeline" },
           { label: a.code ? `${a.code} ${a.role}` : a.role },
         ]}
       />

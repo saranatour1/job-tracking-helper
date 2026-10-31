@@ -7,7 +7,7 @@ const AuthLayout = () => (
       <Outlet />
     </Unauthenticated>
     <Authenticated>
-      <Navigate to="/" replace />
+      <Navigate to="/pipeline" replace />
     </Authenticated>
   </>
 )

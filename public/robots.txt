@@ -1,3 +1,24 @@
-# https://www.robotstxt.org/robotstxt.html
+# Public pages are open to every crawler, including AI search. Everything else needs an
+# account or a private link, so crawlers stay out.
 User-agent: *
-Disallow:
+Disallow: /account
+Disallow: /activity
+Disallow: /book/
+Disallow: /calendar
+Disallow: /contacts
+Disallow: /email
+Disallow: /goals
+Disallow: /inbox
+Disallow: /jobs
+Disallow: /loops
+Disallow: /pipeline
+Disallow: /preferences
+Disallow: /prefilled
+Disallow: /resume
+Disallow: /sign-in
+Disallow: /sign-up
+Disallow: /views
+Disallow: /workflows
+Disallow: /_serverFn/
+
+Sitemap: https://ye.saranatour.dev/sitemap.xml

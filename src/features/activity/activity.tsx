@@ -125,7 +125,7 @@ const RunTile = ({ run }: { run: Run }) => {
           Open the posting
         </Button>
         {run.applicationId && (
-          <Button size="xs" variant="ghost" render={<Link to="/" search={{ app: application }} />}>
+          <Button size="xs" variant="ghost" render={<Link to="/pipeline" search={{ app: application }} />}>
             Open the application
           </Button>
         )}
@@ -157,7 +157,7 @@ const EventLink = ({ event }: { event: Event }) => {
     return open(<Link to="/prefilled/$id" params={{ id: prefills.text(event.prefillId) }} />)
   if (event.automationId)
     return open(<Link to="/workflows/$id" params={{ id: workflows.text(event.automationId) }} />)
-  if (event.applicationId) return open(<Link to="/" search={{ app: application }} />)
+  if (event.applicationId) return open(<Link to="/pipeline" search={{ app: application }} />)
   if (event.work === "loop.run") return open(<Link to="/loops" />)
   if (
     event.work.startsWith("account.") ||

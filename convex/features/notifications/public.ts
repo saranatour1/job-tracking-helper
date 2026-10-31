@@ -110,7 +110,7 @@ const linesOf = async (
         ...base,
         title: application ? `${application.role} · ${application.company}` : "Unsorted mail",
         message: `${application ? mailWords[event.kind] : "Needs filing"}: ${note.subject || "(no subject)"} from ${note.from}`,
-        link: "/" as const,
+        link: "/pipeline" as const,
         company: application?.company,
         status: application?.status,
       }

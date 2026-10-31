@@ -128,6 +128,17 @@ export const SignIn = ({ mode }: { mode: "signIn" | "signUp" }) => {
             </Button>
           </>
         )}
+        <p className="text-muted-foreground text-center text-xs text-pretty">
+          By continuing, you agree to the{" "}
+          <Link to="/terms" className="underline underline-offset-4">
+            Terms
+          </Link>{" "}
+          and{" "}
+          <Link to="/privacy" className="underline underline-offset-4">
+            Privacy Policy
+          </Link>
+          .
+        </p>
       </form>
     </main>
   )

@@ -1,0 +1,25 @@
+# Job Tracking Helper
+
+> A job search app. It finds open roles that fit what you asked for, gets each application ready, and keeps track of what you sent. It never presses Submit: you check the form and send it yourself.
+
+Job Tracking Helper is a web app at https://ye.saranatour.dev. Everything past the public pages below needs an account, so please don't crawl it. Booking links under /book/ are private to the people they were sent to.
+
+What it does:
+
+- Searches the public job feeds of companies on Greenhouse, Lever, Ashby and Personio.
+- Judges each role against your stated preferences and shortlists the ones that fit.
+- Reads a posting's form, matches your saved answers and drafts job-specific ones for you to check.
+- Tracks applications on a board or list, with status history, notes and related email.
+- Handles mail through your own Cloudflare account, plus a calendar and booking pages.
+
+What it doesn't do:
+
+- Send an application for you.
+- Answer demographic questions on purpose, or store job-site passwords.
+- Guarantee interviews or job offers.
+
+## Pages
+
+- [Home](https://ye.saranatour.dev/): what the app is and how to get started
+- [Privacy Policy](https://ye.saranatour.dev/privacy): what data the app handles and who it goes to
+- [Terms of Use](https://ye.saranatour.dev/terms): the rules for using the app

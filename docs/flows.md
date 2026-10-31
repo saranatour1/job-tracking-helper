@@ -19,6 +19,7 @@ Workflows have their own page, [workflows.md](workflows.md).
 ## Contents
 
 1. [Across the app](#across-the-app)
+   - [Public pages and crawlers](#public-pages-and-crawlers)
 2. [Signing in](#signing-in)
 3. [The shell](#the-shell)
 4. [Preferences](#preferences)
@@ -101,6 +102,27 @@ It only schedules a check when you have an active workflow with that kind of tri
 `FIRECRAWL_API_KEY` and `CONTEXT_DEV_API_KEY` let loops search for new job boards and read
 pasted links that aren't on a known board. A source without a key is skipped.
 
+### Public pages and crawlers
+
+**Stories**
+
+- As a visitor, I want to see what the app does and how my data is handled before I sign up.
+- As a search engine or AI crawler, I want to read the public pages and stay out of the rest.
+
+**Flows**
+
+1. **Landing.** `/` says what the app does and links to `/sign-in`. Signed-in people go on to
+   `/pipeline`, keeping any search like `?app=app-4`.
+2. **Legal.** `/privacy` and `/terms` are linked from the footer, sign-in and booking forms.
+   Privacy has a button that turns off Databuddy on that device, including a running replay.
+3. **Crawlers.** `public/robots.txt` lists every private route, and `public/llms.txt` and
+   `public/sitemap.xml` list the public ones. All pages render on the server, so crawlers don't
+   need JavaScript.
+
+**Rules:** every route is `noindex` unless it uses `publicHead` (`src/lib/seo.ts`). A test
+fails if a new route isn't public and isn't in `robots.txt`. Booking pages load no analytics.
+When a data flow changes, `/privacy` changes with it.
+
 ## Signing in
 
 **Stories**
@@ -121,7 +143,7 @@ pasted links that aren't on a known board. A source without a key is skipped.
    took too long. Try again."
 3. **Guest.** "Continue as guest" signs in anonymously. The sidebar shows "Guest" until
    a name is set.
-4. **First run.** The first time you open `/`, you go to Preferences until you save them
+4. **First run.** The first time you open `/pipeline`, you go to Preferences until you save them
    or press "Skip for now".
 5. **Sign out.** From the sidebar's user menu, or Account.
 
@@ -129,7 +151,7 @@ pasted links that aren't on a known board. A source without a key is skipped.
 (`internal.api.auth.createUser`); Google and GitHub fill in your name and email.
 
 **Rules:** signed-out visits to app pages go to `/sign-in`; signed-in visits to
-`/sign-in` go to `/`. Production only takes new accounts from GitHub until email is set
+`/sign-in` go to `/pipeline`. Production only takes new accounts from GitHub until email is set
 up: the Google, guest and sign-up options are hidden, `/sign-up` goes to `/sign-in`, and
 `createUser` refuses other providers. Existing username accounts can still sign in.
 

@@ -9,9 +9,11 @@
 // Additionally, you should also exclude this file from your linter and/or formatter to prevent it from being checked or modified.
 
 import { Route as rootRouteImport } from './routes/__root'
+import { Route as IndexRouteImport } from './routes/index'
 import { Route as AppRouteImport } from './routes/_app'
 import { Route as AuthRouteImport } from './routes/_auth'
-import { Route as AppIndexRouteImport } from './routes/_app/index'
+import { Route as PrivacyRouteImport } from './routes/privacy'
+import { Route as TermsRouteImport } from './routes/terms'
 import { Route as AppAccountRouteImport } from './routes/_app/account'
 import { Route as AppActivityRouteImport } from './routes/_app/activity'
 import { Route as AppCalendarRouteImport } from './routes/_app/calendar'
@@ -36,6 +38,11 @@ import { Route as AppViewsNewRouteImport } from './routes/_app/views/new'
 import { Route as AppWorkflowsIndexRouteImport } from './routes/_app/workflows/index'
 import { Route as AppWorkflowsIdRouteImport } from './routes/_app/workflows/$id'
 
+const IndexRoute = IndexRouteImport.update({
+  id: '/',
+  path: '/',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const AppRoute = AppRouteImport.update({
   id: '/_app',
   getParentRoute: () => rootRouteImport,
@@ -44,10 +51,15 @@ const AuthRoute = AuthRouteImport.update({
   id: '/_auth',
   getParentRoute: () => rootRouteImport,
 } as any)
-const AppIndexRoute = AppIndexRouteImport.update({
-  id: '/',
-  path: '/',
-  getParentRoute: () => AppRoute,
+const PrivacyRoute = PrivacyRouteImport.update({
+  id: '/privacy',
+  path: '/privacy',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const TermsRoute = TermsRouteImport.update({
+  id: '/terms',
+  path: '/terms',
+  getParentRoute: () => rootRouteImport,
 } as any)
 const AppAccountRoute = AppAccountRouteImport.update({
   id: '/account',
@@ -166,7 +178,9 @@ const AppWorkflowsIdRoute = AppWorkflowsIdRouteImport.update({
 } as any)
 
 export interface FileRoutesByFullPath {
-  '/': typeof AppIndexRoute
+  '/': typeof IndexRoute
+  '/privacy': typeof PrivacyRoute
+  '/terms': typeof TermsRoute
   '/account': typeof AppAccountRoute
   '/activity': typeof AppActivityRoute
   '/calendar': typeof AppCalendarRoute
@@ -192,7 +206,9 @@ export interface FileRoutesByFullPath {
   '/workflows/': typeof AppWorkflowsIndexRoute
 }
 export interface FileRoutesByTo {
-  '/': typeof AppIndexRoute
+  '/': typeof IndexRoute
+  '/privacy': typeof PrivacyRoute
+  '/terms': typeof TermsRoute
   '/account': typeof AppAccountRoute
   '/activity': typeof AppActivityRoute
   '/calendar': typeof AppCalendarRoute
@@ -219,8 +235,11 @@ export interface FileRoutesByTo {
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
+  '/': typeof IndexRoute
   '/_app': typeof AppRouteWithChildren
   '/_auth': typeof AuthRouteWithChildren
+  '/privacy': typeof PrivacyRoute
+  '/terms': typeof TermsRoute
   '/_app/account': typeof AppAccountRoute
   '/_app/activity': typeof AppActivityRoute
   '/_app/calendar': typeof AppCalendarRoute
@@ -234,7 +253,6 @@ export interface FileRoutesById {
   '/_auth/sign-in': typeof AuthSignInRoute
   '/_auth/sign-up': typeof AuthSignUpRoute
   '/book/$slug': typeof BookSlugRoute
-  '/_app/': typeof AppIndexRoute
   '/_app/goals/$id': typeof AppGoalsIdRoute
   '/_app/pipeline/$id': typeof AppPipelineIdRoute
   '/_app/prefilled/$id': typeof AppPrefilledIdRoute
@@ -250,6 +268,8 @@ export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
   fullPaths:
     | '/'
+    | '/privacy'
+    | '/terms'
     | '/account'
     | '/activity'
     | '/calendar'
@@ -276,6 +296,8 @@ export interface FileRouteTypes {
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/'
+    | '/privacy'
+    | '/terms'
     | '/account'
     | '/activity'
     | '/calendar'
@@ -301,8 +323,11 @@ export interface FileRouteTypes {
     | '/workflows'
   id:
     | '__root__'
+    | '/'
     | '/_app'
     | '/_auth'
+    | '/privacy'
+    | '/terms'
     | '/_app/account'
     | '/_app/activity'
     | '/_app/calendar'
@@ -316,7 +341,6 @@ export interface FileRouteTypes {
     | '/_auth/sign-in'
     | '/_auth/sign-up'
     | '/book/$slug'
-    | '/_app/'
     | '/_app/goals/$id'
     | '/_app/pipeline/$id'
     | '/_app/prefilled/$id'
@@ -330,13 +354,23 @@ export interface FileRouteTypes {
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
+  IndexRoute: typeof IndexRoute
   AppRoute: typeof AppRouteWithChildren
   AuthRoute: typeof AuthRouteWithChildren
+  PrivacyRoute: typeof PrivacyRoute
+  TermsRoute: typeof TermsRoute
   BookSlugRoute: typeof BookSlugRoute
 }
 
 declare module '@tanstack/react-router' {
   interface FileRoutesByPath {
+    '/': {
+      id: '/'
+      path: '/'
+      fullPath: '/'
+      preLoaderRoute: typeof IndexRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/_app': {
       id: '/_app'
       path: ''
@@ -351,12 +385,19 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthRouteImport
       parentRoute: typeof rootRouteImport
     }
-    '/_app/': {
-      id: '/_app/'
-      path: '/'
-      fullPath: '/'
-      preLoaderRoute: typeof AppIndexRouteImport
-      parentRoute: typeof AppRoute
+    '/privacy': {
+      id: '/privacy'
+      path: '/privacy'
+      fullPath: '/privacy'
+      preLoaderRoute: typeof PrivacyRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/terms': {
+      id: '/terms'
+      path: '/terms'
+      fullPath: '/terms'
+      preLoaderRoute: typeof TermsRouteImport
+      parentRoute: typeof rootRouteImport
     }
     '/_app/account': {
       id: '/_app/account'
@@ -533,7 +574,6 @@ interface AppRouteChildren {
   AppLoopsRoute: typeof AppLoopsRoute
   AppPreferencesRoute: typeof AppPreferencesRoute
   AppResumeRoute: typeof AppResumeRoute
-  AppIndexRoute: typeof AppIndexRoute
   AppGoalsIdRoute: typeof AppGoalsIdRoute
   AppPipelineIdRoute: typeof AppPipelineIdRoute
   AppPrefilledIdRoute: typeof AppPrefilledIdRoute
@@ -557,7 +597,6 @@ const AppRouteChildren: AppRouteChildren = {
   AppLoopsRoute: AppLoopsRoute,
   AppPreferencesRoute: AppPreferencesRoute,
   AppResumeRoute: AppResumeRoute,
-  AppIndexRoute: AppIndexRoute,
   AppGoalsIdRoute: AppGoalsIdRoute,
   AppPipelineIdRoute: AppPipelineIdRoute,
   AppPrefilledIdRoute: AppPrefilledIdRoute,
@@ -585,8 +624,11 @@ const AuthRouteChildren: AuthRouteChildren = {
 const AuthRouteWithChildren = AuthRoute._addFileChildren(AuthRouteChildren)
 
 const rootRouteChildren: RootRouteChildren = {
+  IndexRoute: IndexRoute,
   AppRoute: AppRouteWithChildren,
   AuthRoute: AuthRouteWithChildren,
+  PrivacyRoute: PrivacyRoute,
+  TermsRoute: TermsRoute,
   BookSlugRoute: BookSlugRoute,
 }
 export const routeTree = rootRouteImport
@@ -594,10 +636,11 @@ export const routeTree = rootRouteImport
   ._addFileTypes<FileRouteTypes>()
 
 import type { getRouter } from './router.tsx'
-import type { createStart } from '@tanstack/react-start'
+import type { startInstance } from './start.ts'
 declare module '@tanstack/react-start' {
   interface Register {
     ssr: true
     router: Awaited<ReturnType<typeof getRouter>>
+    config: Awaited<ReturnType<typeof startInstance.getOptions>>
   }
 }
