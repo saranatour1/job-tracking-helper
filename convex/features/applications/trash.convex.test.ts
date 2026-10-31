@@ -27,7 +27,7 @@ const trashedOf = async (as: Authed) =>
 
 const setup = async () => {
   const t = convexTest(schema, modules)
-  batchWorker.register(t as never)
+  batchWorker.register(t)
   const userId = await t.run((ctx) => ctx.db.insert("users", { name: "Sam" }))
   const as = t.withIdentity({ subject: userId })
   const add = (company: string) =>

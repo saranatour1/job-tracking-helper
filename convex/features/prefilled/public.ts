@@ -5,7 +5,7 @@ import type { MutationCtx } from "../../_generated/server"
 import { arkOutputToConvex } from "../../lib/ark"
 import { arkMutation, authedMutation, authedQuery } from "../../lib/functions"
 import { boardOf, previewOf } from "../jobs/boards"
-import { rowLimits } from "../preferences/rows"
+import { fieldOrder, rowLimits, sectionOfOrder } from "../preferences/rows"
 import { rowOf } from "../preferences/utils"
 import { limits } from "../workflows/manager"
 import { statusFrom } from "./match"
@@ -145,7 +145,7 @@ const setAnswer = arkMutation({
         const own = saved.filter((e) => e.group === "Your questions")
         const order = own[0]
           ? own[0].order + 1
-          : Math.floor((saved[0]?.order ?? -100) / 100 + 1) * 100
+          : fieldOrder(saved[0] ? sectionOfOrder(saved[0].order) + 1 : 0, 0)
         await ctx.db.insert("profileEntries", {
           userId: ctx.userId,
           kind: "field",

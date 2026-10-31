@@ -34,9 +34,9 @@ const day = 24 * 60 * 60 * 1000
 
 const setup = async () => {
   const t = convexTest(schema, modules)
-  batchWorker.register(t as never)
-  rateLimiter.register(t as never)
-  workpool.register(t as never, "applyPool")
+  batchWorker.register(t)
+  rateLimiter.register(t)
+  workpool.register(t, "applyPool")
   t.registerComponent(
     "notifications",
     notificationsSchema,
@@ -123,7 +123,7 @@ describe("deleting an account", () => {
 describe("deleteAccount", () => {
   it("empties the profile at once, and the rest moments later", async () => {
     const { t, me, addApplication, finish } = await setup()
-    username.registerUsername(t as never)
+    username.registerUsername(t)
     await addApplication(me, "Mine")
     vi.advanceTimersByTime(1000)
     await t.withIdentity({ subject: me }).mutation(api.api.users.deleteAccount, {})

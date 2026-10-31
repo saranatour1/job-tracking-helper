@@ -29,7 +29,7 @@ const newKey = `v2:${keyOf(2)}`
 const setup = async () => {
   vi.stubEnv("SECRETS_KEYS", oldKey)
   const t = convexTest(schema, modules)
-  rateLimiter.register(t as never)
+  rateLimiter.register(t)
   t.registerComponent(
     "notifications",
     notificationsSchema,

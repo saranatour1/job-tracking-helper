@@ -105,7 +105,7 @@ Lists you scroll through read with `.paginate` and `usePaginatedQuery`, not a bi
 
 Anything that can delete many rows goes through `startDelete` (`convex/features/deletes/`), which uses the batch worker.
 
-Tests that run Convex functions are named `*.convex.test.ts` and use `convex-test`. The typecheck leaves them out, because the component test helpers are typed against another copy of `convex`.
+Tests that run Convex functions are named `*.convex.test.ts` and use `convex-test`.
 
 Arguments use arktype when text has rules Convex can't check, like trimming or lengths. Ids, booleans and fixed choices use `v`. A validator that reads `schema.doc` stays beside its function, because `schema.ts` imports `validators.ts`.
 

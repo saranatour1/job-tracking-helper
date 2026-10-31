@@ -39,9 +39,9 @@ const first = { numItems: 25, cursor: null }
 
 const setup = async () => {
   const t = convexTest(schema, modules)
-  batchWorker.register(t as never)
-  rateLimiter.register(t as never)
-  workpool.register(t as never, "applyPool")
+  batchWorker.register(t)
+  rateLimiter.register(t)
+  workpool.register(t, "applyPool")
   t.registerComponent(
     "notifications",
     notificationsSchema,

@@ -30,8 +30,8 @@ const field = (question: string, more = {}) => ({
 const setup = async () => {
   vi.stubEnv("FIRECRAWL_API_KEY", "fc-test")
   const t = convexTest(schema, modules)
-  rateLimiter.register(t as never)
-  workpool.register(t as never, "applyPool")
+  rateLimiter.register(t)
+  workpool.register(t, "applyPool")
   t.registerComponent(
     "notifications",
     notificationsSchema,
