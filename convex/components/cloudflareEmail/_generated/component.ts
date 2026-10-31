@@ -114,7 +114,7 @@ export type ComponentApi<Name extends string | undefined = string | undefined> =
           email: {
             bcc?: Array<string>;
             cc?: Array<string>;
-            from: string;
+            from: string | { address: string; name: string };
             headers?: Record<string, string>;
             html?: string;
             replyTo?: string;

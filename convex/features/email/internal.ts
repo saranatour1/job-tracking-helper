@@ -13,6 +13,7 @@ import {
   vConnectionsPage,
   vResealArgs,
 } from "./validators"
+import { rowLimits } from "../preferences/rows"
 import { aad, keys, connectionOf, reseal } from "./utils"
 
 // Adding a token, or replacing it, writes one row: the old token is gone once this
@@ -42,8 +43,22 @@ const sealed = internalQuery({
     const connection = await connectionOf(ctx, userId)
     if (!connection) return null
     const user = await ctx.db.get("users", userId)
+    const fields = await ctx.db
+      .query("profileEntries")
+      .withIndex("by_userId_and_kind_and_order", (q) => q.eq("userId", userId).eq("kind", "field"))
+      .take(rowLimits.field)
+    const saved = fields.find((f) => /\bfull name\b/i.test(f.label))?.value.trim()
+    const senderName = saved || user?.name
     const { details, token, tokenAddedAt, allow, inbound } = connection
-    return { details, token, tokenAddedAt, allow, inbound, userEmail: user?.email }
+    return {
+      details,
+      token,
+      tokenAddedAt,
+      allow,
+      inbound,
+      userEmail: user?.email,
+      ...(senderName && { senderName }),
+    }
   },
 })
 
