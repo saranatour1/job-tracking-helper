@@ -10,8 +10,6 @@ import { contactAad } from "./internal"
 import { ContactDetails, SaveContact, vContactRow } from "./validators"
 import { logEdit, logEditFromAction } from "../activity/utils"
 
-// Everyone you've dealt with, a page at a time, latest first, so only what's on screen gets
-// opened. The page sorts what it has by company.
 const list = authedQuery({
   args: { paginationOpts: paginationOptsValidator },
   returns: paginationResultValidator(vContactRow),
@@ -43,7 +41,6 @@ const list = authedQuery({
   },
 })
 
-// Whether someone's already a contact. One you removed isn't, so you can add them back.
 const known = authedQuery({
   args: { email: v.string() },
   returns: v.boolean(),
@@ -70,7 +67,6 @@ const save = action({
     const result = await ctx.runMutation(internal.api.contacts.store, {
       userId,
       ...(id && { id }),
-      // With no address there's nothing to match later mail to, so any unique key will do.
       key: email ? await threadKeyOf(userId, email) : crypto.randomUUID(),
       details: await seal(k, JSON.stringify({ ...details, email }), contactAad(userId)),
     })
@@ -86,7 +82,6 @@ const save = action({
   },
 })
 
-// One that came from mail stays as a hidden row, or the next email would bring it back.
 const remove = authedMutation({
   args: { id: v.id("contacts") },
   returns: v.null(),

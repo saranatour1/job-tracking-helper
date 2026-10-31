@@ -8,10 +8,6 @@ export const hour = 3_600_000
 
 export const day = 24 * hour
 
-/**
- * The host's busy time between `from` and `to`: their saved events and, unless moved or
- * removed, the interview slots their mail proposed. Only the times leave this function.
- */
 export const busyOf = async (
   ctx: QueryCtx,
   userId: Id<"users">,
@@ -37,7 +33,6 @@ export const busyOf = async (
     )
   const k = await keys().catch(() => null)
   if (k) {
-    // The newest 300: an interview still ahead was emailed about recently.
     const mail = await ctx.db
       .query("mailEvents")
       .withIndex("by_userId_and_at", (q) => q.eq("userId", userId))

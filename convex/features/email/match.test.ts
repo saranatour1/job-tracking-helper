@@ -92,7 +92,6 @@ describe("textOfHtml", () => {
 })
 
 describe("slotOf", () => {
-  // Thursday, October 29 2026.
   const received = Date.UTC(2026, 9, 29, 9)
   const at = (slot: number | undefined) => slot && new Date(slot).toISOString().slice(0, 16)
 

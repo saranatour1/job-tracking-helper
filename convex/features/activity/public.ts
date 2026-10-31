@@ -10,7 +10,6 @@ import { ActivityEvent } from "./validators"
 const day = 24 * 60 * 60 * 1000
 const keepFor = 90 * day
 
-// What happened for you, newest first, a page at a time.
 const page = authedQuery({
   args: { failed: v.optional(v.boolean()), paginationOpts: paginationOptsValidator },
   returns: paginationResultValidator(schema.doc("activityEvents")),
@@ -28,7 +27,6 @@ const page = authedQuery({
   },
 })
 
-// When you joined. It never ages out, and it's the oldest thing that can have happened.
 const joinedAt = authedQuery({
   args: {},
   returns: v.union(v.number(), v.null()),
@@ -44,7 +42,7 @@ const record = internalMutation({
   },
 })
 
-// For whoever runs the app: `npx convex run activity:failures`. Each person's failures by what
+// For whoever runs the app: `npx convex run api/activity:failures`. Each person's failures by what
 // failed, with the latest reason. shortcut: reads the newest 1000, enough until there are many
 // users, then give it a user argument.
 const failures = internalQuery({
@@ -91,7 +89,6 @@ const failures = internalQuery({
   },
 })
 
-// Daily, so the table stays about as big as three months of work.
 const sweep = internalMutation({
   args: {},
   returns: v.null(),

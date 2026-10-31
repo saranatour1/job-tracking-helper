@@ -100,7 +100,6 @@ const deleteAccount = authedMutation({
     await deleteNotifications(ctx, ctx.userId)
     await ctx.runMutation(components.authUsername.public.deleteUsername, { userId: ctx.userId })
     await ctx.db.replace("users", ctx.userId, {})
-    // Everything else goes in batches, moments after this.
     await startDelete(ctx, { kind: "account", userId: ctx.userId, before: Date.now() })
     return null
   },

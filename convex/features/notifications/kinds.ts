@@ -1,5 +1,3 @@
-// What can reach someone's inbox. Safe to import from the frontend: Account lists these
-// as switches, all on until turned off.
 import type { Kind } from "../email/match"
 
 export const notificationKinds = {

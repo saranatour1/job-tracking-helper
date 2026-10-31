@@ -1,37 +1,26 @@
 import { maxFields, maxOptions, type PrefillField } from "./validators"
 
-// Matches an application form's fields to the person's saved answers. Plain labels are
-// matched here by synonym; what's left goes to Jev as a choice between saved answers,
-// never as text to write. Kept free of convex/server imports so tests stay plain.
-
-/** A field as the form reader describes it. */
 export type FormField = {
   selector: string
   name: string
-  // input types, plus "select", "textarea", "custom" (a click-to-pick dropdown) and
-  // "yesno" (Ashby's pair of buttons).
   type: string
   label: string
   required: boolean
   options?: string[]
 }
 
-/** A saved answer: a Prefilled field, a custom question, or an account detail. */
 export type Answer = { key: string; label: string; value: string }
 
 export type Fill = {
   selector: string
   value: string
   key: string
-  // What to try if a pick list doesn't have `value`: some "Location" lists hold countries.
   fallback?: string
 }
 
-// Demographic and EEO questions are never answered.
 export const demographic =
   /\b(gender|race|ethnic\w*|veteran\w*|disabilit\w*|hispanic|latino|sexual orientation|transgender|religion|eeoc?)\b/i
 
-// Boxes that stand for reading a privacy notice or confirming the answers are true.
 const consent = /\b(agree|consent|privacy|terms|certify|acknowledge|confirm that)\b/i
 
 const resumeField = /\b(resume|résumé|cv|curriculum)\b/i
@@ -41,7 +30,6 @@ const emailQuestion = /\be-?mail\b/i
 
 export const isEmailQuestion = (label: string) => emailQuestion.test(label)
 
-// Each group: the words a form or a saved answer might use for the same thing.
 const groups: RegExp[] = [
   /\b(full name|your name|^name$|legal name)\b/i,
   /\bfirst name\b|\bgiven name\b/i,
@@ -53,7 +41,6 @@ const groups: RegExp[] = [
   /\b(website|portfolio|personal site|homepage)\b/i,
   /\b(authori[sz]ed to work|work authori[sz]ation|right to work|(legally able|eligible) to work)\b/i,
   /\b(visa|sponsorship)\b/i,
-  // After those: "authorized to work in the country" is a yes-or-no, not a country.
   /\bpreferred (work )?locations?\b/i,
   /\bcountry\b/i,
   /\b(location|city|town|where are you based)\b/i,
@@ -67,7 +54,6 @@ const locationGroup = groups.findIndex((re) => re.test("location"))
 
 const groupOf = (label: string) => groups.findIndex((re) => re.test(label.trim()))
 
-/** A fact about the person (name, phone, visa, salary…) that only they can state. */
 export const isPersonalFact = (label: string) => groupOf(label) >= 0
 
 const nameParts = (full: string) => {
@@ -77,17 +63,12 @@ const nameParts = (full: string) => {
 
 export type Plan = {
   fills: Fill[]
-  // The file input the resume goes in, if the form has one.
   upload?: string
-  // Consent boxes to tick.
   consent: string[]
-  // Fields nothing matched by synonym, for Jev to pick a saved answer or an option for.
   ask: FormField[]
-  // Fields left blank on purpose.
   skipped: string[]
 }
 
-/** Matches by synonym. Jev gets the rest. */
 export const planFor = (fields: FormField[], answers: Answer[]): Plan => {
   const byGroup = new Map<number, Answer>()
   for (const a of answers) {
@@ -97,7 +78,6 @@ export const planFor = (fields: FormField[], answers: Answer[]): Plan => {
   const fullName = byGroup.get(0)
   const plan: Plan = { fills: [], consent: [], ask: [], skipped: [] }
   for (const f of fields) {
-    // Names like cover_letter and _systemfield_resume read as words this way.
     const label = `${f.label} ${f.name}`.replace(/_/g, " ").trim()
     if (f.type === "file") {
       if (resumeField.test(label) && !plan.upload) plan.upload = f.selector
@@ -113,7 +93,6 @@ export const planFor = (fields: FormField[], answers: Answer[]): Plan => {
       continue
     }
     if (f.type === "hidden" || f.type === "submit" || f.type === "button") continue
-    // A pick list's own search box, not a question.
     if (/^search$/i.test(f.label.trim())) continue
     if (coverLetter.test(label)) {
       plan.skipped.push(f.label || f.name)
@@ -121,8 +100,6 @@ export const planFor = (fields: FormField[], answers: Answer[]): Plan => {
     }
     const g = groupOf(label)
     const saved = g >= 0 ? byGroup.get(g) : undefined
-    // First and last name come from a full name when nothing was saved for them.
-    // A one-word full name has no last name to give: that's a question, not a blank.
     const derived =
       !saved && fullName && g === 1
         ? nameParts(fullName.value).first
@@ -141,14 +118,11 @@ export const planFor = (fields: FormField[], answers: Answer[]): Plan => {
       })
       continue
     }
-    // A pick list whose options don't include the saved answer word for word: Jev's call.
     plan.ask.push(f)
   }
   return plan
 }
 
-/** Jev's questions for the fields synonyms didn't settle: for a pick list, which option
- * matches the person's answers; for anything else, which saved answer fits. */
 export const questionsFor = (ask: FormField[], answers: Answer[]) =>
   Object.fromEntries(
     ask.map((f, i) => {
@@ -171,7 +145,6 @@ export const questionsFor = (ask: FormField[], answers: Answer[]) =>
 
 type Fields = PrefillField[]
 
-/** What a prepared application keeps: every question left to answer, and its answer so far. */
 export const prefillFieldsFrom = (
   fields: FormField[],
   plan: Plan,
@@ -201,15 +174,11 @@ export const prefillFieldsFrom = (
     })
 }
 
-// An AI draft needs you too, until you've read it and pressed Save.
 export const statusFrom = (fields: Fields) =>
   fields.some((f) => f.required && (!f.answer || f.source === "ai"))
     ? ("needsAnswers" as const)
     : ("ready" as const)
 
-/** Lines a prepared application's answers up with the form as it reads right now. A
- * question the form no longer asks, or doesn't find, goes on the list to do by hand.
- * `spots` says where each question is, so one can be sent to the open browser later. */
 export const liveFillsFrom = (fields: FormField[], saved: Fields) => {
   const left = [...fields]
   const fills: (Fill & { type: string; label: string })[] = []
@@ -239,7 +208,6 @@ export const liveFillsFrom = (fields: FormField[], saved: Fields) => {
   return { fills, unfilled, spots }
 }
 
-/** Turns Jev's picks into fills, and lists what stays unanswered. */
 export const resolve = (
   ask: FormField[],
   answers: Answer[],

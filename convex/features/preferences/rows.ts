@@ -6,19 +6,12 @@ import {
   entryKinds,
 } from "./validators"
 
-// Turns the Preferences form into rows for `preferenceTags` and `profileEntries`, and
-// back. The page and the server share these, so both read the rows the same way.
-
 type Form = typeof Preferences.infer
 type Sections = typeof PrefilledSections.infer
 export type TagKind = (typeof tagKinds)[number]
 
-// The most rows one person can have of each kind, from the caps the validators enforce:
-// 40 tags per list, 10 built-in answers plus 20 of their own, 20 sections of 50 fields.
-// One page of this size holds everything, so the page loads in a single request.
 export const rowLimits = { tags: 6 * 40, answer: 10 + 20, field: 20 * 50 } as const
 
-// Which form list each tag kind fills.
 export const tagLists = {
   interest: "interests",
   avoid: "avoid",
@@ -28,8 +21,6 @@ export const tagLists = {
   redFlagCompany: "redFlagCompanies",
 } as const satisfies Record<TagKind, keyof Form>
 
-// Built-in questions by a key that never changes, so a label can be reworded without
-// touching stored answers. `group` is the Preferences step that asks it.
 export const builtInAnswers = {
   growthGoal: { group: "grow", label: "Where do you want to be, and what's in the way?" },
   companyTraits: { group: "companies", label: "What draws you to a company?" },
@@ -66,7 +57,6 @@ export const tagRowsOf = (form: Form): TagRow[] =>
     [...new Set(form[tagLists[kind]])].map((value, order) => ({ kind, value, order }))
   )
 
-// Unanswered built-in questions get no row; your own questions keep their order.
 export const answerRowsOf = (form: Form): EntryRow[] => [
   ...(Object.keys(builtInAnswers) as AnswerKey[])
     .filter((key) => valueOf(form, key))

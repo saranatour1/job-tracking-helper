@@ -7,5 +7,4 @@ export const prefillsTable = defineTable(arkOutputToConvex(Prefill))
   // eslint-disable-next-line @convex-dev/no-duplicate-indexes
   .index("by_userId", ["userId"])
   .index("by_userId_and_urlKey", ["userId", "urlKey"])
-  // What to unlink when an application is deleted.
   .index("by_userId_and_applicationId", ["userId", "applicationId"])

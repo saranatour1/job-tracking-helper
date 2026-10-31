@@ -3,7 +3,6 @@ import type { Id } from "../../_generated/dataModel"
 import type { MutationCtx } from "../../_generated/server"
 import { type AutomationEvent, limits } from "./validators"
 
-/** Starts the person's workflows this event matches, in a moment. Cheap when none do. */
 export const fireEvent = async (ctx: MutationCtx, userId: Id<"users">, event: AutomationEvent) => {
   const listening = await ctx.db
     .query("automations")

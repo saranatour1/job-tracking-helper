@@ -1,8 +1,3 @@
-// When a loop runs next: the next time the clock reads `at` (like "08:00") in the
-// person's time zone, after `now`. Plain Intl, so it handles daylight saving without
-// a date library.
-
-// How far ahead of UTC a time zone is at a given moment, in milliseconds.
 const offsetAt = (timeZone: string, ms: number) => {
   const parts = Object.fromEntries(
     new Intl.DateTimeFormat("en-US", {
@@ -29,7 +24,6 @@ const offsetAt = (timeZone: string, ms: number) => {
   return asUtc - Math.floor(ms / 1000) * 1000
 }
 
-// The UTC moment when a date's wall clock reads hours:minutes in the time zone.
 const atWallClock = (
   timeZone: string,
   y: number,

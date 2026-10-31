@@ -24,10 +24,6 @@ import {
 } from "./validators"
 import { runBlock, startRun, setLog, factsOf, doBlock, matches } from "./utils"
 
-// One interpreter runs every workflow anyone builds. It walks the run's copy of the
-// steps: a block is one mutation; a split starts each path as its own child workflow and
-// goes on once every path is done; Ask Jev asks, then runs the one path Jev picked. A
-// step that can't run records why, and the run stops there.
 const run = workflow.define({
   args: { runId: v.id("automationRuns") },
   handler: async (step, { runId }): Promise<void> => {
@@ -69,7 +65,6 @@ const run = workflow.define({
   },
 })
 
-/** One path of a split: its blocks in order. Returns why it stopped early, or null. */
 const runPath = workflow.define({
   args: vRunPathArgs,
   returns: v.union(v.string(), v.null()),
@@ -83,8 +78,6 @@ const runPath = workflow.define({
   },
 })
 
-/** The run's steps as the interpreter needs them: null for a block, or a branch's kind
- * and each path's length. */
 const shapeOf = internalQuery({
   args: { runId: v.id("automationRuns") },
   returns: vRunShape,
@@ -94,10 +87,6 @@ const shapeOf = internalQuery({
     ),
 })
 
-/**
- * Runs the block at `at` and records it. A block that can't run is recorded as failed
- * with its reason, which comes back so the interpreter can stop the run.
- */
 const runStep = internalMutation({
   args: { runId: v.id("automationRuns"), at: v.string() },
   returns: vStepOutcome,
@@ -150,7 +139,6 @@ const startBranch = internalMutation({
   },
 })
 
-/** Marks a wait, an email or a branch done. */
 const finishStep = internalMutation({
   args: { runId: v.id("automationRuns"), at: v.string() },
   returns: v.null(),
@@ -161,9 +149,7 @@ const finishStep = internalMutation({
   },
 })
 
-// Called when a run's workflow ends, however it ends.
 const ended = internalMutation({
-  // Inline: the page imports validators.ts, and this package is server-only.
   args: {
     workflowId: vWorkflowId,
     result: vResultValidator,
@@ -171,7 +157,6 @@ const ended = internalMutation({
   },
   returns: v.null(),
   handler: async (ctx, { workflowId, result, context }) => {
-    // The run keeps its own history, so the workflow's journal can go once it's over.
     await ctx.scheduler.runAfter(0, internal.api.automations.forgetWorkflow, { workflowId })
     const found = await ctx.db.get("automationRuns", context.runId)
     if (!found || found.status !== "running") return null
@@ -194,7 +179,6 @@ const ended = internalMutation({
     const failed = found.log.find((e) => e.status === "failed")
     const error =
       result.kind === "canceled" ? "Canceled." : (failed?.error ?? "Something went wrong.")
-    // Steps still going when it stopped stop with it.
     const log = found.log.map((e) =>
       e.status === "running" || e.status === "waiting"
         ? { ...e, status: "failed" as const, finishedAt, error }
@@ -213,7 +197,6 @@ const ended = internalMutation({
   },
 })
 
-/** What Ask Jev needs: the question, the answers, and the facts the run knows. */
 const decisionOf = internalQuery({
   args: { runId: v.id("automationRuns"), at: v.string() },
   returns: vDecision,
@@ -230,7 +213,6 @@ const decisionOf = internalQuery({
   },
 })
 
-/** Records Jev's answer, or why there wasn't one, and counts it. */
 const answered = internalMutation({
   args: vAnsweredArgs,
   returns: v.null(),
@@ -248,7 +230,6 @@ const answered = internalMutation({
   },
 })
 
-/** Records how a Find roles step's loop run went. Returns why it failed, or null. */
 const foundRoles = internalMutation({
   args: vFoundRolesArgs,
   returns: v.union(v.string(), v.null()),
@@ -261,7 +242,6 @@ const foundRoles = internalMutation({
         : loopRun?.status !== "done"
           ? "The loop is gone, so there was nothing to search."
           : null
-    // A run that ended early on the workflow's side ends on the loop's side too.
     if (failed && loopRun && (loopRun.status === "queued" || loopRun.status === "running"))
       await ctx.db.patch("loopRuns", loopRunId, {
         status: "failed",
@@ -285,8 +265,6 @@ const foundRoles = internalMutation({
   },
 })
 
-/** What an email step says, and who it goes to: you, for Notify me, or whoever Send
- * email names. */
 const emailOf = internalQuery({
   args: { runId: v.id("automationRuns"), at: v.string() },
   returns: vEmailToSend,
@@ -313,7 +291,6 @@ const emailOf = internalQuery({
   },
 })
 
-/** Marks an email step done, or failed with the reason. */
 const emailed = internalMutation({
   args: { runId: v.id("automationRuns"), at: v.string(), error: v.optional(v.string()) },
   returns: v.null(),
@@ -332,7 +309,6 @@ const emailed = internalMutation({
   },
 })
 
-/** Starts the person's workflows an event matches, with what the event was about. */
 const onEvent = internalMutation({
   args: { userId: v.id("users"), event: vAutomationEvent },
   returns: v.number(),
@@ -344,7 +320,6 @@ const onEvent = internalMutation({
     let started = 0
     for (const automation of automations) {
       if (!automation.active || !matches(automation.trigger, event)) continue
-      // A flood of mail can't start runs without end.
       const { ok } = await rates.limit(ctx, "automationEvent", { key: userId })
       if (!ok) break
       const { kind: _kind, ...rest } = event
@@ -370,7 +345,6 @@ const forgetWorkflow = internalMutation({
   },
 })
 
-// The cron's job: start scheduled workflows that are due and set their next time.
 const startDue = internalMutation({
   args: {},
   returns: v.number(),
@@ -395,7 +369,6 @@ const startDue = internalMutation({
   },
 })
 
-/** The person's first loop, for a drafted Find roles step. */
 const firstLoopOf = internalQuery({
   args: { userId: v.id("users") },
   returns: v.union(v.id("loops"), v.null()),

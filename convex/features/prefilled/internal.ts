@@ -16,8 +16,6 @@ import { isEmailQuestion, statusFrom } from "./match"
 import { liveMs } from "./utils"
 import { PrefillField, vRunPlan, vSavePreparedArgs } from "./validators"
 
-// Everything a run needs, read at once: the posting, what's prepared, the saved answers
-// (keyed by the row they came from, so usage can be stamped), and the resume file.
 const plan = internalQuery({
   args: { id: v.id("prefills") },
   returns: vRunPlan,
@@ -30,7 +28,6 @@ const plan = internalQuery({
       .query("profileEntries")
       .withIndex("by_userId_and_kind_and_order", (q) => q.eq("userId", row.userId))
       .take(rowLimits.answer + rowLimits.field)
-    // Saved answers first: the first match wins, and yours beats the account's short name.
     const answers = [
       ...entries
         .filter((e) => e.value.trim())
@@ -62,8 +59,6 @@ const plan = internalQuery({
   },
 })
 
-// A prepare is done. Answers you typed stay, a draft stays unless a saved answer now covers
-// the question, and it tells Updates it's ready to look at.
 const savePrepared = internalMutation({
   args: vSavePreparedArgs,
   returns: v.null(),
@@ -90,7 +85,6 @@ const savePrepared = internalMutation({
       error: undefined,
       aiUnavailable,
     })
-    // Once: reading the form again isn't news.
     if (!row.preparedAt)
       await ctx.runMutation(components.notifications.lib.notify, {
         owner: row.userId,
@@ -117,7 +111,6 @@ const fail = internalMutation({
   },
 })
 
-// The pool's word when a prepare ends without finishing itself: it died or was canceled.
 const ended = internalMutation({
   args: vOnCompleteArgs(v.object({ id: v.id("prefills") }), v.null()),
   returns: v.null(),
@@ -134,7 +127,6 @@ const ended = internalMutation({
   },
 })
 
-// The application this posting is already on, and the shortlist row it came from.
 const linkedTo = async (ctx: MutationCtx, row: Doc<"prefills">) => {
   const lead = await ctx.db
     .query("jobLeads")
@@ -169,9 +161,6 @@ const newApplication = async (
   return applicationId
 }
 
-// You pressed Open browser: claims the row, so a second press can't open a second browser.
-// With tagged addresses on, the application has to exist now: a form's thank-you email can
-// arrive before you've come back to say you sent it, and it needs somewhere to land.
 const beginLive = internalMutation({
   args: { userId: v.id("users"), id: v.id("prefills") },
   returns: v.null(),
@@ -196,7 +185,6 @@ const beginLive = internalMutation({
       unfilled: undefined,
       ...(tagged && {
         applicationId: tagged.applicationId,
-        // Only your own saved address: one you typed for this form is your call.
         fields: row.fields.map((f) =>
           f.source === "saved" && isEmailQuestion(f.question) ? { ...f, answer: tagged.address } : f
         ),
@@ -206,7 +194,6 @@ const beginLive = internalMutation({
   },
 })
 
-// The form is filled and the browser is open for you. It closes itself if left alone.
 const goLive = internalMutation({
   args: {
     id: v.id("prefills"),
@@ -243,7 +230,6 @@ const goLive = internalMutation({
   },
 })
 
-// Back to where it was before Open browser. With `scrapeId`, only if that's still the session.
 const endLive = internalMutation({
   args: {
     id: v.id("prefills"),
@@ -268,8 +254,6 @@ const endLive = internalMutation({
   },
 })
 
-// You sent it. The posting becomes an application at Applied, or moves the one a loop
-// already made, and the saved answers it used get their usage stamped. Once only.
 const finish = internalMutation({
   args: {
     userId: v.id("users"),
@@ -337,8 +321,6 @@ const session = internalQuery({
   },
 })
 
-// One question went to the open browser: how it went, and what Firecrawl charged. `filled` is
-// left out when there was no answer to put in, only a question to point at.
 const sent = internalMutation({
   args: {
     id: v.id("prefills"),

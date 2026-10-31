@@ -19,9 +19,6 @@ import {
 import { allowKeys, Details, Sent, Connect, vConnectionView } from "./validators"
 import { logEdit, logEditFromAction } from "../activity/utils"
 
-// The connection, opened for its owner. The token itself never leaves the server.
-// A connection whose details can't be opened (its key was removed) reads as none,
-// so the person can paste it again.
 const connection = authedQuery({
   args: {},
   returns: vConnectionView,
@@ -66,10 +63,6 @@ const connection = authedQuery({
   },
 })
 
-// Connecting, replacing the token and changing the account or address are the same.
-// With no token pasted, the saved one is opened here and reused; it never goes to the
-// browser, not even in part. Either way the token is checked with Cloudflare against
-// the account before anything is saved.
 const connect = action({
   args: arkToConvex(Connect),
   returns: v.null(),
@@ -81,7 +74,6 @@ const connect = action({
     const k = await secretKeys()
     const saved = await ctx.runQuery(internal.api.email.sealed, { userId })
     const before = saved && (await openJson(k, saved.details, aad.details(userId), Details))
-    // The routing rule points at the old address, so it has to go first.
     if (saved?.inbound) {
       if (before?.fromAddress !== input.fromAddress || before.accountId !== input.accountId)
         throw new ConvexError("Stop incoming mail before changing the account or address.")
@@ -165,7 +157,6 @@ const sendTest = action({
     await ctx.runMutation(components.cloudflareEmail.lib.markResult, {
       emailId,
       failed: error !== undefined,
-      // Cloudflare's Message-ID, kept for threading replies.
       payload: messageId ? await sealEmail({ ...email, messageId }) : undefined,
       error: error && (await seal(k, error, aad.email(userId))),
     })
@@ -180,10 +171,8 @@ const sendTest = action({
   },
 })
 
-// Small on purpose: this goes inside every email you write.
 const maxSignaturePhotoBytes = 300 * 1024
 
-// Sets or removes your signature photo. The page sends a small copy.
 const setSignaturePhoto = authedMutation({
   args: { photo: v.optional(v.id("_storage")) },
   returns: v.null(),

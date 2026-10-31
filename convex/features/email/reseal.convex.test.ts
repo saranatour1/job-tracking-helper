@@ -41,7 +41,6 @@ const setup = async () => {
     import.meta.glob("../../components/cloudflareEmail/**/*.ts")
   )
   const k = await parseKeys(oldKey)
-  // One of everything that gets sealed, all under the key about to go.
   const { userId, noteBefore } = await t.run(async (ctx) => {
     const userId = await ctx.db.insert("users", { name: "Sam" })
     await ctx.db.insert("emailConnections", {

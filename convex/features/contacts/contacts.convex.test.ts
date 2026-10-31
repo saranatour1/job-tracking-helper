@@ -68,7 +68,6 @@ const setup = async () => {
     })
     return { userId, hooli }
   })
-  // An email arriving and being sorted, then what's scheduled after it.
   const receive = async (mail: object) => {
     const emailId: string = await t.run(async (ctx) =>
       ctx.runMutation(components.cloudflareEmail.lib.receive, {

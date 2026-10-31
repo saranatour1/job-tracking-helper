@@ -72,23 +72,19 @@ const toConvex = (s: JsonSchema): Validator<unknown, "required", string> => {
   throw new Error(`arktype → Convex: unsupported schema ${JSON.stringify(s)}`)
 }
 
-/** Runs the rules Convex can't express. One that fails reaches the person as a ConvexError. */
 export const checked = <T extends Type>(schema: T, value: unknown): T["infer"] => {
   const out = schema(value)
   if (out instanceof type.errors) throw new ConvexError(out.summary)
   return out as T["infer"]
 }
 
-/** Keeps the first `max` characters: for free text whose length shouldn't stop a save. */
 export const cutTo = (max: number) => (text: string) => text.slice(0, max)
 
-/** A document id for `table`, like convex-helpers' `zid`. */
 export const arkId = <TableName extends string>(table: TableName) =>
   type("string")
     .configure({ convexTable: table } as never)
     .as<GenericId<TableName>>()
 
-/** Convex validator for what callers send: args. */
 export const arkToConvex = <T extends Type>(schema: T) =>
   toConvex(schema.in.toJsonSchema(jsonSchemaOptions as never) as JsonSchema) as Validator<
     T["inferIn"],
@@ -96,7 +92,6 @@ export const arkToConvex = <T extends Type>(schema: T) =>
     string
   >
 
-/** Convex validator for what gets stored: tables and return values. */
 export const arkOutputToConvex = <T extends Type>(schema: T) =>
   toConvex(schema.out.toJsonSchema(jsonSchemaOptions as never) as JsonSchema) as Validator<
     T["infer"],

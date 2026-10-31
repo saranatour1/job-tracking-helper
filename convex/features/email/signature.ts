@@ -1,6 +1,3 @@
-// The signature on mail you write: your photo, name, email and links. Kept free of Convex
-// imports so the Account page can preview exactly what goes out.
-
 export type SignatureInfo = {
   name: string
   email: string
@@ -21,8 +18,6 @@ export const toBase64 = (bytes: ArrayBuffer) => {
   return btoa(binary)
 }
 
-// A full link, a link without its https://, or just a handle. Always comes out as https, so a
-// value can't become some other kind of link.
 const linkOf = (value: string, site: string) => {
   const clean = value.trim()
   if (!clean) return null
@@ -38,7 +33,6 @@ export const linksOf = ({ linkedin, github, x }: SignatureInfo) =>
     { label: "X", url: linkOf(x, "https://x.com/") },
   ].flatMap(({ label, url }) => (url ? [{ label, url }] : []))
 
-/** The signature as HTML. `photo` is where the image comes from, if there is one. */
 export const signatureHtml = (info: SignatureInfo, photo?: string) => {
   const linkStyle = 'style="color:#2563eb;text-decoration:none"'
   const items = [
@@ -56,22 +50,18 @@ export const signatureHtml = (info: SignatureInfo, photo?: string) => {
   }<td>${info.name ? `<strong>${escape(info.name)}</strong><br>` : ""}${items.join(" · ")}</td></tr></table>`
 }
 
-/** What a reader sees with images and formatting off. */
 export const signatureText = (info: SignatureInfo) =>
   [info.name, info.email, ...linksOf(info).map(({ label, url }) => `${label}: ${url}`)]
     .filter(Boolean)
     .join("\n")
 
-/** Whether there's a signature to add: a bare name and email isn't worth formatting mail for. */
 export const hasSignature = (info: SignatureInfo, photo: boolean) =>
   photo || linksOf(info).length > 0
 
-/** The email with its signature. A photo is embedded, so inboxes needn't fetch it. */
 export const signed = (
   text: string,
   info: SignatureInfo,
   photo?: { base64: string; type: string },
-  // Written in the editor, as HTML. Without it the plain text is the body.
   html?: string
 ) => ({
   text: `${text}\n\n-- \n${signatureText(info)}`,

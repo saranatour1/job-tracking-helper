@@ -229,6 +229,10 @@ Measured on the dev deployment on 2026-10-31.
 - `applications.number` and `history` are now required, after a migration filled the 8 rows that lacked them.
 - `users.nextApplicationNumber` replaced reading every application to number a new one, and numbers are no longer reused after a delete.
 
+### To finish
+
+`mailEvents.box` is optional only until old mail has a folder. On each deployment, run `npx convex run api/migrations:fillBoxes`, then `npx convex run api/migrations:boxesLeft` until it says 0. Then delete `convex/api/migrations.ts` and make `box` required.
+
 ### Waiting on a real problem
 
 Each of these rewrites stored data, so each follows the three deploys above. None is worth doing until it causes trouble.

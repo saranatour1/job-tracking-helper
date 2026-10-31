@@ -10,7 +10,6 @@ import { OutOfCredits } from "./sources/source"
 import { vJudgeResult, vProfile, vSearchArgs, vSearchResult } from "./validators"
 import { turn, judge } from "./utils"
 
-// One batch: every search for a run, with duplicates folded together.
 const search = internalAction({
   args: vSearchArgs,
   returns: vSearchResult,
@@ -31,7 +30,6 @@ const search = internalAction({
           jobBoards
         )
         credits += result.credits
-        // Only single postings get read; board front pages and lists are dropped here.
         for (const posting of result.postings.filter((p) => isPostingUrl(p.url))) {
           const key = urlKey(posting.url)
           if (!found.has(key)) found.set(key, posting)
@@ -52,8 +50,6 @@ const search = internalAction({
   },
 })
 
-// Judges one catalog role for a run. The batch worker runs these and retries a failed
-// call twice.
 const judgeOne = internalAction({
   args: { jobId: v.id("jobs"), profile: vProfile },
   returns: vJudgeResult,

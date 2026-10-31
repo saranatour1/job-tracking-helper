@@ -3,10 +3,6 @@ import { internal } from "../../_generated/api"
 import type { Provider } from "../loops/catalog"
 import { workflow } from "./manager"
 
-// One morning's run of a loop. It searches for job boards the catalog doesn't have yet
-// and fetches them, trying each source in turn so one out of credits doesn't stop it.
-// Then it picks catalog roles the person hasn't been shown, has Jev judge them on the
-// batch worker, waits for every verdict, and saves them all.
 const findJobs = workflow.define({
   args: { runId: v.id("loopRuns") },
   handler: async (step, { runId }): Promise<void> => {
@@ -38,8 +34,6 @@ const findJobs = workflow.define({
       const boards = await step.runMutation(internal.api.jobs.addBoards, {
         urls: found.postings.map((p) => p.url),
       })
-      // New boards are fetched now, so this run can already pick from them. One that
-      // keeps failing is left for the hourly refresh rather than failing the run.
       await Promise.all(
         boards.map((boardId) =>
           step.runAction(internal.api.jobs.fetchBoard, { boardId }, { retry: true }).catch(() => null)
@@ -61,7 +55,6 @@ const findJobs = workflow.define({
         jobIds,
         profile: plan.profile,
       })
-      // `judged` sends this once the batch worker has finished every judgment.
       await step.awaitEvent({ name: "judged" })
     }
     await step.runMutation(internal.api.loops.finishRun, { runId, provider, spent, exhausted })

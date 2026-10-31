@@ -1,14 +1,8 @@
 import { markdownOf, unmark } from "../../lib/markdown"
 
-// Job boards with a free public feed of every open role at a company. The catalog is
-// built from these feeds; paid search is only used to find more boards. Personio is
-// how many German companies hire, so it covers cities like Berlin, Munich and Hamburg.
-
 export const boardKinds = ["greenhouse", "lever", "ashby", "personio"] as const
 export type BoardKind = (typeof boardKinds)[number]
 
-// A role as the catalog keeps it. `text` is what search and Jev read: the title line,
-// then the description, cut so one role stays well under Jev's context.
 export type FeedJob = {
   url: string
   title: string
@@ -30,8 +24,6 @@ export const feedUrl = (kind: BoardKind, slug: string) =>
         ? `https://api.ashbyhq.com/posting-api/job-board/${slug}`
         : `https://${slug}.jobs.personio.de/xml?language=en`
 
-// Boards to start from, so the catalog has a few thousand roles before anyone's search
-// has found a board. Checked by hand in October 2026.
 export const starterBoards: { kind: BoardKind; slug: string }[] = [
   ...[
     "vercel",
@@ -56,7 +48,6 @@ export const starterBoards: { kind: BoardKind; slug: string }[] = [
   ...["cloover", "xitaso", "stark"].map((slug) => ({ kind: "personio" as const, slug })),
 ]
 
-// The board a posting URL belongs to, so a search result can add its whole board.
 export const boardOf = (url: string): { kind: BoardKind; slug: string } | null => {
   if (!URL.canParse(url)) return null
   const u = new URL(url)
@@ -85,7 +76,6 @@ const entities: Record<string, string> = {
 }
 const unescape = (s: string) => s.replace(/&(amp|lt|gt|quot|#39|nbsp);/g, (_, e) => entities[e])
 
-// A short field (a title, an office), as plain text.
 export const plainText = (html: string) =>
   unescape(unescape(html))
     .replace(/<(br|\/p|\/li|\/h\d|\/div)[^>]*>/gi, "\n")
@@ -100,8 +90,6 @@ const textOf = (title: string, company: string, location: string, description: s
 const escapeHtml = (s: string) =>
   s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;")
 
-// A description as safe Markdown: from the board's HTML when it sends some, else its plain
-// text as it is.
 const describe = (html: string, plain: string) => (html.trim() ? markdownOf(html) : plain)
 
 const isRemote = (...hints: unknown[]) =>
@@ -214,7 +202,6 @@ const parsePersonio = (slug: string, xml: string, now: number): FeedJob[] =>
     })
     .filter((j) => /\/job\/\d+$/.test(j.url))
 
-// The description alone, as plain words, for a short preview under a role's title.
 export const previewOf = (text: string, length = 240) =>
   unmark(text.split("\n\n").slice(1).join(" ") || text)
     .replace(/\s+/g, " ")

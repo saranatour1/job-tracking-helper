@@ -158,7 +158,6 @@ describe("with Jev reading mail", () => {
   })
 
   it("lets Jev change the rules' match", async () => {
-    // Newest first, so a0 is Acme.
     const { receive, acme } = await withJev({ application: sure("a0"), kind: sure("other") })
     expect(await receive({ from: "jobs@hooli.com", subject: "An update" })).toMatchObject({
       applicationId: acme,
@@ -276,7 +275,6 @@ describe("setting up incoming mail", () => {
       )
     })
     await expect(as.action(api.api.email.setUpInbound, {})).rejects.toThrow("me@gmail.com")
-    // Nothing was deployed: it only read.
     expect(fetchMock.mock.calls.every(([, init]) => (init?.method ?? "GET") === "GET")).toBe(true)
   })
 })
@@ -304,7 +302,6 @@ describe("sending from an application", () => {
     const [line] = await as.query(api.api.email.timeline, {})
     expect(line).toMatchObject({ applicationId: hooli, sent: true, to: "pat@hooli.com" })
     expect((await as.query(api.api.email.mailBody, { eventId: line!.id }))?.text).toBe("Hi Pat")
-    // Your own mail isn't news.
     expect(await as.query(api.api.inbox.inbox)).toHaveLength(0)
     await t.finishInProgressScheduledFunctions()
   })

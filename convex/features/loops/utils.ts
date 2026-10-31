@@ -25,7 +25,6 @@ export const ownLoop = async (ctx: MutationCtx, userId: Id<"users">, loopId: Id<
   return loop
 }
 
-// A loop as it's kept, from the setup form's answers. Its next run moves to the new time.
 export const rowOf = (loop: typeof NewLoop.infer) => {
   if (loop.answers.remoteOnly && loop.answers.nearMe)
     throw new ConvexError("Pick remote only or on-site near you, not both.")
@@ -52,8 +51,6 @@ export const ownLead = async (ctx: MutationCtx, userId: Id<"users">, leadId: Id<
   return lead
 }
 
-// Keeps the run's counts in step as people act, so the Runs tab shows what came of
-// each morning.
 export const countOnRun = async (
   ctx: MutationCtx,
   runId: Id<"loopRuns"> | undefined,
@@ -63,8 +60,6 @@ export const countOnRun = async (
   if (run) await ctx.db.patch("loopRuns", run._id, { [field]: run[field] + 1 })
 }
 
-// A queued run of a loop, for the Runs tab. A workflow's Find roles step runs it as part
-// of its own run; otherwise `startRun` starts it.
 export const insertLoopRun = (ctx: MutationCtx, loop: Doc<"loops">) =>
   ctx.db.insert("loopRuns", {
     loopId: loop._id,
@@ -79,7 +74,6 @@ export const insertLoopRun = (ctx: MutationCtx, loop: Doc<"loops">) =>
     startedAt: Date.now(),
   })
 
-// Starts one run of a loop: a queued row, then the workflow.
 export const startRun = async (ctx: MutationCtx, loop: Doc<"loops">) => {
   const runId = await insertLoopRun(ctx, loop)
   const workflowId = await workflow.start(
@@ -98,8 +92,6 @@ export const usageOf = (ctx: MutationCtx, provider: Provider, month: string) =>
     .withIndex("by_provider_and_month", (q) => q.eq("provider", provider).eq("month", month))
     .unique()
 
-// What Jev judges roles against for this person: the loop's answers and words, their
-// Preferences, and the last roles they rated. Pasted links use it with the defaults.
 export const profileFor = async (
   ctx: QueryCtx,
   userId: Id<"users">,
@@ -161,8 +153,6 @@ export const addUsage = async (
     })
 }
 
-// Puts a loop's best waiting fits on the shortlist, as many as the person has room for:
-// the loop's size, less the roles from it still on their shortlist. Returns them.
 // ponytail: a waiting role can close on its board before it's shown; the sheet still
 // opens it, and the link says so.
 export const fillShortlist = async (ctx: MutationCtx, userId: Id<"users">, loopId: Id<"loops">) => {
@@ -180,7 +170,6 @@ export const fillShortlist = async (ctx: MutationCtx, userId: Id<"users">, loopI
   return best
 }
 
-// Stops a run in progress: cancels its workflow and the judgments not started yet.
 // ponytail: the search's credits live in the canceled workflow, so a stopped run
 // under-counts by those few.
 export const stopRunNow = async (ctx: MutationCtx, run: Doc<"loopRuns">) => {
@@ -206,7 +195,6 @@ export const stopRunNow = async (ctx: MutationCtx, run: Doc<"loopRuns">) => {
   await keepLog(ctx, log)
 }
 
-// Reads a page that isn't on a job board, once, through Firecrawl (1 credit).
 export const scrape = async (url: string) => {
   const apiKey = apiKeyOf("firecrawl")
   if (!apiKey)
@@ -238,16 +226,12 @@ export const scrape = async (url: string) => {
 export const isLink = (link: string) =>
   link.length <= 2000 && URL.canParse(link) && /^https?:$/.test(new URL(link).protocol)
 
-// Reads a posting and has Jev judge it against the person's Preferences, like a loop
-// would. Board links read the free feed; anything else costs one Firecrawl credit.
 export const readAndJudge = async (
   ctx: ActionCtx,
   userId: Id<"users">,
   link: string,
   key: string
 ): Promise<{ lead: Infer<typeof vPasted>; credits: number }> => {
-  // A board link reads the free feed. Some boards don't publish one, so a role the
-  // feed doesn't list is read from its page instead, like any other link.
   const board = boardOf(link)
   let job: Doc<"jobs"> | null = null
   if (board) {

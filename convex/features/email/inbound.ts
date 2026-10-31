@@ -1,6 +1,3 @@
-// Incoming mail: Email Routing sends mail for the person's address to a small Worker
-// in their Cloudflare account, which posts the raw message here. It's parsed, sealed
-// and kept in the cloudflareEmail component, all only if they allowed it.
 import { ConvexError, v } from "convex/values"
 import { components, internal } from "../../_generated/api"
 import { action, env, httpAction } from "../../_generated/server"
@@ -73,7 +70,6 @@ const setUpInbound = action({
         forwardTo,
       })
       ruleId = await createRule(details.zoneId, token, details.fromAddress, worker)
-      // Tagged addresses are matched by the address with no tag at all.
       if (base !== details.fromAddress)
         baseRule.push(await createRule(details.zoneId, token, base, worker))
     } catch (cause) {
@@ -88,7 +84,6 @@ const setUpInbound = action({
       await keepLogFromAction(ctx, log)
       throw cloudflare(cause)
     }
-    // A previous setup's rule and Worker go once the new ones are in place.
     if (row.inbound)
       await removeInbound(
         details.accountId,
@@ -129,8 +124,6 @@ const stopInbound = action({
   },
 })
 
-// Removes the Worker and rule first, so mail isn't sent to a URL that no longer
-// answers. A connection that can't be opened is deleted anyway.
 const disconnect = action({
   args: {},
   returns: v.null(),
@@ -149,7 +142,6 @@ export const receive = httpAction(async (ctx, req) => {
   const inboundId = new URL(req.url).pathname.split("/").pop() ?? ""
   const target = await ctx.runQuery(internal.api.email.inboundTarget, { inboundId })
   const bearer = req.headers.get("Authorization")?.replace(/^Bearer /, "") ?? ""
-  // Comparing hashes: the secret is random, so how long the comparison takes says nothing.
   if (!target || (await sha256(bearer)) !== target.secretHash)
     return new Response("Unknown inbound address", { status: 401 })
   if (!target.receive) return new Response("Not receiving mail", { status: 403 })
@@ -168,8 +160,6 @@ export const receive = httpAction(async (ctx, req) => {
   return new Response(null, { status: 204 })
 })
 
-// The newest incoming mail, opened for its owner: who it's from, the subject and a
-// line of the text.
 const recentMail = authedQuery({
   args: {},
   returns: vRecentMail,
@@ -199,10 +189,6 @@ const recentMail = authedQuery({
   },
 })
 
-// One email from a file, for mail that came before incoming mail was set up. Kept only when it
-// matches an application by its address, thread or name, so importing a whole mailbox can't
-// fill Unsorted. It uses no AI, so it costs nothing however many there are, and being old news
-// it adds no line in Updates, workflow event or suggestion.
 const importMail = action({
   args: { raw: v.string() },
   returns: v.union(v.literal("filed"), v.literal("known"), v.literal("unmatched")),

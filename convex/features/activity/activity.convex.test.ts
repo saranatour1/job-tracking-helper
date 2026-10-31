@@ -207,7 +207,6 @@ describe("activity", () => {
     })
     await as.mutation(api.api.users.updateProfile, { name: "Sam", email: "", userName: "" })
     const rows = await events()
-    // The clock's frozen here, so rows from the same moment can come in either order.
     expect(new Set(rows.map((r) => r.summary))).toEqual(
       new Set([
         "Updated your profile",

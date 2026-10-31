@@ -1,5 +1,3 @@
-// Registers `api.api.contacts.*` and `internal.api.contacts.*`. Definitions live in
-// ../features/contacts.
 import { contactsApi } from "../features/contacts"
 
 export const {
