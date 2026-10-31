@@ -646,7 +646,7 @@ export const PrefilledPage = ({ id }: { id: Id<"prefills"> }) => {
                     <Button
                       size="sm"
                       variant="ghost"
-                      render={<Link to="/" search={{ app: application }} />}
+                      render={<Link to="/pipeline" search={{ app: application }} />}
                     >
                       Open the application
                     </Button>

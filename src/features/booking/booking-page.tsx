@@ -1,6 +1,6 @@
 import { api } from "@/lib/api"
 import { instantOf, isOpen, offsetOf, slotProblem } from "@convex/features/booking/slots"
-import { useNavigate, useSearch } from "@tanstack/react-router"
+import { Link, useNavigate, useSearch } from "@tanstack/react-router"
 import { useMutation } from "convex/react"
 import { useQuery } from "convex-helpers/react/cache/hooks"
 import { useActionState, useMemo } from "react"
@@ -191,6 +191,12 @@ export const BookingPage = ({ slug }: { slug: string }) => {
               <Label htmlFor="book-note">Anything to share? (optional)</Label>
               <Textarea id="book-note" name="note" rows={3} defaultValue={tried.note} />
             </div>
+            <p className="text-muted-foreground text-xs">
+              {data.host} will see what you enter here.{" "}
+              <Link to="/privacy" className="underline underline-offset-4">
+                Privacy Policy
+              </Link>
+            </p>
             {tried.error && (
               <p role="alert" className="text-destructive text-sm">
                 {tried.error}

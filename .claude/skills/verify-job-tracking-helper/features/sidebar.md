@@ -6,7 +6,7 @@ Signed-in users get a left sidebar with an `Applications` link and, in the foote
 
 - `sidebar-toggle-button` collapses and expands it with `Toggle Sidebar`.
 - `sidebar-toggle-key` toggles it with `Cmd+B` on macOS or `Ctrl+B` elsewhere.
-- `sidebar-nav` navigates to `/` with the `Applications` link.
+- `sidebar-nav` navigates to `/pipeline` with the `Applications` link.
 - `sidebar-sign-out` returns to the sign-in form.
 
 ## How to get to it (user POV)

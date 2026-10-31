@@ -366,7 +366,7 @@ const Reader = ({ row }: { row: Row }) => {
           <>
             <dt className="text-muted-foreground">Application</dt>
             <dd className="py-0.5">
-              <Link to="/" search={{ app: application }} className="underline">
+              <Link to="/pipeline" search={{ app: application }} className="underline">
                 {shown.company}
               </Link>
             </dd>

@@ -9,7 +9,7 @@ export const vInboxLines = v.array(
     at: v.number(),
     unread: v.boolean(),
     link: v.union(
-      v.literal("/"),
+      v.literal("/pipeline"),
       v.literal("/loops"),
       v.literal("/calendar"),
       v.literal("/prefilled"),

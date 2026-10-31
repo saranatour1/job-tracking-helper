@@ -22,11 +22,11 @@ A job search app. It finds roles that fit what you asked for, fills in their app
 
 ## What happens to your data
 
-Your resume file only gets attached to applications until you press Review on the Resume page. After that, AI drafts use its text with your email and phone removed, through endpoints that keep no data.
+Your resume file only gets attached to applications until you press Review on the Resume page. Review sends its text to Jev. After that, AI drafts use the text with your email and phone removed by pattern, in requests that ask the provider to keep no data.
 
-Demographic questions are never answered or stored, and neither are job-site passwords. Pasted tokens and email contents are encrypted with AES-256-GCM, under a key only the server holds.
+Demographic questions are skipped by their wording, and job-site passwords are never stored. Pasted tokens, connection details, mail, contacts and drafts are encrypted with AES-256-GCM, under a key only the server holds. Resumes, saved answers and applications don't get that extra layer.
 
-The site sends page views, web vitals, outgoing link clicks and session replays to Databuddy. Replays mask text.
+The site sends page views, web vitals, outgoing link clicks and session replays to Databuddy, except on booking pages. Replays mask text. [/privacy](src/routes/privacy.tsx) has the full list, and it has to stay true when any of this changes.
 
 ## How to run
 
@@ -93,12 +93,14 @@ convex/
   components/             local components: cloudflareEmail and notifications
   lib/                    arktype to Convex, signed-in function builders, secrets
 src/
-  routes/                 pages, which only import a feature
+  routes/                 pages, which only import a feature. /, /privacy and /terms are public
+  start.ts                security headers on every page
   features/<feature>/     the feature's components. Applications, Views and Goals are in tracker/
   components/ui/          shadcn and coss components, managed by the shadcn CLI
   components/kloq/        the kloq calendar as source, from its registry
   lib/api.ts              `api`, the functions in convex/api. Import it instead of the generated one
   lib/route-ids.ts        regular text for routes, instead of table ids
+  lib/seo.ts              site details and publicHead. A route is hidden from search unless it uses it
 scripts/                  dev and secrets scripts
 docs/
   database-design.md      the tables, what deleting does, and how to change what's stored

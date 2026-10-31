@@ -447,7 +447,7 @@ export const Pipeline = ({
       (v) => v.id,
       (v) => v.name
     ).text(id)
-    void navigate({ to: "/", search: { view: text } })
+    void navigate({ to: "/pipeline", search: { view: text } })
   }
 
   return (
@@ -529,7 +529,7 @@ export const Pipeline = ({
                     <TabsTab
                       value={v.id}
                       nativeButton={false}
-                      render={<Link to="/" search={{ view: viewRoutes.text(v.id) }} />}
+                      render={<Link to="/pipeline" search={{ view: viewRoutes.text(v.id) }} />}
                     >
                       {v.name}
                     </TabsTab>
