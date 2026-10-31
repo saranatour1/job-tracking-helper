@@ -7,9 +7,6 @@ import { urlKey } from "../workflows/fit"
 import { limits } from "../workflows/manager"
 import { isLink, readAndJudge } from "./utils"
 
-// Someone pastes a job they found themselves: Jev checks it against their Preferences
-// like a loop would, and it opens on their shortlist with the breakdown, fit or not.
-// 10 a day, shared with checks of applications added by hand.
 const checkLink = action({
   args: { url: v.string() },
   returns: v.id("jobLeads"),
@@ -30,9 +27,6 @@ const checkLink = action({
   },
 })
 
-// An application added by hand with its link: Jev checks the job the same way, links it
-// to the application for its Job section, and fills in what was left empty: priority
-// from the match, location, a Remote label and a description. It never overwrites.
 const enrichApplication = internalAction({
   args: { userId: v.id("users"), applicationId: v.id("applications"), url: v.string() },
   returns: v.null(),

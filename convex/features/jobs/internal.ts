@@ -8,8 +8,6 @@ import { boardKinds, boardOf, companyOf, starterBoards } from "./boards"
 import { vFeedJob, vBoardFetchedArgs, vCandidatesArgs } from "./validators"
 import { refreshEvery } from "./utils"
 
-// The cron's job, every hour: start the catalog from the starter boards the first time,
-// then hand the boards that are due to the batch worker.
 const refreshDue = internalMutation({
   args: {},
   returns: v.number(),
@@ -33,7 +31,6 @@ const refreshDue = internalMutation({
       internal.api.jobs.fetchBoard,
       due.map((b) => ({ boardId: b._id }))
     )
-    // Marked now, so the next tick doesn't queue them again while they're fetching.
     for (const b of due) await ctx.db.patch("jobBoards", b._id, { fetchedAt: now })
     return due.length
   },
@@ -44,8 +41,6 @@ const board = internalQuery({
   handler: (ctx, { boardId }) => ctx.db.get("jobBoards", boardId),
 })
 
-// Adds the boards behind a search's postings. Returns the new ones, up to 10, so the
-// run can fetch them before it picks jobs.
 const addBoards = internalMutation({
   args: { urls: v.array(v.string()) },
   returns: v.array(v.id("jobBoards")),
@@ -74,7 +69,6 @@ const addBoards = internalMutation({
   },
 })
 
-// Saves part of one board's fetch: new roles are added, listed ones get a fresh `seenAt`.
 const saveJobs = internalMutation({
   args: { boardId: v.id("jobBoards"), jobs: v.array(vFeedJob), seenAt: v.number() },
   returns: v.null(),
@@ -92,7 +86,6 @@ const saveJobs = internalMutation({
   },
 })
 
-// Finishes a fetch: drops the roles the board no longer lists and records how it went.
 // ponytail: removes up to 500 closed roles a fetch; the rest go on the next day's.
 const boardFetched = internalMutation({
   args: vBoardFetchedArgs,
@@ -117,8 +110,6 @@ const boardFetched = internalMutation({
   },
 })
 
-// The roles a run sends to Jev: matches for each of the loop's searches, taken in turn,
-// that the person hasn't been shown and that pass the loop's hard rules.
 const candidates = internalQuery({
   args: vCandidatesArgs,
   returns: v.array(v.id("jobs")),
@@ -163,7 +154,6 @@ const byUrlKey = internalQuery({
       .first(),
 })
 
-// The board behind a pasted link, added if the catalog doesn't have it yet.
 const ensureBoard = internalMutation({
   args: { kind: v.union(...boardKinds.map((k) => v.literal(k))), slug: v.string() },
   returns: v.id("jobBoards"),

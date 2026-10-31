@@ -17,7 +17,6 @@ const list = authedQuery({
       .take(limits.automations),
 })
 
-/** How many of a workflow's runs are going, done, failed or canceled. */
 const counts = authedQuery({
   args: { automationId: v.id("automations") },
   returns: vRunCounts,
@@ -28,7 +27,6 @@ const counts = authedQuery({
   },
 })
 
-/** How often Jev gave each answer at each Ask Jev step, by place then answer. */
 const choices = authedQuery({
   args: { automationId: v.id("automations") },
   returns: v.record(v.string(), v.record(v.string(), v.number())),
@@ -39,7 +37,6 @@ const choices = authedQuery({
   },
 })
 
-/** A workflow's latest runs, newest first. */
 const runs = authedQuery({
   args: { automationId: v.id("automations") },
   returns: v.array(schema.doc("automationRuns")),
@@ -54,7 +51,6 @@ const runs = authedQuery({
   },
 })
 
-/** Adds a workflow, or changes yours with this id. Runs already going keep their steps. */
 const save = authedMutation({
   args: vSaveWorkflow,
   returns: v.id("automations"),
@@ -115,7 +111,6 @@ const setActive = authedMutation({
   },
 })
 
-/** Deletes a workflow: stops its runs and forgets their history. */
 const remove = authedMutation({
   args: { id: v.id("automations") },
   returns: v.null(),

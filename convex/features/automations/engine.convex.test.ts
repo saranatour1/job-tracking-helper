@@ -8,7 +8,6 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vite-plus/test"
 
 import { api, components, internal } from "../../_generated/api"
 
-// Jev, answered from the test: the path key it picks ("p0", "p1"), or a throw.
 const jev = vi.hoisted(() => ({ choice: "p0" as string | Error }))
 vi.mock("ai", async (actual) => ({
   ...(await actual<typeof import("ai")>()),
@@ -23,11 +22,9 @@ import { aad, keys } from "../email/utils"
 import { choiceCounts, insertRun, patchRun } from "./counts"
 import schema from "../../schema"
 
-// A run's history, in step order.
 const byPlace = <T extends { at: string }>(log: T[] | undefined) =>
   [...(log ?? [])].sort((a, b) => a.at.localeCompare(b.at))
 
-// The app's functions, without the local components' own folders or the tests.
 const modules = import.meta.glob([
   "../../**/*.ts",
   "!../../components/notifications/**",
@@ -37,7 +34,6 @@ const modules = import.meta.glob([
 
 const setup = async () => {
   const t = convexTest(schema, modules)
-  // The helpers are typed against another copy of convex in the pnpm store.
   workflow.register(t as never)
   rateLimiter.register(t as never)
   aggregate.register(t as never, "automationRunCounts")
@@ -141,7 +137,6 @@ describe("a workflow run", () => {
       active: true,
       steps: [{ kind: "notify", message: "Edited" }],
     })
-    // Let it reach the wait, then stop it there.
     for (let i = 0; i < 10; i++) {
       vi.runOnlyPendingTimers()
       await t.finishInProgressScheduledFunctions()
@@ -226,7 +221,6 @@ describe("a workflow run", () => {
       ],
     })
     const runId = await as.mutation(api.api.automations.runNow, { id })
-    // Move time on by seconds, not the hour the slow path waits.
     const statusAt = async (at: string) =>
       (await t.run((ctx) => ctx.db.get("automationRuns", runId)))?.log.find((e) => e.at === at)
         ?.status
@@ -283,7 +277,6 @@ describe("a workflow run", () => {
 
   it("starts due schedules even with many manual workflows switched on", async () => {
     const { t, userId } = await setup()
-    // More active manual workflows than the cron takes in one batch.
     const due = await t.run(async (ctx) => {
       for (let i = 0; i < 60; i++)
         await ctx.db.insert("automations", {
@@ -324,7 +317,6 @@ describe("a workflow run", () => {
     })
     const runId = await as.mutation(api.api.automations.runNow, { id })
     await t.finishAllScheduledFunctions(vi.runAllTimers)
-    // As if the completion handler had failed: the workflow is over, the run says running.
     await t.run(async (ctx) => {
       const run = await ctx.db.get("automationRuns", runId)
       await patchRun(ctx as never, run!, { status: "running" })
@@ -472,7 +464,6 @@ describe("a workflow run", () => {
     expect(runs.map((r) => [r.status, r.context?.goalId])).toEqual([["done", goalId]])
     const application = await t.run((ctx) => ctx.db.get("applications", applicationId))
     expect(application?.notes?.map((n) => n.text)).toEqual(["Hooli joined Land a role"])
-    // The step's move onto the other goal starts nothing: one run in all.
     expect(application?.goalId).toBe(otherGoal)
   })
 
@@ -550,7 +541,6 @@ describe("a workflow run", () => {
 
     const runs = await t.run((ctx) => ctx.db.query("automationRuns").collect())
     expect(runs.map((r) => [r.trigger, r.status])).toEqual([["event", "done"]])
-    // The run keeps only ids; the email's words were opened when the note was written.
     expect(JSON.stringify(runs[0]?.context)).not.toContain("Let's talk")
     const application = await t.run((ctx) => ctx.db.get("applications", applicationId))
     expect(application?.notes?.map((n) => n.text)).toEqual([
@@ -576,7 +566,6 @@ describe("a workflow run", () => {
     await as.mutation(api.api.automations.runNow, { id })
     await t.finishAllScheduledFunctions(vi.runAllTimers)
 
-    // A step added before it moves it from "0" to "1".
     await as.mutation(api.api.automations.save, {
       id,
       ...draft,
@@ -585,7 +574,6 @@ describe("a workflow run", () => {
     expect(await as.query(api.api.automations.choices, { automationId: id })).toEqual({
       "1": { Yes: 1, No: 0 },
     })
-    // Old runs still find their entries to remove.
     const counted = () => t.run((ctx) => choiceCounts.count(ctx as never, { namespace: id }))
     expect(await counted()).toBe(1)
     await as.mutation(api.api.automations.remove, { id })
@@ -705,7 +693,6 @@ describe("a workflow run", () => {
     ])
     expect(byPlace(run?.log)[0]?.output).toMatch(/^Jev judged 0 roles: 0 fit\./)
     expect(byPlace(run?.log)[1]?.output).toBe("0 of 0 from Frontend")
-    // The loop's own Runs tab shows it too.
     const loopRuns = await t.run((ctx) => ctx.db.query("loopRuns").collect())
     expect(loopRuns.map((r) => [r.loopId, r.status])).toEqual([[loopId, "done"]])
   })

@@ -4,8 +4,6 @@ import { internalAction } from "../../_generated/server"
 import { workLog } from "../../lib/log"
 import { feedUrl, parseFeed } from "./boards"
 
-// Fetches one board's feed and saves every role on it. The batch worker runs these and
-// retries a failed fetch; a board without a feed (404 and the like) isn't retried.
 const fetchBoard = internalAction({
   args: { boardId: v.id("jobBoards") },
   returns: v.null(),

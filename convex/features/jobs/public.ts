@@ -5,10 +5,6 @@ import { authedQuery } from "../../lib/functions"
 import { vJobRow, vJobSearchArgs } from "./validators"
 import { rowOf } from "./utils"
 
-// Every role in the catalog, newest first, or the best matches for the search words,
-// narrowed by remote, one company's board, and how recently it was posted. With `fits`,
-// only roles Jev said fit this person, best first. Each row carries the fit a loop or a
-// pasted link gave it for this person, if one has.
 const search = authedQuery({
   args: vJobSearchArgs,
   returns: paginationResultValidator(vJobRow),
@@ -22,7 +18,6 @@ const search = authedQuery({
       (since === undefined || job.postedAt >= since)
 
     if (fits) {
-      // Best first across every page; the other filters only thin each page out.
       const page = await ctx.db
         .query("jobLeads")
         .withIndex("by_userId_and_verdict_and_fit", (i) =>
@@ -97,7 +92,6 @@ const search = authedQuery({
   },
 })
 
-// The companies with the most open roles, for the company filter.
 const companies = authedQuery({
   args: {},
   returns: v.array(v.object({ boardId: v.id("jobBoards"), company: v.string(), jobs: v.number() })),
@@ -109,7 +103,6 @@ const companies = authedQuery({
       .map((b) => ({ boardId: b._id, company: b.company, jobs: b.jobs })),
 })
 
-// How big the catalog is, from each board's last fetch.
 const stats = authedQuery({
   args: {},
   returns: v.object({ boards: v.number(), jobs: v.number() }),

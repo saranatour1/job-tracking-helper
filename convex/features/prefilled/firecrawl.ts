@@ -1,7 +1,3 @@
-// Firecrawl drives the application form: one scrape opens a browser session, then
-// `interact` runs Playwright code in it with `page` in scope. Each script prints one
-// JSON line, which is read back and checked here before anything trusts it. The page is
-// someone else's site: its text is data, never instructions.
 import { ConvexError } from "convex/values"
 import { apiKeyOf } from "../workflows/sources"
 import { post, record, text } from "../workflows/sources/source"
@@ -15,7 +11,6 @@ const keyOrThrow = () => {
   return apiKey
 }
 
-/** Opens the page in a browser session that later calls can act on. 1 credit. */
 export const scrape = async (url: string) => {
   const data = record(
     record(
@@ -32,8 +27,6 @@ export const scrape = async (url: string) => {
   return { scrapeId, markdown: text(data.markdown) }
 }
 
-/** Runs a script in the session. Returns the JSON line it printed, and the address of a
- * browser a person can control in the same session. */
 export const interact = async (scrapeId: string, code: string, timeout: number) => {
   const res = record(
     await post(
@@ -70,7 +63,6 @@ const frame = `const frame = (await page.locator('iframe#grnhse_iframe').count()
 // countries, so this goes by the list the field names, or else the one showing.
 const listOf = `const listOf = async (el) => { const id = await el.getAttribute('aria-controls'); return id ? frame.locator('[id=' + JSON.stringify(id) + ']') : frame.locator('[role=listbox]').filter({ visible: true }).first(); };`
 
-/** Finds the application form (clicking Apply if the page hides it) and lists its fields. */
 export const readFormScript = () => `
 ${frame}
 ${listOf}
@@ -145,12 +137,9 @@ export type FillPlan = {
   fills: (Fill & { type: string; label: string })[]
   consent: string[]
   resume?: { url: string; name: string; mimeType: string; selector: string }
-  // A question to scroll to and point out once the rest is done.
   show?: string
 }
 
-/** Uploads the resume, fills every planned field, ticks consent boxes, and reads back
- * what didn't stick. The plan is data in the script; JSON.stringify keeps it inert. */
 export const fillScript = (plan: FillPlan) => `
 ${frame}
 ${listOf}
@@ -210,8 +199,6 @@ const errors = await frame.locator('[aria-invalid=true], .field-error, .error-me
 console.log(JSON.stringify({ unfilled, errors: errors.map((e) => e.trim()).filter(Boolean).slice(0, 20) }));
 `
 
-/** Reads the page after you've pressed Submit, for a thank-you. It only reads: the app
- * never presses Submit. */
 export const confirmScript = () => `
 ${frame}
 const confirmed = /thank you for (applying|your application)|thanks for applying|application (has been |was )?(submitted|received)|we('ve| have) received your application|successfully (submitted|applied)|vielen dank/i;

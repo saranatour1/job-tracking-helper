@@ -21,7 +21,6 @@ const settings = authedQuery({
   }),
 })
 
-// The Account switch: prepare each new fit a loop finds. Nothing is sent either way.
 const setAutoPrepare = authedMutation({
   args: { on: v.boolean() },
   returns: v.null(),
@@ -48,7 +47,6 @@ const roomToPrepare = async (ctx: MutationCtx, userId: Id<"users">) => {
 
 const unsupported = "This works on Greenhouse, Lever, Ashby and Personio postings."
 
-/** Prepares a role from the catalog or your shortlist. */
 const prepare = authedMutation({
   args: { jobId: v.optional(v.id("jobs")), leadId: v.optional(v.id("jobLeads")) },
   returns: v.id("prefills"),
@@ -72,7 +70,6 @@ const prepare = authedMutation({
   },
 })
 
-// Reads the form again, say after you've added saved answers. What you typed stays.
 const prepareAgain = authedMutation({
   args: { id: v.id("prefills") },
   returns: v.null(),
@@ -101,9 +98,6 @@ const dismiss = authedMutation({
   },
 })
 
-// Answers one question for this application, even with its browser open, since the answer
-// can be sent there. A picked option must be one the form offers.
-// `keep` also adds it to your saved answers, for forms to come.
 const setAnswer = arkMutation({
   args: SetAnswer,
   returns: v.null(),
@@ -121,7 +115,6 @@ const setAnswer = arkMutation({
         ...rest,
         source: answer ? ("you" as const) : ("none" as const),
         ...(answer && { answer }),
-        // A changed answer isn't the one in the browser any more.
         ...(fill && f.answer === answer && { fill }),
       }
     })
@@ -149,7 +142,6 @@ const setAnswer = arkMutation({
       const known = saved.find((e) => e.label === question)
       if (known) await ctx.db.patch("profileEntries", known._id, { value: answer })
       else {
-        // At the end of the last section's row numbers, under "Your questions".
         const own = saved.filter((e) => e.group === "Your questions")
         const order = own[0]
           ? own[0].order + 1
@@ -182,7 +174,6 @@ const list = authedQuery({
     ).map(({ liveUrl: _liveUrl, scrapeId: _scrapeId, ...row }) => row),
 })
 
-// One application for its page: the row, what Jev judged, and the posting's opening lines.
 const get = authedQuery({
   args: { id: v.id("prefills") },
   returns: v.union(

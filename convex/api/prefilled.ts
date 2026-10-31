@@ -1,5 +1,3 @@
-// Registers `api.api.prefilled.*` and `internal.api.prefilled.*`. Definitions live in
-// ../features/prefilled.
 import { prefilledApi } from "../features/prefilled"
 
 export const {

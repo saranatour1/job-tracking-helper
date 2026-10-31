@@ -43,7 +43,6 @@ const create = arkMutation({
   },
 })
 
-// Changes a loop's answers. A run already going keeps the answers it started with.
 const update = arkMutation({
   args: UpdateLoop,
   returns: v.null(),
@@ -55,7 +54,6 @@ const update = arkMutation({
   },
 })
 
-// Pausing keeps a loop and its history; resuming schedules the next morning.
 const setActive = authedMutation({
   args: { loopId: v.id("loops"), active: v.boolean() },
   returns: v.null(),
@@ -75,8 +73,6 @@ const setActive = authedMutation({
   },
 })
 
-// Removing a loop keeps its runs and the jobs it found, so the Runs tab still adds up. A
-// goal taking roles from it goes back to taking none.
 const remove = authedMutation({
   args: { loopId: v.id("loops") },
   returns: v.null(),
@@ -93,7 +89,6 @@ const remove = authedMutation({
   },
 })
 
-// A run outside the morning schedule, a few times a day per person.
 const runNow = authedMutation({
   args: { loopId: v.id("loops") },
   returns: v.id("loopRuns"),
@@ -110,7 +105,6 @@ const runNow = authedMutation({
   },
 })
 
-// Stops the loop's run in progress, if there is one.
 const stopRun = authedMutation({
   args: { loopId: v.id("loops") },
   returns: v.null(),
@@ -135,9 +129,6 @@ const runs = authedQuery({
       .paginate(paginationOpts),
 })
 
-// The person's shortlist ("new": what their loops picked for them, best first) or the
-// jobs they kept: saved for later or added to the tracker, most recent first. Small by
-// design: a loop only adds as many as its size allows.
 const shortlist = authedQuery({
   args: { status: v.union(v.literal("new"), v.literal("saved")) },
   returns: v.array(schema.doc("jobLeads")),
@@ -155,7 +146,6 @@ const shortlist = authedQuery({
   },
 })
 
-// One job with its whole description, for the job sheet.
 const lead = authedQuery({
   args: { leadId: v.id("jobLeads") },
   returns: v.union(
@@ -171,8 +161,6 @@ const lead = authedQuery({
   },
 })
 
-// The job an application came from, if a loop or a pasted link found it: how well it
-// fits, Jev's reasons and breakdown, and the posting.
 const leadForApplication = authedQuery({
   args: { applicationId: v.id("applications") },
   returns: v.union(
@@ -191,9 +179,6 @@ const leadForApplication = authedQuery({
   },
 })
 
-// How well each of the person's applications fit, for the badges on the board: the
-// first lead tied to each one, if a loop found it or Jev checked its link. It reads
-// leads only, so editing an application doesn't re-run it.
 const fits = authedQuery({
   args: {},
   returns: vFits,
@@ -210,15 +195,12 @@ const fits = authedQuery({
     for (const { applicationId, fit, verdict } of leads) {
       if (!applicationId || seen.has(applicationId)) continue
       seen.add(applicationId)
-      // Leads from before Jev have no verdict, and aren't "not a fit".
       out.push({ applicationId, fit, isFit: verdict !== "notFit" })
     }
     return out
   },
 })
 
-// The morning decisions. Save keeps it for later. Favorite keeps it too and tells
-// tomorrow's runs "more like this"; Dismiss drops it and tells them "not like this".
 const respond = authedMutation({
   args: vRespondArgs,
   returns: v.null(),
@@ -245,8 +227,6 @@ const respond = authedMutation({
   },
 })
 
-// Adds the job to Applications as saved, with what the loop already knows about it: its
-// link, location, a Remote label, the posting's summary, and a priority from Jev's match.
 const track = authedMutation({
   args: { leadId: v.id("jobLeads") },
   returns: v.id("applications"),
@@ -254,7 +234,6 @@ const track = authedMutation({
     const lead = await ownLead(ctx, ctx.userId, leadId)
     const linked = lead.applicationId && (await ctx.db.get("applications", lead.applicationId))
     if (linked) {
-      // Tracking a role again brings its application back out of the Trash or Archive.
       if (linked.trashedAt !== undefined || linked.archivedAt !== undefined)
         await ctx.db.patch("applications", linked._id, {
           trashedAt: undefined,
@@ -263,7 +242,6 @@ const track = authedMutation({
         })
       return linked._id
     }
-    // A goal that takes its roles from this loop.
     const goal = lead.loopId
       ? (
           await ctx.db

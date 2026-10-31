@@ -31,7 +31,6 @@ describe("the mail timeline", () => {
         number: 1,
         history: [],
       })
-      // Unfiled mail sorts first on the old index, so the newest filed mail used to fall off.
       for (let at = 0; at < 301; at++)
         await ctx.db.insert("mailEvents", {
           userId,

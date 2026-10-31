@@ -2,11 +2,6 @@ import { v } from "convex/values"
 import { internal } from "../_generated/api"
 import { internalMutation, internalQuery } from "../_generated/server"
 
-// One-off: puts existing mail in its folder, and marks it read since it isn't new. Safe to run
-// again. Run it on each deployment:
-//   npx convex run api/migrations:fillBoxes
-//   npx convex run api/migrations:boxesLeft
-// Delete this file, and make `mailEvents.box` required, once that's done everywhere.
 export const fillBoxes = internalMutation({
   args: { cursor: v.optional(v.union(v.string(), v.null())) },
   returns: v.null(),

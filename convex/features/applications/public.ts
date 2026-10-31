@@ -17,7 +17,6 @@ import { logEdit } from "../activity/utils"
 const list = authedQuery({
   args: {},
   returns: v.array(schema.doc("applications")),
-  // The Trash keeps its own list (`trashed`); archived ones are here, marked.
   handler: async (ctx) =>
     (
       await ctx.db
@@ -30,7 +29,6 @@ const list = authedQuery({
     ).reverse(),
 })
 
-// Added with a link, Jev checks the job in the background and fills in the rest.
 const add = arkMutation({
   args: Application,
   returns: v.id("applications"),
@@ -52,7 +50,6 @@ const add = arkMutation({
   },
 })
 
-// Sets any of the details. Status has its own mutation, so its history stays right.
 const update = arkMutation({
   args: UpdateApplication,
   returns: v.null(),
@@ -80,7 +77,6 @@ const setGoal = authedMutation({
     const application = await own(ctx, ctx.userId, id)
     if (goalId && (await ctx.db.get("goals", goalId))?.userId !== ctx.userId)
       throw new ConvexError("That goal isn't yours.")
-    // Leaving `goalId` out clears it.
     await ctx.db.patch("applications", id, { goalId })
     if (goalId && goalId !== application.goalId)
       await fireEvent(ctx, ctx.userId, { kind: "goal", goalId, applicationId: id })

@@ -11,6 +11,5 @@ export const mailWords: Record<Kind, string> = {
   other: "Email",
 }
 
-// For account deletion: notifications and settings go in batches.
 export const deleteNotifications = (ctx: MutationCtx, owner: string) =>
   ctx.scheduler.runAfter(0, internal.api.inbox.removeNotifications, { owner })

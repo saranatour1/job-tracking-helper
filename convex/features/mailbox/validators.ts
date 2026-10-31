@@ -4,7 +4,6 @@ import { arkId } from "../../lib/ark"
 
 const trimmed = type("string.trim")
 
-// Where an email is. Safe to import from the frontend.
 export const boxes = ["inbox", "sent", "archived", "trash"] as const
 export type Box = (typeof boxes)[number]
 
@@ -12,15 +11,12 @@ export const vBox = v.union(...boxes.map((b) => v.literal(b)))
 
 export const maxLabels = { perEmail: 10, perPerson: 100 } as const
 export const maxLabelLength = 30
-// More than a real email needs, and small enough to stay well inside a document.
 export const maxHtml = 200_000
 export const maxTemplates = 100
 export const maxUnreadCount = 100
 
-// A label you've used, with how many emails have it, so one nothing uses goes away.
 export const MailLabel = type({ userId: arkId("users"), name: "string", count: "number" })
 
-// One label on one email: what makes "everything labelled X" a page instead of a scan.
 export const MailEventLabel = type({
   userId: arkId("users"),
   label: "string",
@@ -28,7 +24,6 @@ export const MailEventLabel = type({
   at: "number",
 })
 
-// An unsent email. Sealed like the rest of your mail.
 export const MailDraft = type({
   userId: arkId("users"),
   details: "string",
@@ -56,7 +51,6 @@ export const SaveDraft = type({
   "replyTo?": arkId("mailEvents"),
 })
 
-// Your own wording, not mail anyone sent you, so it's kept plain like a saved answer.
 export const MailTemplate = type({
   userId: arkId("users"),
   name: "string",

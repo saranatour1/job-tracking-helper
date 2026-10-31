@@ -19,7 +19,6 @@ import {
 import { rowOf, upsert, tagsOf, writeAnswers, writeFields, markOnboarded } from "./utils"
 import { logEdit } from "../activity/utils"
 
-// Settings and the resume. Tags and entries come from the paginated queries below.
 const get = authedQuery({
   args: {},
   returns: vPreferencesView,
@@ -80,7 +79,6 @@ const savePrefilled = arkMutation({
   },
 })
 
-// "Skip for now" on first run.
 const skip = authedMutation({
   args: {},
   returns: v.null(),
@@ -90,7 +88,6 @@ const skip = authedMutation({
   },
 })
 
-// One resume at a time: a new upload replaces the old file, and no args removes it.
 const setResume = arkMutation({
   args: SetResume,
   returns: v.null(),
@@ -109,7 +106,6 @@ const setResume = arkMutation({
     }
     const row = await rowOf(ctx, ctx.userId)
     if (row?.resumeId && row.resumeId !== resumeId) await ctx.storage.delete(row.resumeId)
-    // A new file means a new review.
     await upsert(ctx, ctx.userId, {
       resumeId,
       resumeName: resumeId ? name : undefined,
@@ -126,7 +122,6 @@ const setResume = arkMutation({
   },
 })
 
-// What the review action needs: the file, and the skills and interests to check for.
 const resumeToReview = internalQuery({
   args: { userId: v.id("users") },
   returns: vResumeToReview,

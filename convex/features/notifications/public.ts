@@ -16,8 +16,6 @@ type Ctx = CustomCtx<typeof authedQuery>
 const newest = (ctx: Ctx) =>
   ctx.runQuery(components.notifications.lib.list, { owner: ctx.userId, limit: 100 })
 
-// Each line is built from what it points at, so a mail line opens the sealed mail event here
-// and nowhere else. Lines whose source is gone are left out.
 const linesOf = async (
   ctx: Ctx,
   rows: FunctionReturnType<typeof components.notifications.lib.list>
@@ -57,7 +55,6 @@ const linesOf = async (
           }
         )
       }
-      // "Notify me" keeps its words in the run's history; the ref is "<runId>#<step>".
       const [runPart, stepPart] = (n.ref ?? "").split("#")
       const runId =
         n.kind === "automation.notify" && runPart && ctx.db.normalizeId("automationRuns", runPart)
@@ -122,15 +119,12 @@ const linesOf = async (
   return lines.filter((line) => !!line)
 }
 
-// Updates, newest first.
 const inbox = authedQuery({
   args: {},
   returns: vInboxLines,
   handler: async (ctx) => linesOf(ctx, await newest(ctx)),
 })
 
-// What the page calls unread, so the badge can always be cleared from there. Only unread lines
-// get built, which is few once someone keeps up.
 const unreadCount = authedQuery({
   args: {},
   returns: v.number(),
@@ -143,12 +137,10 @@ const unreadCount = authedQuery({
     ).length,
 })
 
-// Marks notifications read or unread; with no ids, every unread one is marked read.
 const setRead = authedMutation({
   args: { ids: v.optional(v.array(v.string())), read: v.boolean() },
   returns: v.null(),
   handler: async (ctx, { ids, read }) => {
-    // The component checks each one belongs to this person before it changes anything.
     await ctx.runMutation(components.notifications.lib.setRead, {
       owner: ctx.userId,
       ids,
@@ -158,7 +150,6 @@ const setRead = authedMutation({
   },
 })
 
-// Which kinds reach the inbox, as switches for Account.
 const settings = authedQuery({
   args: {},
   returns: v.array(v.object({ kind: v.string(), on: v.boolean() })),

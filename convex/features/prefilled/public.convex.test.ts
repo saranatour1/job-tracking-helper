@@ -72,7 +72,6 @@ const setup = async () => {
     return { userId, jobId, fieldId }
   })
   const as = t.withIdentity({ subject: userId })
-  // A row prepared and waiting, as `prepareForm` leaves it.
   const prepared = async (fields: Parameters<typeof field>[0][] = []) => {
     const id = await as.mutation(api.api.prefilled.prepare, { jobId })
     await t.mutation(internal.api.prefilled.savePrepared, {
@@ -187,7 +186,6 @@ describe("preparing an application", () => {
     const row = (await as.query(api.api.prefilled.get, { id }))!.prefill
     expect(row.fields[0]).toMatchObject({ answer: "Mine", source: "you" })
     expect(row.credits).toBe(4)
-    // The Inbox heard about it once.
     expect(await as.query(api.api.inbox.inbox)).toHaveLength(1)
   })
 
@@ -340,7 +338,6 @@ describe("applying with you there", () => {
     expect([row.status, row.liveUrl, row.scrapeId]).toEqual(["applied", undefined, undefined])
     const entry = await s.t.run((ctx) => ctx.db.get("profileEntries", s.fieldId))
     expect(entry?.useCount).toBe(1)
-    // Sent once: it stays closed.
     expect(await s.as.mutation(api.api.prefilled.prepare, { jobId: s.jobId })).toBe(id)
     expect((await s.as.query(api.api.prefilled.get, { id }))?.prefill.status).toBe("applied")
     await expect(s.as.mutation(api.api.prefilled.dismiss, { id })).rejects.toThrow("can't be dismissed")

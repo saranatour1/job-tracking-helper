@@ -6,11 +6,6 @@ import { workLog } from "../../lib/log"
 import { keepLog, logEdit } from "../activity/utils"
 import { fireEvent } from "../automations/fire"
 
-// Archived applications leave the board but stay; after `archiveDays` they move to the
-// Trash. The Trash keeps them out of everything, and each trashed one carries `purgeAt`,
-// when it's deleted for good, from its owner's `trashDays`. A daily sweep does both, a
-// small batch at a time, so no one's big Trash holds up anyone else's.
-
 export const day = 24 * 60 * 60 * 1000
 
 export const batch = 25
@@ -30,13 +25,8 @@ export const trashDaysOf = (user: Doc<"users"> | null) => user?.trashDays ?? def
 export const purgeAtOf = (trashedAt: number, days: number) =>
   days ? trashedAt + days * day : undefined
 
-/** Deletes an application for good, and unlinks what pointed at it: its mail stays as
- * unfiled, events stay on the calendar, booking pages go back to matching by email, a job
- * lead stays tracked so loops never offer the role again, and a prefilled application stays
- * in Activity, still closed so it's never sent twice. */
 export const deleteApplication = async (ctx: MutationCtx, application: Doc<"applications">) => {
   const { userId, _id: applicationId } = application
-  // No cap on mail per application, and a row left behind would point at nothing.
   for await (const mail of ctx.db
     .query("mailEvents")
     .withIndex("by_userId_and_applicationId", (q) =>
@@ -77,7 +67,6 @@ export const deleteApplication = async (ctx: MutationCtx, application: Doc<"appl
   await ctx.db.delete("applications", applicationId)
 }
 
-/** Puts an application in the Trash: out of the Archive, with its date to go for good. */
 export const moveToTrash = async (ctx: MutationCtx, application: Doc<"applications">) => {
   const now = Date.now()
   const days = trashDaysOf(await ctx.db.get("users", application.userId))
@@ -98,7 +87,6 @@ export const own = async (ctx: MutationCtx, userId: Id<"users">, id: Id<"applica
 
 export const capped = <T>(items: T[], max: number) => items.slice(-max)
 
-// The next APP number for someone. Numbers aren't reused, even after a delete.
 export const nextNumber = async (ctx: MutationCtx, userId: Id<"users">) => {
   const user = await ctx.db.get("users", userId)
   const number = user?.nextApplicationNumber ?? 1
@@ -115,14 +103,11 @@ export const logNewApplication = async (
   await logEdit(ctx, userId, "application.added", `Added ${company}`, { applicationId })
 }
 
-// Every status change goes through here, so history stays complete: the tracker, a
-// suggestion from an email, anything later.
 export const changeStatus = async (
   ctx: MutationCtx,
   application: Doc<"applications">,
   status: Status,
   note?: string,
-  // Quiet moves start no workflows: a workflow's own Move application step is one.
   { quiet = false }: { quiet?: boolean } = {}
 ) => {
   if (application.status === status) return
@@ -151,8 +136,6 @@ export const changeStatus = async (
   })
 }
 
-// Fills an application's empty details from the job Jev checked for it: priority from
-// the match, location, a Remote label and a description. What the person set stays.
 export const fillFromJob = async (
   ctx: MutationCtx,
   userId: Id<"users">,

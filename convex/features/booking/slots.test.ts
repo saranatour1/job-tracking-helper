@@ -11,9 +11,7 @@ const hours: Hours = {
   horizonDays: 14,
   timeZone: "America/New_York",
 }
-// Thursday, October 29 2026, 08:00 UTC (4 AM in New York).
 const now = Date.UTC(2026, 9, 29, 8)
-// Monday, November 2 2026, 10:00 in New York (after DST ends: UTC-5).
 const monday10 = Date.UTC(2026, 10, 2, 15)
 
 describe("zones", () => {
@@ -41,7 +39,7 @@ describe("slotProblem", () => {
   it("refuses weekends, early mornings, short notice, far-off days and busy time", () => {
     const saturday10 = monday10 - 2 * 86_400_000
     expect(isOpen(hours, saturday10, saturday10 + 1_800_000, [], now)).toBe(false)
-    expect(slotProblem(hours, monday10 - 2 * 3_600_000, [], now)).toBeDefined() // 8 AM
+    expect(slotProblem(hours, monday10 - 2 * 3_600_000, [], now)).toBeDefined()
     expect(slotProblem(hours, now + 3_600_000, [], now)).toBeDefined()
     expect(slotProblem(hours, monday10 + 20 * 86_400_000, [], now)).toBeDefined()
     expect(
@@ -49,8 +47,8 @@ describe("slotProblem", () => {
     ).toBeDefined()
   })
   it("refuses a booking that runs past the end of the day", () => {
-    expect(slotProblem(hours, monday10 + 6.75 * 3_600_000, [], now)).toBeDefined() // 16:45
-    expect(slotProblem(hours, monday10 + 6.5 * 3_600_000, [], now)).toBeUndefined() // 16:30
+    expect(slotProblem(hours, monday10 + 6.75 * 3_600_000, [], now)).toBeDefined()
+    expect(slotProblem(hours, monday10 + 6.5 * 3_600_000, [], now)).toBeUndefined()
   })
   it("wants quarter hours", () => {
     expect(slotProblem(hours, monday10 + 60_000, [], now)).toBeDefined()

@@ -7,7 +7,6 @@ import { beforeEach, describe, expect, it, vi } from "vite-plus/test"
 
 import { api, internal } from "../../_generated/api"
 
-// What AI and the browser do, set per test.
 const mocks = vi.hoisted(() => ({
   decide: vi.fn(),
   generateText: vi.fn(),
@@ -121,10 +120,8 @@ describe("preparing without AI", () => {
       ["Phone", "+1 555 0100"],
       ["Why us?", undefined],
     ])
-    // It doesn't try to draft once AI has said no.
     expect(mocks.generateText).not.toHaveBeenCalled()
 
-    // The browser still opens, with the saved answer in the form.
     vi.clearAllMocks()
     mocks.interact.mockResolvedValueOnce({ value: form, liveUrl: "" }).mockResolvedValueOnce({
       value: { unfilled: [], errors: [] },
@@ -214,7 +211,6 @@ describe("with each application having its own address", () => {
     expect(opened.fields[0]).toMatchObject({ answer: "reach+hooli@example.com", source: "saved" })
     expect(mocks.interact.mock.calls.at(-1)![1]).toContain("reach+hooli@example.com")
 
-    // Sending moves that same application along, rather than adding a second.
     await t.mutation(internal.api.prefilled.finish, {
       userId: app!.userId,
       id,
@@ -314,7 +310,6 @@ describe("sending an answer to the open browser", () => {
   it("clears the mark when an answer changes, and takes it off the by-hand list once sent", async () => {
     const { as, id, row } = await openBrowser()
     const why = async () => (await row()).fields.find((f) => f.question === "Why us?")
-    // The same answer keeps its mark.
     await as.mutation(api.api.prefilled.setAnswer, { id, question: "Why us?", answer: "It fits." })
     expect((await why())?.fill).toBe("filled")
 

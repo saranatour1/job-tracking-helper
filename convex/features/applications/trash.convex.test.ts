@@ -95,7 +95,6 @@ describe("archive and trash", () => {
     await as.mutation(api.api.applications.trash, { id })
     await as.mutation(api.api.applications.deleteForever, { id })
     expect(await t.run((ctx) => ctx.db.get("applications", id))).toBeNull()
-    // The lead stays tracked, so loops won't offer the role again.
     const lead = await t.run((ctx) => ctx.db.get("jobLeads", leadId))
     expect(lead).toMatchObject({ status: "applied" })
     expect(lead?.applicationId).toBeUndefined()
@@ -112,7 +111,6 @@ describe("archive and trash", () => {
     expect(await t.mutation(internal.api.applications.sweep, {})).toEqual({ trashed: 1, due: false })
     expect((await trashedOf(as)).map((x) => x.company)).toEqual(["Acme", "Hooli"])
 
-    // 90 days by default: Hooli, trashed first, goes; Acme, trashed 31 days later, stays.
     vi.setSystemTime(Date.now() + 60 * day)
     expect(await t.mutation(internal.api.applications.sweep, {})).toEqual({ trashed: 0, due: true })
     await t.finishAllScheduledFunctions(vi.runAllTimers)

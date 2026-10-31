@@ -9,7 +9,6 @@ import type { ContactDetails } from "./validators"
 
 export const contactAad = (userId: string) => `contact:${userId}`
 
-// What learning from one email needs.
 const learnContext = internalQuery({
   args: { eventId: v.id("mailEvents") },
   returns: v.union(
@@ -50,8 +49,6 @@ const learnContext = internalQuery({
   },
 })
 
-// Scheduled with only the id, whenever an email lands on an application. Mail you sent teaches
-// the app who you wrote to; mail you got teaches it who wrote.
 const learn = internalAction({
   args: { eventId: v.id("mailEvents") },
   returns: v.null(),
@@ -83,7 +80,6 @@ const learn = internalAction({
       userId,
       key: await threadKeyOf(userId, email.toLowerCase()),
       details: await seal(k, JSON.stringify(details), contactAad(userId)),
-      // Writing to someone says nothing new about their name.
       keepName: context.sent,
       applicationId: context.applicationId,
       at: context.at,
@@ -120,7 +116,6 @@ const learned = internalMutation({
   },
 })
 
-// You added or changed one. An address you removed earlier is fine to use again.
 const store = internalMutation({
   args: {
     userId: v.id("users"),
@@ -178,7 +173,6 @@ const resealContact = internalMutation({
   returns: v.null(),
   handler: async (ctx, { id, from, details }) => {
     const row = await ctx.db.get("contacts", id)
-    // Skip one edited while this ran.
     if (row?.details === from) await ctx.db.patch("contacts", id, { details })
     return null
   },

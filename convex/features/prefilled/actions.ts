@@ -38,8 +38,6 @@ const problemOf = (cause: unknown) =>
     ? "Firecrawl is out of credits this month."
     : `Something went wrong: ${cause instanceof Error ? cause.message.slice(0, 200) : "unknown"}`
 
-/** Reads a posting's form and answers what it can from your saved answers, with no one
- * there. The browser closes at the end, and nothing is typed into the form. */
 const prepareForm = internalAction({
   args: { id: v.id("prefills") },
   returns: v.null(),
@@ -72,10 +70,7 @@ const prepareForm = internalAction({
       if (!read.fields?.length) return await stop("We couldn't find the application form.")
       const fields = fieldsOf(read.fields)
 
-      // Synonyms first, then Jev picks among saved answers for the rest.
       const plan = planFor(fields, found.answers)
-      // AI is a bonus from here on. If it's out of tokens or down, what matched by name still
-      // stands, and you can open the browser with those answers in it.
       let aiUnavailable = false as boolean
       const aiFailed = (cause: unknown) => {
         aiUnavailable = true
@@ -114,7 +109,6 @@ const prepareForm = internalAction({
       }
       let prepared = prefillFieldsFrom(fields, plan, resolve(plan.ask, found.answers, picks))
 
-      // Then a draft for the required questions still blank, for you to check.
       const had = found.fields.filter((f) => f.answer && (f.source === "you" || f.source === "ai"))
       const questions = [
         ...new Set(
@@ -126,7 +120,6 @@ const prepareForm = internalAction({
       if (!aiUnavailable && questions.length && (found.resumeText || found.answers.length)) {
         try {
           const result = await generateText({
-            // Resumes are personal, so only endpoints that keep nothing.
             model: convexGateway(draftModel, { zdr: true }),
             prompt: draftPrompt({ ...found, questions }),
             maxOutputTokens: 300 * questions.length,
@@ -144,7 +137,6 @@ const prepareForm = internalAction({
         credits,
         ...(aiUnavailable && { aiUnavailable }),
       })
-      // Only the questions' count and labels: answers' values never go in the log.
       log.set({
         outcome: "prepared",
         credits,
@@ -163,8 +155,6 @@ const prepareForm = internalAction({
   },
 })
 
-/** Open browser: opens the form, fills it and uploads the resume, then leaves the browser open
- * for you to check and press Submit. The app never presses it. */
 const startLive = action({
   args: { id: v.id("prefills") },
   returns: v.null(),
@@ -239,8 +229,6 @@ const startLive = action({
   },
 })
 
-/** Puts one question's answer in the open browser and points the form at it. A question
- * with no answer yet is just pointed at. About 1 credit, so it only runs when you ask. */
 const sendToForm = action({
   args: { id: v.id("prefills"), question: v.string() },
   returns: v.object({ filled: v.boolean() }),
@@ -286,8 +274,6 @@ const sendToForm = action({
   },
 })
 
-/** You say you've sent it. Looks for the form's thank-you. `anyway` is you saying it went
- * through even though we can't see one. */
 const confirmSent = action({
   args: { id: v.id("prefills"), anyway: v.optional(v.boolean()) },
   returns: v.object({ sent: v.boolean() }),
@@ -314,7 +300,6 @@ const confirmSent = action({
   },
 })
 
-/** You closed it without sending. */
 const cancelLive = action({
   args: { id: v.id("prefills") },
   returns: v.null(),
@@ -329,7 +314,6 @@ const cancelLive = action({
   },
 })
 
-/** Scheduled when a browser opens, so one left alone stops costing credits. */
 const closeLive = internalAction({
   args: { id: v.id("prefills"), scrapeId: v.string() },
   returns: v.null(),

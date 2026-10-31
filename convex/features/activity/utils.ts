@@ -9,13 +9,11 @@ type WorkLog = ReturnType<typeof workLog>
 
 const textOf = (value: unknown) => (typeof value === "string" && value ? value : undefined)
 
-// A thrown Error's event holds an object, and work that set its own reason holds a string.
 const errorOf = (event: Record<string, unknown>) =>
   textOf(event.error) ??
   textOf((event.error as { message?: unknown } | undefined)?.message) ??
   textOf(event.aiError)
 
-/** The row an evlog event becomes. Work with no owner, like refreshing a board, has none. */
 export const activityOf = (event: Record<string, unknown> | null): ActivityEvent | null => {
   const userId = textOf(event?.userId)
   if (!event || !userId) return null
@@ -43,13 +41,11 @@ export const activityOf = (event: Record<string, unknown> | null): ActivityEvent
   }
 }
 
-/** Emits the log line, and keeps it for its owner's Activity. */
 export const keepLog = async (ctx: MutationCtx, log: WorkLog) => {
   const row = activityOf(log.emit() as Record<string, unknown> | null)
   if (row) await ctx.db.insert("activityEvents", row)
 }
 
-/** The same from an action. A failed write mustn't fail the work it's describing. */
 export const keepLogFromAction = async (ctx: ActionCtx, log: WorkLog) => {
   const row = activityOf(log.emit() as Record<string, unknown> | null)
   if (row) await ctx.runMutation(internal.api.activity.record, { event: row }).catch(() => null)
@@ -59,7 +55,6 @@ type Links = {
   applicationId?: Id<"applications">
   prefillId?: Id<"prefills">
   automationId?: Id<"automations">
-  // Why it didn't work, for the one change that reports a failure instead of throwing.
   failed?: string
 }
 
@@ -71,7 +66,6 @@ const editLog = (userId: Id<"users">, work: string, summary: string, links: Link
   return log
 }
 
-/** Something you did yourself. The summary names no mail, contact or template contents. */
 export const logEdit = (
   ctx: MutationCtx,
   userId: Id<"users">,
@@ -88,7 +82,6 @@ export const logEditFromAction = (
   links?: Links
 ) => keepLogFromAction(ctx, editLog(userId, work, summary, links))
 
-/** A readable reason from something thrown, with the message a person was shown. */
 export const reasonOf = (cause: unknown) =>
   cause instanceof ConvexError && typeof cause.data === "string"
     ? cause.data
