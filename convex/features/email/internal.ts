@@ -124,8 +124,10 @@ const connectionsPage = internalQuery({
   returns: vConnectionsPage,
   handler: async (ctx, { cursor }) => {
     const result = await ctx.db.query("emailConnections").paginate({ cursor, numItems: 100 })
+    // Named, since a page also carries fields this doesn't return.
     return {
-      ...result,
+      isDone: result.isDone,
+      continueCursor: result.continueCursor,
       page: result.page.map(({ userId, details, token }) => ({ userId, details, token })),
     }
   },
@@ -143,6 +145,34 @@ const resealConnection = internalMutation({
   },
 })
 
+const notesPage = internalQuery({
+  args: { cursor: v.union(v.string(), v.null()) },
+  returns: v.object({
+    page: v.array(v.object({ id: v.id("mailEvents"), userId: v.id("users"), note: v.string() })),
+    isDone: v.boolean(),
+    continueCursor: v.string(),
+  }),
+  handler: async (ctx, { cursor }) => {
+    const result = await ctx.db.query("mailEvents").paginate({ cursor, numItems: 100 })
+    return {
+      page: result.page.map((e) => ({ id: e._id, userId: e.userId, note: e.note })),
+      isDone: result.isDone,
+      continueCursor: result.continueCursor,
+    }
+  },
+})
+
+const resealNote = internalMutation({
+  args: { id: v.id("mailEvents"), from: v.string(), note: v.string() },
+  returns: v.null(),
+  handler: async (ctx, { id, from, note }) => {
+    const event = await ctx.db.get("mailEvents", id)
+    // Skip one that changed while this ran.
+    if (event?.note === from) await ctx.db.patch("mailEvents", id, { note })
+    return null
+  },
+})
+
 // After adding a key to the end of SECRETS_KEYS, run `npx convex run email:resealAll`
 // to move every connection and email to it. Then the old key can be removed.
 const resealAll = internalAction({
@@ -150,12 +180,13 @@ const resealAll = internalAction({
   returns: v.object({
     connections: v.number(),
     emails: v.number(),
+    notes: v.number(),
     contacts: v.number(),
     drafts: v.number(),
   }),
   handler: async (ctx) => {
     const k = await keys()
-    const done = { connections: 0, emails: 0, contacts: 0, drafts: 0 }
+    const done = { connections: 0, emails: 0, notes: 0, contacts: 0, drafts: 0 }
     let cursor: string | null = null
     for (;;) {
       const result: {
@@ -192,6 +223,25 @@ const resealAll = internalAction({
           error: email.error && (await reseal(k, email.error, aad.email(email.owner))),
         })
         done.emails++
+      }
+      if (result.isDone) break
+      cursor = result.continueCursor
+    }
+    cursor = null
+    for (;;) {
+      const result: {
+        page: { id: Id<"mailEvents">; userId: string; note: string }[]
+        isDone: boolean
+        continueCursor: string
+      } = await ctx.runQuery(internal.email.notesPage, { cursor })
+      for (const event of result.page) {
+        if (!isStale(k, event.note)) continue
+        await ctx.runMutation(internal.email.resealNote, {
+          id: event.id,
+          from: event.note,
+          note: await reseal(k, event.note, aad.email(event.userId)),
+        })
+        done.notes++
       }
       if (result.isDone) break
       cursor = result.continueCursor
@@ -254,6 +304,8 @@ export const internalApi = {
   inboundTarget,
   addAliasRule,
   remove,
+  notesPage,
+  resealNote,
   connectionsPage,
   resealConnection,
   resealAll,

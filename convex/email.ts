@@ -28,6 +28,8 @@ export const {
   knownMessage,
   importTarget,
   addAliasRule,
+  notesPage,
+  resealNote,
   save,
   sealed,
   setInbound,
