@@ -82,7 +82,7 @@ const PrivacyPage = () => (
           allow it, also each email's sender, subject and up to 4,000 characters of its text.
         </li>
         <li>
-          <strong>Google (the Gemini model), through the Convex AI gateway.</strong> To draft
+          <strong>Anthropic (the Claude model), through the Convex AI gateway.</strong> To draft
           answers: the job posting, saved answers that aren't personal details, and up to 6,000
           characters of your resume. The app tries to remove your email and phone number first, but
           this is automatic and can miss things, and other personal details stay in. These requests

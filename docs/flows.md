@@ -537,7 +537,7 @@ posting stays in the catalog, since each has its own link.
      call: per question, which saved answer fits, or which option on a pick list, or none;
      a pick counts only when Jev is at least 60% sure. Jev never writes an answer.
    - **Draft:** a required free-text question still blank gets a short draft from a small
-     model through the gateway (`draftModel`, Gemini Flash Lite, on endpoints that keep no
+     model through the gateway (`draftModel`, Claude Haiku, on endpoints that keep no
      data). It sees your resume's text without email or phone, if you've pressed Review on
      the Resume page, your saved answers that aren't personal facts, and the posting.
      It leaves blank anything it can't back up from those. It never drafts a personal fact

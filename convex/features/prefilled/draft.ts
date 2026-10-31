@@ -2,7 +2,7 @@ import { type } from "arktype"
 import { isPersonalFact } from "./match"
 import { maxAnswer, type PrefillField } from "./validators"
 
-export const draftModel = "google/gemini-3.1-flash-lite"
+export const draftModel = "anthropic/claude-haiku-5.5"
 
 const maxResume = 6000
 const maxPosting = 4000

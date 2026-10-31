@@ -123,7 +123,8 @@ const prepareForm = internalAction({
             model: convexGateway(draftModel, { zdr: true }),
             prompt: draftPrompt({ ...found, questions }),
             maxOutputTokens: 300 * questions.length,
-            temperature: 0.2,
+            // Thinking would cost a third more and eat this limit, and a cut-off reply parses to no drafts.
+            providerOptions: { convexGateway: { reasoning: { enabled: false } } },
           })
           prepared = withDrafts(prepared, questions, draftsFrom(result.text, questions.length))
           log.set({ draftCost: Number(result.providerMetadata?.convexGateway?.cost ?? 0) })
