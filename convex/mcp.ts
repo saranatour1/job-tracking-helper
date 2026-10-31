@@ -3,7 +3,7 @@ import { createTool, McpServer } from "@convex-dev/mcp"
 import { ConvexError, v } from "convex/values"
 import { components, internal } from "./_generated/api"
 import type { Id } from "./_generated/dataModel"
-import { env } from "./_generated/server"
+import { action, env } from "./_generated/server"
 import { agentScopes } from "./features/agents/scopes"
 import { limits } from "./features/workflows/manager"
 import {
@@ -90,7 +90,7 @@ export const mcp: McpServer<Id<"users">> = new McpServer(components.mcp, {
     }),
     update_preferences: tool({
       description:
-        "Change only the preference fields passed. A list you pass replaces the whole list; use add_preferences to add to one. `answers` holds offer, leave, goodWeek, pay, visa and start. These feed morning searches and fit judgments. Standing answers you write stay off application forms until the person saves the Preferences page. Returns the result.",
+        "Change only the preference fields passed. A list you pass replaces the whole list; use add_preferences to add to one. `answers` holds offer, leave, goodWeek, pay, visa and start. These feed morning searches and fit judgments. Standing answers you write stay off application forms until the person saves the Preferences page, and you can't remove one they saved. Returns the result.",
       args: vPreferencesPatch,
       returns: vPreferencesOut,
       annotations: edit,
@@ -377,8 +377,24 @@ export const mcp: McpServer<Id<"users">> = new McpServer(components.mcp, {
   }),
 })
 
-export const { getAuthRequest, authorize, listConnections, revokeConnection, createApiKey } =
-  mcp.api({ getUserId: getAuthUserId })
+export const { getAuthRequest, authorize, listConnections, revokeConnection } = mcp.api({
+  getUserId: getAuthUserId,
+})
 
 // For the CLI and tests. Internal, so only deploy credentials can call it.
 export const { createApiKeyForUser } = mcp.internalApi()
+
+const maxConnections = 50
+
+// The component's, with a cap: it has none, and only lists a person's newest 200.
+export const createApiKey = action({
+  args: { name: v.string(), scopes: v.optional(v.array(v.string())) },
+  handler: async (ctx, args): Promise<{ id: string; apiKey: string; url: string }> => {
+    const userId = await getAuthUserId(ctx)
+    if (!userId) throw new ConvexError("Not signed in")
+    const connections = await ctx.runQuery(components.mcp.grants.list, { userId })
+    if (connections.length >= maxConnections)
+      throw new ConvexError(`You can keep ${maxConnections} connections. Disconnect one first.`)
+    return ctx.runAction(internal.mcp.createApiKeyForUser, { ...args, userId })
+  },
+})

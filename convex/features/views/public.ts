@@ -34,8 +34,9 @@ const create = arkMutation({
   args: ViewFields,
   returns: v.id("views"),
   handler: async (ctx, view) => {
+    const id = await createView(ctx, ctx.userId, view)
     await logEdit(ctx, ctx.userId, "view.create", "Saved a board view")
-    return createView(ctx, ctx.userId, view)
+    return id
   },
 })
 

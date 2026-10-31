@@ -41,9 +41,9 @@ const Decide = ({ requestId }: { requestId: string }) => {
   return (
     <>
       <p className="text-sm">
-        <strong className="font-medium">{request.clientName}</strong> (name not verified) wants to
-        use your Job Tracking Helper account. Agents pick their own names, so only allow this if you
-        just started it.
+        <strong className="font-medium">{request.clientName || "An unnamed agent"}</strong> (name
+        not verified) wants to use your Job Tracking Helper account. Agents pick their own names, so
+        only allow this if you just started it.
       </p>
       <div className="grid gap-1.5">
         <p className="text-sm font-medium">It will be able to:</p>

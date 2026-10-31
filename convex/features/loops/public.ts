@@ -40,8 +40,9 @@ const create = arkMutation({
   args: NewLoop,
   returns: v.id("loops"),
   handler: async (ctx, loop) => {
+    const id = await createLoop(ctx, ctx.userId, loop)
     await logEdit(ctx, ctx.userId, "loop.create", `Added the loop ${loop.name}`)
-    return createLoop(ctx, ctx.userId, loop)
+    return id
   },
 })
 

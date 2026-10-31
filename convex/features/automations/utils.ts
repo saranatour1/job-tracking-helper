@@ -57,10 +57,12 @@ export const saveWorkflow = async (
       const goal = await ctx.db.get("goals", step.goalId)
       if (goal?.userId !== userId) throw new ConvexError("That goal isn't yours, or it's gone.")
     }
+  // A deleted goal stays in a trigger with nothing in the builder to remove it, and just never fires.
   if (automation.trigger.kind === "goal")
-    for (const goalId of automation.trigger.goals)
-      if ((await ctx.db.get("goals", goalId))?.userId !== userId)
-        throw new ConvexError("That goal isn't yours, or it's gone.")
+    for (const goalId of automation.trigger.goals) {
+      const goal = await ctx.db.get("goals", goalId)
+      if (goal && goal.userId !== userId) throw new ConvexError("That goal isn't yours.")
+    }
   const row = { ...automation, name, nextRunAt: nextRunOf(automation.trigger, automation.active) }
   if (id) {
     await own(ctx, userId, id)

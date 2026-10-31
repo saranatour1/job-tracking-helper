@@ -6,7 +6,7 @@ import { checked } from "../../lib/ark"
 import { logEdit } from "../activity/utils"
 import { preparePosting, withAnswer } from "../prefilled/utils"
 import { statusFrom } from "../prefilled/match"
-import { maxListed, SetAnswer } from "../prefilled/validators"
+import { maxListed, prefillStatuses, SetAnswer } from "../prefilled/validators"
 import { saveWorkflow } from "../automations/utils"
 import { limits as workflowLimits } from "../automations/validators"
 import { openedContacts } from "../contacts/public"
@@ -28,7 +28,7 @@ import { Preferences } from "../preferences/validators"
 import { createView } from "../views/public"
 import { maxViews, ViewFields } from "../views/validators"
 import { limits } from "../workflows/manager"
-import { mine, revokeAgents } from "./utils"
+import { mine, revokeBatch } from "./utils"
 import {
   vContactOut,
   vGoalArgs,
@@ -120,9 +120,10 @@ const searchJobsFor = internalQuery({
       remoteOnly,
       since,
       fits: fitsOnly,
-      paginationOpts: { numItems: limit, cursor: null },
+      // ponytail: fits are filtered after the page, so this looks through the best 100.
+      paginationOpts: { numItems: fitsOnly ? 100 : limit, cursor: null },
     })
-    return page.map(({ _id, ...job }) => ({ id: _id, ...job }))
+    return page.slice(0, limit).map(({ _id, ...job }) => ({ id: _id, ...job }))
   },
 })
 
@@ -304,19 +305,24 @@ const needsAnswer = (f: Doc<"prefills">["fields"][number]) =>
 const prefills = internalQuery({
   args: {
     userId: vUserId,
-    status: v.optional(v.string()),
+    status: v.optional(v.union(...prefillStatuses.map((s) => v.literal(s)))),
     limit: v.number(),
   },
   returns: v.array(vPrefillRowOut),
-  handler: async (ctx, { userId, status, limit }) =>
-    (
-      await ctx.db
-        .query("prefills")
-        .withIndex("by_userId", (q) => q.eq("userId", userId))
-        .order("desc")
-        .take(maxListed)
-    )
-      .filter((row) => (status ? row.status === status : row.status !== "dismissed"))
+  handler: async (ctx, { userId, status, limit }) => {
+    const rows = status
+      ? await ctx.db
+          .query("prefills")
+          .withIndex("by_userId_and_status", (q) => q.eq("userId", userId).eq("status", status))
+          .order("desc")
+          .take(limit)
+      : await ctx.db
+          .query("prefills")
+          .withIndex("by_userId", (q) => q.eq("userId", userId))
+          .order("desc")
+          .take(maxListed)
+    return rows
+      .filter((row) => status || row.status !== "dismissed")
       .slice(0, limit)
       .map((row) => ({
         id: row._id,
@@ -325,7 +331,8 @@ const prefills = internalQuery({
         status: row.status,
         unanswered: row.fields.filter(needsAnswer).length,
         appUrl: appUrlOf("prefilled", row._id),
-      })),
+      }))
+  },
 })
 
 const prefillOut = (row: Doc<"prefills">) => ({
@@ -487,14 +494,15 @@ const contacts = internalQuery({
   args: { userId: vUserId, query: v.optional(v.string()), limit: v.number() },
   returns: v.array(vContactOut),
   handler: async (ctx, { userId, query, limit }) => {
+    const words = query?.trim().toLowerCase()
     // ponytail: details are sealed, so a search opens the newest 200. An index on sealed text
     // can't exist, so older contacts need the Contacts page.
     const rows = await ctx.db
       .query("contacts")
       .withIndex("by_userId_and_lastAt", (q) => q.eq("userId", userId))
       .order("desc")
-      .take(200)
-    const words = query?.trim().toLowerCase()
+      // Room for hidden ones, which come out after this.
+      .take(words ? 200 : limit + 10)
     return (await openedContacts(userId, rows))
       .filter(
         (c) =>
@@ -594,12 +602,12 @@ const notifyUser = internalMutation({
   },
 })
 
-// See removeAgents: this one catches a code approved just before the account went.
+// See removeAgents.
 const revokeAgain = internalMutation({
-  args: { userId: vUserId },
+  args: { userId: vUserId, before: v.number() },
   returns: v.null(),
-  handler: async (ctx, { userId }) => {
-    await revokeAgents(ctx, userId)
+  handler: async (ctx, { userId, before }) => {
+    await revokeBatch(ctx, userId, before)
     return null
   },
 })

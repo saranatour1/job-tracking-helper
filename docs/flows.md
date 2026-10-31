@@ -939,7 +939,7 @@ Prefilled applications, Interface and theme, Account)
    shows the agent's name as not verified, what it asks to do and where you go back to. Allow
    or Deny is your click. Each approval is its own connection.
 2. **Connect with a key.** Under Account, name a key, choose Read only if you want, and press
-   Create. The key shows once, with the command for Claude Code.
+   Create. The key shows once, with the command for Claude Code. You can keep 50 connections.
 3. **Disconnect.** Account lists every connection and when it was last used. Disconnect stops
    it right away. Deleting your account disconnects them all.
 4. **What an agent can do** (`convex/mcp.ts`), each behind a scope:
@@ -960,7 +960,8 @@ Prefilled applications, Interface and theme, Account)
    - Pass an answer off as yours. Its answers are saved as `ai` drafts, so the form stays at needs
      answers until you check them.
    - Fill forms with its own words. Standing answers it writes (`byAgent` on `profileEntries`) stay
-     off application forms until you read them and press Save on Preferences.
+     off application forms until you read them and press Save on Preferences. It can't remove an
+     answer you saved.
    - Turn on or run a workflow. Saving one always leaves it off, even one that was on, because
      workflows can send email. Until you open it and save it in the builder (`byAgent` on
      `automations`), the switch and Run now both refuse.

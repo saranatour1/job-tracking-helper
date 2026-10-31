@@ -366,7 +366,7 @@ const Editor = ({ saved }: { saved?: Doc<"automations"> }) => {
             </Button>
             <Button
               size="sm"
-              disabled={saved && !dirty}
+              disabled={saved && !dirty && !saved.byAgent}
               onClick={() => startTransition(() => act("save"))}
             >
               Save

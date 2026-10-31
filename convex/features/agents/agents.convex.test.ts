@@ -11,7 +11,7 @@ import type { Id } from "../../_generated/dataModel"
 import notificationsSchema from "../../components/notifications/schema"
 import schema from "../../schema"
 import { limits } from "../workflows/manager"
-import { revokeAgents } from "./utils"
+import { revokeBatch } from "./utils"
 
 vi.stubEnv("CONVEX_SITE_URL", "https://test.convex.site")
 vi.stubEnv("SITE_URL", "https://app.example.com")
@@ -405,11 +405,100 @@ describe("the MCP server", () => {
     expect((await call(key, "notify_user", { message: "Again" })).data).toEqual({ sent: false })
   })
 
-  it("stops working when the account's agents are revoked", async () => {
+  it("stops working when the account's agents are revoked, and keeps later ones", async () => {
     const { t, sam, keyOf, call } = await setup()
     const key = await keyOf(sam)
     expect((await call(key, "get_preferences")).status).toBe(200)
-    await t.run((ctx) => revokeAgents(ctx, sam))
+    await t.run((ctx) => revokeBatch(ctx, sam, 0))
+    expect((await call(key, "get_preferences")).status).toBe(200)
+    await t.run((ctx) => revokeBatch(ctx, sam, Date.now() + 1000))
     expect((await call(key, "get_preferences")).status).toBe(401)
+  })
+
+  it("caps API keys per person", async () => {
+    const { t, sam, keyOf } = await setup()
+    for (let i = 0; i < 50; i++) await keyOf(sam)
+    await expect(
+      t.withIdentity({ subject: sam }).action(api.mcp.createApiKey, { name: "One more" })
+    ).rejects.toThrow(/50 connections/)
+  })
+
+  it("won't remove an answer the person saved, but can remove its own", async () => {
+    const { t, sam, keyOf, call } = await setup()
+    const key = await keyOf(sam)
+    const form = {
+      interests: [],
+      avoid: [],
+      growthGoal: "",
+      skillsToBuild: [],
+      locations: [],
+      workMode: "any" as const,
+      companies: [],
+      companyTraits: "",
+      redFlagCompanies: [],
+      redFlags: "",
+      identity: "",
+      answers: { offer: "", leave: "", goodWeek: "", pay: "100k", visa: "", start: "" },
+      custom: [{ question: "Pets?", answer: "Yes" }],
+    }
+    await t.withIdentity({ subject: sam }).mutation(api.api.preferences.save, form)
+    for (const args of [{ custom: [] }, { answers: { pay: "" } }]) {
+      const { isError, text } = await call(key, "update_preferences", args)
+      expect(isError).toBe(true)
+      expect(text).toContain("can't remove")
+    }
+    await call(key, "update_preferences", { answers: { visa: "None" } })
+    expect((await call(key, "update_preferences", { answers: { visa: "" } })).isError).toBe(false)
+  })
+
+  it("finds fits and statuses past the first rows", async () => {
+    const { t, sam, keyOf, call } = await setup()
+    const key = await keyOf(sam)
+    const remoteJob = await t.run(async (ctx) => {
+      const boardId = await ctx.db.insert("jobBoards", {
+        kind: "greenhouse",
+        slug: "hooli",
+        company: "Hooli",
+        addedAt: 0,
+        jobs: 0,
+      })
+      const insert = async (i: number, remote: boolean, fit: number) => {
+        const url = `https://boards.greenhouse.io/hooli/jobs/${i}`
+        const job = { boardId, url, urlKey: url, company: "Hooli", location: "", remote }
+        const jobId = await ctx.db.insert("jobs", {
+          ...job,
+          title: `Role ${i}`,
+          postedAt: 0,
+          seenAt: 0,
+          text: "",
+        })
+        await ctx.db.insert("jobLeads", {
+          userId: sam,
+          jobId,
+          url,
+          urlKey: url,
+          title: `Role ${i}`,
+          company: "Hooli",
+          snippet: "",
+          fit,
+          reasons: [],
+          status: "new",
+          verdict: "fit",
+        })
+        return jobId
+      }
+      for (let i = 0; i < 12; i++) await insert(i, false, 90)
+      return insert(12, true, 50)
+    })
+    const fits = await call(key, "search_jobs", { fitsOnly: true, remoteOnly: true, limit: 5 })
+    expect(fits.data).toMatchObject({ jobs: [{ id: remoteJob }] })
+
+    await t.run(async (ctx) => {
+      const row = { userId: sam, urlKey: "k", url: "u", company: "C", title: "T", fields: [] }
+      await ctx.db.insert("prefills", { ...row, status: "needsAnswers" })
+      for (let i = 0; i < 100; i++) await ctx.db.insert("prefills", { ...row, status: "dismissed" })
+    })
+    const older = await call(key, "list_prepared_applications", { status: "needsAnswers" })
+    expect(older.data).toMatchObject({ applications: [{ status: "needsAnswers" }] })
   })
 })
