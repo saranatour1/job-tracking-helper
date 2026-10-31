@@ -443,6 +443,12 @@ most 3,500 characters with its title line (`convex/lib/markdown.ts`, and `maxTex
 which never draws raw HTML and sanitizes the tree again (`src/components/markdown.tsx`).
 Previews are the same text as plain words.
 
+**Duplicates:** a posting is saved once, however its link is written: tracking parameters,
+`www`, an apply page, or a Greenhouse number on the board or the company's own site
+(`urlKey`). Postings with the same company, title and place are one role (`roleKey`): the
+list shows them as one row with "N openings", with Jev's verdict if one of them has it. Each
+posting stays in the catalog, since each has its own link.
+
 **Rules:** the catalog is shared by everyone; what Jev thought of a role is yours alone.
 
 **Files:** `src/features/jobs/`, `convex/features/jobs/`.
@@ -598,7 +604,8 @@ call, `internal.ts` the row's steps, `utils.ts` starting one and preparing a loo
    1. Builds searches from your Preferences.
    2. Searches for new job boards with the first source that has credits left, and
       fetches them.
-   3. Picks catalog roles you haven't been shown that pass your hard rules.
+   3. Picks catalog roles you haven't been shown that pass your hard rules, one posting
+      per role, so another opening or a repost of a role you've seen isn't judged again.
    4. Hands them all to the batch worker for Jev, and waits for every verdict.
 3. **Jev's judgment per role:** how well it matches (unrelated to strong), then whether
    each need holds: the place, pay, visa, things to avoid, interests and skills. A role

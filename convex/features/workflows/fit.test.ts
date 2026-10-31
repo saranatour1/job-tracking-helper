@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vite-plus/test"
 
 import { loopTemplates } from "../loops/catalog"
-import { criteriaOf, isPostingUrl, queriesOf, urlKey } from "./fit"
+import { criteriaOf, groupRoles, isPostingUrl, queriesOf, roleKey, urlKey } from "./fit"
 
 const tags = [
   { kind: "interest" as const, value: "developer tools" },
@@ -54,9 +54,45 @@ describe("urlKey", () => {
       "acme.jobs.personio.de/job/12"
     )
     expect(urlKey("https://jobs.lever.co/acme/abc/apply")).toBe("jobs.lever.co/acme/abc")
-    expect(urlKey("https://boards.greenhouse.io/acme/jobs/1")).toBe(
-      "job-boards.greenhouse.io/acme/jobs/1"
+    expect(urlKey("https://acme.jobs.personio.com/job/12")).toBe("acme.jobs.personio.de/job/12")
+  })
+
+  it("finds a Greenhouse posting by its number, wherever the link points", () => {
+    for (const url of [
+      "https://boards.greenhouse.io/coinbase/jobs/8047150",
+      "https://job-boards.greenhouse.io/coinbase/jobs/8047150?gh_src=x",
+      "https://job-boards.greenhouse.io/embed/job_app?for=coinbase&token=8047150",
+      "https://www.coinbase.com/careers/positions/8047150?gh_jid=8047150",
+      "https://jobs.example.com/jobs?gh_jid=8047150&gh_jid=8047150",
+    ])
+      expect(urlKey(url)).toBe("greenhouse/8047150")
+  })
+
+  it("keeps other sites' jobs apart", () => {
+    expect(urlKey("https://example.com/jobs/8047150")).toBe("example.com/jobs/8047150")
+    expect(urlKey("https://example.com/jobs?gh_jid=abc")).toBe("example.com/jobs?gh_jid=abc")
+  })
+})
+
+describe("roleKey", () => {
+  const role = { company: "Coinbase", title: "Support  Specialist", location: "Manila" }
+
+  it("ignores case and spacing", () => {
+    expect(roleKey({ company: "coinbase ", title: "support specialist", location: "MANILA" })).toBe(
+      roleKey(role)
     )
+  })
+
+  it("keeps the same title elsewhere, or at another company, apart", () => {
+    expect(roleKey({ ...role, location: "Hyderabad" })).not.toBe(roleKey(role))
+    expect(roleKey({ ...role, company: "Stripe" })).not.toBe(roleKey(role))
+  })
+
+  it("groups postings of a role under the first, in order", () => {
+    const a = { ...role, id: 1 }
+    const b = { ...role, location: "Hyderabad", id: 2 }
+    const c = { ...role, id: 3 }
+    expect(groupRoles([a, b, c])).toEqual([[a, c], [b]])
   })
 })
 

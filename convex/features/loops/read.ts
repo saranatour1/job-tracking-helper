@@ -46,15 +46,13 @@ export const readAndJudge = async (
   link: string,
   key: string
 ): Promise<{ lead: Infer<typeof vPasted>; credits: number }> => {
+  // Even off a board: a company's own careers link can name a posting already in the catalog.
+  let job: Doc<"jobs"> | null = await ctx.runQuery(internal.api.jobs.byUrlKey, { urlKey: key })
   const board = boardOf(link)
-  let job: Doc<"jobs"> | null = null
-  if (board) {
+  if (!job && board) {
+    const boardId = await ctx.runMutation(internal.api.jobs.ensureBoard, board)
+    await ctx.runAction(internal.api.jobs.fetchBoard, { boardId }).catch(() => null)
     job = await ctx.runQuery(internal.api.jobs.byUrlKey, { urlKey: key })
-    if (!job) {
-      const boardId = await ctx.runMutation(internal.api.jobs.ensureBoard, board)
-      await ctx.runAction(internal.api.jobs.fetchBoard, { boardId }).catch(() => null)
-      job = await ctx.runQuery(internal.api.jobs.byUrlKey, { urlKey: key })
-    }
   }
   const page = job ?? (await scrape(link))
   const profile = await ctx.runQuery(internal.api.loops.profileForLink, { userId })
