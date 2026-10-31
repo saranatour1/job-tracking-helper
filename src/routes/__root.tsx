@@ -41,7 +41,7 @@ const RootDocument = ({ children }: { children: React.ReactNode }) => {
         {/* Booking guests never agreed to analytics, so their pages stay out of it. */}
         {!path.startsWith("/book/") && (
           <Databuddy
-            clientId="8ed4f691-f76a-400e-b1fb-a9233678940e"
+            clientId={site.databuddyId}
             trackHashChanges={true}
             trackAttributes={true}
             trackOutgoingLinks={true}
