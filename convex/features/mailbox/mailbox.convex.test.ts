@@ -154,6 +154,24 @@ describe("folders", () => {
     expect(await as.query(api.email.recentMail, {})).toHaveLength(0)
   })
 
+  it("says whether you sent an email, so a reply knows who to go to", async () => {
+    const { as, receive, box, hooli } = await setup()
+    await receive({})
+    const [got] = await box("inbox")
+    expect((await as.query(api.mailbox.content, { eventId: got!.id }))?.sent).toBe(false)
+    await as.action(api.email.sendFromApplication, {
+      applicationId: hooli,
+      to: "pat@hooli.com",
+      subject: "Sent one",
+      text: "Hi",
+    })
+    const [sent] = await box("sent")
+    expect(await as.query(api.mailbox.content, { eventId: sent!.id })).toMatchObject({
+      sent: true,
+      to: "pat@hooli.com",
+    })
+  })
+
   it("pages, so a big folder only opens what's on screen", async () => {
     const { as, receive } = await setup()
     await receive({ subject: "One" })

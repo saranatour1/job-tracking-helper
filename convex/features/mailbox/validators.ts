@@ -98,5 +98,6 @@ export const vMailContent = v.union(
     text: v.string(),
     html: v.optional(v.string()),
     attachments: v.array(v.string()),
+    sent: v.boolean(),
   })
 )

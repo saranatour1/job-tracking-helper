@@ -157,6 +157,17 @@ const LabelsMenu = ({ row }: { row: Row }) => {
   )
 }
 
+const ReplyButton = ({ id, className }: { id: Row["id"]; className?: string }) => (
+  <Button
+    size="xs"
+    variant="outline"
+    className={className}
+    render={<Link from="/email" search={(s) => ({ ...s, reply: id })} />}
+  >
+    Reply
+  </Button>
+)
+
 const Reader = ({ row }: { row: Row }) => {
   const mail = useQuery(api.mailbox.content, { eventId: row.id })
   const move = useMutation(api.mailbox.move)
@@ -169,15 +180,7 @@ const Reader = ({ row }: { row: Row }) => {
         <Button size="xs" variant="ghost" className="md:hidden" onClick={close}>
           Back
         </Button>
-        {!row.sent && row.box !== "trash" && (
-          <Button
-            size="xs"
-            variant="outline"
-            render={<Link from="/email" search={(s) => ({ ...s, reply: row.id })} />}
-          >
-            Reply
-          </Button>
-        )}
+        {row.box !== "trash" && <ReplyButton id={row.id} />}
         {row.box === "trash" || row.box === "archived" ? (
           <Button
             size="xs"
@@ -268,7 +271,7 @@ const Reader = ({ row }: { row: Row }) => {
 const MailRow = ({ row, open }: { row: Row; open: boolean }) => {
   const markRead = useMutation(api.mailbox.markRead)
   return (
-    <li>
+    <li className="relative">
       <Link
         from="/email"
         search={(s) => ({ ...s, open: row.id })}
@@ -287,7 +290,7 @@ const MailRow = ({ row, open }: { row: Row; open: boolean }) => {
           </span>
           <span className="text-muted-foreground shrink-0 text-xs">{shortDate(row.at)}</span>
         </span>
-        <span className={cn("truncate", !row.read ? "font-medium" : "text-muted-foreground")}>
+        <span className={cn("truncate pe-14", !row.read ? "font-medium" : "text-muted-foreground")}>
           {row.subject}
         </span>
         {(row.company || row.labels.length > 0) && (
@@ -305,6 +308,7 @@ const MailRow = ({ row, open }: { row: Row; open: boolean }) => {
           </span>
         )}
       </Link>
+      {row.box !== "trash" && <ReplyButton id={row.id} className="absolute end-2 bottom-2" />}
     </li>
   )
 }
@@ -694,7 +698,8 @@ const FromReply = (props: {
   return (
     <ComposeForm
       start={{
-        to: mail.from,
+        // Your own sent mail gets answered to whoever you sent it to.
+        to: mail.sent ? mail.to : mail.from,
         subject: /^re:/i.test(mail.subject) ? mail.subject : `Re: ${mail.subject}`,
         replyTo: props.id,
       }}

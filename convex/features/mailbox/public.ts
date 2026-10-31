@@ -118,6 +118,7 @@ const content = authedQuery({
       text: (mail.text?.trim() || textOfHtml(mail.html ?? "")).slice(0, 100_000),
       ...(mail.html && { html: mail.html }),
       attachments: mail.attachments,
+      sent: event.by === "sent",
     }
   },
 })
