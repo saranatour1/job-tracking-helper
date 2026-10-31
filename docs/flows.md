@@ -69,16 +69,16 @@ A repeat gets a number (`-2`), and a real id still finds its row, so old links w
 
 ### Who acts
 
-| Actor                         | What it does                                                                                                                                                                                    | Where                                                                                                                                               |
-| ----------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------- |
-| You                           | Everything in the pages below                                                                                                                                                                   | `src/features/*`                                                                                                                                    |
-| A guest on a booking page     | Books time with you, signed in or not                                                                                                                                                           | `/book/$slug`                                                                                                                                       |
-| Crons                         | Start due loops (every 15 minutes), start due workflows (every 5 minutes), refresh job boards (hourly), sweep the Archive, Trash and Activity (daily), restart stuck workers (every 15 minutes) | `convex/crons.ts`                                                                                                                                   |
-| The inbound email hook        | Takes mail your Cloudflare Worker forwards                                                                                                                                                      | `POST /email/inbound/<id>`, `convex/http.ts`                                                                                                        |
-| Jev                           | Judges roles for loops and pasted links, sorts mail, reviews resumes, re-evaluates goals, picks saved answers for forms, answers Ask Jev, drafts workflows from a sentence                      | `convex/features/workflows/judge.ts`, `email/jev.ts`, `preferences/resume.ts`, `goals/actions.ts`, `prefilled/actions.ts`, `automations/actions.ts` |
-| The batch worker (`readPool`) | Fetches job boards and runs Jev's judgments, 8 at a time, with up to 3 attempts each                                                                                                            | `convex/features/workflows/manager.ts`                                                                                                              |
-| Workflows                     | Runs the steps people build                                                                                                                                                                     | `convex/features/automations/engine.ts`                                                                                                             |
-| An agent you connect          | Calls the tools you allowed, as you                                                                                                                                                             | `POST /mcp`, `convex/mcp.ts`                                                                                                                        |
+| Actor                         | What it does                                                                                                                                                                                                                 | Where                                                                                                                                               |
+| ----------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------- |
+| You                           | Everything in the pages below                                                                                                                                                                                                | `src/features/*`                                                                                                                                    |
+| A guest on a booking page     | Books time with you, signed in or not                                                                                                                                                                                        | `/book/$slug`                                                                                                                                       |
+| Crons                         | Start due loops (every 15 minutes), start due workflows (every 5 minutes), refresh job boards (hourly), research companies (hourly), sweep the Archive, Trash and Activity (daily), restart stuck workers (every 15 minutes) | `convex/crons.ts`                                                                                                                                   |
+| The inbound email hook        | Takes mail your Cloudflare Worker forwards                                                                                                                                                                                   | `POST /email/inbound/<id>`, `convex/http.ts`                                                                                                        |
+| Jev                           | Judges roles for loops and pasted links, sorts mail, reviews resumes, re-evaluates goals, picks saved answers for forms, answers Ask Jev, drafts workflows from a sentence                                                   | `convex/features/workflows/judge.ts`, `email/jev.ts`, `preferences/resume.ts`, `goals/actions.ts`, `prefilled/actions.ts`, `automations/actions.ts` |
+| The batch worker (`readPool`) | Fetches job boards, researches companies and runs Jev's judgments, 8 at a time, with up to 3 attempts each                                                                                                                   | `convex/features/workflows/manager.ts`                                                                                                              |
+| Workflows                     | Runs the steps people build                                                                                                                                                                                                  | `convex/features/automations/engine.ts`                                                                                                             |
+| An agent you connect          | Calls the tools you allowed, as you                                                                                                                                                                                          | `POST /mcp`, `convex/mcp.ts`                                                                                                                        |
 
 ### Events that start workflows
 
@@ -103,8 +103,8 @@ It only schedules a check when you have an active workflow with that kind of tri
 ### Optional keys
 
 `FIRECRAWL_API_KEY` and `CONTEXT_DEV_API_KEY` let loops search for new job boards. A source
-without a key is skipped. Firecrawl also reads pasted links that aren't on a known board, and
-preparing applications needs it.
+without a key is skipped. Firecrawl also reads pasted links that aren't on a known board, finds
+company sites for Jobs, and preparing applications needs it.
 
 ### Public pages and crawlers
 
@@ -410,6 +410,8 @@ and loops can be picked, edited or deleted.
 - As a job seeker, I want to search open roles from company job boards, newest first or
   by what I type.
 - As a job seeker, I want to see which roles a loop already judged for me.
+- As a job seeker, I want to see what's publicly known about a company, so I can judge for
+  myself whether it's real before I apply.
 
 **Flows**
 
@@ -423,6 +425,20 @@ and loops can be picked, edited or deleted.
 3. Each role shows its company, title, where, how long ago it was posted, and badges:
    Jev's verdict for you ("Fits you · 69%", "Not a fit"), New (posted in the last two
    days) and Remote. Compact turns them into one line each.
+   It also shows what was found about the company, never a verdict: most real employers
+   aren't in YC, and a scammer can copy a real name.
+   - **On stripe.com:** the board's postings live on the company's own site.
+   - **Name matches hooli.xyz:** only the name led there. The badges after it are about that
+     site, and a copied name would match too.
+   - **YC Summer 2009:** that site is in the YC directory, and the badge opens its page. It
+     adds Inactive, Acquired or Public when that applies.
+   - **Domain 31 years:** when the site was registered, marked under a year old.
+   - **Unverified:** no site found, not researched yet, or a role from a board of many
+     companies (Arbeitsagentur, Remote OK, Hacker News), which isn't researched.
+   - **LinkedIn:** a search link in the full view. Nothing is read from LinkedIn.
+
+   Compact shows only the first of these.
+
 4. "More like this" searches by a role's title; the link icon opens the posting.
    Applications link here too.
 5. **Prepare** makes the role a prefilled application (`api.prefilled.prepare`); see
@@ -442,6 +458,34 @@ more request. A SmartRecruiters board keeps its newest 100 roles, and an Arbeits
 its first 50. An Arbeitsagentur board is one saved search ("what" and "where"), named
 `Arbeitsagentur: what, where` in the company filter. One with no roles is removed, and the next
 run asks again. Remote OK's roles say "via Remote OK", as its terms ask.
+
+**Researching companies:** every hour, and as soon as the cron is first deployed
+(`internal.api.jobs.researchDue`), up to 25 boards that have roles and were never researched,
+or not for 30 days, go to `internal.api.jobs.researchBoards`. A full batch starts the next,
+so a backfill doesn't wait for the hour. A new board shows Unverified for up to an hour after
+its first fetch.
+
+1. The site comes from where most of the board's 20 newest postings live, if that isn't a
+   job board's own host. In practice that's Greenhouse, whose feed can link to the company's
+   own careers page.
+2. Otherwise Firecrawl searches for the company's name, 4 searches a minute, about 2 credits
+   each, charged to `sourceUsage`. Only a domain that is the whole name counts (`stripe.com` or
+   `getcursor.com` for Cursor, never `open.com` for Open Energy Transition). A site found this
+   way isn't searched for again. Without a key, or near the month's limit, this step is
+   skipped and the board stays Unverified until its next research.
+3. YC details come from the community list (`yc-oss.github.io`), read once a batch and
+   matched on the site's domain, never the name.
+4. The site's age comes from RDAP, through the registry IANA lists for its suffix. Some
+   suffixes have none (`.co`, `.de`, `.io`, `.so`), so those show no age.
+
+A search that may work later (a 429 or a 5xx) fails the batch and leaves its boards due. The
+batch worker tries again, then the next hour does.
+
+**Known limits:** a Greenhouse board chooses where its postings link, so "On stripe.com" takes
+the feed's word for it. A company hiring on a careers-only domain misses YC, which lists its
+main site: Instacart posts on `instacart.careers`, and YC has `instacart.com`. The last two
+labels of a host count as its domain, plus suffixes like `co.uk`, so rarer shared suffixes
+can come out wrong.
 
 **Postings:** a board's HTML is parsed with rehype, cleaned with rehype-sanitize (no
 scripts, styles, event handlers, `javascript:` links or images) and kept as Markdown, at

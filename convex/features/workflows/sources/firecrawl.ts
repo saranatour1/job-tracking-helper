@@ -14,6 +14,13 @@ export const parseSearch = (json: unknown, limit: number) => {
   return { postings, credits: count(body.creditsUsed, Math.ceil(limit / 10) * 2) }
 }
 
+/** The whole web, for what isn't a job posting. */
+export const webSearch = async (apiKey: string, query: string, limit: number) =>
+  parseSearch(
+    await post("https://api.firecrawl.dev/v2/search", apiKey, { query, limit }, outOfCredits),
+    limit
+  )
+
 export const firecrawl: Source = {
   search: async (apiKey, query, limit, postedToday, domains) =>
     parseSearch(

@@ -4,8 +4,37 @@ import { internalMutation, internalQuery } from "../_generated/server"
 import { fitOf } from "../features/applications/utils"
 import { syncMailSummary } from "../features/email/utils"
 import { companyOf, nonTechStarters, techFeeds } from "../features/jobs/boards"
+import { isCompanyBoard } from "../features/jobs/boards"
 import { countCatalog } from "../features/jobs/utils"
 import { roleKey, urlKey } from "../features/workflows/fit"
+
+// One-off: researches every board that has roles, in batches, until none is left. The cron also
+// starts this as soon as it's deployed, so here it's for checking on or nudging. Spends about 2
+// Firecrawl credits for each board not posting on its own site, 4 searches a minute, and stops
+// searching near the month's limit. Safe to run again:
+//   npx convex run api/migrations:fillCompanies
+//   npx convex run api/migrations:companiesLeft
+// Delete it once that's done everywhere.
+export const fillCompanies = internalMutation({
+  args: {},
+  returns: v.null(),
+  handler: async (ctx) => {
+    await ctx.scheduler.runAfter(0, internal.api.jobs.researchDue, {})
+    return null
+  },
+})
+
+// Company boards with roles and no company row. Zero once the fill has finished.
+export const companiesLeft = internalQuery({
+  args: {},
+  returns: v.number(),
+  handler: async (ctx) => {
+    let left = 0
+    for await (const board of ctx.db.query("jobBoards"))
+      if (board.jobs && !board.companyId && isCompanyBoard(board.kind)) left++
+    return left
+  },
+})
 
 // One-off: moves stored postings to the keys that stay the same across links, and gives leads
 // their role. Until it's run, a refresh saves Greenhouse roles a second time and loops can show

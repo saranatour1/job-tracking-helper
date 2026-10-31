@@ -85,7 +85,7 @@ docs/
 | Backend       | Convex, Convex Auth v2, convex-helpers, batch worker for big deletes    |
 | Agents        | `@convex-dev/mcp`                                                       |
 | AI            | Jev and Gemini Flash Lite, through the Convex AI gateway and the AI SDK |
-| Forms and web | Firecrawl                                                               |
+| Forms and web | Firecrawl, RDAP, the community YC list                                  |
 | Validation    | arktype                                                                 |
 | Type checking | tsrs                                                                    |
 | Convex lint   | `@convex-dev/eslint-plugin`, loaded by oxlint                           |

@@ -107,6 +107,7 @@ import type * as features_goals_utils from "../features/goals/utils.js";
 import type * as features_goals_validators from "../features/goals/validators.js";
 import type * as features_jobs_actions from "../features/jobs/actions.js";
 import type * as features_jobs_boards from "../features/jobs/boards.js";
+import type * as features_jobs_companies from "../features/jobs/companies.js";
 import type * as features_jobs_index from "../features/jobs/index.js";
 import type * as features_jobs_internal from "../features/jobs/internal.js";
 import type * as features_jobs_leads from "../features/jobs/leads.js";
@@ -299,6 +300,7 @@ declare const fullApi: ApiFromModules<{
   "features/goals/validators": typeof features_goals_validators;
   "features/jobs/actions": typeof features_jobs_actions;
   "features/jobs/boards": typeof features_jobs_boards;
+  "features/jobs/companies": typeof features_jobs_companies;
   "features/jobs/index": typeof features_jobs_index;
   "features/jobs/internal": typeof features_jobs_internal;
   "features/jobs/leads": typeof features_jobs_leads;

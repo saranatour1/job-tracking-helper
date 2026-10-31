@@ -2,12 +2,16 @@ import { v } from "convex/values"
 import { internal } from "../../_generated/api"
 import type { Id } from "../../_generated/dataModel"
 import { internalMutation, internalQuery } from "../../_generated/server"
+import { switchAt } from "../loops/catalog"
+import { addUsage, usageOf } from "../loops/usage"
 import { roleKey, urlKey } from "../workflows/fit"
 import { readPool } from "../workflows/manager"
-import { boardKinds, companyOf, searchSlug, starterBoards } from "./boards"
+import { apiKeyOf, monthlyCredits, monthOf } from "../workflows/sources"
+import { boardKinds, companyOf, isCompanyBoard, searchSlug, starterBoards } from "./boards"
+import { researchBatch, researchEvery } from "./companies"
 import { leadOf } from "./leads"
 import { boardOf } from "./links"
-import { vFeedJob, vBoardFetchedArgs, vCandidatesArgs } from "./validators"
+import { vFeedJob, vBoardFetchedArgs, vCandidatesArgs, vSaveResearchArgs } from "./validators"
 import { countCatalog, refreshEvery } from "./utils"
 
 const refreshDue = internalMutation({
@@ -227,6 +231,107 @@ const ensureBoard = internalMutation({
   },
 })
 
+// Boards never researched, then ones not researched in a month. A board with no roles waits:
+// nothing shows its company, and a search would cost credits. A board of many companies has no
+// one site to find, so its roles stay unverified.
+// ponytail: those are read again every run. Stamp them if saved searches reach the thousands.
+const researchDue = internalMutation({
+  args: {},
+  returns: v.number(),
+  handler: async (ctx) => {
+    const boardIds: Id<"jobBoards">[] = []
+    const due = ctx.db
+      .query("jobBoards")
+      .withIndex("by_researchedAt", (q) => q.lt("researchedAt", Date.now() - researchEvery))
+    for await (const b of due) {
+      if (b.jobs && isCompanyBoard(b.kind)) boardIds.push(b._id)
+      if (boardIds.length === researchBatch) break
+    }
+    if (boardIds.length)
+      await readPool.enqueueAction(ctx, internal.api.jobs.researchBoards, { boardIds }, {})
+    return boardIds.length
+  },
+})
+
+const researchInputs = internalQuery({
+  args: { boardIds: v.array(v.id("jobBoards")) },
+  handler: async (ctx, { boardIds }) => {
+    const usage = await usageOf(ctx, "firecrawl", monthOf(Date.now()))
+    const boards = []
+    for (const boardId of boardIds) {
+      const board = await ctx.db.get("jobBoards", boardId)
+      if (!board) continue
+      const jobs = await ctx.db
+        .query("jobs")
+        .withIndex("by_boardId_and_postedAt", (q) => q.eq("boardId", boardId))
+        .order("desc")
+        .take(20)
+      const company = board.companyId ? await ctx.db.get("companies", board.companyId) : null
+      boards.push({
+        boardId,
+        company: board.company,
+        link: board.companyLink ?? null,
+        domain: company?.domain ?? null,
+        urls: jobs.map((j) => j.url),
+      })
+    }
+    return {
+      boards,
+      canSearch:
+        Boolean(apiKeyOf("firecrawl")) &&
+        !usage?.exhaustedAt &&
+        (usage?.used ?? 0) < monthlyCredits("firecrawl") * switchAt,
+    }
+  },
+})
+
+// One row per domain, however many boards reach it. A board with no site found has a row of its
+// own, since a name alone can't say two boards are one company.
+const saveResearch = internalMutation({
+  args: vSaveResearchArgs,
+  returns: v.null(),
+  handler: async (ctx, { boardId, domain, link, yc, registeredAt, credits, exhausted }) => {
+    if (credits || exhausted) await addUsage(ctx, "firecrawl", credits, exhausted)
+    const board = await ctx.db.get("jobBoards", boardId)
+    if (!board) return null
+    const before = board.companyId ? await ctx.db.get("companies", board.companyId) : null
+    const known = domain
+      ? await ctx.db
+          .query("companies")
+          .withIndex("by_domain", (q) => q.eq("domain", domain))
+          .first()
+      : before && !before.domain
+        ? before
+        : null
+    let companyId = known?._id
+    if (known) {
+      // A registry that didn't answer this time doesn't make the domain any younger.
+      if (domain)
+        await ctx.db.patch("companies", known._id, {
+          yc,
+          registeredAt: registeredAt ?? known.registeredAt,
+        })
+    } else
+      companyId = await ctx.db.insert("companies", {
+        name: board.company,
+        ...(domain && { domain, yc, registeredAt }),
+      })
+    await ctx.db.patch("jobBoards", boardId, {
+      companyId,
+      companyLink: link,
+      researchedAt: Date.now(),
+    })
+    if (before && before._id !== companyId) {
+      const shared = await ctx.db
+        .query("jobBoards")
+        .withIndex("by_companyId", (q) => q.eq("companyId", before._id))
+        .first()
+      if (!shared) await ctx.db.delete("companies", before._id)
+    }
+    return null
+  },
+})
+
 const get = internalQuery({
   args: { jobId: v.id("jobs") },
   handler: (ctx, { jobId }) => ctx.db.get("jobs", jobId),
@@ -241,6 +346,9 @@ export const internalApi = {
   hasBoard,
   saveJobs,
   boardFetched,
+  researchDue,
+  researchInputs,
+  saveResearch,
   candidates,
   byUrlKey,
   get,

@@ -1,13 +1,19 @@
 import { paginationResultValidator } from "convex/server"
 import { v } from "convex/values"
 import { authedQuery } from "../../lib/functions"
+import { evidenceOf } from "./companies"
 import { vJobRow, vJobSearchArgs } from "./validators"
 import { searchJobs } from "./utils"
 
 const search = authedQuery({
   args: vJobSearchArgs,
   returns: paginationResultValidator(vJobRow),
-  handler: (ctx, args) => searchJobs(ctx, ctx.userId, args),
+  handler: async (ctx, args) => {
+    const found = await searchJobs(ctx, ctx.userId, args)
+    const page = []
+    for (const row of found.page) page.push({ ...row, evidence: await evidenceOf(ctx, row._id) })
+    return { ...found, page }
+  },
 })
 
 const companies = authedQuery({

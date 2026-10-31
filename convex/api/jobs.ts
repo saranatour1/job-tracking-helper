@@ -12,8 +12,12 @@ export const {
   hasBoard,
   saveJobs,
   boardFetched,
+  researchDue,
+  researchInputs,
+  saveResearch,
   candidates,
   byUrlKey,
   get,
   fetchBoard,
+  researchBoards,
 } = jobsApi
