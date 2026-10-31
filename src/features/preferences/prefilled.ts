@@ -18,6 +18,8 @@ export const suggestedSections = (v: Values, me: { name: string; email: string }
         { label: "Full name", value: me.name },
         { label: "Email", value: me.email },
         { label: "Phone", value: "" },
+        { label: "Country", value: "" },
+        { label: "City", value: "" },
         { label: "LinkedIn", value: "" },
         { label: "Portfolio or website", value: "" },
       ],

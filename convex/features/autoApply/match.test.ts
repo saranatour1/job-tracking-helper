@@ -61,6 +61,88 @@ describe("planFor", () => {
   })
 })
 
+describe("planFor on real forms", () => {
+  it("finds Greenhouse's resume by its id, and leaves its cover letter out", () => {
+    const plan = planFor(
+      [
+        field("Attach", { selector: "#resume", name: "resume", type: "file" }),
+        field("Attach", { selector: "#cover_letter", name: "cover_letter", type: "file" }),
+      ],
+      answers
+    )
+    expect(plan.upload).toBe("#resume")
+    expect(plan.skipped).toEqual(["Attach"])
+  })
+
+  it("leaves every demographic question blank, however it's worded", () => {
+    const options = ["Yes", "No"]
+    const labels = ["Disability status", "Ethnicity", "Veteran status", "Race", "EEOC survey"]
+    const plan = planFor(
+      labels.map((l) => field(l, { type: "custom", options })),
+      answers
+    )
+    expect(plan.skipped).toEqual(labels)
+    expect(plan.ask).toEqual([])
+  })
+
+  it("asks instead of filling a blank last name from a one-word full name", () => {
+    const plan = planFor(
+      [field("First Name"), field("Last Name")],
+      [{ key: "name", label: "Full name", value: "Sara" }]
+    )
+    expect(plan.fills.map((f) => f.value)).toEqual(["Sara"])
+    expect(plan.ask.map((f) => f.label)).toEqual(["Last Name"])
+  })
+
+  it("keeps where you want to work apart from where you are", () => {
+    const saved = [
+      { key: "wants", label: "Preferred locations", value: "Berlin, Lisbon" },
+      { key: "country", label: "Country", value: "Germany" },
+      { key: "city", label: "City", value: "Hannover" },
+    ]
+    const plan = planFor(
+      [
+        field("Location (City)", { type: "custom" }),
+        field("Country", { type: "custom" }),
+        field("Are you authorized to work in the country where you are applying?", {
+          type: "yesno",
+          options: ["Yes", "No"],
+        }),
+      ],
+      saved
+    )
+    expect(plan.fills.map((f) => f.value)).toEqual(["Hannover", "Germany"])
+    expect(plan.ask.map((f) => f.type)).toEqual(["yesno"])
+  })
+
+  it("tries the country when a location list has no such city", () => {
+    const [fill] = planFor(
+      [field("Location", { type: "custom" })],
+      [
+        { key: "city", label: "City", value: "Berlin" },
+        { key: "country", label: "Country", value: "Germany" },
+      ]
+    ).fills
+    expect([fill?.value, fill?.fallback]).toEqual(["Berlin", "Germany"])
+  })
+
+  it("takes a saved answer that is one of the options, and asks Jev about one that isn't", () => {
+    const options = ["Yes", "No"]
+    const plan = planFor(
+      [
+        field("Salary", { type: "select", options: ["60,000 EUR", "70,000 EUR"] }),
+        field("Visa", { type: "custom", options }),
+      ],
+      [
+        { key: "pay", label: "Salary", value: "60,000 eur" },
+        { key: "visa", label: "Visa", value: "None needed in the EU" },
+      ]
+    )
+    expect(plan.fills.map((f) => f.value)).toEqual(["60,000 EUR"])
+    expect(plan.ask.map((f) => f.label)).toEqual(["Visa"])
+  })
+})
+
 describe("questionsFor and resolve", () => {
   const ask = [
     field("Do you require visa sponsorship?", { type: "select", options: ["Yes", "No"] }),

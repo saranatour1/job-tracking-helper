@@ -419,7 +419,9 @@ Previews are the same text as plain words.
    run, applied in 30 days, saved answers used.
 
 **Rules:** nothing is ever guessed or written for you; a question without a saved answer
-stops the run. No logins and no stored job-site passwords. A posting is submitted at
+stops the run. Demographic questions are always left blank. Try again follows the Account
+switch, so a dry run stays a dry run. A location list that doesn't have your saved city
+tries your saved country. No logins and no stored job-site passwords. A posting is submitted at
 most once, even if a run dies mid-way. Answers' values never go in the log, only their
 labels.
 

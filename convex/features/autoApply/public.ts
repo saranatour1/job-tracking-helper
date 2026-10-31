@@ -95,13 +95,15 @@ const retry = authedMutation({
     if (row.submittedAt)
       throw new ConvexError("This one was already sent. Check your email before applying again.")
     await ready(ctx, ctx.userId)
+    // Like queuing it: the Account switch decides. Clearing this would send a dry run for real.
+    const me = await ctx.db.get("users", ctx.userId)
     await ctx.db.patch("autoApplies", id, {
       used: [],
       missing: [],
       error: undefined,
       confirmation: undefined,
       finishedAt: undefined,
-      dryRun: undefined,
+      dryRun: me?.autoApplyDryRun,
     })
     await enqueue(ctx, (await ctx.db.get("autoApplies", id))!)
     return null
