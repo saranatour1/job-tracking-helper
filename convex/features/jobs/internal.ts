@@ -2,9 +2,10 @@ import { v } from "convex/values"
 import { internal } from "../../_generated/api"
 import type { Id } from "../../_generated/dataModel"
 import { internalMutation, internalQuery } from "../../_generated/server"
-import { urlKey } from "../workflows/fit"
+import { roleKey, urlKey } from "../workflows/fit"
 import { readPool } from "../workflows/manager"
 import { boardKinds, companyOf, starterBoards } from "./boards"
+import { leadOf } from "./leads"
 import { boardOf } from "./links"
 import { vFeedJob, vBoardFetchedArgs, vCandidatesArgs } from "./validators"
 import { countCatalog, refreshEvery } from "./utils"
@@ -134,17 +135,18 @@ const candidates = internalQuery({
     const seen = new Set<string>()
     for (let i = 0; picked.length < limit && results.some((r) => i < r.length); i++)
       for (const job of results.map((r) => r[i]).filter(Boolean)) {
-        if (picked.length >= limit || seen.has(job._id)) continue
-        seen.add(job._id)
+        const role = roleKey(job)
+        if (picked.length >= limit || seen.has(role)) continue
         if (since && job.postedAt < since) continue
         const company = job.company.toLowerCase()
         if (wanted.length && !wanted.some((c) => company.includes(c) || c.includes(company)))
           continue
-        const shown = await ctx.db
-          .query("jobLeads")
-          .withIndex("by_userId_and_urlKey", (q) => q.eq("userId", userId).eq("urlKey", job.urlKey))
-          .first()
-        if (!shown) picked.push(job._id)
+        // ponytail: a role reposted under the same title stays skipped for good, even a year
+        // later. Compare the lead's age here if people miss real reopenings.
+        if (await leadOf(ctx, userId, job)) continue
+        // Only once picked: another posting of this role can pass where this one didn't.
+        seen.add(role)
+        picked.push(job._id)
       }
     return picked
   },

@@ -1,5 +1,6 @@
 import { api } from "@/lib/api"
 import { rowLimits } from "@convex/features/preferences/rows"
+import { groupRoles } from "@convex/features/workflows/fit"
 import { PrepareButton } from "@/features/prefilled/prefilled"
 import { Cancel01Icon, LinkSquare02Icon, Search01Icon } from "@hugeicons/core-free-icons"
 import { HugeiconsIcon } from "@hugeicons/react"
@@ -86,11 +87,16 @@ type Row = {
 }
 
 // What's worth seeing first about a role: remote, new, and what Jev thought of it.
-const Badges = ({ job, now }: { job: Row; now: number }) => (
+const Badges = ({ job, openings, now }: { job: Row; openings: number; now: number }) => (
   <>
     {job.verdict && (
       <Badge variant={job.verdict === "fit" ? "success" : "outline"} className="font-normal">
         {job.verdict === "fit" ? `Fits you · ${job.fit}%` : "Not a fit"}
+      </Badge>
+    )}
+    {openings > 1 && (
+      <Badge variant="outline" className="font-normal">
+        {openings} openings
       </Badge>
     )}
     {now - job.postedAt < 2 * dayMs && (
@@ -321,9 +327,12 @@ export const Jobs = () => {
                 <span />
               </div>
             )}
-            {jobs.results.map((job) => {
+            {/* ponytail: groups the roles loaded so far, so "13 openings" can grow on Show more.
+                A stored count per role would need updating on every feed refresh. */}
+            {groupRoles(jobs.results).map((postings) => {
+              const job = postings.find((p) => p.verdict) ?? postings[0]
               const where = job.location || "Location not listed"
-              const row = prepared.get(job.url)
+              const row = postings.map((p) => prepared.get(p.url)).find(Boolean)
               const apply = (
                 <PrepareButton jobId={job._id} status={row?.status} prefillId={row?._id} />
               )
@@ -364,7 +373,7 @@ export const Jobs = () => {
                   <span className="flex min-w-0 items-center gap-2">
                     {title(false)}
                     <span className="hidden shrink-0 gap-1 lg:flex">
-                      <Badges job={job} now={now} />
+                      <Badges job={job} openings={postings.length} now={now} />
                     </span>
                   </span>
                   <span className="hidden truncate md:block">{job.company}</span>
@@ -396,7 +405,7 @@ export const Jobs = () => {
                       <span className="text-foreground/80">{job.company}</span> · {where}
                     </span>
                     <span className="flex flex-wrap gap-1 empty:hidden">
-                      <Badges job={job} now={now} />
+                      <Badges job={job} openings={postings.length} now={now} />
                     </span>
                     {job.preview && (
                       <p className="text-muted-foreground line-clamp-2 text-xs leading-relaxed">

@@ -70,6 +70,155 @@ describe("the job catalog's totals", () => {
   })
 })
 
+describe("duplicates", () => {
+  const feedJob = (url: string, location = "Manila") => ({
+    url,
+    title: "Support Specialist",
+    company: "Coinbase",
+    location,
+    remote: false,
+    postedAt: 1,
+    text: "Support Specialist at Coinbase",
+  })
+  const lead = (userId: Id<"users">, urlKey: string, roleKey?: string) => ({
+    userId,
+    url: `https://${urlKey}`,
+    urlKey,
+    ...(roleKey && { roleKey }),
+    title: "Support Specialist",
+    company: "Coinbase",
+    snippet: "",
+    fit: 80,
+    reasons: [],
+    status: "new" as const,
+    verdict: "fit" as const,
+  })
+  const pick = (t: ReturnType<typeof convexTest>, userId: Id<"users">) =>
+    t.query(internal.api.jobs.candidates, {
+      userId,
+      queries: ["support"],
+      remoteOnly: false,
+      companies: [],
+      limit: 10,
+    })
+
+  const save = async (t: ReturnType<typeof convexTest>, jobs: ReturnType<typeof feedJob>[]) => {
+    const boardId = await t.run((ctx) => ctx.db.insert("jobBoards", board(1, 0)))
+    await t.mutation(internal.api.jobs.saveJobs, { boardId, jobs, seenAt: 1 })
+    return boardId
+  }
+  const owner = (t: ReturnType<typeof convexTest>) =>
+    t.run((ctx) => ctx.db.insert("users", { name: "Pat" }))
+
+  it("saves a Greenhouse posting once, whichever link the feed gives", async () => {
+    const { t } = await setup()
+    await save(t, [
+      feedJob("https://www.coinbase.com/careers/positions/1?gh_jid=1"),
+      feedJob("https://job-boards.greenhouse.io/coinbase/jobs/1"),
+    ])
+    const jobs = await t.run((ctx) => ctx.db.query("jobs").take(5))
+    expect(jobs.map((j) => j.urlKey)).toEqual(["greenhouse/1"])
+  })
+
+  it("gives a loop one posting of a role, and each place's role its own", async () => {
+    const { t } = await setup()
+    const userId = await owner(t)
+    await save(t, [
+      feedJob("https://x.dev/a?gh_jid=1"),
+      feedJob("https://x.dev/a?gh_jid=2"),
+      feedJob("https://x.dev/a?gh_jid=3", "Hyderabad"),
+    ])
+    expect(await pick(t, userId)).toHaveLength(2)
+  })
+
+  it("picks a role's newer posting when an older one is too old", async () => {
+    const { t } = await setup()
+    const userId = await owner(t)
+    await save(t, [
+      { ...feedJob("https://x.dev/a?gh_jid=1"), postedAt: 1 },
+      { ...feedJob("https://x.dev/a?gh_jid=2"), postedAt: 100 },
+    ])
+    const picked = await t.query(internal.api.jobs.candidates, {
+      userId,
+      queries: ["support"],
+      remoteOnly: false,
+      companies: [],
+      since: 50,
+      limit: 10,
+    })
+    const jobs = await t.run((ctx) => Promise.all(picked.map((id) => ctx.db.get("jobs", id))))
+    expect(jobs.map((j) => j?.urlKey)).toEqual(["greenhouse/2"])
+  })
+
+  it("skips another posting of a role the person was shown", async () => {
+    const { t } = await setup()
+    const userId = await owner(t)
+    await save(t, [feedJob("https://x.dev/a?gh_jid=2")])
+    await t.run((ctx) =>
+      ctx.db.insert("jobLeads", lead(userId, "greenhouse/1", "coinbase|support specialist|manila"))
+    )
+    expect(await pick(t, userId)).toEqual([])
+  })
+
+  it("moves stored postings to the new keys, keeping leads on their role", async () => {
+    const { t } = await setup()
+    const userId = await owner(t)
+    const url = "https://www.coinbase.com/careers/positions/1?gh_jid=1"
+    const boardId = await t.run((ctx) => ctx.db.insert("jobBoards", board(1, 0)))
+    const oldKey = "coinbase.com/careers/positions/1?gh_jid=1"
+    const jobId = await t.run((ctx) =>
+      ctx.db.insert("jobs", { ...feedJob(url), boardId, urlKey: oldKey, seenAt: 1 })
+    )
+    // A refresh got there first, so this one has a newer copy to give way to.
+    const stale = await t.run((ctx) =>
+      ctx.db.insert("jobs", {
+        ...feedJob("https://job-boards.greenhouse.io/coinbase/jobs/1"),
+        boardId,
+        urlKey: "job-boards.greenhouse.io/coinbase/jobs/1",
+        seenAt: 1,
+      })
+    )
+    const leadId = await t.run((ctx) =>
+      ctx.db.insert("jobLeads", {
+        ...lead(userId, "job-boards.greenhouse.io/coinbase/jobs/1"),
+        url: "https://job-boards.greenhouse.io/coinbase/jobs/1",
+        location: "Manila",
+      })
+    )
+    const prefillId = await t.run((ctx) =>
+      ctx.db.insert("prefills", {
+        userId,
+        url,
+        urlKey: oldKey,
+        company: "Coinbase",
+        title: "Support Specialist",
+        status: "ready",
+        fields: [],
+      })
+    )
+
+    expect(await t.query(internal.api.migrations.postingKeysLeft, {})).toBe(2)
+    await t.mutation(internal.api.migrations.fillPostingKeys, {})
+    await t.finishAllScheduledFunctions(() => undefined)
+
+    expect(await t.query(internal.api.migrations.postingKeysLeft, {})).toBe(0)
+    const { kept, gone, moved, prefill } = await t.run(async (ctx) => ({
+      kept: await ctx.db.get("jobs", jobId),
+      gone: await ctx.db.get("jobs", stale),
+      moved: await ctx.db.get("jobLeads", leadId),
+      prefill: await ctx.db.get("prefills", prefillId),
+    }))
+    expect(kept?.urlKey).toBe("greenhouse/1")
+    expect(gone).toBeNull()
+    expect(moved).toMatchObject({
+      urlKey: "greenhouse/1",
+      roleKey: "coinbase|support specialist|manila",
+      jobId,
+    })
+    expect(prefill?.urlKey).toBe("greenhouse/1")
+  })
+})
+
 describe("the company filter", () => {
   it("lists the 200 with the most roles, past the old limit, without empty boards", async () => {
     const { t, as } = await setup()

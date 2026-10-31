@@ -4,6 +4,78 @@ import { internalMutation, internalQuery } from "../_generated/server"
 import { fitOf } from "../features/applications/utils"
 import { syncMailSummary } from "../features/email/utils"
 import { countCatalog } from "../features/jobs/utils"
+import { roleKey, urlKey } from "../features/workflows/fit"
+
+// One-off: moves stored postings to the keys that stay the same across links, and gives leads
+// their role. Until it's run, a refresh saves Greenhouse roles a second time and loops can show
+// a role again. Run it right after deploying, on each deployment. Safe to run again:
+//   npx convex run api/migrations:fillPostingKeys
+//   npx convex run api/migrations:postingKeysLeft
+// Delete it once that's done everywhere.
+export const fillPostingKeys = internalMutation({
+  args: {
+    table: v.optional(v.union(v.literal("jobs"), v.literal("jobLeads"), v.literal("prefills"))),
+    cursor: v.optional(v.union(v.string(), v.null())),
+  },
+  returns: v.null(),
+  handler: async (ctx, { table = "jobs", cursor }) => {
+    const jobByKey = (key: string) =>
+      ctx.db
+        .query("jobs")
+        .withIndex("by_urlKey", (q) => q.eq("urlKey", key))
+        .first()
+    const opts = { cursor: cursor ?? null, numItems: 100 }
+    let page
+    if (table === "jobs") {
+      page = await ctx.db.query("jobs").paginate(opts)
+      for (const job of page.page) {
+        const key = urlKey(job.url)
+        if (key === job.urlKey) continue
+        // A refresh got there first and saved it under the new key. Leads move over below.
+        if (await jobByKey(key)) await ctx.db.delete("jobs", job._id)
+        else await ctx.db.patch("jobs", job._id, { urlKey: key })
+      }
+    } else if (table === "jobLeads") {
+      page = await ctx.db.query("jobLeads").paginate(opts)
+      for (const lead of page.page) {
+        const key = urlKey(lead.url)
+        const job = await jobByKey(key)
+        await ctx.db.patch("jobLeads", lead._id, {
+          urlKey: key,
+          roleKey: roleKey(lead),
+          ...(job && { jobId: job._id }),
+        })
+      }
+    } else {
+      page = await ctx.db.query("prefills").paginate(opts)
+      for (const prefill of page.page)
+        await ctx.db.patch("prefills", prefill._id, { urlKey: urlKey(prefill.url) })
+    }
+    const next = table === "jobs" ? "jobLeads" : "prefills"
+    if (!page.isDone)
+      await ctx.scheduler.runAfter(0, internal.api.migrations.fillPostingKeys, {
+        table,
+        cursor: page.continueCursor,
+      })
+    else if (table !== "prefills")
+      await ctx.scheduler.runAfter(0, internal.api.migrations.fillPostingKeys, { table: next })
+    return null
+  },
+})
+
+// Leads and prefills on an old key, which fill after jobs. Zero once the fill has finished.
+export const postingKeysLeft = internalQuery({
+  args: {},
+  returns: v.number(),
+  handler: async (ctx) => {
+    let left = 0
+    for await (const lead of ctx.db.query("jobLeads"))
+      if (lead.roleKey === undefined || lead.urlKey !== urlKey(lead.url)) left++
+    for await (const prefill of ctx.db.query("prefills"))
+      if (prefill.urlKey !== urlKey(prefill.url)) left++
+    return left
+  },
+})
 
 // One-off: gives existing applications the mail summary and fit the board now reads off them,
 // and counts the job catalog. Until it's run, cards show no mail or fit badge and Jobs no
