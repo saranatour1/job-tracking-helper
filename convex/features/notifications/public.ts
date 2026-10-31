@@ -4,9 +4,10 @@ import { internalMutation } from "../../_generated/server"
 import { authedMutation, authedQuery } from "../../lib/functions"
 import { aad, keys, openJson } from "../email/utils"
 import { MailNote } from "../email/validators"
-import { notificationKindKeys } from "./kinds"
+import { notificationKindKeys, notificationKinds } from "./kinds"
 import { mailWords } from "./utils"
 import { vInboxLines } from "./validators"
+import { logEdit } from "../activity/utils"
 
 // The inbox, newest first. Each line is built from what it points at, so a mail line
 // opens the sealed mail event here and nowhere else. Lines whose source is gone are left out.
@@ -161,6 +162,12 @@ const setOn = authedMutation({
       kind,
       muted: !on,
     })
+    await logEdit(
+      ctx,
+      ctx.userId,
+      "account.notifications",
+      `Turned ${on ? "on" : "off"} ${notificationKinds[kind].label}`
+    )
     return null
   },
 })

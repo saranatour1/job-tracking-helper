@@ -20,4 +20,7 @@ crons.daily(
   {}
 )
 
+// Activity keeps three months.
+crons.daily("sweep activity", { hourUTC: 3, minuteUTC: 47 }, internal.activity.sweep, {})
+
 export default crons

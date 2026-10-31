@@ -1,8 +1,8 @@
 import { api } from "@convex/_generated/api"
-import { Link } from "@tanstack/react-router"
+import { getRouteApi, Link } from "@tanstack/react-router"
 import type { FunctionReturnType } from "convex/server"
 import { useMutation } from "convex/react"
-import { useQuery } from "convex-helpers/react/cache/hooks"
+import { usePaginatedQuery, useQuery } from "convex-helpers/react/cache/hooks"
 
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
@@ -13,6 +13,42 @@ import { PageIntro, pageBody, Tile, tileGrid } from "@/features/shell/page-body"
 import { PageHeader } from "@/features/shell/page-header"
 
 type Run = FunctionReturnType<typeof api.prefilled.list>[number]
+type Event = FunctionReturnType<typeof api.activity.page>["page"][number]
+
+type Show = "failed" | "applications"
+
+export const activitySearch = (search: Record<string, unknown>): { show?: Show } =>
+  search.show === "failed" || search.show === "applications" ? { show: search.show } : {}
+
+const route = getRouteApi("/_app/activity")
+
+const pageSize = 30
+
+const workNames: Record<string, string> = {
+  "mail.received": "Email in",
+  "mail.send": "Email out",
+  "prefill.live": "Browser",
+  "prefill.prepare": "Prepared",
+  "prefill.sent": "Sent",
+}
+
+// Everything else by what it's about: loop.run and loop.update are both a Loop.
+const areaNames: Record<string, string> = {
+  account: "Account",
+  application: "Application",
+  booking: "Booking",
+  calendar: "Calendar",
+  contact: "Contact",
+  goal: "Goal",
+  loop: "Loop",
+  mail: "Email",
+  preferences: "Preferences",
+  prefill: "Prefilled",
+  view: "View",
+  workflow: "Workflow",
+}
+
+const nameOf = (work: string) => workNames[work] ?? areaNames[work.split(".")[0] ?? ""] ?? work
 
 const when = (ms: number) =>
   new Intl.DateTimeFormat("en-US", {
@@ -109,9 +145,89 @@ const RunTile = ({ run }: { run: Run }) => {
   )
 }
 
+// Where to go to see or fix it.
+const EventLink = ({ event }: { event: Event }) => {
+  const open = (link: React.ReactElement) => (
+    <Button size="xs" variant="ghost" render={link}>
+      Open
+    </Button>
+  )
+  if (event.prefillId) return open(<Link to="/prefilled/$id" params={{ id: event.prefillId }} />)
+  if (event.automationId)
+    return open(<Link to="/workflows/$id" params={{ id: event.automationId }} />)
+  if (event.applicationId) return open(<Link to="/" search={{ app: event.applicationId }} />)
+  if (event.work === "loop.run") return open(<Link to="/loops" />)
+  if (
+    event.work.startsWith("account.") ||
+    event.work === "mail.setup" ||
+    event.work === "mail.connect"
+  )
+    return open(<Link to="/account" />)
+  if (event.work.startsWith("preferences.")) return open(<Link to="/preferences" />)
+  return null
+}
+
+const EventRow = ({ event }: { event: Event }) => (
+  <li className="flex flex-wrap items-center gap-x-3 gap-y-1 border-b py-2.5 text-[13px]">
+    <span className="text-muted-foreground w-20 shrink-0 text-xs">{nameOf(event.work)}</span>
+    <span className="flex min-w-40 flex-1 flex-col gap-0.5">
+      <span className="break-words">{event.summary ?? event.outcome}</span>
+      {event.error && (
+        <span
+          className={`text-xs break-words ${event.failed ? "text-destructive" : "text-muted-foreground"}`}
+        >
+          {event.error}
+        </span>
+      )}
+    </span>
+    {event.failed && (
+      <Badge variant="error" className="shrink-0 font-normal">
+        Failed
+      </Badge>
+    )}
+    <EventLink event={event} />
+    <time className="text-muted-foreground shrink-0 text-xs">{when(event.at)}</time>
+  </li>
+)
+
+const Events = ({ failed }: { failed: boolean }) => {
+  const joinedAt = useQuery(api.activity.joinedAt)
+  const { results, status, loadMore } = usePaginatedQuery(
+    api.activity.page,
+    failed ? { failed } : {},
+    { initialNumItems: pageSize }
+  )
+  return (
+    <>
+      {failed && status !== "LoadingFirstPage" && results.length === 0 && (
+        <p className="text-muted-foreground text-[13px]">Nothing has failed.</p>
+      )}
+      <ul>
+        {results.map((event) => (
+          <EventRow key={event._id} event={event} />
+        ))}
+        {!failed && status === "Exhausted" && joinedAt && (
+          <li className="flex flex-wrap items-center gap-x-3 gap-y-1 py-2.5 text-[13px]">
+            <span className="text-muted-foreground w-20 shrink-0 text-xs">Account</span>
+            <span className="min-w-40 flex-1">You joined</span>
+            <time className="text-muted-foreground shrink-0 text-xs">{when(joinedAt)}</time>
+          </li>
+        )}
+      </ul>
+      {status === "CanLoadMore" && (
+        <div className="text-center">
+          <Button size="xs" variant="ghost" onClick={() => loadMore(pageSize)}>
+            Load more
+          </Button>
+        </div>
+      )}
+    </>
+  )
+}
+
 // What's finished, newest first: sent, stopped or set aside. What's waiting is under
 // Prefilled applications.
-export const Activity = () => {
+const Applications = () => {
   const rows = useQuery(api.prefilled.list)
   const done = (rows ?? []).filter(
     (r) => r.status === "applied" || r.status === "failed" || r.status === "dismissed"
@@ -120,30 +236,57 @@ export const Activity = () => {
   const applied = done.filter((r) => r.status === "applied" && (r.sentAt ?? 0) > month)
   const used = new Set(applied.flatMap((r) => r.fields.flatMap((f) => f.entryKey ?? []))).size
   return (
+    <>
+      {done.length > 0 && (
+        <p className="text-muted-foreground text-[13px]">
+          {applied.length} applied in 30 days · {used} saved {used === 1 ? "answer" : "answers"}{" "}
+          used
+        </p>
+      )}
+      {rows && done.length === 0 && (
+        <p className="text-muted-foreground text-[13px]">
+          Nothing yet. What's waiting for you is under Prefilled applications.
+        </p>
+      )}
+      <div className={tileGrid}>
+        {done.map((run) => (
+          <RunTile key={run._id} run={run} />
+        ))}
+      </div>
+    </>
+  )
+}
+
+const tabs: { label: string; show?: Show }[] = [
+  { label: "Everything" },
+  { label: "Failed", show: "failed" },
+  { label: "Applications", show: "applications" },
+]
+
+export const Activity = () => {
+  const { show } = route.useSearch()
+  return (
     <div className="soft-theme bg-background text-foreground flex h-svh flex-col rounded-[inherit] md:h-[calc(100svh-1rem)]">
       <PageHeader crumbs={[{ label: "Activity" }]} />
       <ScrollArea className="min-h-0 flex-1">
         <main className={pageBody}>
           <PageIntro
             title="Activity"
-            description="Applications you've sent, and ones that stopped or you set aside: which saved answers each used, and what was missing."
+            description="Everything on your account since you joined: what you changed, what the app did for you, and why anything failed."
           />
-          {done.length > 0 && (
-            <p className="text-muted-foreground text-[13px]">
-              {applied.length} applied in 30 days · {used} saved {used === 1 ? "answer" : "answers"}{" "}
-              used
-            </p>
-          )}
-          {rows && done.length === 0 && (
-            <p className="text-muted-foreground text-[13px]">
-              Nothing yet. What's waiting for you is under Prefilled applications.
-            </p>
-          )}
-          <div className={tileGrid}>
-            {done.map((run) => (
-              <RunTile key={run._id} run={run} />
+          <div className="flex flex-wrap gap-1">
+            {tabs.map((tab) => (
+              <Button
+                key={tab.label}
+                size="sm"
+                variant={tab.show === show ? "secondary" : "ghost"}
+                render={<Link to="/activity" search={tab.show ? { show: tab.show } : {}} />}
+              >
+                {tab.label}
+              </Button>
             ))}
           </div>
+          {show === "applications" ? <Applications /> : <Events failed={show === "failed"} />}
         </main>
       </ScrollArea>
     </div>

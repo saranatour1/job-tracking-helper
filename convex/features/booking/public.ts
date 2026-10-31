@@ -4,6 +4,8 @@ import { components } from "../../_generated/api"
 import { type MutationCtx, mutation, query } from "../../_generated/server"
 import { arkToConvex, checked } from "../../lib/ark"
 import { arkMutation, authedMutation, authedQuery } from "../../lib/functions"
+import { workLog } from "../../lib/log"
+import { keepLog, logEdit } from "../activity/utils"
 import { fireEvent } from "../automations/fire"
 import { ruleMatch } from "../email/match"
 import { Booking, maxPages, maxUpcoming, SavePage, vGuestPage, vBooked } from "./validators"
@@ -34,6 +36,7 @@ const savePage = arkMutation({
       const existing = await ctx.db.get("bookingPages", id)
       if (existing?.userId !== ctx.userId) throw new ConvexError("That page isn't yours.")
       await ctx.db.replace("bookingPages", id, { ...row, userId: ctx.userId, slug: existing.slug })
+      await logEdit(ctx, ctx.userId, "booking.page", "Changed a booking page")
       return id
     }
     const mine = await ctx.db
@@ -42,6 +45,7 @@ const savePage = arkMutation({
       .take(maxPages)
     if (mine.length >= maxPages) throw new ConvexError(`You can keep ${maxPages} booking pages.`)
     const slug = crypto.randomUUID().replace(/-/g, "").slice(0, 12)
+    await logEdit(ctx, ctx.userId, "booking.page", "Added a booking page")
     return ctx.db.insert("bookingPages", { ...row, userId: ctx.userId, slug })
   },
 })
@@ -53,6 +57,7 @@ const removePage = authedMutation({
     const page = await ctx.db.get("bookingPages", id)
     if (page?.userId !== ctx.userId) throw new ConvexError("That page isn't yours.")
     await ctx.db.delete("bookingPages", id)
+    await logEdit(ctx, ctx.userId, "booking.page", "Removed a booking page")
     return null
   },
 })
@@ -142,6 +147,12 @@ const book = mutation({
       description: note || undefined,
       attendees: [{ email, name, status: "accepted" }],
     })
+    const log = workLog("booking.new", {
+      userId: found.userId,
+      ...(applicationId && { applicationId }),
+    })
+    log.set({ summary: `Booking on ${found.title}`, outcome: "booked" })
+    await keepLog(ctx, log)
     await ctx.runMutation(components.notifications.lib.notify, {
       owner: found.userId,
       kind: "booking.new",

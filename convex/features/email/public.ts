@@ -17,6 +17,7 @@ import {
   openJson,
 } from "./utils"
 import { allowKeys, Details, Sent, Connect, vConnectionView } from "./validators"
+import { logEdit, logEditFromAction } from "../activity/utils"
 
 // The connection, opened for its owner. The token itself never leaves the server.
 // A connection whose details can't be opened (its key was removed) reads as none,
@@ -113,6 +114,7 @@ const connect = action({
       tokenAddedAt: reuse ? reuse.tokenAddedAt : Date.now(),
       access,
     })
+    await logEditFromAction(ctx, userId, "mail.connect", "Connected Cloudflare")
     return null
   },
 })
@@ -127,6 +129,7 @@ const setAllow = authedMutation({
       .unique()
     if (!row) throw new ConvexError("Connect Cloudflare first.")
     await ctx.db.patch("emailConnections", row._id, { allow: { ...row.allow, [key]: value } })
+    await logEdit(ctx, ctx.userId, "mail.settings", "Changed an email setting")
     return null
   },
 })
@@ -166,6 +169,13 @@ const sendTest = action({
       payload: messageId ? await sealEmail({ ...email, messageId }) : undefined,
       error: error && (await seal(k, error, aad.email(userId))),
     })
+    await logEditFromAction(
+      ctx,
+      userId,
+      "mail.test",
+      error ? "A test email didn't send" : "Sent a test email",
+      error ? { failed: error } : {}
+    )
     return null
   },
 })
@@ -192,6 +202,12 @@ const setSignaturePhoto = authedMutation({
     if (row.signaturePhoto && row.signaturePhoto !== photo)
       await ctx.storage.delete(row.signaturePhoto)
     await ctx.db.patch("emailConnections", row._id, { signaturePhoto: photo })
+    await logEdit(
+      ctx,
+      ctx.userId,
+      "account.signature",
+      photo ? "Changed your signature photo" : "Removed your signature photo"
+    )
     return null
   },
 })

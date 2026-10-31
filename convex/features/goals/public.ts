@@ -4,6 +4,7 @@ import { internalQuery } from "../../_generated/server"
 import { arkMutation, authedMutation, authedQuery } from "../../lib/functions"
 import { maxGoals, maxEvaluated, NewGoal, UpdateGoal, vToEvaluate } from "./validators"
 import { dayOf, shift, own, ownLoop, roomFor } from "./utils"
+import { logEdit } from "../activity/utils"
 
 const list = authedQuery({
   args: {},
@@ -21,7 +22,13 @@ const create = arkMutation({
   handler: async (ctx, { loopId, ...goal }) => {
     await roomFor(ctx, ctx.userId)
     await ownLoop(ctx, ctx.userId, loopId)
-    return ctx.db.insert("goals", { ...goal, ...(loopId && { loopId }), userId: ctx.userId })
+    const id = await ctx.db.insert("goals", {
+      ...goal,
+      ...(loopId && { loopId }),
+      userId: ctx.userId,
+    })
+    await logEdit(ctx, ctx.userId, "goal.create", `Added the goal ${goal.name}`)
+    return id
   },
 })
 
@@ -35,6 +42,7 @@ const update = arkMutation({
       ...patch,
       ...(loopId !== undefined && { loopId: loopId ?? undefined }),
     })
+    await logEdit(ctx, ctx.userId, "goal.update", "Changed a goal")
     return null
   },
 })
@@ -44,8 +52,9 @@ const remove = authedMutation({
   args: { id: v.id("goals") },
   returns: v.null(),
   handler: async (ctx, { id }) => {
-    await own(ctx, ctx.userId, id)
+    const { name } = await own(ctx, ctx.userId, id)
     await ctx.db.delete("goals", id)
+    await logEdit(ctx, ctx.userId, "goal.remove", `Removed the goal ${name}`)
     for await (const application of ctx.db
       .query("applications")
       .withIndex("by_userId_and_goalId", (q) => q.eq("userId", ctx.userId).eq("goalId", id)))
@@ -68,6 +77,7 @@ const retry = authedMutation({
     await roomFor(ctx, ctx.userId)
     const today = dayOf(Date.now())
     const moved = Date.parse(today) - Date.parse(start)
+    await logEdit(ctx, ctx.userId, "goal.retry", `Started the goal ${goal.name} again`)
     return ctx.db.insert("goals", {
       ...goal,
       start: today,

@@ -4,6 +4,7 @@ import { v } from "convex/values"
 import { components, internal } from "../../_generated/api"
 import { internalMutation, internalQuery } from "../../_generated/server"
 import { workLog } from "../../lib/log"
+import { keepLog } from "../activity/utils"
 import { fillFromJob } from "../applications/utils"
 import { prepareFits } from "../prefilled/utils"
 import { descriptionsOf, queriesOf } from "../workflows/fit"
@@ -239,7 +240,10 @@ const finishRun = internalMutation({
         ref: run._id,
       })
     const log = workLog("loop.run", { runId: run._id, loopId: run.loopId, userId: run.userId })
+    const loop = await ctx.db.get("loops", run.loopId)
     log.set({
+      summary: `${loop?.name ?? "A loop"}: Jev judged ${run.scanned} roles, ${fits} fit`,
+      ...(failures > 0 && { error: note }),
       outcome: "done",
       provider,
       judged: run.scanned,
@@ -253,7 +257,7 @@ const finishRun = internalMutation({
       note,
       runMs: Date.now() - run.startedAt,
     })
-    log.emit()
+    await keepLog(ctx, log)
     return null
   },
 })
@@ -269,9 +273,17 @@ const runEnded = internalMutation({
     const note = result.kind === "failed" ? `Failed: ${result.error}` : "Canceled."
     await ctx.db.patch("loopRuns", run._id, { status: "failed", finishedAt: Date.now(), note })
     const log = workLog("loop.run", { runId: run._id, loopId: run.loopId, userId: run.userId })
-    log.set({ outcome: "failed", workflowId, note, runMs: Date.now() - run.startedAt })
+    const loop = await ctx.db.get("loops", run.loopId)
+    log.set({
+      summary: `${loop?.name ?? "A loop"} stopped`,
+      error: note,
+      outcome: "failed",
+      workflowId,
+      note,
+      runMs: Date.now() - run.startedAt,
+    })
     log.setLevel("error")
-    log.emit()
+    await keepLog(ctx, log)
     return null
   },
 })

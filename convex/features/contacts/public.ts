@@ -7,6 +7,7 @@ import { seal } from "../../lib/secrets"
 import { keys, openJson, secretKeys, threadKeyOf, userIdOf } from "../email/utils"
 import { contactAad } from "./internal"
 import { ContactDetails, maxContacts, SaveContact, vContactRow } from "./validators"
+import { logEdit, logEditFromAction } from "../activity/utils"
 
 // Everyone you've dealt with, opened for you. By company, the one you've emailed most first.
 const list = authedQuery({
@@ -63,6 +64,12 @@ const save = action({
     })
     if (result === "taken") throw new ConvexError("You already have a contact with that email.")
     if (result === "gone") throw new ConvexError("That contact isn't here anymore.")
+    await logEditFromAction(
+      ctx,
+      userId,
+      "contact.save",
+      id ? "Changed a contact" : "Added a contact"
+    )
     return null
   },
 })
@@ -76,6 +83,7 @@ const remove = authedMutation({
     if (row?.userId !== ctx.userId) throw new ConvexError("That contact isn't yours.")
     if (row.count > 0) await ctx.db.patch("contacts", id, { hidden: true })
     else await ctx.db.delete("contacts", id)
+    await logEdit(ctx, ctx.userId, "contact.remove", "Removed a contact")
     return null
   },
 })

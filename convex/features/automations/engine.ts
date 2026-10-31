@@ -2,6 +2,8 @@ import { vResultValidator, vWorkflowId } from "@convex-dev/workflow"
 import { ConvexError, v } from "convex/values"
 import { internal } from "../../_generated/api"
 import { internalMutation, internalQuery } from "../../_generated/server"
+import { workLog } from "../../lib/log"
+import { keepLog } from "../activity/utils"
 import { limits as rates, workflow } from "../workflows/manager"
 import { patchRun, recordChoice } from "./counts"
 import {
@@ -174,8 +176,19 @@ const ended = internalMutation({
     const found = await ctx.db.get("automationRuns", context.runId)
     if (!found || found.status !== "running") return null
     const finishedAt = Date.now()
+    const automation = await ctx.db.get("automations", found.automationId)
+    const runLog = workLog("workflow.run", {
+      userId: found.userId,
+      automationId: found.automationId,
+    })
+    runLog.set({
+      summary: automation?.name ?? "A workflow",
+      runMs: finishedAt - found._creationTime,
+    })
     if (result.kind === "success") {
       await patchRun(ctx, found, { status: "done", finishedAt })
+      runLog.set({ outcome: "done" })
+      await keepLog(ctx, runLog)
       return null
     }
     const failed = found.log.find((e) => e.status === "failed")
@@ -193,6 +206,9 @@ const ended = internalMutation({
       error,
       log,
     })
+    runLog.set({ outcome: result.kind === "failed" ? "failed" : "canceled", error })
+    if (result.kind === "failed") runLog.setLevel("error")
+    await keepLog(ctx, runLog)
     return null
   },
 })

@@ -15,7 +15,8 @@ A job search app. It finds roles that fit what you asked for, fills in their app
 - **Calendar.** Application dates, interview times read from emails and invites, follow-ups and your own events.
 - **Booking pages.** Links like `/book/<code>` to send a recruiter. They show your free time in the guest's zone, and a booking lands on your Calendar.
 - **Workflows.** A trigger and up to 20 steps, built on a canvas. Workflows are data, never code. See [docs/workflows.md](docs/workflows.md).
-- **Goals, Views, Inbox and Activity.** Milestones with applications attached, saved board views, what just happened, and what's been sent or stopped.
+- **Activity.** Your account since you joined: what you changed, what the app did for you, and a Failed view that says why anything failed. Each row comes from the same [evlog](https://www.evlog.dev/) event as the logs.
+- **Goals, Views and Inbox.** Milestones with applications attached, saved board views, and what just happened.
 
 [docs/flows.md](docs/flows.md) covers every flow in detail.
 

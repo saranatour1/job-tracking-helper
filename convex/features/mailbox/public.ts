@@ -27,6 +27,7 @@ import {
   vMailContent,
   vMailRow,
 } from "./validators"
+import { logEdit, logEditFromAction } from "../activity/utils"
 
 // One screen of mail. Only these rows get opened, so a big mailbox costs no more than a small one.
 const rowsOf = async (ctx: QueryCtx, userId: Id<"users">, events: Doc<"mailEvents">[]) => {
@@ -145,6 +146,16 @@ const move = authedMutation({
     const event = await ownEvent(ctx, ctx.userId, eventId)
     const home = event.by === "sent" ? ("sent" as const) : ("inbox" as const)
     await ctx.db.patch("mailEvents", eventId, { box: to === "back" ? home : to })
+    await logEdit(
+      ctx,
+      ctx.userId,
+      "mail.move",
+      to === "archived"
+        ? "Archived an email"
+        : to === "trash"
+          ? "Moved an email to the Trash"
+          : "Put an email back"
+    )
     return null
   },
 })
@@ -183,6 +194,7 @@ const deleteForever = authedMutation({
       owner: ctx.userId,
     })
     await ctx.db.delete("mailEvents", eventId)
+    await logEdit(ctx, ctx.userId, "mail.delete", "Deleted an email for good")
     return null
   },
 })
@@ -222,6 +234,7 @@ const setLabels = authedMutation({
       })
     }
     await ctx.db.patch("mailEvents", eventId, { labels: wanted })
+    await logEdit(ctx, ctx.userId, "mail.labels", "Changed an email's labels")
     return null
   },
 })
@@ -329,11 +342,13 @@ const saveDraft = action({
     const userId = await userIdOf(ctx)
     const { id, ...details } = checked(SaveDraft, args)
     const k = await secretKeys()
-    return ctx.runMutation(internal.mailbox.storeDraft, {
+    const saved = await ctx.runMutation(internal.mailbox.storeDraft, {
       userId,
       ...(id && { id }),
       details: await seal(k, JSON.stringify(details), draftAad(userId)),
     })
+    await logEditFromAction(ctx, userId, "mail.draft", "Saved a draft")
+    return saved
   },
 })
 
@@ -397,6 +412,7 @@ const saveTemplate = arkMutation({
       const row = await ctx.db.get("mailTemplates", id)
       if (row?.userId !== ctx.userId) throw new ConvexError("That template isn't here anymore.")
       await ctx.db.patch("mailTemplates", id, { ...template, updatedAt: Date.now() })
+      await logEdit(ctx, ctx.userId, "mail.template", "Changed an email template")
       return id
     }
     const all = await ctx.db
@@ -405,6 +421,7 @@ const saveTemplate = arkMutation({
       .take(maxTemplates)
     if (all.length >= maxTemplates)
       throw new ConvexError(`That's ${maxTemplates} templates. Remove one first.`)
+    await logEdit(ctx, ctx.userId, "mail.template", "Added an email template")
     return ctx.db.insert("mailTemplates", {
       ...template,
       userId: ctx.userId,
@@ -419,6 +436,7 @@ const removeTemplate = authedMutation({
   handler: async (ctx, { id }) => {
     const row = await ctx.db.get("mailTemplates", id)
     if (row?.userId === ctx.userId) await ctx.db.delete("mailTemplates", id)
+    await logEdit(ctx, ctx.userId, "mail.template", "Removed an email template")
     return null
   },
 })

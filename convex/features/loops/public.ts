@@ -1,5 +1,5 @@
 import { paginationOptsValidator, paginationResultValidator } from "convex/server"
-import { nextNumber } from "../applications/utils"
+import { logNewApplication, nextNumber } from "../applications/utils"
 import { priorityFor } from "../applications/validators"
 import { ConvexError, v } from "convex/values"
 import type { Id } from "../../_generated/dataModel"
@@ -14,6 +14,7 @@ import { startRun, stopRunNow, ownLoop, rowOf, lastRunOf, ownLead, countOnRun } 
 import { nextRunAt } from "./schedule"
 import { NewLoop, UpdateLoop, vFits, vRespondArgs, vSourceStatus } from "./validators"
 import { providerIds } from "../workflows/validators"
+import { logEdit } from "../activity/utils"
 
 const list = authedQuery({
   args: {},
@@ -37,6 +38,7 @@ const create = arkMutation({
     ).length
     if (count >= maxLoops)
       throw new ConvexError(`You can have ${maxLoops} loops. Remove one to start another.`)
+    await logEdit(ctx, ctx.userId, "loop.create", `Added the loop ${loop.name}`)
     return ctx.db.insert("loops", { ...rowOf(loop), userId: ctx.userId })
   },
 })
@@ -48,6 +50,7 @@ const update = arkMutation({
   handler: async (ctx, { loopId, ...loop }) => {
     await ownLoop(ctx, ctx.userId, loopId)
     await ctx.db.patch("loops", loopId, rowOf(loop))
+    await logEdit(ctx, ctx.userId, "loop.update", `Changed the loop ${loop.name}`)
     return null
   },
 })
@@ -62,6 +65,12 @@ const setActive = authedMutation({
       active,
       nextRunAt: active ? nextRunAt(Date.now(), loop.at, loop.timeZone) : loop.nextRunAt,
     })
+    await logEdit(
+      ctx,
+      ctx.userId,
+      "loop.active",
+      `${active ? "Resumed" : "Paused"} the loop ${loop.name}`
+    )
     return null
   },
 })
@@ -72,13 +81,14 @@ const remove = authedMutation({
   args: { loopId: v.id("loops") },
   returns: v.null(),
   handler: async (ctx, { loopId }) => {
-    await ownLoop(ctx, ctx.userId, loopId)
+    const { name } = await ownLoop(ctx, ctx.userId, loopId)
     await ctx.db.delete("loops", loopId)
     for (const goal of await ctx.db
       .query("goals")
       .withIndex("by_userId", (q) => q.eq("userId", ctx.userId))
       .take(maxGoals))
       if (goal.loopId === loopId) await ctx.db.patch("goals", goal._id, { loopId: undefined })
+    await logEdit(ctx, ctx.userId, "loop.remove", `Removed the loop ${name}`)
     return null
   },
 })
@@ -95,6 +105,7 @@ const runNow = authedMutation({
     const { ok } = await limits.limit(ctx, "runNow", { key: ctx.userId })
     if (!ok)
       throw new ConvexError("You've run loops by hand 3 times today. They'll run tomorrow morning.")
+    await logEdit(ctx, ctx.userId, "loop.runNow", `Started the loop ${loop.name}`)
     return startRun(ctx, loop)
   },
 })
@@ -215,6 +226,7 @@ const respond = authedMutation({
     const lead = await ownLead(ctx, ctx.userId, leadId)
     if (action === "dismiss") {
       await ctx.db.patch("jobLeads", leadId, { status: "dismissed", feedback: "less" })
+      await logEdit(ctx, ctx.userId, "loop.role", `Dismissed ${lead.title} · ${lead.company}`)
       return null
     }
     if (lead.status !== "saved" && lead.status !== "applied")
@@ -223,6 +235,12 @@ const respond = authedMutation({
       status: lead.status === "applied" ? "applied" : "saved",
       ...(action === "favorite" && { feedback: "more" as const }),
     })
+    await logEdit(
+      ctx,
+      ctx.userId,
+      "loop.role",
+      `${action === "favorite" ? "Favorited" : "Saved"} ${lead.title} · ${lead.company}`
+    )
     return null
   },
 })
@@ -269,6 +287,7 @@ const track = authedMutation({
       priority: priorityFor(lead.fit),
       history: [{ status: "saved", at: Date.now() }],
     })
+    await logNewApplication(ctx, ctx.userId, applicationId, lead.company)
     await ctx.db.patch("jobLeads", leadId, { status: "applied", applicationId })
     await countOnRun(ctx, lead.runId, "applied")
     if (goal) await fireEvent(ctx, ctx.userId, { kind: "goal", goalId: goal._id, applicationId })

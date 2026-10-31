@@ -13,6 +13,7 @@ import { monthOf, apiKeyOf } from "../workflows/sources"
 import type { WorkflowId } from "@convex-dev/workflow"
 import type { WorkId } from "@convex-dev/workpool"
 import { workLog } from "../../lib/log"
+import { keepLog } from "../activity/utils"
 import { record, post, text } from "../workflows/sources/source"
 import { maxText, companyOf, boardOf, previewOf } from "../jobs/boards"
 import type { vPasted } from "../workflows/validators"
@@ -195,8 +196,14 @@ export const stopRunNow = async (ctx: MutationCtx, run: Doc<"loopRuns">) => {
     readFailures: undefined,
   })
   const log = workLog("loop.run", { runId: run._id, loopId: run.loopId, userId: run.userId })
-  log.set({ outcome: "stopped", scanned: run.scanned, runMs: Date.now() - run.startedAt })
-  log.emit()
+  const loop = await ctx.db.get("loops", run.loopId)
+  log.set({
+    summary: `${loop?.name ?? "A loop"}: you stopped it after ${run.scanned} roles`,
+    outcome: "stopped",
+    scanned: run.scanned,
+    runMs: Date.now() - run.startedAt,
+  })
+  await keepLog(ctx, log)
 }
 
 // Everything Loops stored for a user, for deleting an account. Usage is shared, so it stays.

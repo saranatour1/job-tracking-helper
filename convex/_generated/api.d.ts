@@ -8,6 +8,7 @@
  * @module
  */
 
+import type * as activity from "../activity.js";
 import type * as applications from "../applications.js";
 import type * as auth from "../auth.js";
 import type * as automations from "../automations.js";
@@ -16,6 +17,10 @@ import type * as calendar from "../calendar.js";
 import type * as contacts from "../contacts.js";
 import type * as crons from "../crons.js";
 import type * as email from "../email.js";
+import type * as features_activity_models from "../features/activity/models.js";
+import type * as features_activity_public from "../features/activity/public.js";
+import type * as features_activity_utils from "../features/activity/utils.js";
+import type * as features_activity_validators from "../features/activity/validators.js";
 import type * as features_applications_index from "../features/applications/index.js";
 import type * as features_applications_models from "../features/applications/models.js";
 import type * as features_applications_public from "../features/applications/public.js";
@@ -169,6 +174,7 @@ import type {
 } from "convex/server";
 
 declare const fullApi: ApiFromModules<{
+  activity: typeof activity;
   applications: typeof applications;
   auth: typeof auth;
   automations: typeof automations;
@@ -177,6 +183,10 @@ declare const fullApi: ApiFromModules<{
   contacts: typeof contacts;
   crons: typeof crons;
   email: typeof email;
+  "features/activity/models": typeof features_activity_models;
+  "features/activity/public": typeof features_activity_public;
+  "features/activity/utils": typeof features_activity_utils;
+  "features/activity/validators": typeof features_activity_validators;
   "features/applications/index": typeof features_applications_index;
   "features/applications/models": typeof features_applications_models;
   "features/applications/public": typeof features_applications_public;

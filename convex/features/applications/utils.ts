@@ -1,7 +1,9 @@
 import type { MutationCtx } from "../../_generated/server"
 import type { Id, Doc } from "../../_generated/dataModel"
 import { ConvexError } from "convex/values"
-import { defaultTrashDays, type Status, limits, priorityFor } from "./validators"
+import { defaultTrashDays, type Status, limits, priorityFor, statusLabels } from "./validators"
+import { workLog } from "../../lib/log"
+import { keepLog, logEdit } from "../activity/utils"
 import { internal } from "../../_generated/api"
 import { fireEvent } from "../automations/fire"
 
@@ -119,6 +121,15 @@ export const nextNumber = async (ctx: MutationCtx, userId: Id<"users">) => {
   return number
 }
 
+export const logNewApplication = async (
+  ctx: MutationCtx,
+  userId: Id<"users">,
+  applicationId: Id<"applications">,
+  company: string
+) => {
+  await logEdit(ctx, userId, "application.added", `Added ${company}`, { applicationId })
+}
+
 // Every status change goes through here, so history stays complete: the tracker, a
 // suggestion from an email, anything later.
 export const changeStatus = async (
@@ -130,6 +141,15 @@ export const changeStatus = async (
   { quiet = false }: { quiet?: boolean } = {}
 ) => {
   if (application.status === status) return
+  const log = workLog("application.status", {
+    userId: application.userId,
+    applicationId: application._id,
+  })
+  log.set({
+    summary: `${application.company}: ${statusLabels[application.status]} to ${statusLabels[status]}`,
+    outcome: "moved",
+  })
+  await keepLog(ctx, log)
   if (!quiet)
     await fireEvent(ctx, application.userId, {
       kind: "status",
