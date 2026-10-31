@@ -6,6 +6,7 @@ import { deleteNotifications } from "../notifications/utils"
 import { logEdit } from "../activity/utils"
 import { startDelete } from "../deletes/utils"
 import { deleteResumeFile } from "../preferences/utils"
+import { removeAgents } from "../agents/utils"
 import { maxImageBytes, Profile, vMe } from "./validators"
 
 const me = authedQuery({
@@ -98,6 +99,7 @@ const deleteAccount = authedMutation({
     await deleteResumeFile(ctx, ctx.userId)
     await deleteEmail(ctx, ctx.userId)
     await deleteNotifications(ctx, ctx.userId)
+    await removeAgents(ctx, ctx.userId)
     await ctx.runMutation(components.authUsername.public.deleteUsername, { userId: ctx.userId })
     await ctx.db.replace("users", ctx.userId, {})
     await startDelete(ctx, { kind: "account", userId: ctx.userId, before: Date.now() })

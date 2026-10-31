@@ -210,7 +210,11 @@ const blockProblem = (step: Block, trigger: Trigger) => {
     if (step.value.length > limits.label * 4) return "Keep what it checks short."
   }
   if (step.kind === "sendEmail") {
-    if (!step.to.trim() || (!step.to.includes("{") && !emailAddress.test(step.to.trim())))
+    if (
+      !step.to.trim() ||
+      step.to.length > 320 ||
+      (!step.to.includes("{") && !emailAddress.test(step.to.trim()))
+    )
       return "Send it to one email address, or a placeholder like {email.from}."
     if (!step.subject.trim() || step.subject.length > limits.subject)
       return `A subject is 1 to ${limits.subject} characters.`
@@ -237,6 +241,7 @@ const blockProblem = (step: Block, trigger: Trigger) => {
 export const problemOf = (name: string, trigger: Trigger, steps: Step[]) => {
   if (!name.trim() || name.length > limits.name) return "Give it a name of up to 80 characters."
   if (!steps.length) return "Add at least one step."
+  if (JSON.stringify(trigger).length > 2000) return "That trigger is too long."
   if (blocksOf(steps).length > limits.steps) return `A workflow has at most ${limits.steps} steps.`
   if (trigger.kind === "schedule") {
     if (!time.test(trigger.at)) return "Pick a time like 09:00."

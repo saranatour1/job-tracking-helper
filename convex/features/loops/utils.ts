@@ -13,6 +13,8 @@ import type { WorkflowId } from "@convex-dev/workflow"
 import type { WorkId } from "@convex-dev/workpool"
 import { workLog } from "../../lib/log"
 import { keepLog } from "../activity/utils"
+import { limits } from "../workflows/manager"
+import { maxLoops } from "./catalog"
 
 export const ownLoop = async (ctx: MutationCtx, userId: Id<"users">, loopId: Id<"loops">) => {
   const loop = await ctx.db.get("loops", loopId)
@@ -33,7 +35,23 @@ export const rowOf = (loop: typeof NewLoop.infer) => {
   }
 }
 
-export const lastRunOf = (ctx: MutationCtx, loopId: Id<"loops">) =>
+export const createLoop = async (
+  ctx: MutationCtx,
+  userId: Id<"users">,
+  loop: typeof NewLoop.infer
+) => {
+  const count = (
+    await ctx.db
+      .query("loops")
+      .withIndex("by_userId", (q) => q.eq("userId", userId))
+      .take(maxLoops)
+  ).length
+  if (count >= maxLoops)
+    throw new ConvexError(`You can have ${maxLoops} loops. Remove one to start another.`)
+  return ctx.db.insert("loops", { ...rowOf(loop), userId })
+}
+
+export const lastRunOf = (ctx: QueryCtx, loopId: Id<"loops">) =>
   ctx.db
     .query("loopRuns")
     .withIndex("by_loopId_and_startedAt", (q) => q.eq("loopId", loopId))
@@ -53,6 +71,36 @@ export const countOnRun = async (
 ) => {
   const run = runId && (await ctx.db.get("loopRuns", runId))
   if (run) await ctx.db.patch("loopRuns", run._id, { [field]: run[field] + 1 })
+}
+
+export const shortlistOf = async (ctx: QueryCtx, userId: Id<"users">, status: "new" | "saved") => {
+  const of = (s: "new" | "saved" | "applied") =>
+    ctx.db
+      .query("jobLeads")
+      .withIndex("by_userId_and_status", (q) => q.eq("userId", userId).eq("status", s))
+      .order("desc")
+      .take(60)
+  if (status === "new") return (await of("new")).sort((a, b) => b.fit - a.fit)
+  return [...(await of("saved")), ...(await of("applied"))].sort(
+    (a, b) => b._creationTime - a._creationTime
+  )
+}
+
+export const respondToLead = async (
+  ctx: MutationCtx,
+  lead: Doc<"jobLeads">,
+  action: "save" | "favorite" | "dismiss"
+) => {
+  if (action === "dismiss") {
+    await ctx.db.patch("jobLeads", lead._id, { status: "dismissed", feedback: "less" })
+    return
+  }
+  if (lead.status !== "saved" && lead.status !== "applied")
+    await countOnRun(ctx, lead.runId, "saved")
+  await ctx.db.patch("jobLeads", lead._id, {
+    status: lead.status === "applied" ? "applied" : "saved",
+    ...(action === "favorite" && { feedback: "more" as const }),
+  })
 }
 
 export const insertLoopRun = (ctx: MutationCtx, loop: Doc<"loops">) =>
@@ -79,6 +127,16 @@ export const startRun = async (ctx: MutationCtx, loop: Doc<"loops">) => {
   )
   await ctx.db.patch("loopRuns", runId, { workflowId })
   return runId
+}
+
+export const runLoopNow = async (ctx: MutationCtx, loop: Doc<"loops">) => {
+  const last = await lastRunOf(ctx, loop._id)
+  if (last && (last.status === "queued" || last.status === "running"))
+    throw new ConvexError("This loop is already running.")
+  const { ok } = await limits.limit(ctx, "runNow", { key: loop.userId })
+  if (!ok)
+    throw new ConvexError("You've run loops by hand 3 times today. They'll run tomorrow morning.")
+  return startRun(ctx, loop)
 }
 
 export const profileFor = async (

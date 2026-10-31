@@ -36,8 +36,9 @@ Workflows have their own page, [workflows.md](workflows.md).
 15. [Calendar](#calendar)
 16. [Booking pages](#booking-pages)
 17. [Account](#account)
-18. [Workflows](#workflows)
-19. [Known gaps](#known-gaps)
+18. [Connected agents](#connected-agents)
+19. [Workflows](#workflows)
+20. [Known gaps](#known-gaps)
 
 ## Across the app
 
@@ -77,6 +78,7 @@ A repeat gets a number (`-2`), and a real id still finds its row, so old links w
 | Jev                           | Judges roles for loops and pasted links, sorts mail, reviews resumes, re-evaluates goals, picks saved answers for forms, answers Ask Jev, drafts workflows from a sentence                      | `convex/features/workflows/judge.ts`, `email/jev.ts`, `preferences/resume.ts`, `goals/actions.ts`, `prefilled/actions.ts`, `automations/actions.ts` |
 | The batch worker (`readPool`) | Fetches job boards and runs Jev's judgments, 8 at a time, with up to 3 attempts each                                                                                                            | `convex/features/workflows/manager.ts`                                                                                                              |
 | Workflows                     | Runs the steps people build                                                                                                                                                                     | `convex/features/automations/engine.ts`                                                                                                             |
+| An agent you connect          | Calls the tools you allowed, as you                                                                                                                                                             | `POST /mcp`, `convex/mcp.ts`                                                                                                                        |
 
 ### Events that start workflows
 
@@ -616,7 +618,8 @@ day; links 10 a day; a source moves on at 90% of its monthly credits.
 **Stories**
 
 - As a job seeker, I want one list of what happened (mail about my applications, mail to
-  file, bookings, workflow messages, new roles), each opening where I act on it.
+  file, bookings, workflow messages, new roles, messages from agents I connected), each opening
+  where I act on it.
 - As anyone, I want to turn off kinds I don't care about.
 
 **Flows**
@@ -905,7 +908,7 @@ the quarter hour.
 - As anyone, I want to choose which Updates kinds I get.
 - As anyone, I want to delete my account and everything in it.
 
-**Flows** (`/account`: Profile, Email, Notifications, Calendar, Booking pages, Applications,
+**Flows** (`/account`: Profile, Email, Notifications, Connected agents, Calendar, Booking pages, Applications,
 Prefilled applications, Interface and theme, Account)
 
 1. **Profile** fields save when you leave them (`api.users.updateProfile`). A picture is
@@ -919,9 +922,63 @@ Prefilled applications, Interface and theme, Account)
 5. **Delete account:** confirm, then everything goes: applications, Preferences and
    resume, loops and their runs and roles, email connection and mail, notifications,
    views, goals, prefilled applications, calendar, booking pages and workflows. Your username is
-   freed. Your profile, files and mail connection go at once, and the rest follows in batches moments later.
+   freed. Your profile, files, mail connection and connected agents go at once, and the rest follows in batches moments later.
 
 **Files:** `src/features/account/`, `convex/features/users/`.
+
+## Connected agents
+
+**Stories**
+
+- As a job seeker, I want my AI agent (Claude, ChatGPT, Cursor, Claude Code) to change my
+  preferences, look for jobs, fill in applications, design loops and workflows, and tell me
+  when something needs me.
+- As anyone, I want to see which agents can act for me, limit them, and cut them off.
+
+**Flows**
+
+1. **Connect by signing in.** Paste the server address from Account into the agent. It opens
+   `/connect?request=…`. If you're signed out, you sign in on that page and stay on it. The page
+   shows the agent's name as not verified, what it asks to do and where you go back to. Allow
+   or Deny is your click. Each approval is its own connection.
+2. **Connect with a key.** Under Account, name a key, choose Read only if you want, and press
+   Create. The key shows once, with the command for Claude Code. You can keep 50 connections.
+3. **Disconnect.** Account lists every connection and when it was last used. Disconnect stops
+   it right away. Deleting your account disconnects them all.
+4. **What an agent can do** (`convex/mcp.ts`), each behind a scope:
+
+   | Scope                                     | Tools                                                                                                                                    |
+   | ----------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------- |
+   | `preferences:read`, `preferences:write`   | `get_preferences`, `update_preferences`, `add_preferences`                                                                               |
+   | `jobs:read`, `jobs:write`                 | `search_jobs`, `get_job`, `list_shortlist`, `respond_to_job`, `check_job_link`, `list_job_searches`, `save_job_search`, `run_job_search` |
+   | `applications:read`, `applications:write` | `prepare_application`, `list_prepared_applications`, `get_prepared_application`, `set_application_answer`                                |
+   | `board:read`, `board:write`               | `list_goals`, `save_goal`, `list_views`, `save_view`                                                                                     |
+   | `contacts:read`, `contacts:write`         | `list_contacts`, `add_contact`                                                                                                           |
+   | `workflows:read`, `workflows:write`       | `list_workflows`, `get_workflow`, `save_workflow`                                                                                        |
+   | `notifications:write`                     | `notify_user`                                                                                                                            |
+
+5. **What an agent can't do, on purpose:**
+   - Submit an application, or open its live browser. `liveUrl` never reaches an agent. It gets
+     `appUrl`, and you check and submit.
+   - Pass an answer off as yours. Its answers are saved as `ai` drafts, so the form stays at needs
+     answers until you check them.
+   - Fill forms with its own words. Standing answers it writes (`byAgent` on `profileEntries`) stay
+     off application forms until you read them and press Save on Preferences. It can't remove an
+     answer you saved.
+   - Turn on or run a workflow. Saving one always leaves it off, even one that was on, because
+     workflows can send email. Until you open it and save it in the builder (`byAgent` on
+     `automations`), the switch and Run now both refuse.
+   - Reach a page off the job boards. `check_job_link` takes only Greenhouse, Lever, Ashby and
+     Personio links for companies already in the catalog, without any query, so a posting can't talk
+     an agent into sending your data to its own site or adding a board for everyone.
+   - Read your saved field answers as a list, your mail, or your Updates.
+
+**Limits:** `prepare_application` and `run_job_search` share the day's limits with the app (10 and
+3), as does `check_job_link` (10). `notify_user` is 20 a day and `add_contact` 100. Every other change counts toward 500 a day, and
+reads toward 120 a minute. A new loop starts paused, and you can keep 3.
+
+**Files:** `convex/mcp.ts`, `convex/features/agents/`, `src/features/account/agents.tsx`,
+`src/features/account/connect.tsx`.
 
 ## Workflows
 

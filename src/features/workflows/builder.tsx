@@ -291,6 +291,12 @@ const Editor = ({ saved }: { saved?: Doc<"automations"> }) => {
             onCheckedChange={(active) => form.setFieldValue("active", active)}
           />
         </label>
+        {saved?.byAgent && (
+          <p role="alert" className="text-destructive text-xs">
+            A connected agent wrote this. Read every step, above all who it emails. It can't run
+            until you save it.
+          </p>
+        )}
       </div>
       <ScrollArea className="min-h-0 flex-1">
         <div className="p-3">
@@ -360,7 +366,7 @@ const Editor = ({ saved }: { saved?: Doc<"automations"> }) => {
             </Button>
             <Button
               size="sm"
-              disabled={saved && !dirty}
+              disabled={saved && !dirty && !saved.byAgent}
               onClick={() => startTransition(() => act("save"))}
             >
               Save

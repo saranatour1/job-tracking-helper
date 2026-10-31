@@ -60,12 +60,12 @@ Convex stores references as typed ids but doesn't enforce them or cascade delete
 
 ### You
 
-| Table            | Holds                                                                                                  | Why it's a table               | Indexes                        |
-| ---------------- | ------------------------------------------------------------------------------------------------------ | ------------------------------ | ------------------------------ |
-| `users`          | name, email, username, image, `avatarUrl`, `githubImportedAt`, `trashDays`, `onboardedAt`, `prepareAt` | Convex Auth points at it       | `by_userName`, `by_imageId`    |
-| `preferences`    | one row per person: `workMode`, the resume file, its text and last review, `prefilledAt`               | exception: keeps `users` basic | `by_userId`, `by_resumeId`     |
-| `preferenceTags` | one row per interest, skill, place, company or thing to avoid                                          | 1                              | `by_userId_and_kind_and_order` |
-| `profileEntries` | one row per answer (`kind: answer`) or saved form field (`kind: field`), with usage stamps             | 1                              | `by_userId_and_kind_and_order` |
+| Table            | Holds                                                                                                                                        | Why it's a table               | Indexes                        |
+| ---------------- | -------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------ | ------------------------------ |
+| `users`          | name, email, username, image, `trashDays`, `onboardedAt`, `prepareAt`                                                                        | Convex Auth points at it       | `by_userName`, `by_imageId`    |
+| `preferences`    | one row per person: `workMode`, the resume file, its text and last review, `prefilledAt`                                                     | exception: keeps `users` basic | `by_userId`, `by_resumeId`     |
+| `preferenceTags` | one row per interest, skill, place, company or thing to avoid                                                                                | 1                              | `by_userId_and_kind_and_order` |
+| `profileEntries` | one row per answer (`kind: answer`) or saved form field (`kind: field`), with usage stamps, and `byAgent` until you save what an agent wrote | 1                              | `by_userId_and_kind_and_order` |
 
 Built-in questions are a list in code (`preferences/rows.ts`), keyed so a label can change without touching stored answers.
 
@@ -97,7 +97,7 @@ These have no owner. Deleting an account leaves them.
 | `loops`    | a saved search: its answers, size, time and next run                                                                   | 4                | `by_userId`, `by_active_and_nextRunAt`                                                                                                                       |
 | `loopRuns` | one run's counts and cost, and while it runs, Jev's verdicts so far                                                    | 1                | `by_loopId_and_startedAt`, `by_userId_and_startedAt`                                                                                                         |
 | `jobLeads` | a role judged for one person: verdict, fit, reasons, checks, where it stands                                           | 1, 4             | `by_userId_and_urlKey`, `by_userId_and_status`, `by_userId_and_feedback`, `by_userId_and_verdict_and_fit`, `by_applicationId`, `by_userId_and_applicationId` |
-| `prefills` | an application made ready: every question on the form with its answer and source, and the live browser while it's open | 2, 4             | `by_userId`, `by_userId_and_urlKey`, `by_userId_and_applicationId`                                                                                           |
+| `prefills` | an application made ready: every question on the form with its answer and source, and the live browser while it's open | 2, 4             | `by_userId`, `by_userId_and_status`, `by_userId_and_urlKey`, `by_userId_and_applicationId`                                                                   |
 
 `prefills.fields` is an array, capped at 80, not a table: a form is bounded and only read with its application.
 
@@ -124,10 +124,10 @@ These have no owner. Deleting an account leaves them.
 
 ### Workflows
 
-| Table            | Holds                                                                              | Why it's a table | Indexes                                |
-| ---------------- | ---------------------------------------------------------------------------------- | ---------------- | -------------------------------------- |
-| `automations`    | a workflow you built: trigger and steps, as data                                   | 4                | `by_userId`, `by_active_and_nextRunAt` |
-| `automationRuns` | one run: a copy of its steps, what triggered it, and a log with one entry per step | 1                | `by_automationId_and_startedAt`        |
+| Table            | Holds                                                                                              | Why it's a table | Indexes                                |
+| ---------------- | -------------------------------------------------------------------------------------------------- | ---------------- | -------------------------------------- |
+| `automations`    | a workflow you built: trigger and steps, as data, and `byAgent` until you save what an agent wrote | 4                | `by_userId`, `by_active_and_nextRunAt` |
+| `automationRuns` | one run: a copy of its steps, what triggered it, and a log with one entry per step                 | 1                | `by_automationId_and_startedAt`        |
 
 ### Activity
 
@@ -157,8 +157,9 @@ These have no owner. Deleting an account leaves them.
 | `@convex-dev/workpool`     | `readPool` (fetches, judgments) and `applyPool` (prepares)                                  | `loopRuns.readWorkIds`                             |
 | `@convex-dev/rate-limiter` | per-source and per-person budgets                                                           | nothing                                            |
 | `@convex-dev/aggregate`    | run and answer counts for workflows                                                         | nothing                                            |
+| `@convex-dev/mcp`          | connected agents, API keys and tokens, stored hashed                                        | the `userId` of whoever approved                   |
 | `cloudflareEmail` (local)  | sealed emails                                                                               | `mailEvents.emailId`                               |
-| `notifications` (local)    | each person's Updates lines and muted kinds                                                 | a `ref` on each line, read back to build it        |
+| `notifications` (local)    | each person's Updates lines and muted kinds                                                 | a `ref` on each line, or an agent's `message`      |
 
 ## What happens when something is deleted
 

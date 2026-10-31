@@ -1,7 +1,7 @@
 import type { MutationCtx } from "../../_generated/server"
 import type { Id } from "../../_generated/dataModel"
 import { ConvexError } from "convex/values"
-import { maxGoals } from "./validators"
+import { maxGoals, type NewGoal, type UpdateGoal } from "./validators"
 
 export const dayOf = (ms: number) => new Date(ms).toISOString().slice(0, 10)
 
@@ -28,4 +28,27 @@ export const roomFor = async (ctx: MutationCtx, userId: Id<"users">) => {
     .withIndex("by_userId", (q) => q.eq("userId", userId))
     .take(maxGoals)
   if (existing.length >= maxGoals) throw new ConvexError(`You can keep ${maxGoals} goals.`)
+}
+
+export const createGoal = async (
+  ctx: MutationCtx,
+  userId: Id<"users">,
+  { loopId, ...goal }: typeof NewGoal.infer
+) => {
+  await roomFor(ctx, userId)
+  await ownLoop(ctx, userId, loopId)
+  return ctx.db.insert("goals", { ...goal, ...(loopId && { loopId }), userId })
+}
+
+export const updateGoal = async (
+  ctx: MutationCtx,
+  userId: Id<"users">,
+  { id, loopId, ...patch }: typeof UpdateGoal.infer
+) => {
+  await own(ctx, userId, id)
+  await ownLoop(ctx, userId, loopId)
+  await ctx.db.patch("goals", id, {
+    ...patch,
+    ...(loopId !== undefined && { loopId: loopId ?? undefined }),
+  })
 }

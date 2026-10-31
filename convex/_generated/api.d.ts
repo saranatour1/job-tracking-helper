@@ -9,6 +9,7 @@
  */
 
 import type * as api_activity from "../api/activity.js";
+import type * as api_agents from "../api/agents.js";
 import type * as api_applications from "../api/applications.js";
 import type * as api_auth from "../api/auth.js";
 import type * as api_automationActions from "../api/automationActions.js";
@@ -40,6 +41,10 @@ import type * as features_activity_models from "../features/activity/models.js";
 import type * as features_activity_public from "../features/activity/public.js";
 import type * as features_activity_utils from "../features/activity/utils.js";
 import type * as features_activity_validators from "../features/activity/validators.js";
+import type * as features_agents_internal from "../features/agents/internal.js";
+import type * as features_agents_scopes from "../features/agents/scopes.js";
+import type * as features_agents_utils from "../features/agents/utils.js";
+import type * as features_agents_validators from "../features/agents/validators.js";
 import type * as features_applications_index from "../features/applications/index.js";
 import type * as features_applications_models from "../features/applications/models.js";
 import type * as features_applications_public from "../features/applications/public.js";
@@ -185,6 +190,7 @@ import type * as lib_log from "../lib/log.js";
 import type * as lib_markdown from "../lib/markdown.js";
 import type * as lib_secrets from "../lib/secrets.js";
 import type * as lib_unmark from "../lib/unmark.js";
+import type * as mcp from "../mcp.js";
 
 import type {
   ApiFromModules,
@@ -194,6 +200,7 @@ import type {
 
 declare const fullApi: ApiFromModules<{
   "api/activity": typeof api_activity;
+  "api/agents": typeof api_agents;
   "api/applications": typeof api_applications;
   "api/auth": typeof api_auth;
   "api/automationActions": typeof api_automationActions;
@@ -225,6 +232,10 @@ declare const fullApi: ApiFromModules<{
   "features/activity/public": typeof features_activity_public;
   "features/activity/utils": typeof features_activity_utils;
   "features/activity/validators": typeof features_activity_validators;
+  "features/agents/internal": typeof features_agents_internal;
+  "features/agents/scopes": typeof features_agents_scopes;
+  "features/agents/utils": typeof features_agents_utils;
+  "features/agents/validators": typeof features_agents_validators;
   "features/applications/index": typeof features_applications_index;
   "features/applications/models": typeof features_applications_models;
   "features/applications/public": typeof features_applications_public;
@@ -370,6 +381,7 @@ declare const fullApi: ApiFromModules<{
   "lib/markdown": typeof lib_markdown;
   "lib/secrets": typeof lib_secrets;
   "lib/unmark": typeof lib_unmark;
+  mcp: typeof mcp;
 }>;
 
 /**
@@ -414,4 +426,5 @@ export declare const components: {
   automationChoices: import("@convex-dev/aggregate/_generated/component.js").ComponentApi<"automationChoices">;
   cloudflareEmail: import("../components/cloudflareEmail/_generated/component.js").ComponentApi<"cloudflareEmail">;
   notifications: import("../components/notifications/_generated/component.js").ComponentApi<"notifications">;
+  mcp: import("@convex-dev/mcp/_generated/component.js").ComponentApi<"mcp">;
 };

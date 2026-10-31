@@ -8,7 +8,7 @@ These all live in the Convex env, declared in `convex/convex.config.ts`.
 
 | Variable                                                   | Needed for                                                                                     |
 | ---------------------------------------------------------- | ---------------------------------------------------------------------------------------------- |
-| `SITE_URL`                                                 | Required. Sign-in only redirects here                                                          |
+| `SITE_URL`                                                 | Required. Sign-in only redirects here, and agents are sent to `/connect` on it                 |
 | `AUTH_PRIVATE_KEY`, `AUTH_JWKS`                            | Required. `pnpm exec auth` generates them                                                      |
 | `AUTH_GOOGLE_CLIENT_ID`, `AUTH_GOOGLE_CLIENT_SECRET`       | Required by Convex. On dev, `scripts/dev.sh` sets any that are missing to `disabled`           |
 | `AUTH_GITHUB_CLIENT_ID`, `AUTH_GITHUB_CLIENT_SECRET`       | Required by Convex, the same way. Production needs real ones, since GitHub is its only sign-in |

@@ -2,12 +2,13 @@
 /// <reference types="vite/client" />
 import username from "@convex-dev/auth/components/username/test"
 import batchWorker from "@convex-dev/batch-worker/test"
+import mcp from "@convex-dev/mcp/test"
 import rateLimiter from "@convex-dev/rate-limiter/test"
 import workpool from "@convex-dev/workpool/test"
 import { convexTest } from "convex-test"
 import { afterEach, beforeEach, describe, expect, it, vi } from "vite-plus/test"
 
-import { api, internal } from "../../_generated/api"
+import { api, components, internal } from "../../_generated/api"
 import type { Id } from "../../_generated/dataModel"
 import cloudflareSchema from "../../components/cloudflareEmail/schema"
 import notificationsSchema from "../../components/notifications/schema"
@@ -35,6 +36,7 @@ const day = 24 * 60 * 60 * 1000
 const setup = async () => {
   const t = convexTest(schema, modules)
   batchWorker.register(t)
+  mcp.register(t)
   rateLimiter.register(t)
   workpool.register(t, "applyPool")
   t.registerComponent(
@@ -125,11 +127,37 @@ describe("deleteAccount", () => {
     const { t, me, addApplication, finish } = await setup()
     username.registerUsername(t)
     await addApplication(me, "Mine")
+    const agents = () => t.run((ctx) => ctx.runQuery(components.mcp.grants.list, { userId: me }))
+    await t.run((ctx) =>
+      ctx.runMutation(components.mcp.grants.createApiKey, {
+        userId: me,
+        name: "Agent",
+        scopes: [],
+        resource: "https://test.convex.site/mcp",
+        hash: "hash",
+      })
+    )
+    expect(await agents()).toHaveLength(1)
     vi.advanceTimersByTime(1000)
     await t.withIdentity({ subject: me }).mutation(api.api.users.deleteAccount, {})
     expect((await t.run((ctx) => ctx.db.get("users", me)))?.name).toBeUndefined()
+    expect(await agents()).toEqual([])
+    // A code approved just before can still turn into a connection after that.
+    await t.run((ctx) =>
+      ctx.runMutation(components.mcp.grants.createApiKey, {
+        userId: me,
+        name: "Late",
+        scopes: [],
+        resource: "https://test.convex.site/mcp",
+        hash: "late",
+      })
+    )
+    expect(await agents()).toHaveLength(1)
     await finish()
     expect(await t.run((ctx) => ctx.db.query("applications").collect())).toEqual([])
+    vi.advanceTimersByTime(3 * 60 * 1000)
+    await t.finishAllScheduledFunctions(vi.runAllTimers)
+    expect(await agents()).toEqual([])
   })
 })
 

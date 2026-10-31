@@ -26,10 +26,10 @@ export const ViewFields = type({
   filters: Filters,
   "display?": {
     "layout?": "'board' | 'list'",
-    "groupBy?": "string",
-    "orderBy?": "string",
+    "groupBy?": "string <= 40",
+    "orderBy?": "string <= 40",
     "showEmpty?": "boolean",
-    "shown?": "string[]",
+    "shown?": type("string <= 40").array().atMostLength(30),
   },
 })
 

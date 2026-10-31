@@ -40,6 +40,7 @@ export type ComponentApi<Name extends string | undefined = string | undefined> =
           _id: string;
           at: number;
           kind: string;
+          message?: string;
           owner: string;
           readAt?: number;
           ref?: string;
@@ -56,7 +57,7 @@ export type ComponentApi<Name extends string | undefined = string | undefined> =
       notify: FunctionReference<
         "mutation",
         "internal",
-        { kind: string; owner: string; ref?: string },
+        { kind: string; message?: string; owner: string; ref?: string },
         string | null,
         Name
       >;

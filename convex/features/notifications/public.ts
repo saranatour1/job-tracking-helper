@@ -24,6 +24,15 @@ const linesOf = async (
   const lines = await Promise.all(
     rows.map(async (n) => {
       const base = { id: n._id, at: n.at, unread: n.readAt === undefined }
+      if (n.kind === "agent.message")
+        return {
+          ...base,
+          title: "From a connected agent",
+          message: n.message ?? "",
+          link: null,
+          company: undefined,
+          status: undefined,
+        }
       const prefillId = n.kind === "prefill.ready" && n.ref && ctx.db.normalizeId("prefills", n.ref)
       if (prefillId) {
         const row = await ctx.db.get("prefills", prefillId)

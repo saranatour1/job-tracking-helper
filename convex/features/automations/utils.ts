@@ -1,9 +1,13 @@
 import type { MutationCtx, QueryCtx } from "../../_generated/server"
 import type { Id, Doc } from "../../_generated/dataModel"
-import { ConvexError, type Infer } from "convex/values"
+import { ConvexError, type Infer, type ObjectType } from "convex/values"
 import {
   type Trigger,
+  blocksOf,
+  limits,
   nextScheduledAt,
+  problemOf,
+  type vSaveWorkflow,
   type vLogEntry,
   type RunContext,
   type Block,
@@ -32,6 +36,47 @@ export const own = async (ctx: MutationCtx, userId: Id<"users">, id: Id<"automat
 
 export const nextRunOf = (trigger: Trigger, active: boolean) =>
   active && trigger.kind === "schedule" ? nextScheduledAt(Date.now(), trigger) : undefined
+
+export const saveWorkflow = async (
+  ctx: MutationCtx,
+  userId: Id<"users">,
+  { id, ...automation }: ObjectType<typeof vSaveWorkflow>
+) => {
+  const name = automation.name.trim()
+  const problem = problemOf(name, automation.trigger, automation.steps)
+  if (problem) throw new ConvexError(problem)
+  for (const step of blocksOf(automation.steps))
+    if ((step.kind === "addNote" || step.kind === "move") && step.applicationId) {
+      const application = await ctx.db.get("applications", step.applicationId)
+      if (application?.userId !== userId)
+        throw new ConvexError("That application isn't yours, or it's gone.")
+    } else if (step.kind === "findRoles") {
+      const loop = await ctx.db.get("loops", step.loopId)
+      if (loop?.userId !== userId) throw new ConvexError("That loop isn't yours, or it's gone.")
+    } else if (step.kind === "putOnGoal") {
+      const goal = await ctx.db.get("goals", step.goalId)
+      if (goal?.userId !== userId) throw new ConvexError("That goal isn't yours, or it's gone.")
+    }
+  // A deleted goal stays in a trigger with nothing in the builder to remove it, and just never fires.
+  if (automation.trigger.kind === "goal")
+    for (const goalId of automation.trigger.goals) {
+      const goal = await ctx.db.get("goals", goalId)
+      if (goal && goal.userId !== userId) throw new ConvexError("That goal isn't yours.")
+    }
+  const row = { ...automation, name, nextRunAt: nextRunOf(automation.trigger, automation.active) }
+  if (id) {
+    await own(ctx, userId, id)
+    await ctx.db.replace("automations", id, { ...row, userId })
+    return id
+  }
+  const mine = await ctx.db
+    .query("automations")
+    .withIndex("by_userId", (q) => q.eq("userId", userId))
+    .take(limits.automations)
+  if (mine.length >= limits.automations)
+    throw new ConvexError(`You can keep ${limits.automations} workflows.`)
+  return ctx.db.insert("automations", { ...row, userId })
+}
 
 export const runsOf = (ctx: MutationCtx, automationId: Id<"automations">) =>
   ctx.db

@@ -1,6 +1,7 @@
+import { ConvexError } from "convex/values"
 import type { Doc, Id } from "../../_generated/dataModel"
 import type { QueryCtx, MutationCtx } from "../../_generated/server"
-import { rowLimits, sectionOfOrder, tagRowsOf, answerRowsOf, fieldRowsOf } from "./rows"
+import { rowLimits, sectionOfOrder, tagRowsOf, answerRowsOf, fieldRowsOf, formOf } from "./rows"
 import { entryKinds, Preferences, PrefilledSections } from "./validators"
 
 export type Settings = Partial<
@@ -64,10 +65,18 @@ export const sync = async <T extends Table>(
   }
 }
 
+export const formNow = async (ctx: QueryCtx, userId: Id<"users">) =>
+  formOf(
+    (await rowOf(ctx, userId))?.workMode ?? "any",
+    await tagsOf(ctx, userId),
+    await entriesOf(ctx, userId, "answer")
+  )
+
 export const writeAnswers = async (
   ctx: MutationCtx,
   userId: Id<"users">,
-  form: typeof Preferences.infer
+  form: typeof Preferences.infer,
+  { byAgent = false }: { byAgent?: boolean } = {}
 ) => {
   await upsert(ctx, userId, { workMode: form.workMode })
   await sync(
@@ -78,11 +87,26 @@ export const writeAnswers = async (
     (r) => r.kind,
     (row) => ctx.db.insert("preferenceTags", { ...row, userId })
   )
+  const current = await entriesOf(ctx, userId, "answer")
+  const next = answerRowsOf(form)
+  // A change shows up as `byAgent`, but a removal leaves nothing behind to show.
+  const removed =
+    byAgent &&
+    current.find((c) => !c.byAgent && !next.some((r) => r.key === c.key && r.label === c.label))
+  if (removed)
+    throw new ConvexError(
+      `Agents can't remove "${removed.label}". The person can clear it on the Preferences page.`
+    )
   await sync(
     ctx,
     "profileEntries",
-    await entriesOf(ctx, userId, "answer"),
-    answerRowsOf(form),
+    current,
+    next.map((row) => {
+      const had = current.find(
+        (c) => c.key === row.key && c.label === row.label && c.value === row.value
+      )
+      return byAgent && (!had || had.byAgent) ? { ...row, byAgent: true } : row
+    }),
     (r) => r.key,
     (row) => ctx.db.insert("profileEntries", { ...row, userId })
   )

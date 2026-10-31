@@ -6,6 +6,7 @@ export default defineSchema({
     owner: v.string(),
     kind: v.string(),
     ref: v.optional(v.string()),
+    message: v.optional(v.string()),
     at: v.number(),
     readAt: v.optional(v.number()),
   })

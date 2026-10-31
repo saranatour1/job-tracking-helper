@@ -159,6 +159,16 @@ const byUrlKey = internalQuery({
       .first(),
 })
 
+const hasBoard = internalQuery({
+  args: { kind: v.union(...boardKinds.map((k) => v.literal(k))), slug: v.string() },
+  returns: v.boolean(),
+  handler: async (ctx, b) =>
+    (await ctx.db
+      .query("jobBoards")
+      .withIndex("by_kind_and_slug", (q) => q.eq("kind", b.kind).eq("slug", b.slug))
+      .first()) !== null,
+})
+
 const ensureBoard = internalMutation({
   args: { kind: v.union(...boardKinds.map((k) => v.literal(k))), slug: v.string() },
   returns: v.id("jobBoards"),
@@ -189,6 +199,7 @@ export const internalApi = {
   board,
   addBoards,
   ensureBoard,
+  hasBoard,
   saveJobs,
   boardFetched,
   candidates,

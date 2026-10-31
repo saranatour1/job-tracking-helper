@@ -30,7 +30,8 @@ const plan = internalQuery({
       .take(rowLimits.answer + rowLimits.field)
     const answers = [
       ...entries
-        .filter((e) => e.value.trim())
+        // A connected agent's words only reach a form once the person has saved them.
+        .filter((e) => e.value.trim() && !e.byAgent)
         .map((e) => ({ key: e._id as string, label: e.label, value: e.value })),
       ...(me?.name ? [{ key: "user.name", label: "Full name", value: me.name }] : []),
       ...(me?.email ? [{ key: "user.email", label: "Email", value: me.email }] : []),

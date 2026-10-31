@@ -10,12 +10,17 @@ const settingsOf = (ctx: QueryCtx, owner: string) =>
 
 /** Adds a notification unless the owner muted its kind. Returns its id, or null. */
 export const notify = mutation({
-  args: { owner: v.string(), kind: v.string(), ref: v.optional(v.string()) },
+  args: {
+    owner: v.string(),
+    kind: v.string(),
+    ref: v.optional(v.string()),
+    message: v.optional(v.string()),
+  },
   returns: v.union(v.id("notifications"), v.null()),
-  handler: async (ctx, { owner, kind, ref }) => {
+  handler: async (ctx, { owner, kind, ref, message }) => {
     const settings = await settingsOf(ctx, owner)
     if (settings?.muted.includes(kind)) return null
-    return await ctx.db.insert("notifications", { owner, kind, ref, at: Date.now() })
+    return await ctx.db.insert("notifications", { owner, kind, ref, message, at: Date.now() })
   },
 })
 

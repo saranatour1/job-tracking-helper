@@ -94,6 +94,12 @@ const PrivacyPage = () => (
           form in.
         </li>
         <li>
+          <strong>AI agents you connect.</strong> If you connect an agent, such as Claude or
+          ChatGPT, its company gets what you allow when you connect it, which can include your
+          preferences, your shortlist, your prepared applications and their answers, your goals,
+          views, loops and workflows, and your contacts. Disconnect one any time under Account.
+        </li>
+        <li>
           <strong>context.dev.</strong> Search terms and company domains, used to find job boards.
         </li>
         <li>

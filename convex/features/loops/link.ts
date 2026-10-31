@@ -2,10 +2,25 @@ import { getAuthUserId } from "@convex-dev/auth/server"
 import { ConvexError, v } from "convex/values"
 import { internal } from "../../_generated/api"
 import type { Id } from "../../_generated/dataModel"
-import { action, internalAction } from "../../_generated/server"
+import { action, type ActionCtx, internalAction } from "../../_generated/server"
+import { boardOf } from "../jobs/links"
 import { urlKey } from "../workflows/fit"
 import { limits } from "../workflows/manager"
 import { isLink, readAndJudge } from "./read"
+
+const check = async (ctx: ActionCtx, userId: Id<"users">, url: string): Promise<Id<"jobLeads">> => {
+  const link = url.trim()
+  if (!isLink(link)) throw new ConvexError("That isn't a link to a job posting.")
+  const key = urlKey(link)
+  const known = await ctx.runQuery(internal.api.loops.leadByUrlKey, { userId, urlKey: key })
+  if (known) return known
+  const { ok } = await limits.limit(ctx, "checkLink", { key: userId })
+  if (!ok) throw new ConvexError("You've checked 10 links today. Try again tomorrow.")
+  return ctx.runMutation(internal.api.loops.savePasted, {
+    userId,
+    ...(await readAndJudge(ctx, userId, link, key)),
+  })
+}
 
 const checkLink = action({
   args: { url: v.string() },
@@ -13,17 +28,26 @@ const checkLink = action({
   handler: async (ctx, { url }): Promise<Id<"jobLeads">> => {
     const userId = await getAuthUserId(ctx)
     if (!userId) throw new Error("Not signed in")
-    const link = url.trim()
-    if (!isLink(link)) throw new ConvexError("That isn't a link to a job posting.")
-    const key = urlKey(link)
-    const known = await ctx.runQuery(internal.api.loops.leadByUrlKey, { userId, urlKey: key })
-    if (known) return known
-    const { ok } = await limits.limit(ctx, "checkLink", { key: userId })
-    if (!ok) throw new ConvexError("You've checked 10 links today. Try again tomorrow.")
-    return ctx.runMutation(internal.api.loops.savePasted, {
-      userId,
-      ...(await readAndJudge(ctx, userId, link, key)),
-    })
+    return check(ctx, userId, url)
+  },
+})
+
+const checkLinkFor = internalAction({
+  args: { userId: v.id("users"), url: v.string() },
+  returns: v.id("jobLeads"),
+  handler: async (ctx, { userId, url }): Promise<Id<"jobLeads">> => {
+    // A posting can tell an agent to "check" a link with the person's data in it, and fetching
+    // that link would deliver the data. So agents only reach companies already in the catalog,
+    // which also keeps them from adding a board for everyone, and no query reaches the page.
+    const board = boardOf(url.trim())
+    if (!board || !(await ctx.runQuery(internal.api.jobs.hasBoard, board)))
+      throw new ConvexError(
+        "Agents can only check Greenhouse, Lever, Ashby and Personio links from companies in the catalog. The person can paste other links in the app."
+      )
+    const link = new URL(url.trim())
+    link.search = ""
+    link.hash = ""
+    return check(ctx, userId, link.toString())
   },
 })
 
@@ -50,4 +74,4 @@ const enrichApplication = internalAction({
   },
 })
 
-export const linkApi = { checkLink, enrichApplication }
+export const linkApi = { checkLink, checkLinkFor, enrichApplication }

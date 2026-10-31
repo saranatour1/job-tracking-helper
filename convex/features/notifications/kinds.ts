@@ -33,6 +33,10 @@ export const notificationKinds = {
     label: "Applications ready for you",
     description: "When an application is prepared and waiting for you to check and send it.",
   },
+  "agent.message": {
+    label: "Messages from connected agents",
+    description: "When an AI agent you connected under Connected agents writes to you.",
+  },
 } as const
 export type NotificationKind = keyof typeof notificationKinds
 export const notificationKindKeys = Object.keys(notificationKinds) as NotificationKind[]

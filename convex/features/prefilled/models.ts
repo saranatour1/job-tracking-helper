@@ -6,5 +6,6 @@ export const prefillsTable = defineTable(arkOutputToConvex(Prefill))
   // Newest first for the lists; the other one sorts by posting.
   // eslint-disable-next-line @convex-dev/no-duplicate-indexes
   .index("by_userId", ["userId"])
+  .index("by_userId_and_status", ["userId", "status"])
   .index("by_userId_and_urlKey", ["userId", "urlKey"])
   .index("by_userId_and_applicationId", ["userId", "applicationId"])

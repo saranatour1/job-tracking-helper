@@ -8,6 +8,7 @@ export const {
   board,
   addBoards,
   ensureBoard,
+  hasBoard,
   saveJobs,
   boardFetched,
   candidates,

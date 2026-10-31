@@ -4,6 +4,7 @@ export const {
   list,
   known,
   save,
+  addFor,
   remove,
   learnContext,
   learn,
