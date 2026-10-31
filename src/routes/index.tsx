@@ -17,7 +17,6 @@ const structuredData = {
   image: `${site.url}/og.png`,
   applicationCategory: "BusinessApplication",
   operatingSystem: "Web",
-  author: { "@type": "Person", name: site.author },
 }
 
 const withKeywords = (head: ReturnType<typeof publicHead>) => ({

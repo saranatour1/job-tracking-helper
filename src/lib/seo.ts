@@ -1,7 +1,6 @@
 export const site = {
   name: "Job Tracking Helper",
   url: "https://ye.saranatour.dev",
-  author: "Sara Natour",
   contact: "privacy@saranatour.dev",
   updated: "October 31, 2026",
   databuddyId: "8ed4f691-f76a-400e-b1fb-a9233678940e",
@@ -31,7 +30,10 @@ export const publicHead = ({
     { property: "og:image", content: ogImage },
     { property: "og:image:width", content: "1200" },
     { property: "og:image:height", content: "630" },
-    { property: "og:image:alt", content: "You don't have to grind for jobs anymore." },
+    {
+      property: "og:image:alt",
+      content: "It finds the jobs and fills in the forms. You press Submit.",
+    },
     { name: "twitter:card", content: "summary_large_image" },
     { name: "twitter:title", content: title },
     { name: "twitter:description", content: description },

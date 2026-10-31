@@ -1,38 +1,14 @@
 import { createFileRoute } from "@tanstack/react-router"
-import { useActionState } from "react"
 
-import { Button } from "@/components/ui/button"
 import { ContactLink, LegalPage, LegalSection } from "@/features/landing/legal-page"
 import { publicHead, site } from "@/lib/seo"
-
-const AnalyticsOptOut = () => {
-  const [off, turnOff] = useActionState(() => {
-    window.databuddyOptOut?.()
-    // Opting out only stops replay from starting next time, so end the one that's running.
-    ;(window as { databuddyReplay?: { stop: () => void } }).databuddyReplay?.stop()
-    return true
-  }, false)
-  return (
-    <form action={turnOff}>
-      {off ? (
-        <p role="status" className="font-medium">
-          Analytics is off on this device.
-        </p>
-      ) : (
-        <Button type="submit" variant="outline">
-          Turn off analytics on this device
-        </Button>
-      )}
-    </form>
-  )
-}
 
 const PrivacyPage = () => (
   <LegalPage title="Privacy Policy">
     <LegalSection title="Who runs this">
       <p>
-        {site.name} is run by {site.author}, who is responsible for your data here. For anything
-        about your privacy, write to <ContactLink />.
+        The operator of {site.name} is responsible for your data here. For anything about your
+        privacy, write to <ContactLink />.
       </p>
     </LegalSection>
 
@@ -66,7 +42,11 @@ const PrivacyPage = () => (
           failed. Summaries can name companies and goals.
         </li>
         <li>
-          <strong>Analytics.</strong> See “Analytics and session replay” below.
+          <strong>Analytics.</strong> Page views, page speed, clicks on links that leave the site
+          and session replays. Separately, our server tells Databuddy when an AI crawler or AI agent
+          requests a page, except booking pages: the path, host, user agent, accept header, referrer
+          and the format asked for. An AI browser acting for you can be counted this way, and
+          browser privacy signals don't stop it, because it doesn't run in your browser.
         </li>
       </ul>
       <p>
@@ -120,30 +100,13 @@ const PrivacyPage = () => (
           <strong>GitHub.</strong> Handles sign-in.
         </li>
         <li>
-          <strong>Databuddy.</strong> Analytics, described below.
+          <strong>Databuddy.</strong> Analytics and session replays.
         </li>
       </ul>
       <p>
         When you press Submit on a form, your application goes to that company and the site it uses.
         Their own privacy policies apply from there. We may also share data if the law requires it.
         These services may process data outside your country.
-      </p>
-    </LegalSection>
-
-    <LegalSection title="Analytics and session replay">
-      <p>
-        Databuddy records page views, page speed, clicks on links that leave the site and session
-        replays, which show how a page was used. Replays are set to mask text and form fields. This
-        runs on every page except booking pages, and stays off if your browser sends Do Not Track or
-        Global Privacy Control. You can also turn it off here:
-      </p>
-      <AnalyticsOptOut />
-      <p>
-        Separately, our server tells Databuddy when an AI crawler or AI agent requests a page. It
-        sends the path, host, user agent, accept header, referrer and the format asked for, on every
-        page except booking pages. An AI browser acting for you can be counted this way, and the
-        button above and browser privacy signals don't stop it, because it doesn't run in your
-        browser.
       </p>
     </LegalSection>
 
@@ -228,7 +191,7 @@ export const Route = createFileRoute("/privacy")({
     publicHead({
       title: "Privacy Policy | Job Tracking Helper",
       description:
-        "What Job Tracking Helper stores, which services it shares data with and why, how long it's kept, and how to delete it or turn off analytics.",
+        "What Job Tracking Helper stores, which services it shares data with and why, how long it's kept, and how to delete it.",
       path: "/privacy",
     }),
   component: PrivacyPage,

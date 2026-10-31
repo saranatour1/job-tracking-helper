@@ -111,10 +111,11 @@ pasted links that aren't on a known board. A source without a key is skipped.
 
 **Flows**
 
-1. **Landing.** `/` says what the app does and links to `/sign-in`. Signed-in people go on to
-   `/pipeline`, keeping any search like `?app=app-4`.
+1. **Landing.** `/` is one screen: what the app does, a link to `/sign-in`, and a demo board of
+   made-up applications that moves on its own, or holds still with reduced motion on. The header
+   switches between light and dark. Signed-in people go on to `/pipeline`, keeping any search
+   like `?app=app-4`.
 2. **Legal.** `/privacy` and `/terms` are linked from the footer, sign-in and booking forms.
-   Privacy has a button that turns off Databuddy on that device, including a running replay.
 3. **Crawlers.** `public/robots.txt` lists every private route, and `public/llms.txt` and
    `public/sitemap.xml` list the public ones. All pages render on the server, so crawlers don't
    need JavaScript.
