@@ -1,7 +1,10 @@
 // Sorting incoming mail: each email becomes a timeline event on the application it's
 // about, with what it says and any status it suggests. Rules decide by default; Jev
 // decides when the person lets it read their mail.
+import { paginationOptsValidator, paginationResultValidator } from "convex/server"
+import type { PaginationOptions } from "convex/server"
 import { ConvexError, v } from "convex/values"
+import type { CustomCtx } from "convex-helpers/server/customFunctions"
 import { components, internal } from "../../_generated/api"
 import {
   type ActionCtx,
@@ -18,7 +21,17 @@ import { boardOf } from "../jobs/boards"
 import { fireEvent } from "../automations/fire"
 import { mailNotificationKind } from "../notifications/kinds"
 import { tagIn } from "./addresses"
-import { secretKeys, aad, keys, openJson, threadKeyOf, askJev, ownEvent } from "./utils"
+import {
+  secretKeys,
+  aad,
+  keys,
+  linesOf,
+  openJson,
+  syncMailSummary,
+  threadKeyOf,
+  askJev,
+  ownEvent,
+} from "./utils"
 import {
   type Candidate,
   kindOf,
@@ -31,7 +44,15 @@ import {
   suggestionOf,
   tagMatch,
 } from "./match"
-import { MailNote, Received, vSortContext, vRecordArgs, vTimeline, vMailBody } from "./validators"
+import {
+  maxUnsortedCount,
+  Received,
+  vMailLine,
+  vSortContext,
+  vRecordArgs,
+  vTimeline,
+  vMailBody,
+} from "./validators"
 import { keepLog, keepLogFromAction, logEdit, reasonOf } from "../activity/utils"
 
 // The application an earlier email in the same thread was filed under, newest first.
@@ -175,6 +196,7 @@ const record = internalMutation({
           moved: { from: application.status, to: event.suggest },
         }),
     })
+    await syncMailSummary(ctx, event.applicationId)
     if (event.applicationId)
       await ctx.scheduler.runAfter(0, internal.api.contacts.learn, { eventId: id })
     // Old mail you're importing isn't news here either, and there can be hundreds.
@@ -295,47 +317,92 @@ const sortMail = internalAction({
   },
 })
 
-// Every sorted email, opened for its owner, newest first. The page groups them by
-// application; the ones without one are Unsorted.
+// Sorted mail, opened for its owner, newest first: the newest 300 between two times, or
+// overall without them. Each one is decrypted, so older mail drops off. An interview's slot
+// is sealed and can be weeks after its email, so between two times the newest interview
+// mail is opened too, for slots in that range.
 const timeline = authedQuery({
-  args: {},
+  args: { from: v.optional(v.number()), to: v.optional(v.number()) },
   returns: vTimeline,
-  handler: async (ctx) => {
+  handler: async (ctx, { from, to }) => {
     const k = await keys().catch(() => null)
     if (!k) return []
-    // The newest 300: each one is decrypted to show, so older mail drops off the timeline.
-    const events = await ctx.db
+    const ranged = from !== undefined && to !== undefined
+    const recent = await ctx.db
       .query("mailEvents")
-      .withIndex("by_userId_and_at", (q) => q.eq("userId", ctx.userId))
+      .withIndex("by_userId_and_at", (q) =>
+        ranged
+          ? q.eq("userId", ctx.userId).gte("at", from).lte("at", to)
+          : q.eq("userId", ctx.userId)
+      )
       .order("desc")
       .take(300)
-    const opened = await Promise.all(
-      // Mail you've put in the Trash is out of everything else, like a trashed application.
-      events
-        .filter((e) => e.box !== "trash")
-        .map(async (e) => {
-          const note = await openJson(k, e.note, aad.email(ctx.userId), MailNote)
-          return (
-            note && {
-              id: e._id,
-              applicationId: e.applicationId ?? null,
-              kind: e.kind,
-              from: note.from,
-              subject: note.subject || "(no subject)",
-              portalUrl: note.portalUrl,
-              slot: note.slot,
-              slotZone: note.slotZone,
-              at: e.at,
-              sent: e.by === "sent",
-              to: note.to,
-              suggest: e.suggest,
-              moved: e.moved,
-            }
+    const interviews = ranged
+      ? await ctx.db
+          .query("mailEvents")
+          .withIndex("by_userId_and_kind_and_at", (q) =>
+            q.eq("userId", ctx.userId).eq("kind", "interview")
           )
-        })
-    )
-    return opened.filter((e) => e !== null).sort((a, b) => b.at - a.at)
+          .order("desc")
+          .take(100)
+      : []
+    const shown = new Set(recent.map((e) => e._id))
+    const lines = await linesOf(k, ctx.userId, [
+      // Mail you've put in the Trash is out of everything else, like a trashed application.
+      ...recent.filter((e) => e.box !== "trash"),
+      ...interviews.filter((e) => e.box !== "trash" && !shown.has(e._id)),
+    ])
+    return lines
+      .filter((e) => shown.has(e.id) || (e.slot !== undefined && e.slot >= from! && e.slot <= to!))
+      .sort((a, b) => b.at - a.at)
   },
+})
+
+// One application's mail or, with none, what's Unsorted: a page at a time, newest first.
+const pageOfMail = async (
+  ctx: CustomCtx<typeof authedQuery>,
+  applicationId: Id<"applications"> | undefined,
+  paginationOpts: PaginationOptions
+) => {
+  const page = await ctx.db
+    .query("mailEvents")
+    .withIndex("by_userId_and_applicationId_and_at", (q) =>
+      q.eq("userId", ctx.userId).eq("applicationId", applicationId)
+    )
+    .order("desc")
+    .filter((q) => q.neq(q.field("box"), "trash"))
+    .paginate(paginationOpts)
+  const k = await keys().catch(() => null)
+  return { ...page, page: k ? await linesOf(k, ctx.userId, page.page) : [] }
+}
+
+const forApplication = authedQuery({
+  args: { applicationId: v.id("applications"), paginationOpts: paginationOptsValidator },
+  returns: paginationResultValidator(vMailLine),
+  handler: (ctx, { applicationId, paginationOpts }) =>
+    pageOfMail(ctx, applicationId, paginationOpts),
+})
+
+const unsorted = authedQuery({
+  args: { paginationOpts: paginationOptsValidator },
+  returns: paginationResultValidator(vMailLine),
+  handler: (ctx, { paginationOpts }) => pageOfMail(ctx, undefined, paginationOpts),
+})
+
+// How much is Unsorted, for the button on the board. Past `maxUnsortedCount` it says "+".
+const unsortedCount = authedQuery({
+  args: {},
+  returns: v.number(),
+  handler: async (ctx) =>
+    (
+      await ctx.db
+        .query("mailEvents")
+        .withIndex("by_userId_and_applicationId_and_at", (q) =>
+          q.eq("userId", ctx.userId).eq("applicationId", undefined)
+        )
+        .filter((q) => q.neq(q.field("box"), "trash"))
+        .take(maxUnsortedCount)
+    ).length,
 })
 
 // Accepting sets the application's status; either way the suggestion goes.
@@ -405,6 +472,8 @@ const assign = authedMutation({
       by: "you",
       suggest: application ? suggestionOf(event.kind, application.status) : undefined,
     })
+    await syncMailSummary(ctx, event.applicationId)
+    if (applicationId !== event.applicationId) await syncMailSummary(ctx, applicationId)
     // Filed by hand, so nothing has learned from it yet.
     if (application && !event.applicationId)
       await ctx.scheduler.runAfter(0, internal.api.contacts.learn, { eventId })
@@ -428,6 +497,9 @@ export const sortApi = {
   record,
   sortMail,
   timeline,
+  forApplication,
+  unsorted,
+  unsortedCount,
   resolveSuggestion,
   undoMove,
   assign,

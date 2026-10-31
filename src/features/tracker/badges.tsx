@@ -1,9 +1,8 @@
 import { Badge } from "@/components/ui/badge"
 import { cn } from "@/lib/utils"
 
-import { type Application, priorityLabels, type Status, statusLabels, today } from "./data"
+import { type ApplicationCard, priorityLabels, type Status, statusLabels, today } from "./data"
 import { PriorityIcon, StatusIcon } from "./icons"
-import { useMailFor } from "./mail"
 import { useSource } from "./source"
 
 // The few things worth seeing first about an application, as small pills: where it
@@ -79,32 +78,30 @@ export const FitBadge = ({ fit, isFit }: { fit: number; isFit?: boolean }) => (
 const open: Status[] = ["applied", "interviewing", "offer"]
 const day = 24 * 60 * 60 * 1000
 
-/** When anything last happened: a status change, a note, or any other times passed in
- * (like company mail). */
-export const lastActivity = (a: Application, ...also: number[]) =>
+/** When anything last happened: a status change, a note, or mail from the company. */
+export const lastActivity = (a: ApplicationCard) =>
   Math.max(
     ...a.history.map((e) => Date.parse(e.at)),
-    ...(a.notes ?? []).map((n) => Date.parse(n.at)),
-    Date.parse(a.createdAt),
-    ...also
+    a.lastNoteAt ? Date.parse(a.lastNoteAt) : 0,
+    a.mail?.at ?? 0,
+    Date.parse(a.createdAt)
   )
 
 /** For an application still in play: Active with news in the last two weeks, or Quiet
  * with how long it's been. Closed and saved ones show nothing. */
-export const activityOf = (a: Application, now: number, ...also: number[]) => {
+export const activityOf = (a: ApplicationCard, now: number) => {
   if (!open.includes(a.status)) return undefined
-  const days = Math.floor((now - lastActivity(a, ...also)) / day)
+  const days = Math.floor((now - lastActivity(a)) / day)
   if (days < 14) return { quiet: false, label: "Active" } as const
   const weeks = Math.floor(days / 7)
   return { quiet: true, label: `Quiet ${weeks}w` } as const
 }
 
-export const ActivityBadge = ({ a }: { a: Application }) => {
+export const ActivityBadge = ({ a }: { a: ApplicationCard }) => {
   const source = useSource()
   // The sample data is pinned to its own today, so it doesn't drift to Quiet.
   const now = source.real ? Date.now() : Date.parse(today)
-  // Mail from the company is news too.
-  const activity = activityOf(a, now, ...useMailFor(a.id).map((e) => e.at))
+  const activity = activityOf(a, now)
   if (!activity) return null
   return (
     <Pill
@@ -121,7 +118,7 @@ export const ActivityBadge = ({ a }: { a: Application }) => {
   )
 }
 
-export const PriorityBadge = ({ a }: { a: Application }) =>
+export const PriorityBadge = ({ a }: { a: ApplicationCard }) =>
   a.priority === "none" ? null : (
     <Pill>
       <PriorityIcon priority={a.priority} />
@@ -130,7 +127,7 @@ export const PriorityBadge = ({ a }: { a: Application }) =>
   )
 
 /** The top badges, in order: status, fit, activity. */
-export const TopBadges = ({ a }: { a: Application }) => (
+export const TopBadges = ({ a }: { a: ApplicationCard }) => (
   <>
     <StatusBadge status={a.status} />
     {a.fit !== undefined && <FitBadge fit={a.fit} isFit={a.isFit} />}

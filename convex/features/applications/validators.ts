@@ -34,8 +34,8 @@ export type Method = (typeof methods)[number]
 // read with it.
 export const limits = { labels: 20, history: 100, tasks: 50, notes: 100 } as const
 
-// The board filters and counts in the browser, so it loads a person's applications whole.
-// Past this it keeps the newest and says so. More than anyone's job search needs.
+// The board filters and counts in the browser, so it loads every row, without the long
+// fields. Past this it keeps the newest and says so. More than anyone's job search needs.
 export const maxApplications = 2000
 
 const filled = type("string.trim").to("string > 0")

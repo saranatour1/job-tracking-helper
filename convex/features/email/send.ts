@@ -13,7 +13,16 @@ import { keepLogFromAction, reasonOf } from "../activity/utils"
 import { addressWithoutPlus, companyAddress } from "./addresses"
 import { createRule, ruleFor } from "./cloudflare"
 import { messageIdsIn } from "./match"
-import { aad, cloudflare, limits, openConnection, openJson, outgoing, userIdOf } from "./utils"
+import {
+  aad,
+  cloudflare,
+  limits,
+  openConnection,
+  openJson,
+  outgoing,
+  syncMailSummary,
+  userIdOf,
+} from "./utils"
 import { Received, SendMail } from "./validators"
 
 // What sending needs: the application's number, and the email being answered, sealed.
@@ -63,6 +72,7 @@ const recordSent = internalMutation({
       by: "sent",
       box: "sent",
     })
+    await syncMailSummary(ctx, event.applicationId)
     await ctx.scheduler.runAfter(0, internal.api.contacts.learn, { eventId: id })
     return null
   },

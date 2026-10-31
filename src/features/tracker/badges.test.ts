@@ -1,20 +1,19 @@
 import { describe, expect, it } from "vite-plus/test"
 
 import { activityOf } from "./badges"
-import type { Application } from "./data"
+import type { ApplicationCard } from "./data"
 
 const day = 24 * 60 * 60 * 1000
 const now = Date.parse("2026-10-29T12:00:00Z")
-const app = (status: Application["status"], daysAgo: number, noteDaysAgo?: number) =>
+const app = (status: ApplicationCard["status"], daysAgo: number, noteDaysAgo?: number) =>
   ({
     status,
     createdAt: new Date(now - 60 * day).toISOString(),
     history: [{ status, at: new Date(now - daysAgo * day).toISOString() }],
-    notes:
-      noteDaysAgo === undefined
-        ? []
-        : [{ text: "x", at: new Date(now - noteDaysAgo * day).toISOString() }],
-  }) as unknown as Application
+    ...(noteDaysAgo !== undefined && {
+      lastNoteAt: new Date(now - noteDaysAgo * day).toISOString(),
+    }),
+  }) as unknown as ApplicationCard
 
 describe("activityOf", () => {
   it("calls an open application with recent news active", () => {
@@ -27,7 +26,8 @@ describe("activityOf", () => {
     expect(activityOf(app("applied", 30, 2), now)?.quiet).toBe(false)
   })
   it("treats recent company mail as news", () => {
-    expect(activityOf(app("applied", 30), now, now - 40 * day, now - 5 * day)).toEqual({
+    const mail = { count: 2, at: now - 5 * day, kind: "other" as const }
+    expect(activityOf({ ...app("applied", 30), mail }, now)).toEqual({
       quiet: false,
       label: "Active",
     })

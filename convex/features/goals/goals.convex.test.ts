@@ -1,10 +1,12 @@
 // @vitest-environment edge-runtime
 /// <reference types="vite/client" />
 import { convexTest } from "convex-test"
-import { describe, expect, it } from "vite-plus/test"
+import { describe, expect, it, vi } from "vite-plus/test"
 
 import { api } from "../../_generated/api"
+import { seal } from "../../lib/secrets"
 import schema from "../../schema"
+import { aad, keys } from "../email/utils"
 
 const modules = import.meta.glob([
   "../../**/*.ts",
@@ -180,6 +182,54 @@ describe("goals", () => {
     const goals = new Map((await as.query(api.api.applications.list)).map((a) => [a._id, a.goalId]))
     expect(goals.get(on)).toBe(undefined)
     expect(goals.get(elsewhere)).toBe(kept)
+  })
+
+  it("reads notes and mail in its period, for its applications only", async () => {
+    vi.stubEnv("SECRETS_KEYS", `v1:${btoa(String.fromCharCode(...new Uint8Array(32).fill(7)))}`)
+    const { t, as, userId, addApplication } = await setup()
+    const id = await as.mutation(api.api.goals.create, goal)
+    const during = Date.parse("2026-10-01")
+    const on = await addApplication()
+    const elsewhere = await addApplication()
+    await as.mutation(api.api.applications.setGoal, { id: on, goalId: id })
+    const note = await seal(
+      await keys(),
+      JSON.stringify({ from: "a", subject: "Hello" }),
+      aad.email(userId)
+    )
+    await t.run(async (ctx) => {
+      await ctx.db.patch("applications", on, {
+        notes: [
+          { text: "before", at: Date.parse("2026-01-01") },
+          { text: "during", at: during },
+        ],
+      })
+      await ctx.db.patch("applications", elsewhere, { notes: [{ text: "not on it", at: during }] })
+      const mail = { userId, kind: "other" as const, note, by: "rules" as const }
+      await ctx.db.insert("mailEvents", { ...mail, emailId: "a", at: during, applicationId: on })
+      await ctx.db.insert("mailEvents", { ...mail, emailId: "b", at: 1, applicationId: on })
+      await ctx.db.insert("mailEvents", {
+        ...mail,
+        emailId: "c",
+        at: during,
+        applicationId: elsewhere,
+      })
+      await ctx.db.insert("mailEvents", {
+        ...mail,
+        emailId: "d",
+        at: during,
+        applicationId: on,
+        box: "trash",
+      })
+    })
+    const { notes, mail } = await as.query(api.api.goals.activity, { id })
+    expect(notes).toEqual([{ at: during, who: "Hooli", text: "during" }])
+    expect(mail.map((e) => e.at)).toEqual([during])
+
+    const other = t.withIdentity({
+      subject: await t.run((ctx) => ctx.db.insert("users", { name: "Ada" })),
+    })
+    expect(await other.query(api.api.goals.activity, { id })).toEqual({ notes: [], mail: [] })
   })
 
   it("keeps one person's goals from another", async () => {

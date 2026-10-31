@@ -13,7 +13,6 @@ export const {
   shortlist,
   lead,
   leadForApplication,
-  fits,
   enrichApplication,
   attachLead,
   respond,

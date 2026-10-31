@@ -6,7 +6,7 @@ import { urlKey } from "../workflows/fit"
 import { readPool } from "../workflows/manager"
 import { boardKinds, boardOf, companyOf, starterBoards } from "./boards"
 import { vFeedJob, vBoardFetchedArgs, vCandidatesArgs } from "./validators"
-import { refreshEvery } from "./utils"
+import { countCatalog, refreshEvery } from "./utils"
 
 // The cron's job, every hour: start the catalog from the starter boards the first time,
 // then hand the boards that are due to the batch worker.
@@ -15,7 +15,7 @@ const refreshDue = internalMutation({
   returns: v.number(),
   handler: async (ctx) => {
     const now = Date.now()
-    if (!(await ctx.db.query("jobBoards").first()))
+    if (!(await ctx.db.query("jobBoards").first())) {
       for (const b of starterBoards)
         await ctx.db.insert("jobBoards", {
           ...b,
@@ -23,6 +23,8 @@ const refreshDue = internalMutation({
           addedAt: now,
           jobs: 0,
         })
+      await countCatalog(ctx, { boards: starterBoards.length })
+    }
     const due = await ctx.db
       .query("jobBoards")
       .withIndex("by_fetchedAt", (q) => q.lt("fetchedAt", now - refreshEvery))
@@ -70,6 +72,7 @@ const addBoards = internalMutation({
           })
         )
     }
+    if (added.length) await countCatalog(ctx, { boards: added.length })
     return added
   },
 })
@@ -113,6 +116,7 @@ const boardFetched = internalMutation({
         error,
         ...(company?.trim() && { company: company.trim().slice(0, 120) }),
       })
+    if (b && !error && jobs !== b.jobs) await countCatalog(ctx, { jobs: jobs - b.jobs })
     return null
   },
 })
@@ -172,10 +176,15 @@ const ensureBoard = internalMutation({
       .query("jobBoards")
       .withIndex("by_kind_and_slug", (q) => q.eq("kind", b.kind).eq("slug", b.slug))
       .first()
-    return (
-      known?._id ??
-      ctx.db.insert("jobBoards", { ...b, company: companyOf(b.slug), addedAt: Date.now(), jobs: 0 })
-    )
+    if (known) return known._id
+    const id = await ctx.db.insert("jobBoards", {
+      ...b,
+      company: companyOf(b.slug),
+      addedAt: Date.now(),
+      jobs: 0,
+    })
+    await countCatalog(ctx, { boards: 1 })
+    return id
   },
 })
 

@@ -41,7 +41,7 @@ import { PageHeader } from "@/features/shell/page-header"
 import { cn } from "@/lib/utils"
 
 import {
-  type Application,
+  type ApplicationCard,
   type Goal,
   type Priority,
   formatDate,
@@ -89,7 +89,7 @@ const GoalMeter = ({ goal, on, className }: { goal: Goal; on: string; className?
   </Meter>
 )
 
-const stats = (goal: Goal, applications: Application[]) => {
+const stats = (goal: Goal, applications: ApplicationCard[]) => {
   const items = applications.filter((a) => a.goalId === goal.id)
   const reached = (s: string) => items.filter((a) => a.history.some((e) => e.status === s)).length
   return { items: items.length, interviews: reached("interviewing"), offers: reached("offer") }
@@ -529,8 +529,10 @@ const GoalSummary = ({ goal }: { goal: Goal }) => {
 // What happened on the goal's applications in its period, newest first: mail, status
 // changes, notes and calendar events, with their open tasks on top.
 const GoalActivity = ({ goal }: { goal: Goal }) => {
-  const { applications, mail } = useSource()
-  const events = useSavedEvents() ?? []
+  const { applications, real } = useSource()
+  // "~" sorts after any time on the last day.
+  const events = useSavedEvents({ from: goal.start, to: `${goal.target}~` }) ?? []
+  const read = useQuery(api.goals.activity, real ? { id: goal.id as Id<"goals"> } : "skip")
   const mine = applications.filter((a) => a.goalId === goal.id)
   const byId = new Map(mine.map((a) => [a.id, a]))
   const inPeriod = (at: string) => at.slice(0, 10) >= goal.start && at.slice(0, 10) <= goal.target
@@ -538,12 +540,8 @@ const GoalActivity = ({ goal }: { goal: Goal }) => {
     ...mine.flatMap((a) =>
       a.history.map((e) => ({ at: e.at, who: a.company, status: e.status, note: e.note }))
     ),
-    ...mine.flatMap((a) =>
-      (a.notes ?? []).map((n) => ({ at: n.at, who: a.company, text: n.text }))
-    ),
-    ...mail
-      .filter((e) => e.applicationId && byId.has(e.applicationId))
-      .map((e) => ({ at: new Date(e.at).toISOString(), mail: e })),
+    ...(read?.notes ?? []).map((n) => ({ ...n, at: new Date(n.at).toISOString() })),
+    ...(read?.mail ?? []).map((e) => ({ at: new Date(e.at).toISOString(), mail: e })),
     ...events
       .filter((e) => e.applicationId && byId.has(e.applicationId) && !e.hidden)
       .map((e) => ({ at: e.start, who: byId.get(e.applicationId!)!.company, title: e.title })),

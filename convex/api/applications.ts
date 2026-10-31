@@ -3,6 +3,8 @@ import { applicationsApi } from "../features/applications"
 
 export const {
   list,
+  get,
+  numberOf,
   add,
   update,
   setStatus,

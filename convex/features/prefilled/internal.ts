@@ -6,7 +6,7 @@ import { internalMutation, internalQuery, type MutationCtx } from "../../_genera
 import { arkOutputToConvex } from "../../lib/ark"
 import { workLog } from "../../lib/log"
 import { keepLog } from "../activity/utils"
-import { changeStatus, logNewApplication, nextNumber } from "../applications/utils"
+import { changeStatus, fitOf, logNewApplication, nextNumber } from "../applications/utils"
 import { companyAddress } from "../email/addresses"
 import { trackingAddressOf } from "../email/utils"
 import { addUsage } from "../loops/utils"
@@ -187,7 +187,10 @@ const beginLive = internalMutation({
     if (tracking) {
       const { application, lead } = await linkedTo(ctx, row)
       const applicationId = application?._id ?? (await newApplication(ctx, row, "saved"))
-      if (lead) await ctx.db.patch("jobLeads", lead._id, { applicationId })
+      if (lead) {
+        await ctx.db.patch("jobLeads", lead._id, { applicationId })
+        await ctx.db.patch("applications", applicationId, fitOf(lead))
+      }
       tagged = { applicationId, address: companyAddress(tracking, row.company) }
     }
     await ctx.db.patch("prefills", id, {
@@ -291,7 +294,10 @@ const finish = internalMutation({
     } else {
       applicationId = await newApplication(ctx, row, "applied", "Sent from Prefilled applications")
     }
-    if (lead) await ctx.db.patch("jobLeads", lead._id, { status: "applied", applicationId })
+    if (lead) {
+      await ctx.db.patch("jobLeads", lead._id, { status: "applied", applicationId })
+      await ctx.db.patch("applications", applicationId, fitOf(lead))
+    }
     for (const { entryKey } of row.fields) {
       const entryId = entryKey && ctx.db.normalizeId("profileEntries", entryKey)
       const entry = entryId && (await ctx.db.get("profileEntries", entryId))

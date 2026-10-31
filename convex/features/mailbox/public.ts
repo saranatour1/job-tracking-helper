@@ -13,7 +13,15 @@ import { arkMutation, authedMutation, authedQuery } from "../../lib/functions"
 import { arkToConvex, checked } from "../../lib/ark"
 import { seal } from "../../lib/secrets"
 import { textOfHtml } from "../email/match"
-import { aad, keys, openJson, ownEvent, secretKeys, userIdOf } from "../email/utils"
+import {
+  aad,
+  keys,
+  openJson,
+  ownEvent,
+  secretKeys,
+  syncMailSummary,
+  userIdOf,
+} from "../email/utils"
 import { MailNote, Received } from "../email/validators"
 import { draftAad, sameThread } from "./utils"
 import {
@@ -139,7 +147,7 @@ const thread = authedQuery({
     const nearby = applicationId
       ? await ctx.db
           .query("mailEvents")
-          .withIndex("by_userId_and_applicationId", (q) =>
+          .withIndex("by_userId_and_applicationId_and_at", (q) =>
             q.eq("userId", ctx.userId).eq("applicationId", applicationId)
           )
           .order("desc")
@@ -212,6 +220,7 @@ const move = authedMutation({
     const event = await ownEvent(ctx, ctx.userId, eventId)
     const home = event.by === "sent" ? ("sent" as const) : ("inbox" as const)
     await ctx.db.patch("mailEvents", eventId, { box: to === "back" ? home : to })
+    await syncMailSummary(ctx, event.applicationId)
     await logEdit(
       ctx,
       ctx.userId,
@@ -260,6 +269,7 @@ const deleteForever = authedMutation({
       owner: ctx.userId,
     })
     await ctx.db.delete("mailEvents", eventId)
+    await syncMailSummary(ctx, event.applicationId)
     await logEdit(ctx, ctx.userId, "mail.delete", "Deleted an email for good")
     return null
   },

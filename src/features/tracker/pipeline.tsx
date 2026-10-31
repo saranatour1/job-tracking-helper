@@ -12,7 +12,7 @@ import { maxApplications } from "@convex/features/applications/validators"
 import { Link, useNavigate, useSearch } from "@tanstack/react-router"
 import { useRef, useState } from "react"
 
-import { applicationText, routeIds, useApplicationRoutes, useViewRoutes } from "@/lib/route-ids"
+import { applicationText, routeIds, useViewRoutes } from "@/lib/route-ids"
 import { Button } from "@/components/ui/button"
 import { ScrollArea } from "@/components/ui/scroll-area"
 import { Tabs, TabsList, TabsTab } from "@/components/ui/tabs"
@@ -22,7 +22,7 @@ import { Tooltip, TooltipPopup, TooltipTrigger } from "@/components/ui/tooltip"
 import { useIsMobile } from "@/hooks/use-media-query"
 
 import {
-  type Application,
+  type ApplicationCard,
   type FilterField,
   type Filters,
   type Goal,
@@ -58,9 +58,9 @@ const tabs: Record<Exclude<Tab, "trash">, readonly Status[]> = {
   archived: statuses,
 }
 
-type Group = { key: string; label: string; icon: React.ReactNode; items: Application[] }
+type Group = { key: string; label: string; icon: React.ReactNode; items: ApplicationCard[] }
 
-const groupsFor = (items: Application[], by: Display["groupBy"], goals: Goal[]): Group[] => {
+const groupsFor = (items: ApplicationCard[], by: Display["groupBy"], goals: Goal[]): Group[] => {
   switch (by) {
     case "status":
       return statuses.map((s) => ({
@@ -88,13 +88,13 @@ const groupsFor = (items: Application[], by: Display["groupBy"], goals: Goal[]):
   }
 }
 
-const order: Record<Display["orderBy"], (a: Application, b: Application) => number> = {
+const order: Record<Display["orderBy"], (a: ApplicationCard, b: ApplicationCard) => number> = {
   priority: (a, b) => priorities.indexOf(a.priority) - priorities.indexOf(b.priority),
   created: (a, b) => b.createdAt.localeCompare(a.createdAt),
   company: (a, b) => a.company.localeCompare(b.company),
 }
 
-const Properties = ({ a, shown }: { a: Application; shown: Display["shown"] }) => {
+const Properties = ({ a, shown }: { a: ApplicationCard; shown: Display["shown"] }) => {
   const { goals } = useSource()
   const tasks = a.tasks ?? []
   return (
@@ -127,20 +127,24 @@ const Properties = ({ a, shown }: { a: Application; shown: Display["shown"] }) =
   )
 }
 
-type Peek = { id?: string; open?: (id: string) => void }
+type Peek = { text?: string; open?: (a: ApplicationCard) => void }
+
+// The side panel names what's open by its text, or by its id on an older link.
+const isOpen = (text: string | undefined, a: ApplicationCard) =>
+  text === applicationText(a) || text === a.id
 
 // The first click opens the side panel. Clicking the open card again, or a
 // cmd/ctrl/shift click, follows the link to the full page.
-const peekOnClick = (peek: Peek, id: string) => (e: React.MouseEvent) => {
-  if (!peek.open || peek.id === id || e.metaKey || e.ctrlKey || e.shiftKey) return
+const peekOnClick = (peek: Peek, a: ApplicationCard) => (e: React.MouseEvent) => {
+  if (!peek.open || isOpen(peek.text, a) || e.metaKey || e.ctrlKey || e.shiftKey) return
   e.preventDefault()
-  peek.open(id)
+  peek.open(a)
 }
 
 // Cards carry their id when dragged, for a status column to drop them into.
 const dragType = "application/x-tracker-id"
 
-const Card = ({ a, shown, peek }: { a: Application; shown: Display["shown"]; peek: Peek }) => (
+const Card = ({ a, shown, peek }: { a: ApplicationCard; shown: Display["shown"]; peek: Peek }) => (
   <Link
     to="/pipeline/$id"
     params={{ id: applicationText(a) }}
@@ -149,8 +153,8 @@ const Card = ({ a, shown, peek }: { a: Application; shown: Display["shown"]; pee
       e.dataTransfer.setData(dragType, a.id)
       e.dataTransfer.effectAllowed = "move"
     }}
-    onClick={peekOnClick(peek, a.id)}
-    aria-current={peek.id === a.id || undefined}
+    onClick={peekOnClick(peek, a)}
+    aria-current={isOpen(peek.text, a) || undefined}
     className="bg-card hover:border-ring/40 aria-[current=true]:border-ring/70 flex flex-col gap-2 rounded-lg border px-3 py-2.5 text-[13px] shadow-xs/5 transition-colors duration-150"
   >
     <span className="text-muted-foreground flex items-center gap-1.5 text-xs">
@@ -169,18 +173,18 @@ const Card = ({ a, shown, peek }: { a: Application; shown: Display["shown"]; pee
     <span className="line-clamp-2 leading-snug font-medium">{a.role}</span>
     <span className="flex flex-wrap gap-1">
       <TopBadges a={a} />
-      <MailBadge id={a.id} />
+      <MailBadge a={a} />
       <Properties a={a} shown={shown} />
     </span>
   </Link>
 )
 
-const Row = ({ a, shown, peek }: { a: Application; shown: Display["shown"]; peek: Peek }) => (
+const Row = ({ a, shown, peek }: { a: ApplicationCard; shown: Display["shown"]; peek: Peek }) => (
   <Link
     to="/pipeline/$id"
     params={{ id: applicationText(a) }}
-    onClick={peekOnClick(peek, a.id)}
-    aria-current={peek.id === a.id || undefined}
+    onClick={peekOnClick(peek, a)}
+    aria-current={isOpen(peek.text, a) || undefined}
     className="hover:bg-accent/50 aria-[current=true]:bg-accent flex transition-colors duration-150 h-9 items-center gap-2.5 border-b px-4 text-[13px]"
   >
     {shown.includes("priority") && <PriorityIcon priority={a.priority} />}
@@ -196,7 +200,7 @@ const Row = ({ a, shown, peek }: { a: Application; shown: Display["shown"]; peek
       {a.fit !== undefined && <FitBadge fit={a.fit} isFit={a.isFit} />}
       <ActivityBadge a={a} />
     </span>
-    <MailBadge id={a.id} />
+    <MailBadge a={a} />
     <span className="hidden min-w-0 items-center justify-end gap-1.5 overflow-hidden @2xl:flex">
       <Properties a={a} shown={shown.filter((s) => s !== "priority")} />
     </span>
@@ -287,7 +291,7 @@ const InsightsPanel = ({
   onChange,
   header,
 }: {
-  items: Application[]
+  items: ApplicationCard[]
   filters: Filters
   onChange: (filters: Filters) => void
   header?: React.ReactNode
@@ -304,7 +308,7 @@ const InsightsPanel = ({
     field === "goal"
       ? goalName(goals, v === "none" ? undefined : v)
       : field === "priority"
-        ? priorityLabels[v as Application["priority"]]
+        ? priorityLabels[v as ApplicationCard["priority"]]
         : v
   return (
     <aside
@@ -398,16 +402,15 @@ export const Pipeline = ({
   const panel = search.insights ?? Boolean(summary)
   const setPanel = (next: boolean) =>
     write({ insights: next === Boolean(summary) ? undefined : next })
-  const applicationRoutes = useApplicationRoutes()
   const viewRoutes = useViewRoutes()
-  const peek = search.app && (applicationRoutes.id(search.app) ?? search.app)
-  const setPeek = (id: string | undefined) => write({ app: id && applicationRoutes.text(id) })
+  const peek = search.app
+  const setPeek = (a: ApplicationCard | undefined) => write({ app: a && applicationText(a) })
   const [peekWidth, setPeekWidth] = useState(440)
   const [name, setName] = useState("")
   const [description, setDescription] = useState("")
   // Phones have no room for a side panel, so cards open the full page there.
   const isMobile = useIsMobile()
-  const peeking: Peek = isMobile ? {} : { id: peek, open: setPeek }
+  const peeking: Peek = isMobile ? {} : { text: peek, open: setPeek }
 
   const source = useSource()
   // The status column a dragged card is over, to highlight it.
@@ -690,8 +693,8 @@ export const Pipeline = ({
                             <ApplicationMenu
                               key={a.id}
                               a={a}
-                              onOpen={() => setPeek(a.id)}
-                              onTrashed={() => peek === a.id && setPeek(undefined)}
+                              onOpen={() => setPeek(a)}
+                              onTrashed={() => isOpen(peek, a) && setPeek(undefined)}
                             >
                               <Card a={a} shown={display.shown} peek={peeking} />
                             </ApplicationMenu>
@@ -715,8 +718,8 @@ export const Pipeline = ({
                       <ApplicationMenu
                         key={a.id}
                         a={a}
-                        onOpen={() => setPeek(a.id)}
-                        onTrashed={() => peek === a.id && setPeek(undefined)}
+                        onOpen={() => setPeek(a)}
+                        onTrashed={() => isOpen(peek, a) && setPeek(undefined)}
                       >
                         <Row a={a} shown={display.shown} peek={peeking} />
                       </ApplicationMenu>

@@ -1,12 +1,14 @@
 import { api } from "@/lib/api"
 import type { Doc, Id } from "@convex/_generated/dataModel"
 import { useMutation } from "convex/react"
+import type { FunctionReturnType } from "convex/server"
 import { useQuery } from "convex-helpers/react/cache/hooks"
 import { createContext, useContext } from "react"
 
 import type { MailEvent } from "./mail"
 import {
   type Application,
+  type ApplicationCard,
   type Goal,
   type Label,
   type Status,
@@ -26,7 +28,7 @@ type Editable = Pick<
 export type Source = {
   // Convex rather than the sample data.
   real: boolean
-  applications: Application[]
+  applications: ApplicationCard[]
   goals: Goal[]
   // False while the first load is on its way.
   loaded: boolean
@@ -34,8 +36,6 @@ export type Source = {
   update: (id: string, patch: Partial<Editable>) => void
   addNote: (id: string, text: string) => void
   setGoal: (id: string, goalId?: string) => void
-  // Company mail filed under applications, newest first; none in the sample data.
-  mail: MailEvent[]
   // Accepts or dismisses the status an email suggests.
   answerMail: (eventId: MailEvent["id"], accept: boolean) => void
   // Files an email under an application.
@@ -56,7 +56,11 @@ const useSampleSource = (): Source => {
   return {
     real: false,
     // Sample ids double as their short code, like APP-21.
-    applications: applications.map((a) => ({ ...a, code: a.id })),
+    applications: applications.map((a) => ({
+      ...a,
+      code: a.id,
+      lastNoteAt: a.notes?.at(-1)?.at,
+    })),
     goals: sampleGoals,
     loaded: true,
     setStatus: (id, status) => {
@@ -68,7 +72,6 @@ const useSampleSource = (): Source => {
     addNote: (id, text) =>
       updateApplication(id, { notes: [...(find(id)?.notes ?? []), { text, at: today }] }),
     setGoal: (id, goalId) => updateApplication(id, { goalId }),
-    mail: [],
     answerMail: () => undefined,
     fileMail: () => undefined,
     undoMove: () => undefined,
@@ -87,40 +90,60 @@ const isoOf = (at: number) => new Date(at).toISOString()
 
 // A Convex application in the shape the tracker draws. Details it doesn't have yet read
 // as empty, and an application from before history was kept starts at its creation.
-export const fromDoc = (d: Doc<"applications">): Application => ({
-  id: d._id,
-  code: `APP-${d.number}`,
-  role: d.role,
-  company: d.company,
-  status: d.status,
-  priority: d.priority ?? "none",
-  // Labels are free text here; the sample list only seeds the label picker.
-  labels: (d.labels ?? []) as Label[],
-  method: d.method ?? "Company site",
-  location: d.location ?? "",
-  createdAt: isoOf(d._creationTime),
-  description: d.description ?? "",
-  url: d.url,
-  history: d.history.map((e) => ({
-    status: e.status,
-    at: isoOf(e.at),
-    ...(e.note && { note: e.note }),
-  })),
-  tasks: d.tasks,
-  notes: d.notes?.map((n) => ({ text: n.text, at: isoOf(n.at) })),
-  goalId: d.goalId,
-  ...(d.archivedAt !== undefined && { archived: true }),
-})
+const cardFromDoc = (d: FunctionReturnType<typeof api.applications.list>[number]) =>
+  ({
+    id: d._id,
+    code: `APP-${d.number}`,
+    role: d.role,
+    company: d.company,
+    status: d.status,
+    priority: d.priority ?? "none",
+    // Labels are free text here; the sample list only seeds the label picker.
+    labels: (d.labels ?? []) as Label[],
+    method: d.method ?? "Company site",
+    location: d.location ?? "",
+    createdAt: isoOf(d._creationTime),
+    url: d.url,
+    history: d.history.map((e) => ({
+      status: e.status,
+      at: isoOf(e.at),
+      ...(e.note && { note: e.note }),
+    })),
+    tasks: d.tasks,
+    goalId: d.goalId,
+    ...(d.lastNoteAt !== undefined && { lastNoteAt: isoOf(d.lastNoteAt) }),
+    ...(d.mail && { mail: d.mail }),
+    ...(d.fit !== undefined && { fit: d.fit, isFit: d.isFit }),
+    ...(d.archivedAt !== undefined && { archived: true }),
+  }) satisfies ApplicationCard
+
+export const fromDoc = (d: Doc<"applications">): Application => {
+  const notes = d.notes?.map((n) => ({ text: n.text, at: isoOf(n.at) }))
+  return {
+    ...cardFromDoc(d),
+    description: d.description ?? "",
+    notes,
+    lastNoteAt: notes?.at(-1)?.at,
+  }
+}
+
+/** One whole application, from its text in a route or its id. Undefined while it loads, and
+ * null when it isn't there. */
+export const useApplication = (ref: string): Application | null | undefined => {
+  const { real } = useSource()
+  const sample = useApplications().find((a) => a.id === ref)
+  const doc = useQuery(api.applications.get, real ? { ref } : "skip")
+  if (!real) return sample ? { ...sample, code: sample.id } : null
+  return doc && fromDoc(doc)
+}
 
 export const ConvexSource = ({ children }: { children: React.ReactNode }) => {
   const docs = useQuery(api.applications.list)
   const goalDocs = useQuery(api.goals.list)
   const setGoal = useMutation(api.applications.setGoal)
-  const fits = new Map((useQuery(api.loops.fits) ?? []).map((f) => [f.applicationId, f]))
   const setStatus = useMutation(api.applications.setStatus)
   const update = useMutation(api.applications.update)
   const addNote = useMutation(api.applications.addNote)
-  const mail = useQuery(api.email.timeline)
   const answer = useMutation(api.email.resolveSuggestion)
   const file = useMutation(api.email.assign)
   const undo = useMutation(api.email.undoMove)
@@ -129,10 +152,7 @@ export const ConvexSource = ({ children }: { children: React.ReactNode }) => {
   const id = (s: string) => s as Id<"applications">
   const source: Source = {
     real: true,
-    applications: (docs ?? []).map((d) => {
-      const fit = fits.get(d._id)
-      return { ...fromDoc(d), ...(fit && { fit: fit.fit, isFit: fit.isFit }) }
-    }),
+    applications: (docs ?? []).map(cardFromDoc),
     goals: (goalDocs ?? []).map(
       ({ _id, name, summary, priority, start, target, milestones, loopId }) => ({
         id: _id,
@@ -150,7 +170,6 @@ export const ConvexSource = ({ children }: { children: React.ReactNode }) => {
     update: (s, patch) => void update({ id: id(s), ...patch }),
     addNote: (s, text) => void addNote({ id: id(s), text }),
     setGoal: (s, goalId) => void setGoal({ id: id(s), goalId: goalId as Id<"goals"> | undefined }),
-    mail: mail ?? [],
     answerMail: (eventId, accept) => void answer({ eventId, accept }),
     fileMail: (eventId, s) => void file({ eventId, applicationId: id(s) }),
     undoMove: (eventId) => void undo({ eventId }),

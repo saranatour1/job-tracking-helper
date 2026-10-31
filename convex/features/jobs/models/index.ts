@@ -1,3 +1,3 @@
 // The jobs feature's tables, registered in convex/schema.ts.
 export { jobsTable } from "./jobs"
-export { jobBoardsTable } from "./boards"
+export { jobBoardsTable, jobCatalogTable } from "./boards"

@@ -307,23 +307,26 @@ export const vRecordArgs = {
   quiet: v.optional(v.boolean()),
 }
 
-export const vTimeline = v.array(
-  v.object({
-    id: v.id("mailEvents"),
-    applicationId: v.union(v.id("applications"), v.null()),
-    kind: v.union(...kinds.map((k) => v.literal(k))),
-    from: v.string(),
-    subject: v.string(),
-    portalUrl: v.optional(v.string()),
-    slot: v.optional(v.number()),
-    slotZone: v.optional(v.string()),
-    at: v.number(),
-    sent: v.boolean(),
-    to: v.optional(v.string()),
-    suggest: v.optional(v.union(...statuses.map((s) => v.literal(s)))),
-    moved: v.optional(arkOutputToConvex(Moved)),
-  })
-)
+// More than this on the board reads "100+": it's only a nudge to go and sort them.
+export const maxUnsortedCount = 100
+
+export const vMailLine = v.object({
+  id: v.id("mailEvents"),
+  applicationId: v.union(v.id("applications"), v.null()),
+  kind: v.union(...kinds.map((k) => v.literal(k))),
+  from: v.string(),
+  subject: v.string(),
+  portalUrl: v.optional(v.string()),
+  slot: v.optional(v.number()),
+  slotZone: v.optional(v.string()),
+  at: v.number(),
+  sent: v.boolean(),
+  to: v.optional(v.string()),
+  suggest: v.optional(v.union(...statuses.map((s) => v.literal(s)))),
+  moved: v.optional(arkOutputToConvex(Moved)),
+})
+
+export const vTimeline = v.array(vMailLine)
 
 export const vMailBody = v.union(
   v.null(),

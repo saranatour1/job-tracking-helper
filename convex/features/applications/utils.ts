@@ -39,7 +39,7 @@ export const deleteApplication = async (ctx: MutationCtx, application: Doc<"appl
   // No cap on mail per application, and a row left behind would point at nothing.
   for await (const mail of ctx.db
     .query("mailEvents")
-    .withIndex("by_userId_and_applicationId", (q) =>
+    .withIndex("by_userId_and_applicationId_and_at", (q) =>
       q.eq("userId", userId).eq("applicationId", applicationId)
     ))
     await ctx.db.patch("mailEvents", mail._id, { applicationId: undefined, suggest: undefined })
@@ -94,6 +94,13 @@ export const own = async (ctx: MutationCtx, userId: Id<"users">, id: Id<"applica
   if (application.trashedAt !== undefined)
     throw new ConvexError("That application is in the Trash.")
   return application
+}
+
+// What the board draws: every row, without the two fields that can be long. A note's text
+// waits for the application to open; only when the last one was written shows on a card.
+export const cardOf = ({ description: _description, notes, ...card }: Doc<"applications">) => {
+  const lastNoteAt = notes?.at(-1)?.at
+  return { ...card, ...(lastNoteAt !== undefined && { lastNoteAt }) }
 }
 
 export const capped = <T>(items: T[], max: number) => items.slice(-max)
@@ -151,19 +158,27 @@ export const changeStatus = async (
   })
 }
 
+// The fit badge a job gives its application. Leads from before Jev have no verdict, and
+// aren't "not a fit".
+export const fitOf = (lead: { fit: number; verdict?: string }) => ({
+  fit: lead.fit,
+  isFit: lead.verdict !== "notFit",
+})
+
 // Fills an application's empty details from the job Jev checked for it: priority from
 // the match, location, a Remote label and a description. What the person set stays.
 export const fillFromJob = async (
   ctx: MutationCtx,
   userId: Id<"users">,
   applicationId: Id<"applications">,
-  job: { fit: number; location?: string; snippet?: string }
+  job: { fit: number; verdict?: string; location?: string; snippet?: string }
 ) => {
   const application = await ctx.db.get("applications", applicationId)
   if (application?.userId !== userId) return
   const labels = application.labels ?? []
   const remote = /remote/i.test(job.location ?? "") && !labels.includes("Remote")
   await ctx.db.patch("applications", applicationId, {
+    ...(application.fit === undefined && fitOf(job)),
     ...((application.priority ?? "none") === "none" && { priority: priorityFor(job.fit) }),
     ...(!application.location && job.location && { location: job.location }),
     ...(!application.description && job.snippet && { description: job.snippet }),

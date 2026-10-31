@@ -28,6 +28,9 @@ export const maxGoals = 50
 // Applications Jev looks at in one re-evaluation, newest first.
 export const maxEvaluated = 30
 
+// A goal's activity looks at its newest this many applications.
+export const maxGoalApplications = 200
+
 // A loop to take roles from. null clears it; leaving it out keeps it.
 export const loopField = { "loopId?": arkId("loops").or("null") }
 

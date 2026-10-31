@@ -5,6 +5,7 @@ import { describe, expect, it } from "vite-plus/test"
 
 import { api } from "../../_generated/api"
 import schema from "../../schema"
+import { maxEvents } from "./validators"
 
 const modules = import.meta.glob([
   "../../**/*.ts",
@@ -71,6 +72,78 @@ describe("calendar events", () => {
   })
 })
 
+describe("a date range", () => {
+  const range = { from: "2026-11-01", to: "2027-01-01" }
+  const at = (key: string, start: string, end = start) => ({
+    key,
+    title: "Reminder",
+    start: `${start}T10:00:00+01:00`,
+    end: `${end}T11:00:00+01:00`,
+    allDay: false,
+  })
+  const keysIn = async (as: Pick<Awaited<ReturnType<typeof setup>>, "query">) =>
+    (await as.query(api.api.calendar.list, range)).map((e) => e.key).sort()
+
+  it("takes what overlaps it, and leaves what's wholly before or after", async () => {
+    const as = await setup()
+    await as.mutation(api.api.calendar.save, at("before", "2026-10-10"))
+    await as.mutation(api.api.calendar.save, at("inside", "2026-11-10"))
+    await as.mutation(api.api.calendar.save, at("across the start", "2026-10-30", "2026-11-02"))
+    await as.mutation(api.api.calendar.save, at("across the end", "2026-12-31", "2027-01-02"))
+    await as.mutation(api.api.calendar.save, at("after", "2027-01-05"))
+    expect(await keysIn(as)).toEqual(["across the end", "across the start", "inside"])
+    expect(await as.query(api.api.calendar.list, {})).toHaveLength(5)
+  })
+
+  it("takes a repeating event that started long before", async () => {
+    const as = await setup()
+    await as.mutation(api.api.calendar.save, {
+      ...at("weekly", "2025-01-06"),
+      rrule: "FREQ=WEEKLY",
+    })
+    expect(await keysIn(as)).toEqual(["weekly"])
+  })
+
+  it("takes a fix moved out of it, so the event it replaces stays replaced", async () => {
+    const as = await setup()
+    await as.mutation(api.api.calendar.save, {
+      ...at("fix", "2027-06-01"),
+      replaces: "m1:slot",
+      kind: "interview",
+    })
+    await as.mutation(api.api.calendar.save, {
+      ...at("removed", "2020-01-01"),
+      replaces: "m2:slot",
+      kind: "interview",
+      hidden: true,
+    })
+    expect(await keysIn(as)).toEqual(["fix", "removed"])
+  })
+
+  it("has the same rows at the limit as without one, for what's in it", async () => {
+    const t = convexTest(schema, modules)
+    const userId = await t.run((ctx) => ctx.db.insert("users", { name: "Sam" }))
+    const as = t.withIdentity({ subject: userId })
+    await t.run(async (ctx) => {
+      for (let n = 0; n < maxEvents; n++)
+        await ctx.db.insert("calendarEvents", {
+          ...at(`e${String(n).padStart(3, "0")}`, n % 2 ? "2026-11-10" : "2026-10-10"),
+          userId,
+          kind: "reminder",
+        })
+    })
+    expect(await as.query(api.api.calendar.list, {})).toHaveLength(maxEvents)
+    expect(await keysIn(as)).toHaveLength(maxEvents / 2)
+  })
+
+  it("is only yours", async () => {
+    const as = await setup()
+    await as.mutation(api.api.calendar.save, at("mine", "2026-11-10"))
+    const other = await setup()
+    expect(await keysIn(other)).toEqual([])
+  })
+})
+
 describe("calendar settings", () => {
   it("round-trips, and replaces what was there", async () => {
     const as = await setup()
@@ -85,9 +158,9 @@ describe("calendar settings", () => {
 
   it("refuses zones that don't exist and days that run backwards", async () => {
     const as = await setup()
-    await expect(as.mutation(api.api.calendar.saveSettings, { timeZone: "Mars/Base" })).rejects.toThrow(
-      "Mars/Base isn't a time zone."
-    )
+    await expect(
+      as.mutation(api.api.calendar.saveSettings, { timeZone: "Mars/Base" })
+    ).rejects.toThrow("Mars/Base isn't a time zone.")
     await expect(
       as.mutation(api.api.calendar.saveSettings, { dayStartHour: 20, dayEndHour: 8 })
     ).rejects.toThrow("has to start before it ends")
