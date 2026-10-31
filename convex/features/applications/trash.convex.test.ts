@@ -15,6 +15,15 @@ const modules = import.meta.glob([
 
 const day = 24 * 60 * 60 * 1000
 
+type Authed = { query: ReturnType<typeof convexTest>["query"] }
+
+const trashedOf = async (as: Authed) =>
+  (
+    await as.query(api.applications.trashed, {
+      paginationOpts: { numItems: 100, cursor: null },
+    })
+  ).page
+
 const setup = async () => {
   const t = convexTest(schema, modules)
   const userId = await t.run((ctx) => ctx.db.insert("users", { name: "Sam" }))
@@ -55,9 +64,9 @@ describe("archive and trash", () => {
       ["Acme", true],
       ["Initech", false],
     ])
-    expect((await as.query(api.applications.trashed, {})).map((x) => x.company)).toEqual(["Hooli"])
+    expect((await trashedOf(as)).map((x) => x.company)).toEqual(["Hooli"])
     await as.mutation(api.applications.restore, { id: b })
-    expect(await as.query(api.applications.trashed, {})).toEqual([])
+    expect(await trashedOf(as)).toEqual([])
     expect((await as.query(api.applications.list, {})).map((x) => x._id)).toContain(c)
   })
 
@@ -99,15 +108,12 @@ describe("archive and trash", () => {
 
     vi.setSystemTime(Date.now() + 31 * day)
     expect(await t.mutation(internal.applications.sweep, {})).toEqual({ trashed: 1, deleted: 0 })
-    expect((await as.query(api.applications.trashed, {})).map((x) => x.company)).toEqual([
-      "Acme",
-      "Hooli",
-    ])
+    expect((await trashedOf(as)).map((x) => x.company)).toEqual(["Acme", "Hooli"])
 
     // 90 days by default: Hooli, trashed first, goes; Acme, trashed 31 days later, stays.
     vi.setSystemTime(Date.now() + 60 * day)
     expect(await t.mutation(internal.applications.sweep, {})).toEqual({ trashed: 0, deleted: 1 })
-    expect((await as.query(api.applications.trashed, {})).map((x) => x.company)).toEqual(["Acme"])
+    expect((await trashedOf(as)).map((x) => x.company)).toEqual(["Acme"])
   })
 
   it("keeps the Trash when set to never, and takes only the offered choices", async () => {
@@ -175,9 +181,38 @@ describe("archive and trash", () => {
     const { t, as, add } = await setup()
     for (let i = 0; i < 30; i++)
       await as.mutation(api.applications.trash, { id: await add(`Co ${i}`) })
-    expect(await as.mutation(api.applications.emptyTrash, {})).toBe(30)
+    expect(await as.mutation(api.applications.emptyTrash, {})).toBe(25)
     await t.finishAllScheduledFunctions(vi.runAllTimers)
-    expect(await as.query(api.applications.trashed, {})).toEqual([])
+    expect(await trashedOf(as)).toEqual([])
+  })
+
+  it("pages through the Trash, last trashed first, and leaves it off the board", async () => {
+    const { as, add } = await setup()
+    const ids = [await add("Old"), await add("Middle"), await add("New"), await add("Kept")]
+    for (const id of ids.slice(0, 3)) {
+      await as.mutation(api.applications.trash, { id })
+      vi.advanceTimersByTime(1000)
+    }
+    const first = await as.query(api.applications.trashed, {
+      paginationOpts: { numItems: 2, cursor: null },
+    })
+    expect(first.page.map((a) => a.company)).toEqual(["New", "Middle"])
+    expect(first.isDone).toBe(false)
+    const second = await as.query(api.applications.trashed, {
+      paginationOpts: { numItems: 2, cursor: first.continueCursor },
+    })
+    expect(second.page.map((a) => a.company)).toEqual(["Old"])
+    expect((await as.query(api.applications.list, {})).map((a) => a.company)).toEqual(["Kept"])
+  })
+
+  it("keeps the board oldest first", async () => {
+    const { as, add } = await setup()
+    await add("First")
+    await add("Second")
+    expect((await as.query(api.applications.list, {})).map((a) => a.company)).toEqual([
+      "First",
+      "Second",
+    ])
   })
 
   it("won't touch someone else's application", async () => {

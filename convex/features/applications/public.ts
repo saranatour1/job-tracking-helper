@@ -3,7 +3,14 @@ import schema from "../../schema"
 import { arkMutation, authedMutation, authedQuery } from "../../lib/functions"
 import { internal } from "../../_generated/api"
 import { fireEvent } from "../automations/fire"
-import { Application, limits, UpdateApplication, SetStatus, AddNote } from "./validators"
+import {
+  Application,
+  limits,
+  maxApplications,
+  UpdateApplication,
+  SetStatus,
+  AddNote,
+} from "./validators"
 import { own, capped, nextNumber, changeStatus } from "./utils"
 
 const list = authedQuery({
@@ -14,9 +21,12 @@ const list = authedQuery({
     (
       await ctx.db
         .query("applications")
-        .withIndex("by_userId", (q) => q.eq("userId", ctx.userId))
-        .collect()
-    ).filter((a) => a.trashedAt === undefined),
+        .withIndex("by_userId_and_trashedAt", (q) =>
+          q.eq("userId", ctx.userId).eq("trashedAt", undefined)
+        )
+        .order("desc")
+        .take(maxApplications)
+    ).reverse(),
 })
 
 // Added with a link, Jev checks the job in the background and fills in the rest.

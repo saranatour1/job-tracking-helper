@@ -111,12 +111,13 @@ const book = mutation({
     let applicationId = linked && linked.trashedAt === undefined ? linked._id : undefined
     if (!applicationId) {
       // Like mail: a guest from acme.com books under the Acme application.
-      const applications = (
-        await ctx.db
-          .query("applications")
-          .withIndex("by_userId", (q) => q.eq("userId", found.userId))
-          .take(1000)
-      ).filter((a) => a.trashedAt === undefined)
+      const applications = await ctx.db
+        .query("applications")
+        .withIndex("by_userId_and_trashedAt", (q) =>
+          q.eq("userId", found.userId).eq("trashedAt", undefined)
+        )
+        .order("desc")
+        .take(1000)
       const match = ruleMatch(
         { from: email, subject: "" },
         applications.map((a) => ({ ...a, id: a._id, at: a._creationTime }))

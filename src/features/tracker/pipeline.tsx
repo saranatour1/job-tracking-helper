@@ -8,6 +8,7 @@ import {
   Target02Icon,
 } from "@hugeicons/core-free-icons"
 import { HugeiconsIcon } from "@hugeicons/react"
+import { maxApplications } from "@convex/features/applications/validators"
 import { Link, useNavigate, useSearch } from "@tanstack/react-router"
 import { useRef, useState } from "react"
 
@@ -457,6 +458,11 @@ export const Pipeline = ({
           )
         }
       />
+      {source.applications.length >= maxApplications && (
+        <p className="text-muted-foreground border-b px-4 py-2 text-xs">
+          Showing your newest {maxApplications.toLocaleString()} applications.
+        </p>
+      )}
       {editor && (
         <div className="flex items-start gap-3 border-b px-4 py-3">
           <span className="bg-muted flex size-8 shrink-0 items-center justify-center rounded-md">

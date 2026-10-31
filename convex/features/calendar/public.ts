@@ -29,13 +29,14 @@ const save = arkMutation({
       if (application?.userId !== ctx.userId) throw new ConvexError("That application isn't yours.")
     } else if (!event.replaces && existing?.title !== title) {
       // Like mail, an event whose new title names one company goes under that application.
-      // shortcut: reads all of a person's applications; fine for a job search's few hundred.
-      const applications = (
-        await ctx.db
-          .query("applications")
-          .withIndex("by_userId", (q) => q.eq("userId", ctx.userId))
-          .take(1000)
-      ).filter((a) => a.trashedAt === undefined)
+      // The newest 1000: an event is about a recent application.
+      const applications = await ctx.db
+        .query("applications")
+        .withIndex("by_userId_and_trashedAt", (q) =>
+          q.eq("userId", ctx.userId).eq("trashedAt", undefined)
+        )
+        .order("desc")
+        .take(1000)
       const match = ruleMatch(
         { from: "", subject: title },
         applications.map((a) => ({ ...a, id: a._id, at: a._creationTime }))

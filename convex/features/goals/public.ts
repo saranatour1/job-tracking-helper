@@ -91,28 +91,27 @@ const toEvaluate = internalQuery({
     if (goal?.userId !== userId) return null
     const applications = await ctx.db
       .query("applications")
-      .withIndex("by_userId", (q) => q.eq("userId", userId))
+      .withIndex("by_userId_and_trashedAt", (q) =>
+        q.eq("userId", userId).eq("trashedAt", undefined)
+      )
       .order("desc")
-      .collect()
+      .take(maxEvaluated)
     return {
       goal: {
         name: goal.name,
         summary: goal.summary,
         milestones: goal.milestones.map((m) => m.name),
       },
-      applications: applications
-        .filter((a) => a.trashedAt === undefined)
-        .slice(0, maxEvaluated)
-        .map((a) => ({
-          id: a._id,
-          company: a.company,
-          role: a.role,
-          status: a.status,
-          location: a.location ?? "",
-          labels: a.labels ?? [],
-          description: (a.description ?? "").slice(0, 600),
-          onGoal: a.goalId === id,
-        })),
+      applications: applications.map((a) => ({
+        id: a._id,
+        company: a.company,
+        role: a.role,
+        status: a.status,
+        location: a.location ?? "",
+        labels: a.labels ?? [],
+        description: (a.description ?? "").slice(0, 600),
+        onGoal: a.goalId === id,
+      })),
     }
   },
 })

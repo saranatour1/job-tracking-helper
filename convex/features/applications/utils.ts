@@ -35,12 +35,12 @@ export const purgeAtOf = (trashedAt: number, days: number) =>
  * in Activity, still closed so it's never sent twice. */
 export const deleteApplication = async (ctx: MutationCtx, application: Doc<"applications">) => {
   const { userId, _id: applicationId } = application
-  for (const mail of await ctx.db
+  // No cap on mail per application, and a row left behind would point at nothing.
+  for await (const mail of ctx.db
     .query("mailEvents")
     .withIndex("by_userId_and_applicationId", (q) =>
       q.eq("userId", userId).eq("applicationId", applicationId)
-    )
-    .take(500))
+    ))
     await ctx.db.patch("mailEvents", mail._id, { applicationId: undefined, suggest: undefined })
   for (const lead of await ctx.db
     .query("jobLeads")
@@ -84,15 +84,15 @@ export const moveToTrash = async (ctx: MutationCtx, application: Doc<"applicatio
 // One batch of someone's Trash, and the next scheduled while any is left, so emptying a
 // big Trash stays within a mutation's limits.
 export const emptySome = async (ctx: MutationCtx, userId: Id<"users">) => {
-  const all = await ctx.db
+  const inTrash = await ctx.db
     .query("applications")
-    .withIndex("by_userId", (q) => q.eq("userId", userId))
-    .collect()
-  const inTrash = all.filter((a) => a.trashedAt !== undefined)
-  for (const application of inTrash.slice(0, batch)) await deleteApplication(ctx, application)
+    .withIndex("by_userId_and_trashedAt", (q) => q.eq("userId", userId).gt("trashedAt", 0))
+    .take(batch + 1)
+  const now = inTrash.slice(0, batch)
+  for (const application of now) await deleteApplication(ctx, application)
   if (inTrash.length > batch)
     await ctx.scheduler.runAfter(0, internal.applications.emptyTrashFor, { userId })
-  return inTrash.length
+  return now.length
 }
 
 export const own = async (ctx: MutationCtx, userId: Id<"users">, id: Id<"applications">) => {

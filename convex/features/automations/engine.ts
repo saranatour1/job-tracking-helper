@@ -318,7 +318,7 @@ const onEvent = internalMutation({
     const automations = await ctx.db
       .query("automations")
       .withIndex("by_userId", (q) => q.eq("userId", userId))
-      .take(30)
+      .take(limits.automations)
     let started = 0
     for (const automation of automations) {
       if (!automation.active || !matches(automation.trigger, event)) continue

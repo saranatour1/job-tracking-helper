@@ -37,9 +37,11 @@ export const busyOf = async (
     )
   const k = await keys().catch(() => null)
   if (k) {
+    // The newest 300: an interview still ahead was emailed about recently.
     const mail = await ctx.db
       .query("mailEvents")
-      .withIndex("by_userId_and_applicationId", (q) => q.eq("userId", userId))
+      .withIndex("by_userId_and_at", (q) => q.eq("userId", userId))
+      .order("desc")
       .take(300)
     for (const m of mail) {
       if (m.kind !== "interview" || replaced.has(`${m._id}:slot`)) continue
