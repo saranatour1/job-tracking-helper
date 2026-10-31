@@ -4,6 +4,7 @@ import { mailboxApi } from "./features/mailbox/public"
 export const {
   page,
   content,
+  thread,
   markRead,
   move,
   deleteForever,

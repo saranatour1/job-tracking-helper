@@ -25,6 +25,7 @@ import { Popover, PopoverPopup, PopoverTitle, PopoverTrigger } from "@/component
 import { ScrollArea } from "@/components/ui/scroll-area"
 import { Skeleton } from "@/components/ui/skeleton"
 import { messageOf } from "@/features/account/settings"
+import { CopyButton } from "@/features/contacts/contacts"
 import { PageHeader } from "@/features/shell/page-header"
 import { cn } from "@/lib/utils"
 
@@ -50,6 +51,8 @@ export type MailSearch = {
   view?: View
   label?: string
   open?: string
+  // Another email in the open email's thread, when you've picked one.
+  message?: string
   // "new", or a draft's id.
   compose?: string
   // The email being answered.
@@ -62,9 +65,10 @@ const stringOf = (value: unknown) => (typeof value === "string" && value ? value
 
 export const mailSearch = (search: Record<string, unknown>): MailSearch => {
   const view = views.find((v) => v === search.view)
-  const [label, open, compose, reply, template] = [
+  const [label, open, message, compose, reply, template] = [
     stringOf(search.label),
     stringOf(search.open),
+    stringOf(search.message),
     stringOf(search.compose),
     stringOf(search.reply),
     stringOf(search.template),
@@ -73,6 +77,7 @@ export const mailSearch = (search: Record<string, unknown>): MailSearch => {
     ...(view && { view }),
     ...(label && { label }),
     ...(open && { open }),
+    ...(message && { message }),
     ...(compose && { compose }),
     ...(reply && { reply }),
     ...(template && { template }),
@@ -157,14 +162,98 @@ const LabelsMenu = ({ row }: { row: Row }) => {
   )
 }
 
+// One line of the email's details: easy to read, select and copy.
+const HeaderValue = ({
+  label,
+  value,
+  children,
+}: {
+  label: string
+  value: string
+  children?: React.ReactNode
+}) => (
+  <>
+    <dt className="text-muted-foreground">{label}</dt>
+    <dd className="flex min-w-0 flex-wrap items-center gap-x-1">
+      <span className="min-w-0 break-words">{value}</span>
+      <CopyButton text={value} label={`Copy ${label.toLowerCase()}`} />
+      {children}
+    </dd>
+  </>
+)
+
+const AddContact = ({ email, name, company }: { email: string; name: string; company: string }) => {
+  const known = useQuery(api.contacts.known, { email })
+  const save = useAction(api.contacts.save)
+  const [error, add, pending] = useActionState(
+    async () =>
+      save({ company, name, email, title: "", phone: "", notes: "" }).then(
+        () => undefined,
+        messageOf
+      ),
+    undefined
+  )
+  if (known === undefined) return null
+  if (known) return <span className="text-muted-foreground">In contacts</span>
+  return (
+    <>
+      <Button size="xs" variant="ghost" disabled={pending} onClick={() => startTransition(add)}>
+        Add to contacts
+      </Button>
+      {error && (
+        <span role="alert" className="text-destructive">
+          {error}
+        </span>
+      )}
+    </>
+  )
+}
+
+// A collapsed email in a thread. Only the one you're reading gets opened.
+const ThreadLine = ({ message }: { message: Row }) => {
+  const markRead = useMutation(api.mailbox.markRead)
+  return (
+    <Link
+      from="/email"
+      search={(s) => ({ ...s, message: message.id })}
+      onClick={() => {
+        if (!message.read) void markRead({ eventId: message.id })
+      }}
+      className="hover:bg-accent/40 flex items-baseline gap-2 border-b px-4 py-1.5 text-xs"
+    >
+      <span className={cn("min-w-0 flex-1 truncate", !message.read && "font-semibold")}>
+        {message.sent ? `You to ${message.to ?? ""}` : message.from}
+      </span>
+      <span className="text-muted-foreground shrink-0">{fullDate(message.at)}</span>
+    </Link>
+  )
+}
+
+const ThreadLines = ({ messages }: { messages: Row[] }) =>
+  messages.length > 0 && (
+    <div className="max-h-[25%] shrink-0 overflow-y-auto border-t">
+      {messages.map((message) => (
+        <ThreadLine key={message.id} message={message} />
+      ))}
+    </div>
+  )
+
 const Reader = ({ row }: { row: Row }) => {
-  const mail = useQuery(api.mailbox.content, { eventId: row.id })
+  const { reply, message } = route.useSearch()
+  const thread = useQuery(api.mailbox.thread, { eventId: row.id })
+  const messages = thread?.some((m) => m.id === row.id) ? thread : [row]
+  const shown = messages.find((m) => m.id === message) ?? row
+  const shownAt = messages.findIndex((m) => m.id === shown.id)
+  const mail = useQuery(api.mailbox.content, { eventId: shown.id })
   const move = useMutation(api.mailbox.move)
   const remove = useMutation(api.mailbox.deleteForever)
-  const { reply } = route.useSearch()
   const navigate = useNavigate({ from: "/email" })
-  const close = () => void navigate({ search: ({ open: _open, reply: _reply, ...rest }) => rest })
+  const close = () =>
+    void navigate({
+      search: ({ open: _open, message: _message, reply: _reply, ...rest }) => rest,
+    })
   const closeReply = () => void navigate({ search: ({ reply: _reply, ...rest }) => rest })
+  const other = mail && (mail.sent ? mail.to : mail.from)
   return (
     <section aria-label="Email" className="flex min-h-0 min-w-0 flex-1 flex-col">
       <div className="flex flex-wrap items-center gap-1 border-b px-3 py-2">
@@ -211,28 +300,55 @@ const Reader = ({ row }: { row: Row }) => {
         )}
         <LabelsMenu row={row} />
       </div>
-      <div className="flex flex-col gap-1 border-b px-4 py-3">
-        <h2 className="text-base font-semibold">{row.subject}</h2>
-        <p className="text-muted-foreground text-xs break-words">
-          {mail
-            ? `From ${mail.fromName ? `${mail.fromName} <${mail.from}>` : mail.from} to ${mail.to}`
-            : " "}
-        </p>
-        <p className="text-muted-foreground text-xs">
-          {fullDate(row.at)}
-          {row.applicationId && row.company && (
-            <>
-              {" · "}
-              <Link to="/" search={{ app: row.applicationId }} className="underline">
-                {row.company}
-              </Link>
-            </>
-          )}
-        </p>
-        {mail && mail.attachments.length > 0 && (
-          <p className="text-muted-foreground text-xs">Attached: {mail.attachments.join(", ")}</p>
-        )}
+      <div className="flex flex-wrap items-center gap-x-1 px-4 py-3">
+        <h2 className="min-w-0 text-base font-semibold break-words">{shown.subject}</h2>
+        <CopyButton key={shown.id} text={shown.subject} label="Copy subject" />
       </div>
+      <ThreadLines messages={messages.slice(0, shownAt)} />
+      <dl
+        key={shown.id}
+        className={cn(
+          "grid grid-cols-[auto_minmax(0,1fr)] items-baseline gap-x-3 border-b px-4 pb-3 text-xs",
+          shownAt > 0 && "pt-3"
+        )}
+      >
+        {mail && (
+          <>
+            <HeaderValue label="From" value={mail.from}>
+              {mail.fromName && <span className="text-muted-foreground">{mail.fromName}</span>}
+              {!mail.sent && (
+                <AddContact
+                  email={mail.from}
+                  name={mail.fromName ?? ""}
+                  company={shown.company ?? ""}
+                />
+              )}
+            </HeaderValue>
+            <HeaderValue label="To" value={mail.to}>
+              {mail.sent && other && (
+                <AddContact email={other} name="" company={shown.company ?? ""} />
+              )}
+            </HeaderValue>
+          </>
+        )}
+        <HeaderValue label="Date" value={fullDate(shown.at)} />
+        {shown.applicationId && shown.company && (
+          <>
+            <dt className="text-muted-foreground">Application</dt>
+            <dd className="py-0.5">
+              <Link to="/" search={{ app: shown.applicationId }} className="underline">
+                {shown.company}
+              </Link>
+            </dd>
+          </>
+        )}
+        {mail && mail.attachments.length > 0 && (
+          <>
+            <dt className="text-muted-foreground">Attached</dt>
+            <dd className="py-0.5 break-words">{mail.attachments.join(", ")}</dd>
+          </>
+        )}
+      </dl>
       {mail === undefined ? (
         <div className="p-4">
           <Skeleton className="h-32 w-full" />
@@ -241,7 +357,7 @@ const Reader = ({ row }: { row: Row }) => {
         <p className="text-muted-foreground p-4 text-[13px]">This email can't be read anymore.</p>
       ) : mail.html ? (
         <iframe
-          title={`Email: ${row.subject}`}
+          title={`Email: ${shown.subject}`}
           // No scripts, and links open outside it.
           sandbox="allow-popups allow-popups-to-escape-sandbox"
           srcDoc={frameOf(mail.html)}
@@ -254,17 +370,19 @@ const Reader = ({ row }: { row: Row }) => {
           </p>
         </ScrollArea>
       )}
-      {mail && row.box !== "trash" && (
+      <ThreadLines messages={messages.slice(shownAt + 1)} />
+      {mail && other && row.box !== "trash" && (
         <div className="max-h-[70%] shrink-0 overflow-y-auto border-t">
           {reply === row.id ? (
             <ComposeForm
+              key={shown.id}
               inline
               start={{
                 // Your own sent mail gets answered to whoever you sent it to.
-                to: mail.sent ? mail.to : mail.from,
+                to: other,
                 subject: /^re:/i.test(mail.subject) ? mail.subject : `Re: ${mail.subject}`,
-                replyTo: row.id,
-                ...(row.applicationId && { applicationId: row.applicationId }),
+                replyTo: shown.id,
+                ...(shown.applicationId && { applicationId: shown.applicationId }),
               }}
               onDone={closeReply}
             />
@@ -291,7 +409,7 @@ const MailRow = ({ row, open }: { row: Row; open: boolean }) => {
     <li>
       <Link
         from="/email"
-        search={(s) => ({ ...s, open: row.id })}
+        search={({ message: _message, ...s }) => ({ ...s, open: row.id })}
         onClick={() => {
           if (!row.read) void markRead({ eventId: row.id })
         }}

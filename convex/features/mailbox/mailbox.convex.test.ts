@@ -6,6 +6,7 @@ import { convexTest } from "convex-test"
 import { beforeEach, describe, expect, it, vi } from "vite-plus/test"
 
 import { api, components, internal } from "../../_generated/api"
+import type { Id } from "../../_generated/dataModel"
 import cloudflareSchema from "../../components/cloudflareEmail/schema"
 import notificationsSchema from "../../components/notifications/schema"
 import { seal } from "../../lib/secrets"
@@ -183,6 +184,84 @@ describe("folders", () => {
     })
     expect(page.page).toHaveLength(2)
     expect(page.isDone).toBe(false)
+  })
+})
+
+describe("threads", () => {
+  const subjects = async (as: Awaited<ReturnType<typeof setup>>["as"], eventId: Id<"mailEvents">) =>
+    (await as.query(api.mailbox.thread, { eventId })).map((m) => m.subject)
+
+  it("follows a reply across folders, oldest first", async () => {
+    const { as, receive, box, hooli } = await setup()
+    await receive({ subject: "Scheduling" })
+    await as.action(api.email.sendFromApplication, {
+      applicationId: hooli,
+      to: "pat@hooli.com",
+      subject: "Re: Scheduling",
+      text: "Thanks",
+    })
+    await vi.advanceTimersByTimeAsync(1000)
+    await receive({ subject: "RE: re: scheduling" })
+    await receive({ subject: "Offer" })
+    const opened = (await box("inbox")).find((m) => m.subject === "Scheduling")
+    expect(await subjects(as, opened!.id)).toEqual([
+      "Scheduling",
+      "Re: Scheduling",
+      "RE: re: scheduling",
+    ])
+  })
+
+  it("keeps another application's mail out, even with the same subject", async () => {
+    const { t, as, userId, receive, box } = await setup()
+    await t.run((ctx) =>
+      ctx.db.insert("applications", {
+        userId,
+        company: "Initech",
+        role: "Engineer",
+        status: "applied",
+        number: 2,
+        history: [],
+      })
+    )
+    await receive({ subject: "Next steps" })
+    await receive({ subject: "Next steps", from: "sam@initech.com" })
+    const [newest] = await box("inbox")
+    expect(newest?.company).toBe("Initech")
+    expect(await subjects(as, newest!.id)).toEqual(["Next steps"])
+  })
+
+  it("needs the same person when there's no application", async () => {
+    const { as, receive, box } = await setup()
+    await receive({ subject: "Hello", from: "lee@stranger.example" })
+    await vi.advanceTimersByTimeAsync(1000)
+    await receive({ subject: "Re: Hello", from: "LEE@stranger.example" })
+    await receive({ subject: "Hello", from: "kim@stranger.example" })
+    const rows = await box("inbox")
+    expect(rows.every((m) => m.applicationId === undefined)).toBe(true)
+    const kim = rows.find((m) => m.from === "kim@stranger.example")
+    const lee = rows.find((m) => m.from === "lee@stranger.example")
+    expect(await subjects(as, kim!.id)).toEqual(["Hello"])
+    expect(await subjects(as, lee!.id)).toEqual(["Hello", "Re: Hello"])
+  })
+
+  it("leaves out trashed mail unless it's the one open", async () => {
+    const { as, receive, box } = await setup()
+    await receive({ subject: "Scheduling" })
+    await receive({ subject: "Re: Scheduling" })
+    const [reply, first] = await box("inbox")
+    await as.mutation(api.mailbox.move, { eventId: reply!.id, to: "trash" })
+    expect(await subjects(as, first!.id)).toEqual(["Scheduling"])
+    expect(await subjects(as, reply!.id)).toEqual(["Scheduling", "Re: Scheduling"])
+  })
+
+  it("gives someone else nothing", async () => {
+    const { t, receive, box } = await setup()
+    await receive({})
+    const [mine] = await box("inbox")
+    const other = await t.run((ctx) => ctx.db.insert("users", { name: "Eve" }))
+    expect(
+      await t.withIdentity({ subject: other }).query(api.mailbox.thread, { eventId: mine!.id })
+    ).toEqual([])
   })
 })
 

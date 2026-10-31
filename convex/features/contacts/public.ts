@@ -44,6 +44,20 @@ const list = authedQuery({
   },
 })
 
+// Whether someone's already a contact. One you removed isn't, so you can add them back.
+const known = authedQuery({
+  args: { email: v.string() },
+  returns: v.boolean(),
+  handler: async (ctx, { email }) => {
+    const key = await threadKeyOf(ctx.userId, email.toLowerCase())
+    const row = await ctx.db
+      .query("contacts")
+      .withIndex("by_userId_and_key", (q) => q.eq("userId", ctx.userId).eq("key", key))
+      .first()
+    return row !== null && !row.hidden
+  },
+})
+
 // Sealing needs real randomness, so this is an action.
 const save = action({
   args: arkToConvex(SaveContact),
@@ -80,4 +94,4 @@ const remove = authedMutation({
   },
 })
 
-export const publicApi = { list, save, remove }
+export const publicApi = { list, known, save, remove }

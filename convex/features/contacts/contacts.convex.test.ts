@@ -129,6 +129,16 @@ describe("learning contacts from mail", () => {
     })
   })
 
+  it("knows who's a contact, whatever the case, and not one you removed", async () => {
+    const { as, receive } = await setup()
+    expect(await as.query(api.contacts.known, { email: "pat@hooli.com" })).toBe(false)
+    await receive({ from: "pat@hooli.com" })
+    expect(await as.query(api.contacts.known, { email: "PAT@hooli.com" })).toBe(true)
+    const [pat] = await as.query(api.contacts.list, {})
+    await as.mutation(api.contacts.remove, { id: pat!.id })
+    expect(await as.query(api.contacts.known, { email: "pat@hooli.com" })).toBe(false)
+  })
+
   it("doesn't bring back someone you removed", async () => {
     const { as, receive } = await setup()
     await receive({ from: "pat@hooli.com" })
