@@ -47,7 +47,7 @@ import {
 import { PriorityBadge, TopBadges } from "./badges"
 import { PriorityIcon, StatusIcon } from "./icons"
 import { JobContext } from "./job"
-import { MailLine, Suggestion, useMailFor } from "./mail"
+import { MailLine, MailStatus, Suggestion, useMailFor } from "./mail"
 import { useSource } from "./source"
 
 const icon = (field: FilterField, value: string) =>
@@ -311,6 +311,7 @@ const Content = ({ a, properties }: { a: Application; properties?: React.ReactNo
 
       <section aria-label="Activity" className="flex flex-col gap-3 border-t pt-6">
         <h3 className="text-[13px] font-medium">Activity</h3>
+        <MailStatus a={a} />
         <Suggestion mail={mail} />
         <ol className="flex flex-col gap-3">
           {activity.map((item, i) => (

@@ -25,7 +25,9 @@ vi.mock("./firecrawl", async (actual) => ({
   endSession: async () => undefined,
 }))
 import notificationsSchema from "../../components/notifications/schema"
+import { seal } from "../../lib/secrets"
 import schema from "../../schema"
+import { aad, keys } from "../email/utils"
 
 const modules = import.meta.glob([
   "../../**/*.ts",
@@ -153,6 +155,81 @@ describe("preparing without AI", () => {
     const prepared = await row()
     expect(prepared.aiUnavailable).toBeUndefined()
     expect(prepared.fields[1]).toMatchObject({ answer: "It fits.", source: "ai" })
+  })
+})
+
+describe("with each application having its own address", () => {
+  const trackingSetup = async () => {
+    vi.stubEnv("SECRETS_KEYS", `v1:${btoa(String.fromCharCode(...new Uint8Array(32).fill(7)))}`)
+    const s = await setup()
+    const k = await keys()
+    await s.t.run(async (ctx) => {
+      const user = await ctx.db.query("users").first()
+      await ctx.db.insert("emailConnections", {
+        userId: user!._id,
+        details: await seal(
+          k,
+          JSON.stringify({ accountId: "a", fromAddress: "reach@example.com" }),
+          aad.details(user!._id)
+        ),
+        token: "t",
+        tokenAddedAt: 1,
+        access: { workers: true, routing: true },
+        allow: { send: true, setup: true, receive: true, read: false, tag: true },
+        inboundId: "in",
+        inbound: { secretHash: "h", worker: "w", ruleId: "r", at: 1 },
+      })
+      await ctx.db.insert("profileEntries", {
+        userId: user!._id,
+        kind: "field",
+        group: "Contact",
+        key: "field",
+        label: "Email",
+        value: "reach@example.com",
+        order: 1,
+      })
+    })
+    const withEmail = {
+      ...form,
+      fields: [
+        { selector: "#e", name: "email", type: "email", label: "Email", required: true },
+        ...form.fields,
+      ],
+    }
+    mocks.interact.mockResolvedValue({ value: withEmail, liveUrl: "" })
+    await s.t.action(internal.prefilled.prepareForm, { id: s.id })
+    mocks.interact.mockResolvedValueOnce({ value: withEmail, liveUrl: "" }).mockResolvedValueOnce({
+      value: { unfilled: [], errors: [] },
+      liveUrl: "https://live.example/x",
+    })
+    return s
+  }
+
+  it("makes the application when the browser opens, and fills the form with its address", async () => {
+    const { t, as, id, row } = await trackingSetup()
+    await as.action(api.prefilled.startLive, { id })
+    const opened = await row()
+    const app = await t.run((ctx) => ctx.db.get("applications", opened.applicationId!))
+    expect(app).toMatchObject({ status: "saved", number: 1 })
+    expect(opened.fields[0]).toMatchObject({ answer: "reach+hooli@example.com", source: "saved" })
+    expect(mocks.interact.mock.calls.at(-1)![1]).toContain("reach+hooli@example.com")
+
+    // Sending moves that same application along, rather than adding a second.
+    await t.mutation(internal.prefilled.finish, {
+      userId: app!.userId,
+      id,
+      confirmation: "Thanks",
+      credits: 1,
+    })
+    const apps = await t.run((ctx) => ctx.db.query("applications").collect())
+    expect(apps.map((a) => [a.status, a.number])).toEqual([["applied", 1]])
+  })
+
+  it("keeps an address you typed for this form", async () => {
+    const { as, id, row } = await trackingSetup()
+    await as.mutation(api.prefilled.setAnswer, { id, question: "Email", answer: "me@other.com" })
+    await as.action(api.prefilled.startLive, { id })
+    expect((await row()).fields[0]).toMatchObject({ answer: "me@other.com", source: "you" })
   })
 })
 

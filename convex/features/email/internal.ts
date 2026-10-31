@@ -51,9 +51,14 @@ const sealed = internalQuery({
 const setInbound = internalMutation({
   args: vSetInboundArgs,
   returns: v.null(),
-  handler: async (ctx, { userId, inboundId, inbound }) => {
+  handler: async (ctx, { userId, inboundId, inbound, details }) => {
     const connection = await connectionOf(ctx, userId)
-    if (connection) await ctx.db.patch("emailConnections", connection._id, { inboundId, inbound })
+    if (connection)
+      await ctx.db.patch("emailConnections", connection._id, {
+        inboundId,
+        inbound,
+        ...(details && { details }),
+      })
     return null
   },
 })
@@ -74,6 +79,22 @@ const inboundTarget = internalQuery({
           receive: connection.allow.receive,
         }
       : null
+  },
+})
+
+const addAliasRule = internalMutation({
+  args: { userId: v.id("users"), ruleId: v.string() },
+  returns: v.null(),
+  handler: async (ctx, { userId, ruleId }) => {
+    const connection = await connectionOf(ctx, userId)
+    if (!connection?.inbound) return null
+    await ctx.db.patch("emailConnections", connection._id, {
+      inbound: {
+        ...connection.inbound,
+        aliasRules: [...(connection.inbound.aliasRules ?? []), ruleId],
+      },
+    })
+    return null
   },
 })
 
@@ -177,6 +198,7 @@ export const internalApi = {
   sealed,
   setInbound,
   inboundTarget,
+  addAliasRule,
   remove,
   connectionsPage,
   resealConnection,

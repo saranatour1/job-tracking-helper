@@ -70,6 +70,8 @@ export const accessOf = async (accountId: string, token: string, domain: string)
         : undefined,
       workers: workers !== undefined,
       routing: routing !== undefined,
+      // Everything about the domain depends on this, so it's the first thing to fix.
+      zone: zoneId !== undefined,
     },
   }
 }
@@ -79,9 +81,11 @@ export const routingEnabled = async (zoneId: string, token: string) =>
   ((await call(`/zones/${zoneId}/email/routing`, token)) as { enabled?: boolean } | undefined)
     ?.enabled
 
-// The Worker that receives mail: it hands each raw message to Convex and nothing else.
-// A 403 means the person turned receiving off, so the sender hears it was turned away;
-// anything else throws, so Cloudflare treats it as a temporary failure.
+// The Worker that receives mail: it hands each raw message to Convex, and forwards a copy
+// when the person gave an address. A failed forward never loses the app's copy.
+// A 403 means the person turned receiving off, so the sender hears it was turned away unless
+// there's somewhere to forward it. Anything else throws, which Cloudflare treats as a
+// temporary failure.
 export const inboundWorker = `export default {
   async email(message, env) {
     const res = await fetch(env.INBOUND_URL, {
@@ -94,8 +98,12 @@ export const inboundWorker = `export default {
       },
       body: await new Response(message.raw).arrayBuffer(),
     })
-    if (res.status === 403) return message.setReject("This address isn't accepting mail right now.")
-    if (!res.ok) throw new Error("Job Tracking Helper didn't take the message: " + res.status)
+    if (res.status === 403 && !env.FORWARD_TO)
+      return message.setReject("This address isn't accepting mail right now.")
+    if (!res.ok && res.status !== 403)
+      throw new Error("Job Tracking Helper didn't take the message: " + res.status)
+    if (env.FORWARD_TO)
+      await message.forward(env.FORWARD_TO).catch((e) => console.error("Forward failed: " + e))
   },
 }
 `
@@ -104,7 +112,7 @@ export const uploadWorker = (
   accountId: string,
   token: string,
   name: string,
-  vars: { inboundUrl: string; secret: string }
+  vars: { inboundUrl: string; secret: string; forwardTo?: string | undefined }
 ) => {
   const form = new FormData()
   form.append(
@@ -115,6 +123,9 @@ export const uploadWorker = (
       bindings: [
         { type: "plain_text", name: "INBOUND_URL", text: vars.inboundUrl },
         { type: "secret_text", name: "SECRET", text: vars.secret },
+        ...(vars.forwardTo
+          ? [{ type: "plain_text", name: "FORWARD_TO", text: vars.forwardTo }]
+          : []),
       ],
     })
   )
@@ -127,6 +138,28 @@ export const uploadWorker = (
     method: "PUT",
     body: form,
   })
+}
+
+/** The routing rule already handling exactly this address, and who it forwards to. */
+export const ruleFor = async (zoneId: string, token: string, address: string) => {
+  const rules = (await call(`/zones/${zoneId}/email/routing/rules?per_page=50`, token)) as
+    | {
+        id: string
+        enabled?: boolean
+        matchers?: { type?: string; value?: string }[]
+        actions?: { type?: string; value?: string[] }[]
+      }[]
+    | undefined
+  const found = rules?.find(
+    (r) =>
+      r.enabled !== false &&
+      r.matchers?.some(
+        (m) => m.type === "literal" && m.value?.toLowerCase() === address.toLowerCase()
+      )
+  )
+  if (!found) return undefined
+  const forward = found.actions?.find((a) => a.type === "forward")
+  return { id: found.id, forwardsTo: forward?.value?.[0] }
 }
 
 /** Sends mail for `address` to the Worker and returns the rule's id. */
@@ -150,9 +183,10 @@ export const removeInbound = async (
   zoneId: string,
   token: string,
   worker: string,
-  ruleId: string
+  ruleId: string,
+  aliasRules: string[] = []
 ) => {
-  if (ruleId)
-    await request(`/zones/${zoneId}/email/routing/rules/${ruleId}`, token, { method: "DELETE" })
+  for (const id of [ruleId, ...aliasRules].filter(Boolean))
+    await request(`/zones/${zoneId}/email/routing/rules/${id}`, token, { method: "DELETE" })
   await request(`/accounts/${accountId}/workers/scripts/${worker}`, token, { method: "DELETE" })
 }

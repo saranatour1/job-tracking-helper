@@ -1,15 +1,34 @@
 import { api } from "@convex/_generated/api"
+import type { Id } from "@convex/_generated/dataModel"
+import { companyAddress } from "@convex/features/email/addresses"
 import { Mail01Icon } from "@hugeicons/core-free-icons"
 import { HugeiconsIcon } from "@hugeicons/react"
+import { Link } from "@tanstack/react-router"
+import { useAction } from "convex/react"
 import type { FunctionReturnType } from "convex/server"
 import { useQuery } from "convex-helpers/react/cache/hooks"
-import { useState } from "react"
+import { startTransition, useActionState, useState } from "react"
 
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
+import {
+  Dialog,
+  DialogClose,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogPanel,
+  DialogPopup,
+  DialogTitle,
+  DialogTrigger,
+} from "@/components/ui/dialog"
+import { Input } from "@/components/ui/input"
+import { Label } from "@/components/ui/label"
 import { Popover, PopoverPopup, PopoverTitle, PopoverTrigger } from "@/components/ui/popover"
+import { Textarea } from "@/components/ui/textarea"
+import { messageOf } from "@/features/account/settings"
 
-import { formatDate, statusLabels } from "./data"
+import { type Application, formatDate, statusLabels } from "./data"
 import { useSource } from "./source"
 
 // Company mail filed under applications, from the email feature. Only real applications
@@ -34,11 +53,185 @@ const kindVariant = (kind: MailEvent["kind"]) =>
 
 const iso = (at: number) => new Date(at).toISOString()
 
+// The form lives inside the dialog, so it starts fresh each time the dialog opens.
+const ComposeForm = ({
+  applicationId,
+  to,
+  subject,
+  replyTo,
+}: {
+  applicationId: Id<"applications">
+  to?: string
+  subject?: string
+  replyTo?: MailEvent["id"]
+}) => {
+  const send = useAction(api.email.sendFromApplication)
+  type State = { sent?: boolean; error?: string }
+  const [state, submit, pending] = useActionState<State, FormData>(async (_, form) => {
+    try {
+      await send({
+        applicationId,
+        to: form.get("to") as string,
+        subject: form.get("subject") as string,
+        text: form.get("text") as string,
+        ...(replyTo && { replyTo }),
+      })
+      return { sent: true }
+    } catch (cause) {
+      return { error: messageOf(cause) }
+    }
+  }, {})
+  if (state.sent)
+    return (
+      <>
+        <DialogHeader>
+          <DialogTitle>Sent</DialogTitle>
+          <DialogDescription>It's on this application's activity now.</DialogDescription>
+        </DialogHeader>
+        <DialogFooter>
+          <DialogClose render={<Button variant="outline" />}>Close</DialogClose>
+        </DialogFooter>
+      </>
+    )
+  return (
+    <form action={submit} className="contents">
+      <DialogHeader>
+        <DialogTitle>{replyTo ? "Reply" : "New email"}</DialogTitle>
+        <DialogDescription>Sent from your own address, through your Cloudflare.</DialogDescription>
+      </DialogHeader>
+      <DialogPanel className="grid gap-4">
+        <div className="grid gap-1.5">
+          <Label htmlFor="mail-to">To</Label>
+          <Input id="mail-to" name="to" type="email" defaultValue={to} required />
+        </div>
+        <div className="grid gap-1.5">
+          <Label htmlFor="mail-subject">Subject</Label>
+          <Input id="mail-subject" name="subject" defaultValue={subject} maxLength={500} required />
+        </div>
+        <div className="grid gap-1.5">
+          <Label htmlFor="mail-text">Message</Label>
+          <Textarea id="mail-text" name="text" rows={8} maxLength={20000} required />
+        </div>
+        {state.error && (
+          <p role="alert" className="text-destructive text-xs">
+            {state.error}
+          </p>
+        )}
+      </DialogPanel>
+      <DialogFooter>
+        <DialogClose render={<Button variant="ghost" />}>Cancel</DialogClose>
+        <Button type="submit" disabled={pending}>
+          {pending ? "Sending…" : "Send"}
+        </Button>
+      </DialogFooter>
+    </form>
+  )
+}
+
+const Compose = ({
+  trigger,
+  ...form
+}: {
+  trigger: React.ReactElement
+  applicationId: Id<"applications">
+  to?: string
+  subject?: string
+  replyTo?: MailEvent["id"]
+}) => (
+  <Dialog>
+    <DialogTrigger render={trigger} />
+    <DialogPopup className="sm:max-w-lg">
+      <ComposeForm {...form} />
+    </DialogPopup>
+  </Dialog>
+)
+
+/** Whether mail for this application can find its way back, and the address to give out. */
+export const MailStatus = ({ a }: { a: Application }) => {
+  const connection = useQuery(api.email.connection)
+  const makePlain = useAction(api.email.makeAddressWithoutPlus)
+  const [copied, copy] = useActionState(async (_: boolean, address: string) => {
+    await navigator.clipboard.writeText(address)
+    return true
+  }, false)
+  const [plain, askPlain, making] = useActionState<{ address?: string; error?: string }>(
+    async () => {
+      try {
+        return { address: await makePlain({ applicationId: a.id as Id<"applications"> }) }
+      } catch (cause) {
+        return { error: messageOf(cause) }
+      }
+    },
+    {}
+  )
+  const { real } = useSource()
+  if (!real || connection === undefined) return null
+  const tagged = connection?.tracking ? companyAddress(connection.fromAddress, a.company) : null
+  const address = plain.address ?? tagged
+  return (
+    <div className="bg-muted/40 flex flex-wrap items-center gap-2 rounded-lg border px-3 py-2 text-[13px]">
+      <HugeiconsIcon icon={Mail01Icon} className="text-muted-foreground size-3.5 shrink-0" />
+      <span className="min-w-0 flex-1 break-words">
+        {address ? (
+          <>
+            Tracking mail at <span className="font-medium">{address}</span>
+          </>
+        ) : !connection?.receivingSince ? (
+          <>
+            Mail isn't reaching the app yet.{" "}
+            <Link to="/account" className="underline underline-offset-2">
+              Set up incoming mail
+            </Link>
+          </>
+        ) : (
+          <>
+            Mail is matched by company name.{" "}
+            <Link to="/account" className="underline underline-offset-2">
+              Give each company its own address
+            </Link>
+          </>
+        )}
+      </span>
+      {address && (
+        <Button size="xs" variant="ghost" onClick={() => startTransition(() => copy(address))}>
+          {copied ? "Copied" : "Copy"}
+        </Button>
+      )}
+      {tagged && !plain.address && (
+        <Button
+          size="xs"
+          variant="ghost"
+          disabled={making}
+          onClick={() => startTransition(() => askPlain())}
+        >
+          Form refuses a +
+        </Button>
+      )}
+      {connection?.allow.send && (
+        <Compose
+          applicationId={a.id as Id<"applications">}
+          trigger={
+            <Button size="xs" variant="outline">
+              Email
+            </Button>
+          }
+        />
+      )}
+      {plain.error && (
+        <p role="alert" className="text-destructive w-full text-xs">
+          {plain.error}
+        </p>
+      )}
+    </div>
+  )
+}
+
 /** An application's mail, newest first. */
 export const useMailFor = (id: string) => useSource().mail.filter((e) => e.applicationId === id)
 
 // The email itself, fetched only once someone opens it.
-const MailBody = ({ id }: { id: MailEvent["id"] }) => {
+const MailBody = ({ id, e }: { id: MailEvent["id"]; e: MailEvent }) => {
+  const connection = useQuery(api.email.connection)
   const body = useQuery(api.email.mailBody, { eventId: id })
   if (body === undefined) return <span className="text-muted-foreground text-xs">Opening…</span>
   if (body === null)
@@ -49,6 +242,19 @@ const MailBody = ({ id }: { id: MailEvent["id"] }) => {
       <span className="leading-relaxed whitespace-pre-wrap">{body.text || "(no text)"}</span>
       {body.attachments.length > 0 && (
         <span className="text-muted-foreground">Attached: {body.attachments.join(", ")}</span>
+      )}
+      {!e.sent && e.applicationId && connection?.allow.send && (
+        <Compose
+          applicationId={e.applicationId}
+          to={body.from}
+          subject={/^re:/i.test(body.subject) ? body.subject : `Re: ${body.subject}`}
+          replyTo={id}
+          trigger={
+            <Button size="xs" variant="outline" className="self-start">
+              Reply
+            </Button>
+          }
+        />
       )}
     </span>
   )
@@ -62,13 +268,13 @@ export const MailLine = ({ e }: { e: MailEvent }) => {
       <HugeiconsIcon icon={Mail01Icon} className="text-muted-foreground mt-0.5 size-3.5 shrink-0" />
       <span className="flex min-w-0 flex-1 flex-col gap-0.5">
         <span className="flex min-w-0 items-center gap-1.5">
-          <Badge variant={kindVariant(e.kind)} size="sm">
-            {kindNames[e.kind]}
+          <Badge variant={e.sent ? "info" : kindVariant(e.kind)} size="sm">
+            {e.sent ? "Sent" : kindNames[e.kind]}
           </Badge>
           <span className="truncate font-medium">{e.subject}</span>
         </span>
         <span className="text-muted-foreground text-xs">
-          From {e.from}
+          {e.sent ? `To ${e.to}` : `From ${e.from}`}
           {e.portalUrl && (
             <>
               {" · "}
@@ -87,7 +293,7 @@ export const MailLine = ({ e }: { e: MailEvent }) => {
             {open ? "Hide" : "Read"}
           </button>
         </span>
-        {open && <MailBody id={e.id} />}
+        {open && <MailBody id={e.id} e={e} />}
       </span>
       <span className="text-muted-foreground ms-auto shrink-0 text-xs">
         {formatDate(iso(e.at))}

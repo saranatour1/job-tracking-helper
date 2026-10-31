@@ -6,9 +6,12 @@ import { components, internal } from "../../_generated/api"
 import { internalAction, internalMutation, internalQuery } from "../../_generated/server"
 import { authedMutation, authedQuery } from "../../lib/functions"
 import { seal } from "../../lib/secrets"
+import type { Doc, Id } from "../../_generated/dataModel"
 import { changeStatus } from "../applications/utils"
+import { boardOf } from "../jobs/boards"
 import { fireEvent } from "../automations/fire"
 import { mailNotificationKind } from "../notifications/kinds"
+import { tagIn } from "./addresses"
 import { secretKeys, aad, keys, openJson, threadKeyOf, askJev, ownEvent } from "./utils"
 import {
   type Candidate,
@@ -20,6 +23,7 @@ import {
   textOfHtml,
   ruleMatch,
   suggestionOf,
+  tagMatch,
 } from "./match"
 import { MailNote, Received, vSortContext, vRecordArgs, vTimeline, vMailBody } from "./validators"
 
@@ -36,6 +40,68 @@ const threadOf = internalQuery({
       if (earlier?.applicationId) return earlier.applicationId
     }
     return null
+  },
+})
+
+const candidateOf = (a: Doc<"applications">) => {
+  const alias = a.url && boardOf(a.url)?.slug
+  return {
+    id: a._id,
+    company: a.company,
+    role: a.role,
+    status: a.status,
+    at: a._creationTime,
+    ...(alias && { alias }),
+  }
+}
+
+const knownMessage = internalQuery({
+  args: { userId: v.id("users"), messageKey: v.string() },
+  returns: v.boolean(),
+  handler: async (ctx, { userId, messageKey }) =>
+    Boolean(
+      await ctx.db
+        .query("mailEvents")
+        .withIndex("by_userId_and_messageKey", (q) =>
+          q.eq("userId", userId).eq("messageKey", messageKey)
+        )
+        .first()
+    ),
+})
+
+// Where an imported email belongs: its address, its thread, or a company it names.
+const importTarget = internalQuery({
+  args: {
+    userId: v.id("users"),
+    tag: v.optional(v.string()),
+    threadKeys: v.array(v.string()),
+    mail: v.object({ from: v.string(), fromName: v.optional(v.string()), subject: v.string() }),
+  },
+  returns: v.union(v.id("applications"), v.null()),
+  handler: async (ctx, { userId, tag, threadKeys, mail }) => {
+    const live = async (id: Id<"applications"> | undefined) => {
+      const found = id && (await ctx.db.get("applications", id))
+      return found && found.trashedAt === undefined ? found._id : null
+    }
+    const applications = await ctx.db
+      .query("applications")
+      .withIndex("by_userId_and_trashedAt", (q) =>
+        q.eq("userId", userId).eq("trashedAt", undefined)
+      )
+      .order("desc")
+      .take(1000)
+    const candidates = applications.map(candidateOf)
+    const tagged = tag && tagMatch(tag, mail.subject, candidates)
+    if (tagged) return tagged.id as Id<"applications">
+    for (const key of threadKeys.slice(-20).reverse()) {
+      const earlier = await ctx.db
+        .query("mailEvents")
+        .withIndex("by_userId_and_messageKey", (q) => q.eq("userId", userId).eq("messageKey", key))
+        .first()
+      const id = await live(earlier?.applicationId)
+      if (id) return id
+    }
+    return (ruleMatch(mail, candidates)?.id as Id<"applications">) ?? null
   },
 })
 
@@ -66,13 +132,7 @@ const sortContext = internalQuery({
       payload: email.payload,
       read: connection?.allow.read ?? false,
       move: connection?.allow.move ?? false,
-      applications: applications.map((a) => ({
-        id: a._id,
-        company: a.company,
-        role: a.role,
-        status: a.status,
-        at: a._creationTime,
-      })),
+      applications: applications.map(candidateOf),
     }
   },
 })
@@ -83,7 +143,7 @@ const sortContext = internalQuery({
 const record = internalMutation({
   args: vRecordArgs,
   returns: v.null(),
-  handler: async (ctx, { event, move }) => {
+  handler: async (ctx, { event, move, quiet }) => {
     const done = await ctx.db
       .query("mailEvents")
       .withIndex("by_emailId", (q) => q.eq("emailId", event.emailId))
@@ -105,6 +165,7 @@ const record = internalMutation({
           moved: { from: application.status, to: event.suggest },
         }),
     })
+    if (quiet) return null
     await ctx.runMutation(components.notifications.lib.notify, {
       owner: event.userId,
       kind: mailNotificationKind(event.kind, event.applicationId !== undefined),
@@ -131,7 +192,10 @@ const sortMail = internalAction({
     const mail = await openJson(k, context.payload, aad.email(userId), Received)
     if (!mail) return null
     const text = mail.text ?? ""
-    // A reply goes where the email it answers went: the thread decides first.
+    // Sent to a company's address: nothing else needs to guess.
+    const tag = tagIn(mail.to)
+    const tagged = tag ? tagMatch(tag, mail.subject, context.applications) : undefined
+    // A reply goes where the email it answers went: the thread decides next.
     const parents = await Promise.all(
       [...messageIdsIn(mail.references), ...messageIdsIn(mail.inReplyTo)].map((id) =>
         threadKeyOf(userId, id)
@@ -141,7 +205,8 @@ const sortMail = internalAction({
       ? await ctx.runQuery(internal.email.threadOf, { userId, keys: parents })
       : null
     const inThread = context.applications.find((a) => a.id === threadApp)
-    let application: Candidate | undefined = inThread ?? ruleMatch(mail, context.applications)
+    const known = tagged ?? inThread
+    let application: Candidate | undefined = known ?? ruleMatch(mail, context.applications)
     let kind = kindOf(mail.subject, text)
     // Typed this way so TypeScript doesn't narrow it to "rules": Jev sets it in a callback.
     let by = "rules" as "rules" | "jev"
@@ -151,13 +216,14 @@ const sortMail = internalAction({
       await askJev(mail, context.applications).then(
         (answer) => {
           ;({ kind, sureOfKind } = answer)
-          // The thread already knows the application; Jev only says what the email means.
-          if (!inThread) application = answer.application
+          // The tag or thread already knows the application; Jev only says what it means.
+          // Unsure isn't a no: Jev can change a match the rules found, but not erase one.
+          if (!known) application = answer.application ?? application
           by = "jev"
         },
         () => null
       )
-    const chosen = context.applications.find((a) => a.id === application?.id)
+    const chosen = tagged ?? context.applications.find((a) => a.id === application?.id)
     const portalUrl = portalOf(kind, text, mail.html)
     await ctx.runMutation(internal.email.record, {
       event: {
@@ -181,7 +247,7 @@ const sortMail = internalAction({
         ),
         suggest: chosen && suggestionOf(kind, chosen.status),
         ...(mail.messageId && { messageKey: await threadKeyOf(userId, mail.messageId) }),
-        by: inThread && by === "rules" ? "thread" : by,
+        by: by === "rules" ? (tagged ? "tag" : inThread ? "thread" : by) : by,
       },
       // Only Jev moves cards, only when allowed, and only when it's clearly sure.
       move: context.move && by === "jev" && sureOfKind >= 0.8,
@@ -218,6 +284,8 @@ const timeline = authedQuery({
             slot: note.slot,
             slotZone: note.slotZone,
             at: e.at,
+            sent: e.by === "sent",
+            to: note.to,
             suggest: e.suggest,
             moved: e.moved,
           }
@@ -258,7 +326,9 @@ const mailBody = authedQuery({
     if (!mail) return null
     return {
       text: (mail.text?.trim() || textOfHtml(mail.html ?? "")).slice(0, 20_000),
+      from: mail.from,
       to: mail.to.join(", "),
+      subject: mail.subject,
       attachments: mail.attachments,
     }
   },
@@ -298,6 +368,8 @@ const assign = authedMutation({
 })
 
 export const sortApi = {
+  knownMessage,
+  importTarget,
   mailBody,
   sortContext,
   threadOf,

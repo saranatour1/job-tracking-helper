@@ -419,10 +419,13 @@ Previews are the same text as plain words.
 4. **Open browser** (`api.prefilled.startLive`): a new browser opens the form, puts your
    answers in and uploads your resume, then shows on the right of the page, for you to
    control. It uses no AI. If AI ran out while preparing (Jev or the draft failed), the
-   application is still prepared with what matched by name, and a note offers **Open browser
+   application is still prepared with what matched by name, and the page shows **Open browser
    with my answers**. You check it, solve any CAPTCHA, finish anything listed as "do these by
    hand", and **press the form's own Submit**. The app never presses it. A location list that
-   doesn't have your city tries your country. **Send to form** on an answer
+   doesn't have your city tries your country. With each company having its own address,
+   the form's email question gets that address, and the application is added as Saved when
+   the browser opens, since a thank-you email can arrive before you say you sent it. It stays
+   Saved if you close without sending. **Send to form** on an answer
    (`api.prefilled.sendToForm`) saves it, puts it in the browser and points the form at it,
    for about 1 Firecrawl credit. While the browser is open, each answer is marked **In the
    form**, **Do by hand** or **Not sent yet**. That's what the app did, not what you've since
@@ -552,6 +555,8 @@ isn't shown. Email lines are opened from their sealed note only when you look.
   own switch, and my token never shown again.
 - As a job seeker, I want an interview email to move its card to Interviewing, with an
   undo.
+- As a job seeker, I want each company to have its own address, and to write and reply from
+  its application, so mail about it stays together.
 
 **Flows** (Account → Email)
 
@@ -560,18 +565,34 @@ isn't shown. Email lines are opened from their sealed note only when you look.
    again: "Locked. Added <date>. It can't be viewed or copied, only replaced." 10 tries
    an hour.
 2. **Switches, all off at first** (`api.email.setAllow`):
-   - Send email: test emails and workflow emails.
+   - Send email: test emails, workflow emails and mail you write from an application.
    - Set up Cloudflare for you.
    - Keep incoming mail.
    - Let Jev read your mail.
    - Let Jev move cards (needs Jev reading first).
+   - Give each company its own address (needs incoming mail, and Subaddressing turned on in
+     Cloudflare, since without it mail to these addresses bounces).
 3. **Send a test email** to yourself (5 an hour).
 4. **Set up incoming mail** (`api.email.setUpInbound`). The app uploads a small Worker
    and a routing rule for your address. Email Routing must already be on for the
    domain; the app won't turn it on, since that changes the domain's MX records.
-   "Stop incoming mail" removes both.
+   That mail then stops going anywhere else, so you can give an address for the Worker to
+   forward a copy to. Cloudflare must have verified it, and a failed forward never loses
+   the app's copy. If a routing rule already handles the address, setup stops and says so,
+   because Cloudflare only runs the first of two rules. "Stop incoming mail" removes both.
 5. **Recent mail:** the 10 newest, opened for you.
 6. **Disconnect:** removes the Worker, the rule and the saved token. Your emails stay.
+7. **On an application,** its Activity shows the address to give out, like
+   `you+hooli@yourdomain`, with Copy, or says why mail isn't tracked yet. **Email** and
+   **Reply** send from your plain address (`api.email.sendFromApplication`, 30 a day), with
+   replies aimed at that address. Sent mail joins its Activity, with no Inbox
+   line or workflow event. A workflow's Send email about an application does the same.
+   **Form refuses a +** makes `you.hooli@yourdomain` for that company
+   (`api.email.makeAddressWithoutPlus`). Cloudflare can't match a pattern, so each needs its
+   own routing rule, and takes a few minutes to start working. They stop at 150, and stopping incoming mail removes them.
+8. **Import old mail** takes .eml or .mbox files (`api.email.importMail`). It keeps only mail
+   matching an application by its address, thread or company name, and skips what's already
+   here. It uses no AI, and adds no Inbox line, workflow event or suggestion.
 
 **By itself**
 
@@ -581,12 +602,17 @@ isn't shown. Email lines are opened from their sealed note only when you look.
    - Past the limit it answers 503, so Cloudflare tries again.
    - Otherwise it seals the email, keeps only ids, and sorts it.
 2. **Sorting** (`internal.email.sortMail`):
-   1. A reply joins the application its thread is on.
-   2. Otherwise a company named in the sender or subject picks the application.
-   3. Rules guess the kind: confirmation, interview, rejection, offer, portal or other.
-   4. If you let Jev read your mail, Jev answers which application and what kind. Only
+   1. Mail to a company's address goes to its application, and nothing can override that.
+      With several at one company, a role named in the subject wins, then the one still
+      going, then the newest.
+   2. A reply joins the application its thread is on.
+   3. Otherwise a company named in the sender or subject picks the application, by its name
+      without "Inc" and the like, or its name on the job board. With several at one company,
+      a role named in the subject wins, then the one still going, then the newest.
+   4. Rules guess the kind: confirmation, interview, rejection, offer, portal or other.
+   5. If you let Jev read your mail, Jev answers which application and what kind. Only
       answers it's at least 50% sure of count.
-   5. The sorter also keeps any portal link and interview time.
+   6. The sorter also keeps any portal link and interview time.
 3. **Filing** (`internal.email.record`):
    - It suggests a move (an interview suggests Interviewing).
    - When you let Jev move cards and Jev is at least 80% sure, it moves the card itself,

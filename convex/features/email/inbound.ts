@@ -2,12 +2,14 @@
 // in their Cloudflare account, which posts the raw message here. It's parsed, sealed
 // and kept in the cloudflareEmail component, all only if they allowed it.
 import { ConvexError, v } from "convex/values"
-import PostalMime from "postal-mime"
 import { components, internal } from "../../_generated/api"
 import { action, env, httpAction } from "../../_generated/server"
+import { arkToConvex, checked } from "../../lib/ark"
 import { authedQuery } from "../../lib/functions"
 import { seal } from "../../lib/secrets"
-import { createRule, removeInbound, routingEnabled, uploadWorker } from "./cloudflare"
+import { baseAddress, tagIn } from "./addresses"
+import { kindOf, messageIdsIn, portalOf, slotOf, zoneOf } from "./match"
+import { createRule, removeInbound, routingEnabled, ruleFor, uploadWorker } from "./cloudflare"
 import {
   aad,
   keys,
@@ -17,21 +19,23 @@ import {
   secretKeys,
   openConnection,
   sha256,
+  threadKeyOf,
   cloudflare,
   tearDown,
-  cap,
 } from "./utils"
-import { Received, vRecentMail } from "./validators"
+import { parseMail } from "./parse"
+import { Received, SetUpInbound, vRecentMail } from "./validators"
 
 // Deploys the Worker and adds the routing rule for the sending address. Routing must
 // already be on: turning it on replaces the domain's MX records, which would cut off
 // any other mailbox on the domain, so that stays the person's call.
 const setUpInbound = action({
-  args: {},
+  args: arkToConvex(SetUpInbound),
   returns: v.null(),
-  handler: async (ctx) => {
+  handler: async (ctx, args) => {
     const userId = await userIdOf(ctx)
-    const { row, details, token } = await openConnection(ctx, userId)
+    const { forwardTo } = checked(SetUpInbound, args)
+    const { row, k, details, token } = await openConnection(ctx, userId)
     if (!row.allow.setup || !row.allow.receive)
       throw new ConvexError("Turn on “Set up Cloudflare for you” and “Keep incoming mail” first.")
     const { ok } = await limits.limit(ctx, "setUpInbound", { key: userId })
@@ -45,16 +49,31 @@ const setUpInbound = action({
       throw new ConvexError(
         `Turn on Email Routing for ${domain} in Cloudflare first. It replaces the domain's MX records, so only do it if no other mailbox uses ${domain}.`
       )
+    // Two rules for one address don't both run, so one already there would quietly win.
+    const base = baseAddress(details.fromAddress)
+    const addresses = base === details.fromAddress ? [base] : [details.fromAddress, base]
+    for (const address of addresses) {
+      const taken = await ruleFor(details.zoneId, token, address)
+      if (taken && taken.id !== row.inbound?.ruleId && !row.inbound?.aliasRules?.includes(taken.id))
+        throw new ConvexError(
+          `A routing rule in Cloudflare already handles ${address}${taken.forwardsTo ? `, sending it to ${taken.forwardsTo}` : ""}. Delete that rule, then set up again${taken.forwardsTo ? ` with ${taken.forwardsTo} under “Also forward to”, so it keeps getting your mail` : ""}.`
+        )
+    }
     const inboundId = crypto.randomUUID()
     const secret = btoa(String.fromCharCode(...crypto.getRandomValues(new Uint8Array(32))))
     const worker = `job-tracking-helper-${inboundId.slice(0, 8)}`
     let ruleId: string
+    const baseRule: string[] = []
     try {
       await uploadWorker(details.accountId, token, worker, {
         inboundUrl: `${env.CONVEX_SITE_URL}/email/inbound/${inboundId}`,
         secret,
+        forwardTo,
       })
       ruleId = await createRule(details.zoneId, token, details.fromAddress, worker)
+      // Tagged addresses are matched by the address with no tag at all.
+      if (base !== details.fromAddress)
+        baseRule.push(await createRule(details.zoneId, token, base, worker))
     } catch (cause) {
       await removeInbound(details.accountId, details.zoneId, token, worker, "")
       throw cloudflare(cause)
@@ -66,12 +85,20 @@ const setUpInbound = action({
         details.zoneId,
         token,
         row.inbound.worker,
-        row.inbound.ruleId
+        row.inbound.ruleId,
+        row.inbound.aliasRules
       )
     await ctx.runMutation(internal.email.setInbound, {
       userId,
       inboundId,
-      inbound: { secretHash: await sha256(secret), worker, ruleId, at: Date.now() },
+      inbound: {
+        secretHash: await sha256(secret),
+        worker,
+        ruleId,
+        at: Date.now(),
+        ...(baseRule.length && { aliasRules: baseRule }),
+      },
+      details: await seal(k, JSON.stringify({ ...details, forwardTo }), aad.details(userId)),
     })
     return null
   },
@@ -113,27 +140,10 @@ export const receive = httpAction(async (ctx, req) => {
   if (!target.receive) return new Response("Not receiving mail", { status: 403 })
   const { ok } = await limits.limit(ctx, "inboundEmail", { key: target.userId })
   if (!ok) return new Response("Too much mail at once", { status: 503 })
-  const raw = await req.arrayBuffer()
-  const mail = await PostalMime.parse(raw)
-  const email: typeof Received.infer = {
-    from: mail.from?.address || req.headers.get("X-Envelope-From") || "",
-    fromName: mail.from?.name || undefined,
-    // The envelope says which of the person's addresses got it; the To header is a fallback.
-    to: [
-      req.headers.get("X-Envelope-To") ||
-        mail.to?.flatMap((a) => (a.address ? [a.address] : [])).join(", ") ||
-        "",
-    ],
-    subject: cap(mail.subject, 500) ?? "",
-    // Sized so a sealed message stays well under Convex's 1 MiB document limit.
-    text: cap(mail.text, 100_000),
-    html: cap(mail.html, 300_000),
-    messageId: mail.messageId,
-    inReplyTo: mail.inReplyTo,
-    references: mail.references,
-    date: mail.date,
-    attachments: mail.attachments.flatMap((a) => (a.filename ? [a.filename] : [])),
-  }
+  const email = await parseMail(await req.arrayBuffer(), {
+    from: req.headers.get("X-Envelope-From"),
+    to: req.headers.get("X-Envelope-To"),
+  })
   const k = await secretKeys()
   const emailId = await ctx.runMutation(components.cloudflareEmail.lib.receive, {
     owner: target.userId,
@@ -174,4 +184,75 @@ const recentMail = authedQuery({
   },
 })
 
-export const inboundApi = { setUpInbound, stopInbound, disconnect, recentMail }
+// One email from a file, for mail that came before incoming mail was set up. Kept only when it
+// matches an application by its address, thread or name, so importing a whole mailbox can't
+// fill Unsorted. It uses no AI, so it costs nothing however many there are, and being old news
+// it adds no Inbox line, workflow event or suggestion.
+const importMail = action({
+  args: { raw: v.string() },
+  returns: v.union(v.literal("filed"), v.literal("known"), v.literal("unmatched")),
+  handler: async (ctx, { raw }) => {
+    const userId = await userIdOf(ctx)
+    const row = await ctx.runQuery(internal.email.sealed, { userId })
+    if (!row) throw new ConvexError("Connect Cloudflare first.")
+    if (!row.allow.receive) throw new ConvexError("Turn on “Keep incoming mail” first.")
+    const { ok } = await limits.limit(ctx, "importMail", { key: userId })
+    if (!ok) throw new ConvexError("That's a lot of mail at once. Wait an hour and try the rest.")
+    const k = await secretKeys()
+    const mail = await parseMail(raw)
+    const messageKey = mail.messageId ? await threadKeyOf(userId, mail.messageId) : undefined
+    if (messageKey && (await ctx.runQuery(internal.email.knownMessage, { userId, messageKey })))
+      return "known"
+    const application = await ctx.runQuery(internal.email.importTarget, {
+      userId,
+      tag: tagIn(mail.to),
+      threadKeys: await Promise.all(
+        [...messageIdsIn(mail.references), ...messageIdsIn(mail.inReplyTo)].map((id) =>
+          threadKeyOf(userId, id)
+        )
+      ),
+      mail: {
+        from: mail.from,
+        subject: mail.subject,
+        ...(mail.fromName && { fromName: mail.fromName }),
+      },
+    })
+    if (!application) return "unmatched"
+    const emailId = await ctx.runMutation(components.cloudflareEmail.lib.receive, {
+      owner: userId,
+      payload: await seal(k, JSON.stringify(mail), aad.email(userId)),
+    })
+    const at = mail.date ? Date.parse(mail.date) || Date.now() : Date.now()
+    const text = mail.text ?? ""
+    const kind = kindOf(mail.subject, text)
+    await ctx.runMutation(internal.email.record, {
+      event: {
+        userId,
+        emailId,
+        applicationId: application,
+        kind,
+        at,
+        note: await seal(
+          k,
+          JSON.stringify({
+            from: mail.fromName || mail.from,
+            subject: mail.subject,
+            portalUrl: portalOf(kind, text, mail.html),
+            ...(kind === "interview" && {
+              slot: slotOf(`${mail.subject}\n${text}`, at),
+              slotZone: zoneOf(`${mail.subject}\n${text}`),
+            }),
+          }),
+          aad.email(userId)
+        ),
+        ...(messageKey && { messageKey }),
+        by: "rules",
+      },
+      move: false,
+      quiet: true,
+    })
+    return "filed"
+  },
+})
+
+export const inboundApi = { setUpInbound, stopInbound, disconnect, recentMail, importMail }

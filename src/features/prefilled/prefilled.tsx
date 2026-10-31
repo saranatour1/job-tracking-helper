@@ -1,5 +1,6 @@
 import { api } from "@convex/_generated/api"
 import type { Doc, Id } from "@convex/_generated/dataModel"
+import { isEmailQuestion } from "@convex/features/prefilled/match"
 import { Link } from "@tanstack/react-router"
 import { useAction, useMutation } from "convex/react"
 import { useQuery } from "convex-helpers/react/cache/hooks"
@@ -187,6 +188,49 @@ const FillBadge = ({ field }: { field: Field }) =>
     </Badge>
   ) : null
 
+// For a form that won't take the address with a plus: swaps in one without, in the form too.
+const PlainEmail = ({
+  id,
+  applicationId,
+  question,
+}: {
+  id: Id<"prefills">
+  applicationId: Id<"applications">
+  question: string
+}) => {
+  const makePlain = useAction(api.email.makeAddressWithoutPlus)
+  const setAnswer = useMutation(api.prefilled.setAnswer)
+  const sendToForm = useAction(api.prefilled.sendToForm)
+  const [error, swap, pending] = useActionState(async () => {
+    try {
+      const answer = await makePlain({ applicationId })
+      await setAnswer({ id, question, answer })
+      await sendToForm({ id, question })
+      return undefined
+    } catch (cause) {
+      return messageOf(cause)
+    }
+  }, undefined)
+  return (
+    <div className="flex flex-wrap items-center gap-2">
+      <Button
+        type="button"
+        size="xs"
+        variant="ghost"
+        disabled={pending}
+        onClick={() => startTransition(swap)}
+      >
+        {pending ? "Swapping…" : "Form refuses a +"}
+      </Button>
+      {error && (
+        <span role="alert" className="text-destructive text-xs">
+          {error}
+        </span>
+      )}
+    </div>
+  )
+}
+
 // One question and its answer. Saving it here changes this application only, unless you
 // tick Keep for future forms.
 const AnswerRow = ({
@@ -194,11 +238,13 @@ const AnswerRow = ({
   field,
   locked,
   live,
+  applicationId,
 }: {
   id: Id<"prefills">
   field: Field
   locked: boolean
   live: boolean
+  applicationId?: Id<"applications"> | undefined
 }) => {
   const setAnswer = useMutation(api.prefilled.setAnswer)
   const sendToForm = useAction(api.prefilled.sendToForm)
@@ -284,6 +330,9 @@ const AnswerRow = ({
             {live && <HugeiconsIcon icon={ArrowRight01Icon} className="size-3.5" />}
           </Button>
         </div>
+      )}
+      {live && applicationId && isEmailQuestion(field.question) && field.answer?.includes("+") && (
+        <PlainEmail id={id} applicationId={applicationId} question={field.question} />
       )}
       {error && (
         <span role="alert" className="text-destructive text-xs">
@@ -506,16 +555,14 @@ export const PrefilledPage = ({ id }: { id: Id<"prefills"> }) => {
                 <p className="text-muted-foreground text-[13px]">{prefill.confirmation}</p>
               )}
               {prefill.aiUnavailable && canApply && (
-                <div className="bg-muted/50 flex flex-wrap items-center gap-3 rounded-xl border p-3 text-[13px]">
-                  <p className="min-w-56 flex-1">
-                    AI isn't available right now, so nothing was picked or drafted. Your saved
-                    answers are ready: open the browser and they'll already be in the form, then
-                    type the rest there.
-                  </p>
-                  <Button size="sm" disabled={pending} onClick={() => run("apply")}>
-                    {pending ? "Opening…" : "Open browser with my answers"}
-                  </Button>
-                </div>
+                <Button
+                  size="sm"
+                  className="self-start"
+                  disabled={pending}
+                  onClick={() => run("apply")}
+                >
+                  {pending ? "Opening…" : "Open browser with my answers"}
+                </Button>
               )}
               <div
                 className={cn(
@@ -558,6 +605,7 @@ export const PrefilledPage = ({ id }: { id: Id<"prefills"> }) => {
                         field={field}
                         locked={!canApply && !open}
                         live={Boolean(open && prefill.liveUrl)}
+                        applicationId={prefill.applicationId}
                       />
                     ))}
                   </div>

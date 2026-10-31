@@ -126,4 +126,30 @@ describe("zoneOf", () => {
     expect(zoneOf("See you at 3 to talk")).toBeUndefined()
     expect(zoneOf("No time here")).toBeUndefined()
   })
+
+  it("sees past legal suffixes, and knows a company by its job board name", () => {
+    const acme = { id: "a", company: "Acme, Inc.", role: "Engineer", at: 1 }
+    expect(ruleMatch({ from: "x@acme.com", subject: "Hello" }, [acme])?.id).toBe("a")
+    const blue = { id: "b", company: "Blue Sky Labs", role: "Engineer", at: 1, alias: "bluesky" }
+    expect(
+      ruleMatch({ from: "no-reply@bluesky.greenhouse-mail.io", subject: "Hi" }, [blue])?.id
+    ).toBe("b")
+  })
+
+  it("ignores a job board name too short to mean anything", () => {
+    const app = { id: "a", company: "Long Name Corp", role: "Engineer", at: 1, alias: "app" }
+    expect(ruleMatch({ from: "x@y.com", subject: "Your app is ready" }, [app])).toBeUndefined()
+  })
+
+  it("prefers the application still going over a newer saved or finished one", () => {
+    const at = (id: string, status: "saved" | "applied" | "rejected", time: number) => ({
+      id,
+      company: "Hooli",
+      role: "Role " + id,
+      status,
+      at: time,
+    })
+    const apps = [at("old", "applied", 1), at("saved", "saved", 2), at("over", "rejected", 3)]
+    expect(ruleMatch({ from: "x@hooli.com", subject: "Update" }, apps)?.id).toBe("old")
+  })
 })

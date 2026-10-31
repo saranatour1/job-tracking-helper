@@ -30,6 +30,8 @@ export const Details = type({
   accountId: "string",
   fromAddress: "string",
   "zoneId?": "string",
+  // Where the Worker also forwards each email, so mail still reaches an everyday inbox.
+  "forwardTo?": "string",
 })
 
 export type Details = typeof Details.infer
@@ -67,23 +69,35 @@ export const Inbound = type({
   worker: "string",
   ruleId: "string",
   at: "number",
+  // Rules beyond the main one: the address without a tag, and addresses for forms that
+  // refuse a plus. Teardown removes them too.
+  "aliasRules?": "string[]",
 })
 
 // What the token was allowed to do when it was added. Sending is unknown when the
 // token can't list the domain's sending settings; a test send tells for sure.
-export const Access = type({ "sending?": "boolean", workers: "boolean", routing: "boolean" })
+export const Access = type({
+  "sending?": "boolean",
+  workers: "boolean",
+  routing: "boolean",
+  // Whether the token can see the domain. Unknown on connections from before this was checked.
+  "zone?": "boolean",
+})
 
 // What the person lets the app do for them: send mail, change their Cloudflare setup,
 // keep mail sent to them, and let Jev read it. All off until they turn one on.
-export const allowKeys = ["send", "setup", "receive", "read", "move"] as const
+export const allowKeys = ["send", "setup", "receive", "read", "move", "tag"] as const
 
-// `move` came later, so connections from before it lack it; missing reads as off.
+// `move` and `tag` came later, so connections from before them lack them; missing reads as
+// off. `tag` means Cloudflare's subaddressing is on: without it, mail to a tagged address
+// bounces, so the app won't hand one out until the person says so.
 export const Allow = type({
   send: "boolean",
   setup: "boolean",
   receive: "boolean",
   read: "boolean",
   "move?": "boolean",
+  "tag?": "boolean",
 })
 
 export const nothingAllowed = {
@@ -92,7 +106,27 @@ export const nothingAllowed = {
   receive: false,
   read: false,
   move: false,
+  tag: false,
 }
+
+export const SetUpInbound = type({
+  "forwardTo?": trimmed.to(
+    type("string.email").configure({ message: "Forward to a full email address." })
+  ),
+})
+
+// An email written from an application. `replyTo` is the email it answers.
+export const SendMail = type({
+  applicationId: arkId("applications"),
+  to: trimmed.to(type("string.email").configure({ message: "Send to a full email address." })),
+  subject: trimmed.to(
+    type(/^[^\r\n]{1,500}$/).configure({ message: "Give it a subject of one line." })
+  ),
+  text: trimmed.to(
+    type("0 < string <= 20000").configure({ message: "Write up to 20,000 characters." })
+  ),
+  "replyTo?": arkId("mailEvents"),
+})
 
 // One Cloudflare account per person, for sending from their own domain. Everything
 // they typed is sealed with lib/secrets; only the dates and permissions are plain.
@@ -119,12 +153,15 @@ export const MailNote = type({
   "slot?": "number",
   // The zone the email gave with that time, when it gave one (see zoneOf).
   "slotZone?": "string",
+  // Who it went to, on mail sent from an application.
+  "to?": "string",
 })
 
 // Where Jev moved an application from and to, so the move can be undone.
 export const Moved = type({ from: type.enumerated(...statuses), to: type.enumerated(...statuses) })
 
-// One incoming email, sorted: the application it's about, if any, and what it says.
+// One email, sorted: the application it's about, if any, and what it says. `by` says how
+// it was filed; "sent" is mail written from the application itself.
 // The kind and suggested status are plain, like the application's own status; who
 // wrote, the subject and any portal link are sealed in `note`.
 export const MailEvent = type({
@@ -142,7 +179,7 @@ export const MailEvent = type({
   // A one-way hash of the email's Message-ID, bound to its owner, so a reply can find
   // the thread it belongs to without the ID being stored. See threadKeyOf.
   "messageKey?": "string",
-  by: "'rules' | 'jev' | 'you' | 'thread'",
+  by: "'rules' | 'jev' | 'you' | 'thread' | 'tag' | 'sent'",
 })
 
 export const vCandidate = v.object({
@@ -151,6 +188,7 @@ export const vCandidate = v.object({
   role: v.string(),
   status: v.union(...statuses.map((s) => v.literal(s))),
   at: v.number(),
+  alias: v.optional(v.string()),
 })
 
 export const vRecentMail = v.array(
@@ -179,6 +217,7 @@ export const vSetInboundArgs = {
   userId: v.id("users"),
   inboundId: v.optional(v.string()),
   inbound: v.optional(arkOutputToConvex(Inbound)),
+  details: v.optional(v.string()),
 }
 
 export const vInboundTarget = v.union(
@@ -208,6 +247,9 @@ export const vConnectionView = v.union(
     access: arkOutputToConvex(Access),
     allow: arkOutputToConvex(Allow),
     receivingSince: v.union(v.number(), v.null()),
+    forwardTo: v.optional(v.string()),
+    // Each application has its own address to give out.
+    tracking: v.boolean(),
     lastTest: v.union(
       v.null(),
       v.object({
@@ -233,6 +275,8 @@ export const vSortContext = v.union(
 export const vRecordArgs = {
   event: arkOutputToConvex(MailEvent.omit("moved")),
   move: v.boolean(),
+  // Old mail being imported: no Inbox line or workflow event.
+  quiet: v.optional(v.boolean()),
 }
 
 export const vTimeline = v.array(
@@ -246,6 +290,8 @@ export const vTimeline = v.array(
     slot: v.optional(v.number()),
     slotZone: v.optional(v.string()),
     at: v.number(),
+    sent: v.boolean(),
+    to: v.optional(v.string()),
     suggest: v.optional(v.union(...statuses.map((s) => v.literal(s)))),
     moved: v.optional(arkOutputToConvex(Moved)),
   })
@@ -253,5 +299,11 @@ export const vTimeline = v.array(
 
 export const vMailBody = v.union(
   v.null(),
-  v.object({ text: v.string(), to: v.string(), attachments: v.array(v.string()) })
+  v.object({
+    text: v.string(),
+    from: v.string(),
+    to: v.string(),
+    subject: v.string(),
+    attachments: v.array(v.string()),
+  })
 )
