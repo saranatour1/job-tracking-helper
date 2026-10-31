@@ -1,6 +1,6 @@
 import { getAuthUserId } from "@convex-dev/auth/server"
 import { convexGateway } from "@convex-dev/ai-sdk-provider"
-import { experimental_decide as decide } from "ai"
+import { experimental_decide as decide, generateText } from "ai"
 import type { FunctionReturnType } from "convex/server"
 import { ConvexError, v } from "convex/values"
 import { internal } from "../../_generated/api"
@@ -9,6 +9,7 @@ import { workLog } from "../../lib/log"
 import { jevModel } from "../workflows/judge"
 import { OutOfCredits } from "../workflows/sources/source"
 import { turn } from "../workflows/utils"
+import { canDraft, draftModel, draftPrompt, draftsFrom, withDrafts } from "./draft"
 import {
   confirmScript,
   endSession,
@@ -98,7 +99,33 @@ const prepareForm = internalAction({
           ])
         )
       }
-      const prepared = prefillFieldsFrom(fields, plan, resolve(plan.ask, found.answers, picks))
+      let prepared = prefillFieldsFrom(fields, plan, resolve(plan.ask, found.answers, picks))
+
+      // Then a draft for the required questions still blank, for you to check. It's a bonus:
+      // if it fails, they wait for you as before.
+      const had = found.fields.filter((f) => f.answer && (f.source === "you" || f.source === "ai"))
+      const questions = [
+        ...new Set(
+          prepared
+            .filter((f) => canDraft(f) && !had.some((h) => h.question === f.question))
+            .map((f) => f.question)
+        ),
+      ]
+      if (questions.length && (found.resumeText || found.answers.length)) {
+        try {
+          const result = await generateText({
+            // Resumes are personal, so only endpoints that keep nothing.
+            model: convexGateway(draftModel, { zdr: true }),
+            prompt: draftPrompt({ ...found, questions }),
+            maxOutputTokens: 300 * questions.length,
+            temperature: 0.2,
+          })
+          prepared = withDrafts(prepared, questions, draftsFrom(result.text, questions.length))
+          log.set({ draftCost: Number(result.providerMetadata?.convexGateway?.cost ?? 0) })
+        } catch (cause) {
+          log.set({ draftError: cause instanceof Error ? cause.message.slice(0, 200) : "unknown" })
+        }
+      }
       await ctx.runMutation(internal.prefilled.savePrepared, { id, fields: prepared, credits })
       // Only the questions' count and labels: answers' values never go in the log.
       log.set({

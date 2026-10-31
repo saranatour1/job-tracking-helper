@@ -191,6 +191,41 @@ describe("preparing an application", () => {
     expect(await as.query(api.inbox.inbox)).toHaveLength(1)
   })
 
+  it("keeps a draft when the form is read again, until a saved answer covers it", async () => {
+    const { t, as, jobId } = await setup()
+    const id = await as.mutation(api.prefilled.prepare, { jobId })
+    await t.mutation(internal.prefilled.savePrepared, {
+      id,
+      fields: [field("Why us?", { answer: "Drafted.", source: "ai" })],
+      credits: 2,
+    })
+    const again = async (fields: ReturnType<typeof field>[]) => {
+      await as.mutation(api.prefilled.prepareAgain, { id })
+      await t.mutation(internal.prefilled.savePrepared, { id, fields, credits: 2 })
+      return (await as.query(api.prefilled.get, { id }))!.prefill
+    }
+    const kept = await again([field("Why us?")])
+    expect(kept.fields[0]).toMatchObject({ answer: "Drafted.", source: "ai" })
+    expect(kept.status).toBe("needsAnswers")
+
+    const covered = await again([field("Why us?", { answer: "Saved.", source: "saved" })])
+    expect(covered.fields[0]).toMatchObject({ answer: "Saved.", source: "saved" })
+  })
+
+  it("counts a draft as yours once you've saved it", async () => {
+    const { t, as, jobId } = await setup()
+    const id = await as.mutation(api.prefilled.prepare, { jobId })
+    await t.mutation(internal.prefilled.savePrepared, {
+      id,
+      fields: [field("Why us?", { answer: "Drafted.", source: "ai" })],
+      credits: 2,
+    })
+    await as.mutation(api.prefilled.setAnswer, { id, question: "Why us?", answer: "Drafted." })
+    const row = (await as.query(api.prefilled.get, { id }))!.prefill
+    expect(row.fields[0]).toMatchObject({ answer: "Drafted.", source: "you" })
+    expect(row.status).toBe("ready")
+  })
+
   it("marks a prepare that died as failed, and lets you try again", async () => {
     const { t, as, jobId } = await setup()
     const id = await as.mutation(api.prefilled.prepare, { jobId })

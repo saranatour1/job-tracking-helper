@@ -396,17 +396,24 @@ Previews are the same text as plain words.
      first and last; a one-word name leaves the last name to you). Demographic questions
      and cover letters are left out and never stored. Everything else goes to Jev in one
      call: per question, which saved answer fits, or which option on a pick list, or none;
-     a pick counts only when Jev is at least 60% sure. Jev never writes an answer; the
-     text that reaches a form is always yours, verbatim.
+     a pick counts only when Jev is at least 60% sure. Jev never writes an answer.
+   - **Draft:** a required free-text question still blank gets a short draft from a small
+     model through the gateway (`draftModel`, Gemini Flash Lite, on endpoints that keep no
+     data), once your resume has been reviewed on the Resume tab. It sees your resume
+     without email or phone, your saved answers that aren't personal facts, and the posting.
+     It leaves blank anything it can't back up from those. It never drafts a personal fact
+     (name, contact, work authorization, visa, location, salary, start date, pronouns), a
+     pick list or an optional question. A draft counts as needing you until you Save it. If
+     the model fails, the question just waits for you. Under $0.001 per application.
    - The questions and answers are saved on the row, the browser closes, and the Inbox
      gets one line. About 2 Firecrawl credits (counted on `sourceUsage`) and one Jev call.
      A login wall, a CAPTCHA or no form ends as Failed, with **Try again**.
 3. **Review** at `/prefilled/$id` (`/prefilled` lists what's waiting): what Jev judged
    (fit, reasons, breakdown), the posting's opening lines, and every question with where
-   its answer came from: Saved, Jev picked, You, or Needs you. Change any answer for this
+   its answer came from: Saved, Jev picked, AI draft, You, or Needs you. Change any answer for this
    application (`api.prefilled.setAnswer`). **Keep for future forms** also adds it to your
    Saved answers under "Your questions". **Read the form again** picks up answers you've
-   saved since, and keeps what you typed. **Dismiss** sets it aside.
+   saved since, and keeps what you typed and any draft. **Dismiss** sets it aside.
 4. **Apply now** (`api.prefilled.startLive`): a new browser opens the form, puts your
    answers in and uploads your resume, then shows inside the page, for you to control. You
    check it, solve any CAPTCHA, finish anything listed as "do these by hand", and **press

@@ -5,6 +5,7 @@ import type { MutationCtx } from "../../_generated/server"
 import { arkOutputToConvex } from "../../lib/ark"
 import { arkMutation, authedMutation, authedQuery } from "../../lib/functions"
 import { boardOf, previewOf } from "../jobs/boards"
+import { rowOf } from "../preferences/utils"
 import { limits } from "../workflows/manager"
 import { statusFrom } from "./match"
 import { blockedBy, enqueue, ownPrefill, startPrefill } from "./utils"
@@ -164,7 +165,12 @@ const get = authedQuery({
   args: { id: v.id("prefills") },
   returns: v.union(
     v.null(),
-    v.object({ prefill: schema.doc("prefills"), lead: vLeadSummary, preview: v.string() })
+    v.object({
+      prefill: schema.doc("prefills"),
+      lead: vLeadSummary,
+      preview: v.string(),
+      canDraft: v.boolean(),
+    })
   ),
   handler: async (ctx, { id }) => {
     const prefill = await ctx.db.get("prefills", id)
@@ -191,6 +197,7 @@ const get = authedQuery({
             }
           : null,
       preview: job ? previewOf(job.text) : (lead?.snippet ?? "").slice(0, 240),
+      canDraft: Boolean((await rowOf(ctx, ctx.userId))?.resumeText),
     }
   },
 })

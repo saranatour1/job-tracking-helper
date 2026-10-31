@@ -47,7 +47,7 @@ const groups: RegExp[] = [
   /\blinkedin\b/i,
   /\bgithub\b/i,
   /\b(website|portfolio|personal site|homepage)\b/i,
-  /\b(authori[sz]ed to work|work authori[sz]ation|right to work|legally able to work)\b/i,
+  /\b(authori[sz]ed to work|work authori[sz]ation|right to work|(legally able|eligible) to work)\b/i,
   /\b(visa|sponsorship)\b/i,
   // After those: "authorized to work in the country" is a yes-or-no, not a country.
   /\bpreferred (work )?locations?\b/i,
@@ -62,6 +62,9 @@ const countryGroup = groups.findIndex((re) => re.test("country"))
 const locationGroup = groups.findIndex((re) => re.test("location"))
 
 const groupOf = (label: string) => groups.findIndex((re) => re.test(label.trim()))
+
+/** A fact about the person (name, phone, visa, salary…) that only they can state. */
+export const isPersonalFact = (label: string) => groupOf(label) >= 0
 
 const nameParts = (full: string) => {
   const parts = full.trim().split(/\s+/)
@@ -194,8 +197,11 @@ export const prefillFieldsFrom = (
     })
 }
 
+// An AI draft needs you too, until you've read it and pressed Save.
 export const statusFrom = (fields: Fields) =>
-  fields.some((f) => f.required && !f.answer) ? ("needsAnswers" as const) : ("ready" as const)
+  fields.some((f) => f.required && (!f.answer || f.source === "ai"))
+    ? ("needsAnswers" as const)
+    : ("ready" as const)
 
 /** Lines a prepared application's answers up with the form as it reads right now. A
  * question the form no longer asks, or doesn't find, goes on the list to do by hand. */
