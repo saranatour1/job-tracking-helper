@@ -195,7 +195,7 @@ const fits = authedQuery({
     for (const { applicationId, fit, verdict } of leads) {
       if (!applicationId || seen.has(applicationId)) continue
       seen.add(applicationId)
-      out.push({ applicationId, fit, isFit: verdict !== "notFit" })
+      out.push({ applicationId, fit, isFit: verdict === "fit" })
     }
     return out
   },

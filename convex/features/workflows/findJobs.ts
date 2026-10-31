@@ -36,7 +36,9 @@ const findJobs = workflow.define({
       })
       await Promise.all(
         boards.map((boardId) =>
-          step.runAction(internal.api.jobs.fetchBoard, { boardId }, { retry: true }).catch(() => null)
+          step
+            .runAction(internal.api.jobs.fetchBoard, { boardId }, { retry: true })
+            .catch(() => null)
         )
       )
       break

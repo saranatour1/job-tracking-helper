@@ -37,8 +37,8 @@ const first = { numItems: 25, cursor: null }
 
 const setup = async () => {
   const t = convexTest(schema, modules)
-  rateLimiter.register(t as never)
-  workpool.register(t as never, "applyPool")
+  rateLimiter.register(t)
+  workpool.register(t, "applyPool")
   t.registerComponent(
     "notifications",
     notificationsSchema,

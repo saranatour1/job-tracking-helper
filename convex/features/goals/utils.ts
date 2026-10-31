@@ -29,4 +29,3 @@ export const roomFor = async (ctx: MutationCtx, userId: Id<"users">) => {
     .take(maxGoals)
   if (existing.length >= maxGoals) throw new ConvexError(`You can keep ${maxGoals} goals.`)
 }
-

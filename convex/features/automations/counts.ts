@@ -22,7 +22,7 @@ export const choiceCounts = new DirectAggregate<{
 
 export const choiceKeyOf = (steps: Step[], at: string) => {
   const step = stepAt(steps, at)
-  return (step?.kind === "decide" && step.id) || at
+  return step?.kind === "decide" ? step.id : at
 }
 
 export const recordChoice = (
@@ -40,7 +40,7 @@ export const recordChoice = (
 export const choicesOf = async (ctx: QueryCtx, automationId: Id<"automations">, steps: Step[]) => {
   const pairs = steps.flatMap((step, i) =>
     step.kind === "decide"
-      ? step.paths.map((p) => ({ at: String(i), key: step.id || String(i), answer: p.label }))
+      ? step.paths.map((p) => ({ at: String(i), key: step.id, answer: p.label }))
       : []
   )
   if (!pairs.length) return {}

@@ -30,8 +30,8 @@ const field = (question: string, more = {}) => ({
 const setup = async () => {
   vi.stubEnv("FIRECRAWL_API_KEY", "fc-test")
   const t = convexTest(schema, modules)
-  rateLimiter.register(t as never)
-  workpool.register(t as never, "applyPool")
+  rateLimiter.register(t)
+  workpool.register(t, "applyPool")
   t.registerComponent(
     "notifications",
     notificationsSchema,
@@ -94,6 +94,7 @@ const lead = (userId: Id<"users">, n: number, url: string) => ({
   fit: 80,
   reasons: ["Fits."],
   status: "new" as const,
+  verdict: "fit" as const,
 })
 
 describe("preparing an application", () => {
@@ -124,7 +125,11 @@ describe("preparing an application", () => {
     const { as, prepared } = await setup()
     const id = await prepared(["Why this role?"])
     expect((await as.query(api.api.prefilled.get, { id }))?.prefill.status).toBe("needsAnswers")
-    await as.mutation(api.api.prefilled.setAnswer, { id, question: "Why this role?", answer: "  Fit " })
+    await as.mutation(api.api.prefilled.setAnswer, {
+      id,
+      question: "Why this role?",
+      answer: "  Fit ",
+    })
     const row = (await as.query(api.api.prefilled.get, { id }))!.prefill
     expect(row.status).toBe("ready")
     expect(row.fields[0]).toMatchObject({ answer: "Fit", source: "you" })
@@ -133,7 +138,11 @@ describe("preparing an application", () => {
   it("keeps an answer for future forms only when asked, and only once", async () => {
     const { t, as, prepared, userId } = await setup()
     const id = await prepared(["Why this role?", "Portfolio"])
-    await as.mutation(api.api.prefilled.setAnswer, { id, question: "Portfolio", answer: "site.dev" })
+    await as.mutation(api.api.prefilled.setAnswer, {
+      id,
+      question: "Portfolio",
+      answer: "site.dev",
+    })
     await as.mutation(api.api.prefilled.setAnswer, {
       id,
       question: "Why this role?",
@@ -176,7 +185,11 @@ describe("preparing an application", () => {
   it("keeps what you typed when the form is read again", async () => {
     const { t, as, prepared } = await setup()
     const id = await prepared(["Why this role?"])
-    await as.mutation(api.api.prefilled.setAnswer, { id, question: "Why this role?", answer: "Mine" })
+    await as.mutation(api.api.prefilled.setAnswer, {
+      id,
+      question: "Why this role?",
+      answer: "Mine",
+    })
     await as.mutation(api.api.prefilled.prepareAgain, { id })
     await t.mutation(internal.api.prefilled.savePrepared, {
       id,
@@ -297,7 +310,9 @@ describe("applying with you there", () => {
     const otherId = await s.t.run((ctx) => ctx.db.insert("users", { name: "Other" }))
     const other = s.t.withIdentity({ subject: otherId })
     expect(await other.query(api.api.prefilled.get, { id })).toBeNull()
-    await expect(other.mutation(api.api.prefilled.dismiss, { id })).rejects.toThrow("That isn't yours.")
+    await expect(other.mutation(api.api.prefilled.dismiss, { id })).rejects.toThrow(
+      "That isn't yours."
+    )
   })
 
   it("won't open twice or change answers while open", async () => {
@@ -340,7 +355,9 @@ describe("applying with you there", () => {
     expect(entry?.useCount).toBe(1)
     expect(await s.as.mutation(api.api.prefilled.prepare, { jobId: s.jobId })).toBe(id)
     expect((await s.as.query(api.api.prefilled.get, { id }))?.prefill.status).toBe("applied")
-    await expect(s.as.mutation(api.api.prefilled.dismiss, { id })).rejects.toThrow("can't be dismissed")
+    await expect(s.as.mutation(api.api.prefilled.dismiss, { id })).rejects.toThrow(
+      "can't be dismissed"
+    )
   })
 
   it("stays closed, without the link, when its application is deleted", async () => {

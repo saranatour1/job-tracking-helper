@@ -22,7 +22,6 @@ import type * as api_inbox from "../api/inbox.js";
 import type * as api_jobs from "../api/jobs.js";
 import type * as api_loops from "../api/loops.js";
 import type * as api_mailbox from "../api/mailbox.js";
-import type * as api_migrations from "../api/migrations.js";
 import type * as api_preferences from "../api/preferences.js";
 import type * as api_prefilled from "../api/prefilled.js";
 import type * as api_resume from "../api/resume.js";
@@ -191,7 +190,6 @@ declare const fullApi: ApiFromModules<{
   "api/jobs": typeof api_jobs;
   "api/loops": typeof api_loops;
   "api/mailbox": typeof api_mailbox;
-  "api/migrations": typeof api_migrations;
   "api/preferences": typeof api_preferences;
   "api/prefilled": typeof api_prefilled;
   "api/resume": typeof api_resume;

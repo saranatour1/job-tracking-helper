@@ -16,7 +16,12 @@ const fetchBoard = internalAction({
       const res = await fetch(feedUrl(board.kind, board.slug))
       if (!res.ok) {
         const error = `The feed answered ${res.status}`
-        await ctx.runMutation(internal.api.jobs.boardFetched, { boardId, startedAt, jobs: 0, error })
+        await ctx.runMutation(internal.api.jobs.boardFetched, {
+          boardId,
+          startedAt,
+          jobs: 0,
+          error,
+        })
         // A board that's gone or never published a feed (some Personio companies don't)
         // won't change on a retry, so it's noted on the board and the fetch ends here.
         if (res.status >= 400 && res.status < 500) {

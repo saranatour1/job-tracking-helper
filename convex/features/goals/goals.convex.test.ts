@@ -106,6 +106,7 @@ describe("goals", () => {
     const addLoop = (owner: typeof userId, name: string) =>
       t.run((ctx) =>
         ctx.db.insert("loops", {
+          show: 5,
           userId: owner,
           name,
           template: "remote",
@@ -143,6 +144,7 @@ describe("goals", () => {
     const owner = (await t.run((ctx) => ctx.db.query("users").first()))!._id
     const loopId = await t.run((ctx) =>
       ctx.db.insert("loops", {
+        show: 5,
         userId: owner,
         name: "Mornings",
         template: "custom",

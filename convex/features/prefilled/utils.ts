@@ -85,4 +85,3 @@ export const ownPrefill = async (ctx: MutationCtx, userId: Id<"users">, id: Id<"
   if (row?.userId !== userId) throw new ConvexError("That isn't yours.")
   return row
 }
-

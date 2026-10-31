@@ -1,8 +1,7 @@
 import type { Doc, Id } from "../../_generated/dataModel"
 import type { QueryCtx, MutationCtx } from "../../_generated/server"
-import { rowLimits, tagRowsOf, answerRowsOf, fieldRowsOf } from "./rows"
+import { rowLimits, sectionOfOrder, tagRowsOf, answerRowsOf, fieldRowsOf } from "./rows"
 import { entryKinds, Preferences, PrefilledSections } from "./validators"
-import type { WithoutSystemFields } from "convex/server"
 
 export type Settings = Partial<
   Pick<
@@ -50,10 +49,10 @@ export const sameRow = (a: object, b: object) => {
 export const sync = async <T extends Table>(
   ctx: MutationCtx,
   table: T,
-  userId: Id<"users">,
   current: Doc<T>[],
   next: Row<T>[],
-  sliceOf: (row: Row<T>) => string
+  sliceOf: (row: Row<T>) => string,
+  insert: (row: Row<T>) => Promise<unknown>
 ) => {
   for (const slice of new Set([...current, ...next].map(sliceOf))) {
     const before = current.filter((row) => sliceOf(row) === slice)
@@ -61,8 +60,7 @@ export const sync = async <T extends Table>(
     if (before.length === after.length && before.every((row, i) => sameRow(row, after[i]!)))
       continue
     for (const row of before) await ctx.db.delete(table, row._id)
-    for (const row of after)
-      await ctx.db.insert(table, { ...row, userId } as unknown as WithoutSystemFields<Doc<T>>)
+    for (const row of after) await insert(row)
   }
 }
 
@@ -75,18 +73,18 @@ export const writeAnswers = async (
   await sync(
     ctx,
     "preferenceTags",
-    userId,
     await tagsOf(ctx, userId),
     tagRowsOf(form),
-    (r) => r.kind
+    (r) => r.kind,
+    (row) => ctx.db.insert("preferenceTags", { ...row, userId })
   )
   await sync(
     ctx,
     "profileEntries",
-    userId,
     await entriesOf(ctx, userId, "answer"),
     answerRowsOf(form),
-    (r) => r.key
+    (r) => r.key,
+    (row) => ctx.db.insert("profileEntries", { ...row, userId })
   )
 }
 
@@ -99,10 +97,10 @@ export const writeFields = async (
   await sync(
     ctx,
     "profileEntries",
-    userId,
     await entriesOf(ctx, userId, "field"),
     fieldRowsOf(sections),
-    (r) => `${Math.floor(r.order / 100)}:${r.group}`
+    (r) => `${sectionOfOrder(r.order)}:${r.group}`,
+    (row) => ctx.db.insert("profileEntries", { ...row, userId })
   )
 }
 

@@ -47,8 +47,8 @@ const form = {
 const setup = async () => {
   vi.stubEnv("FIRECRAWL_API_KEY", "fc-test")
   const t = convexTest(schema, modules)
-  rateLimiter.register(t as never)
-  workpool.register(t as never, "applyPool")
+  rateLimiter.register(t)
+  workpool.register(t, "applyPool")
   t.registerComponent(
     "notifications",
     notificationsSchema,
@@ -223,7 +223,11 @@ describe("with each application having its own address", () => {
 
   it("keeps an address you typed for this form", async () => {
     const { as, id, row } = await trackingSetup()
-    await as.mutation(api.api.prefilled.setAnswer, { id, question: "Email", answer: "me@other.com" })
+    await as.mutation(api.api.prefilled.setAnswer, {
+      id,
+      question: "Email",
+      answer: "me@other.com",
+    })
     await as.action(api.api.prefilled.startLive, { id })
     expect((await row()).fields[0]).toMatchObject({ answer: "me@other.com", source: "you" })
   })
@@ -356,8 +360,8 @@ describe("sending an answer to the open browser", () => {
   it("won't send once the browser has closed", async () => {
     const { as, id } = await openBrowser()
     await as.action(api.api.prefilled.cancelLive, { id })
-    await expect(as.action(api.api.prefilled.sendToForm, { id, question: "Why us?" })).rejects.toThrow(
-      "This browser has closed."
-    )
+    await expect(
+      as.action(api.api.prefilled.sendToForm, { id, question: "Why us?" })
+    ).rejects.toThrow("This browser has closed.")
   })
 })

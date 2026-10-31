@@ -228,10 +228,7 @@ Measured on the dev deployment on 2026-10-31.
 - Removed `autoApplies` from the schema, along with `users.autoApply*`, loops' `answers.digest` and boolean `shown` on old resume reviews. Its 5 rows on dev stay until cleared from the dashboard.
 - `applications.number` and `history` are now required, after a migration filled the 8 rows that lacked them.
 - `users.nextApplicationNumber` replaced reading every application to number a new one, and numbers are no longer reused after a delete.
-
-### To finish
-
-`mailEvents.box` is optional only until old mail has a folder. On each deployment, run `npx convex run api/migrations:fillBoxes`, then `npx convex run api/migrations:boxesLeft` until it says 0. Then delete `convex/api/migrations.ts` and make `box` required.
+- `mailEvents.box`, `loops.show`, `jobLeads.verdict` and the id on `decide` steps are now required, after a migration filled the old rows on dev. Production had no data.
 
 ### Waiting on a real problem
 

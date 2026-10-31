@@ -27,7 +27,7 @@ const trashedOf = async (as: Authed) =>
 
 const setup = async () => {
   const t = convexTest(schema, modules)
-  batchWorker.register(t as never)
+  batchWorker.register(t)
   const userId = await t.run((ctx) => ctx.db.insert("users", { name: "Sam" }))
   const as = t.withIdentity({ subject: userId })
   const add = (company: string) =>
@@ -87,6 +87,7 @@ describe("archive and trash", () => {
         fit: 80,
         reasons: [],
         status: "applied",
+        verdict: "fit",
       })
     )
     await expect(as.mutation(api.api.applications.deleteForever, { id })).rejects.toThrow(
@@ -108,7 +109,10 @@ describe("archive and trash", () => {
     await as.mutation(api.api.applications.trash, { id: trashed })
 
     vi.setSystemTime(Date.now() + 31 * day)
-    expect(await t.mutation(internal.api.applications.sweep, {})).toEqual({ trashed: 1, due: false })
+    expect(await t.mutation(internal.api.applications.sweep, {})).toEqual({
+      trashed: 1,
+      due: false,
+    })
     expect((await trashedOf(as)).map((x) => x.company)).toEqual(["Acme", "Hooli"])
 
     vi.setSystemTime(Date.now() + 60 * day)
@@ -123,7 +127,10 @@ describe("archive and trash", () => {
     await as.mutation(api.api.applications.trash, { id })
     await as.mutation(api.api.applications.setTrashDays, { days: 0 })
     vi.setSystemTime(Date.now() + 400 * day)
-    expect(await t.mutation(internal.api.applications.sweep, {})).toEqual({ trashed: 0, due: false })
+    expect(await t.mutation(internal.api.applications.sweep, {})).toEqual({
+      trashed: 0,
+      due: false,
+    })
     await expect(as.mutation(api.api.applications.setTrashDays, { days: 7 })).rejects.toThrow(
       "Pick one of the choices."
     )
@@ -137,9 +144,9 @@ describe("archive and trash", () => {
     const doc = await t.run((ctx) => ctx.db.get("applications", id))
     expect(doc?.archivedAt).toBeUndefined()
     expect(doc!.purgeAt! - doc!.trashedAt!).toBe(90 * day)
-    await expect(as.mutation(api.api.applications.setStatus, { id, status: "offer" })).rejects.toThrow(
-      "That application is in the Trash."
-    )
+    await expect(
+      as.mutation(api.api.applications.setStatus, { id, status: "offer" })
+    ).rejects.toThrow("That application is in the Trash.")
   })
 
   it("moves what's in the Trash to a new date when the setting changes", async () => {

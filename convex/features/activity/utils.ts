@@ -88,4 +88,3 @@ export const reasonOf = (cause: unknown) =>
     : cause instanceof Error
       ? cause.message
       : "Something went wrong."
-

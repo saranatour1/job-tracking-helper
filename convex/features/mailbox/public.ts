@@ -40,7 +40,7 @@ const rowsOf = async (ctx: QueryCtx, userId: Id<"users">, events: Doc<"mailEvent
       const application = e.applicationId && (await ctx.db.get("applications", e.applicationId))
       return {
         id: e._id,
-        box: e.box ?? (e.by === "sent" ? ("sent" as const) : ("inbox" as const)),
+        box: e.box,
         kind: e.kind,
         from: note.from,
         ...(note.to && { to: note.to }),

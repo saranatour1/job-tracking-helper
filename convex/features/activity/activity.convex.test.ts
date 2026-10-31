@@ -39,9 +39,9 @@ const first = { numItems: 25, cursor: null }
 
 const setup = async () => {
   const t = convexTest(schema, modules)
-  batchWorker.register(t as never)
-  rateLimiter.register(t as never)
-  workpool.register(t as never, "applyPool")
+  batchWorker.register(t)
+  rateLimiter.register(t)
+  workpool.register(t, "applyPool")
   t.registerComponent(
     "notifications",
     notificationsSchema,
@@ -80,7 +80,8 @@ const setup = async () => {
   })
   const as = t.withIdentity({ subject: userId })
   const events = async (failed?: boolean) =>
-    (await as.query(api.api.activity.page, { ...(failed && { failed }), paginationOpts: first })).page
+    (await as.query(api.api.activity.page, { ...(failed && { failed }), paginationOpts: first }))
+      .page
   return { t, as, userId, otherId, hooli, events, k }
 }
 
@@ -233,7 +234,9 @@ describe("activity", () => {
         history: [],
       })
     )
-    await expect(as.mutation(api.api.applications.addNote, { id: theirs, text: "x" })).rejects.toThrow()
+    await expect(
+      as.mutation(api.api.applications.addNote, { id: theirs, text: "x" })
+    ).rejects.toThrow()
     expect(await events()).toEqual([])
   })
 

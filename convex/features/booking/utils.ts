@@ -64,4 +64,3 @@ export const hoursOf = (page: Hours): Hours => ({
   horizonDays: page.horizonDays,
   timeZone: page.timeZone,
 })
-

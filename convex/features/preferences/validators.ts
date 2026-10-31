@@ -70,7 +70,7 @@ export const Preferences = type({
   redFlags: text,
   identity: text,
   answers: Answers,
-  "custom?": CustomAnswer.array().atMostLength(20),
+  custom: CustomAnswer.array().atMostLength(20),
 })
 export type Preferences = typeof Preferences.infer
 

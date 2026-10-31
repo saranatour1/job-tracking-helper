@@ -10,7 +10,7 @@ const key = (s: string) => s.trim().toLowerCase()
 // Fields application forms ask for, grouped like most forms group them, with values
 // from the account and the person's own answers. Ones we can't know start empty.
 export const suggestedSections = (v: Values, me: { name: string; email: string }): Section[] => {
-  const custom = (v.custom ?? []).filter((c) => c.question.trim())
+  const custom = v.custom.filter((c) => c.question.trim())
   const sections = [
     {
       title: "Contact",

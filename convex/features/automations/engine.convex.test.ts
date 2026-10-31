@@ -34,10 +34,10 @@ const modules = import.meta.glob([
 
 const setup = async () => {
   const t = convexTest(schema, modules)
-  workflow.register(t as never)
-  rateLimiter.register(t as never)
-  aggregate.register(t as never, "automationRunCounts")
-  aggregate.register(t as never, "automationChoices")
+  workflow.register(t)
+  rateLimiter.register(t)
+  aggregate.register(t, "automationRunCounts")
+  aggregate.register(t, "automationChoices")
   t.registerComponent(
     "notifications",
     notificationsSchema,
@@ -319,7 +319,7 @@ describe("a workflow run", () => {
     await t.finishAllScheduledFunctions(vi.runAllTimers)
     await t.run(async (ctx) => {
       const run = await ctx.db.get("automationRuns", runId)
-      await patchRun(ctx as never, run!, { status: "running" })
+      await patchRun(ctx, run!, { status: "running" })
     })
     await as.mutation(api.api.automations.stopRun, { runId })
     const run = await t.run((ctx) => ctx.db.get("automationRuns", runId))
@@ -356,7 +356,7 @@ describe("a workflow run", () => {
     })
     await t.run(async (ctx) => {
       for (let i = 0; i < 55; i++)
-        await insertRun(ctx as never, {
+        await insertRun(ctx, {
           automationId: id,
           userId,
           name: "Busy",
@@ -476,6 +476,7 @@ describe("a workflow run", () => {
       steps: [
         {
           kind: "decide",
+          id: "ask",
           question: "Worth it?",
           paths: [
             { label: "Yes", steps: [{ kind: "notify", message: "yes" }] },
@@ -574,7 +575,7 @@ describe("a workflow run", () => {
     expect(await as.query(api.api.automations.choices, { automationId: id })).toEqual({
       "1": { Yes: 1, No: 0 },
     })
-    const counted = () => t.run((ctx) => choiceCounts.count(ctx as never, { namespace: id }))
+    const counted = () => t.run((ctx) => choiceCounts.count(ctx, { namespace: id }))
     expect(await counted()).toBe(1)
     await as.mutation(api.api.automations.remove, { id })
     expect(await counted()).toBe(0)
@@ -634,6 +635,7 @@ describe("a workflow run", () => {
       steps: [
         {
           kind: "decide",
+          id: "ask",
           question: "Worth it?",
           paths: [
             { label: "Yes", steps: [{ kind: "notify", message: "yes" }] },
@@ -654,6 +656,7 @@ describe("a workflow run", () => {
     const { t, as, userId } = await setup()
     const loopId = await t.run((ctx) =>
       ctx.db.insert("loops", {
+        show: 5,
         userId,
         name: "Frontend",
         template: "custom",
@@ -701,6 +704,7 @@ describe("a workflow run", () => {
     const { t, userId } = await setup()
     const loopId = await t.run((ctx) =>
       ctx.db.insert("loops", {
+        show: 5,
         userId,
         name: "Mine",
         template: "custom",

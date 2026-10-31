@@ -84,9 +84,9 @@ describe("calendar settings", () => {
 
   it("refuses zones that don't exist and days that run backwards", async () => {
     const as = await setup()
-    await expect(as.mutation(api.api.calendar.saveSettings, { timeZone: "Mars/Base" })).rejects.toThrow(
-      "Mars/Base isn't a time zone."
-    )
+    await expect(
+      as.mutation(api.api.calendar.saveSettings, { timeZone: "Mars/Base" })
+    ).rejects.toThrow("Mars/Base isn't a time zone.")
     await expect(
       as.mutation(api.api.calendar.saveSettings, { dayStartHour: 20, dayEndHour: 8 })
     ).rejects.toThrow("has to start before it ends")

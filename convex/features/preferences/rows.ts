@@ -68,7 +68,7 @@ export const answerRowsOf = (form: Form): EntryRow[] => [
       value: valueOf(form, key),
       order: 0,
     })),
-  ...(form.custom ?? []).map((c, order) => ({
+  ...form.custom.map((c, order) => ({
     kind: "answer" as const,
     group: "own",
     key: "custom",
@@ -78,8 +78,12 @@ export const answerRowsOf = (form: Form): EntryRow[] => [
   })),
 ]
 
-// `order` is the section's position times 100 plus the field's, since a section holds
-// at most 50 fields. ponytail: a section with no fields has no rows, so it isn't kept.
+// A field's `order` is its section's position times 100 plus its own, since a section
+// holds at most 50 fields.
+export const fieldOrder = (section: number, field: number) => section * 100 + field
+export const sectionOfOrder = (order: number) => Math.floor(order / 100)
+
+// ponytail: a section with no fields has no rows, so it isn't kept.
 export const fieldRowsOf = (sections: Sections): EntryRow[] =>
   sections.flatMap((section, s) =>
     section.fields.map((field, f) => ({
@@ -88,7 +92,7 @@ export const fieldRowsOf = (sections: Sections): EntryRow[] =>
       key: "field",
       label: field.label,
       value: field.value,
-      order: s * 100 + f,
+      order: fieldOrder(s, f),
     }))
   )
 
@@ -99,7 +103,7 @@ export const formOf = (workMode: Form["workMode"], tags: TagRow[], answers: Entr
   const form = Preferences.assert(emptyPreferences)
   form.workMode = workMode
   for (const tag of byOrder(tags)) form[tagLists[tag.kind]].push(tag.value)
-  const custom: NonNullable<Form["custom"]> = []
+  const custom: Form["custom"] = []
   for (const row of byOrder(answers)) {
     if (row.key === "custom") custom.push({ question: row.label, answer: row.value })
     // hasOwn, not `in`: `in` also matches inherited names such as "constructor".
@@ -116,7 +120,7 @@ export const formOf = (workMode: Form["workMode"], tags: TagRow[], answers: Entr
 export const sectionsOf = (fields: EntryRow[]): Sections => {
   const sections: Sections = []
   for (const row of byOrder(fields)) {
-    const s = Math.floor(row.order / 100)
+    const s = sectionOfOrder(row.order)
     sections[s] ??= { title: row.group, fields: [] }
     sections[s].fields.push({ label: row.label, value: row.value })
   }
