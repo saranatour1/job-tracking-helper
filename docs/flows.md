@@ -166,6 +166,8 @@ no form to sign in with there.
 - As anyone, I want one sidebar to every page, with how many Updates lines I haven't read.
 - As anyone, I want the sidebar to stay as I left it when I open an application or a job.
 - As anyone, I want light, dark, or my system's theme.
+- As anyone, I want moving between pages to change only the page, with what I saw last
+  showing right away.
 
 **Flows**
 
@@ -180,6 +182,10 @@ no form to sign in with there.
    isn't shown.
 3. The theme switch in the sidebar's footer (also under Account) is kept in the
    browser, with no server.
+4. Every page sits in one frame with the same height, background, corners and top bar.
+   The frame stays on screen between pages, and each page only fills in the bar's
+   breadcrumb and actions. A page you left keeps its data live for an hour, so coming
+   back to it shows it right away.
 
 **Files:** `src/features/shell/`.
 

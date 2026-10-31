@@ -17,7 +17,7 @@ export const Resume = () => {
   const resume = data?.resume
   const pdf = resume?.url && /\.pdf$/i.test(resume.name) ? resume.url : null
   return (
-    <div className="soft-theme bg-background text-foreground flex h-svh flex-col rounded-[inherit] md:h-[calc(100svh-1rem)]">
+    <div className="flex min-h-0 flex-1 flex-col">
       <PageHeader crumbs={[{ label: "Resume" }]} />
       <div className="flex min-h-0 flex-1">
         {data && <ResumeTab resume={data.resume} review={data.review} />}

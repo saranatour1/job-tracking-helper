@@ -329,7 +329,7 @@ const Editor = ({ saved }: { saved?: Doc<"automations"> }) => {
   )
 
   return (
-    <div className="flex h-svh flex-col md:h-[calc(100svh-1rem)]">
+    <div className="flex min-h-0 flex-1 flex-col">
       <PageHeader
         crumbs={[{ label: "Workflows", to: "/workflows" }, { label: draft.name || "Untitled" }]}
         actions={
@@ -459,11 +459,11 @@ export const WorkflowBuilder = ({ id }: { id: string }) => {
   const list = useQuery(api.automations.list)
   // A template can name a loop, and the first draft is made once.
   const loops = useQuery(api.loops.list)
-  if (list === undefined || loops === undefined) return <div className="h-svh" />
+  if (list === undefined || loops === undefined) return null
   const saved = list.find((a) => a._id === id)
   if (id !== "new" && !saved)
     return (
-      <div className="flex h-svh flex-col">
+      <div className="flex min-h-0 flex-1 flex-col">
         <PageHeader crumbs={[{ label: "Workflows", to: "/workflows" }, { label: "Not found" }]} />
         <p className="text-muted-foreground p-6 text-sm">That workflow is gone.</p>
       </div>

@@ -452,7 +452,7 @@ export const Pipeline = ({
 
   return (
     <div
-      className="flex h-svh flex-col md:h-[calc(100svh-1rem)]"
+      className="flex min-h-0 flex-1 flex-col"
       // Esc closes the side panel from anywhere on the page, unless a menu or dialog is open.
       onKeyDown={(e) =>
         e.key === "Escape" &&

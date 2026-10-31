@@ -165,7 +165,7 @@ const Describe = () => {
 export const Workflows = () => {
   const automations = useQuery(api.automations.list)
   return (
-    <div className="flex h-svh flex-col md:h-[calc(100svh-1rem)]">
+    <div className="flex min-h-0 flex-1 flex-col">
       <PageHeader
         crumbs={[{ label: "Workflows" }]}
         actions={
