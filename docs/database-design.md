@@ -1,6 +1,6 @@
 # Database design
 
-The schema as it is today: 22 tables in `convex/schema.ts`, grouped by what they're about, plus the components' own tables. Each table is defined in its feature's `models.ts`, from shapes in that feature's `validators.ts`.
+The schema as it is today: 23 tables in `convex/schema.ts`, grouped by what they're about, plus the components' own tables. Each table is defined in its feature's `models.ts`, from shapes in that feature's `validators.ts`.
 
 [Proposed changes](#proposed-changes) lists what's done, what's waiting on a decision and what's decided against.
 
@@ -102,10 +102,11 @@ These have no owner. Deleting an account leaves them.
 
 ### Mail
 
-| Table              | Holds                                                                                   | Why it's a table                        | Indexes                                                                 |
-| ------------------ | --------------------------------------------------------------------------------------- | --------------------------------------- | ----------------------------------------------------------------------- |
-| `emailConnections` | one per person: a sealed Cloudflare token and details, what's allowed, incoming mail    | exception: keeps secrets out of `users` | `by_userId`, `by_inboundId`                                             |
-| `mailEvents`       | one sorted email: its kind, the application it's about, a sealed note, a suggested move | 1, 4                                    | `by_userId_and_applicationId`, `by_emailId`, `by_userId_and_messageKey` |
+| Table              | Holds                                                                                   | Why it's a table                        | Indexes                                                                    |
+| ------------------ | --------------------------------------------------------------------------------------- | --------------------------------------- | -------------------------------------------------------------------------- |
+| `emailConnections` | one per person: a sealed Cloudflare token and details, what's allowed, incoming mail    | exception: keeps secrets out of `users` | `by_userId`, `by_inboundId`                                                |
+| `mailEvents`       | one sorted email: its kind, the application it's about, a sealed note, a suggested move | 1, 4                                    | `by_userId_and_applicationId`, `by_emailId`, `by_userId_and_messageKey`    |
+| `contacts`         | one person per address: sealed details, a hash of the address, how many emails, when    | 1, 4                                    | `by_userId_and_key`, `by_userId_and_lastAt`, `by_userId_and_applicationId` |
 
 The emails themselves live in the `cloudflareEmail` component, sealed. `mailEvents.emailId` is a plain string for that reason.
 
@@ -138,17 +139,17 @@ The emails themselves live in the `cloudflareEmail` component, sealed. `mailEven
 
 ## What happens when something is deleted
 
-| Deleted                    | What points at it                                                      | What happens                                                                                                                                                           |
-| -------------------------- | ---------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| an account                 | everything with `userId`                                               | all of it goes, with the resume and image files and the username. The `users` row stays, empty: Convex Auth reuses the id. Shared tables stay                          |
-| an application             | `mailEvents`, `jobLeads`, `calendarEvents`, `bookingPages`, `prefills` | each is unlinked and stays: mail goes back to unfiled, a lead stays tracked so loops don't offer the role again, a sent prefill stays closed so it can't be sent twice |
-| a goal                     | `applications.goalId`                                                  | cleared; the applications stay                                                                                                                                         |
-| a loop                     | `goals.loopId`                                                         | cleared; the goal takes no more roles                                                                                                                                  |
-| a loop                     | `loopRuns.loopId`, `jobLeads.loopId`                                   | **left on purpose**: its runs and roles stay, so the Runs tab still adds up                                                                                            |
-| a loop                     | a workflow's Find roles step                                           | left; that step stops with "That loop is gone." when it runs                                                                                                           |
-| a role closes on its board | `jobLeads.jobId`, `prefills.jobId`                                     | **left on purpose**: both keep their own copy, and read a missing job as none                                                                                          |
-| a booking page             | `calendarEvents.bookingPageId`                                         | **left on purpose**: bookings already made stay on the calendar                                                                                                        |
-| a workflow                 | `automationRuns.automationId`                                          | its runs are stopped and deleted, with their Inbox lines                                                                                                               |
+| Deleted                    | What points at it                                                                  | What happens                                                                                                                                                           |
+| -------------------------- | ---------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| an account                 | everything with `userId`                                                           | all of it goes, with the resume and image files and the username. The `users` row stays, empty: Convex Auth reuses the id. Shared tables stay                          |
+| an application             | `mailEvents`, `jobLeads`, `calendarEvents`, `bookingPages`, `prefills`, `contacts` | each is unlinked and stays: mail goes back to unfiled, a lead stays tracked so loops don't offer the role again, a sent prefill stays closed so it can't be sent twice |
+| a goal                     | `applications.goalId`                                                              | cleared; the applications stay                                                                                                                                         |
+| a loop                     | `goals.loopId`                                                                     | cleared; the goal takes no more roles                                                                                                                                  |
+| a loop                     | `loopRuns.loopId`, `jobLeads.loopId`                                               | **left on purpose**: its runs and roles stay, so the Runs tab still adds up                                                                                            |
+| a loop                     | a workflow's Find roles step                                                       | left; that step stops with "That loop is gone." when it runs                                                                                                           |
+| a role closes on its board | `jobLeads.jobId`, `prefills.jobId`                                                 | **left on purpose**: both keep their own copy, and read a missing job as none                                                                                          |
+| a booking page             | `calendarEvents.bookingPageId`                                                     | **left on purpose**: bookings already made stay on the calendar                                                                                                        |
+| a workflow                 | `automationRuns.automationId`                                                      | its runs are stopped and deleted, with their Inbox lines                                                                                                               |
 
 ## What's copied on purpose
 

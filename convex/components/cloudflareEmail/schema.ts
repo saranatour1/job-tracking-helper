@@ -3,7 +3,7 @@ import { v } from "convex/values"
 
 // What Cloudflare's send API takes. Never stored as is: it arrives in each call.
 export const vEmail = v.object({
-  from: v.string(),
+  from: v.union(v.string(), v.object({ address: v.string(), name: v.string() })),
   to: v.array(v.string()),
   cc: v.optional(v.array(v.string())),
   bcc: v.optional(v.array(v.string())),

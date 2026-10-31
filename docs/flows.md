@@ -30,11 +30,12 @@ Workflows have their own page, [workflows.md](workflows.md).
 10. [Loops](#loops)
 11. [Inbox](#inbox)
 12. [Email](#email)
-13. [Calendar](#calendar)
-14. [Booking pages](#booking-pages)
-15. [Account](#account)
-16. [Workflows](#workflows)
-17. [Known gaps](#known-gaps)
+13. [Contacts](#contacts)
+14. [Calendar](#calendar)
+15. [Booking pages](#booking-pages)
+16. [Account](#account)
+17. [Workflows](#workflows)
+18. [Known gaps](#known-gaps)
 
 ## Across the app
 
@@ -584,7 +585,7 @@ isn't shown. Email lines are opened from their sealed note only when you look.
 6. **Disconnect:** removes the Worker, the rule and the saved token. Your emails stay.
 7. **On an application,** its Activity shows the address to give out, like
    `you+hooli@yourdomain`, with Copy, or says why mail isn't tracked yet. **Email** and
-   **Reply** send from your plain address (`api.email.sendFromApplication`, 30 a day), with
+   **Reply** send under your name, your saved Full name or else your account's, from your plain address (`api.email.sendFromApplication`, 30 a day), with
    replies aimed at that address. Sent mail joins its Activity, with no Inbox
    line or workflow event. A workflow's Send email about an application does the same.
    **Form refuses a +** makes `you.hooli@yourdomain` for that company
@@ -630,6 +631,37 @@ failed, and Account says it couldn't confirm the email went out.
 
 **Files:** `src/features/account/email.tsx`, `convex/features/email/`,
 `convex/components/cloudflareEmail/`, `convex/lib/secrets.ts`.
+
+## Contacts
+
+**Stories**
+
+- As a job seeker, I want the people I've dealt with at each company in one list, without
+  typing them in.
+- As a job seeker, I want to copy someone's details and correct what the app got wrong.
+
+**Flows** (`/contacts`)
+
+1. **The table** (`api.contacts.list`): company, name, title, email, phone, how many emails,
+   notes. By company, with who you've traded the most email with first and marked Main. A
+   company links to its application.
+2. **Copy** puts one line on the clipboard: name, title, company, email and phone.
+3. **Edit** and **Add a contact** (`api.contacts.save`). A name or an email is enough, and
+   two contacts can't share an address. Later mail still adds to the count, but won't change
+   what you edited.
+4. **Remove** (`api.contacts.remove`). Someone who came from mail stays hidden, so their next
+   email doesn't bring them back. Adding them yourself brings them back.
+
+**By itself** (`internal.contacts.learn`): when mail lands on an application, whether it
+arrived, was imported, was filed by hand or was sent by you, the sender or recipient becomes a
+contact at that company. No-reply senders, hiring tools' addresses and your own domain are left
+out.
+
+**Rules:** details are sealed like mail. Only a hash of the address, the count and dates are
+kept in the clear. Mail filed before this existed isn't read back. One address is one contact,
+so a recruiter at two companies shows under the latest one.
+
+**Files:** `src/features/contacts/`, `convex/features/contacts/`.
 
 ## Calendar
 

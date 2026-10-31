@@ -165,6 +165,8 @@ const record = internalMutation({
           moved: { from: application.status, to: event.suggest },
         }),
     })
+    if (event.applicationId)
+      await ctx.scheduler.runAfter(0, internal.contacts.learn, { eventId: id })
     if (quiet) return null
     await ctx.runMutation(components.notifications.lib.notify, {
       owner: event.userId,
@@ -363,6 +365,9 @@ const assign = authedMutation({
       by: "you",
       suggest: application ? suggestionOf(event.kind, application.status) : undefined,
     })
+    // Filed by hand, so nothing has learned from it yet.
+    if (application && !event.applicationId)
+      await ctx.scheduler.runAfter(0, internal.contacts.learn, { eventId })
     return null
   },
 })

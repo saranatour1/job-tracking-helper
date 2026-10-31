@@ -297,7 +297,7 @@ describe("sending from an application", () => {
     const { t, as, hooli } = await setup()
     await as.action(api.email.sendFromApplication, { applicationId: hooli, ...mail })
     expect(body()).toMatchObject({
-      from: "reach@example.com",
+      from: { address: "reach@example.com", name: "Sam" },
       reply_to: "reach+hooli@example.com",
       to: ["pat@hooli.com"],
     })
@@ -307,6 +307,23 @@ describe("sending from an application", () => {
     // Your own mail isn't news.
     expect(await as.query(api.inbox.inbox)).toHaveLength(0)
     await t.finishInProgressScheduledFunctions()
+  })
+
+  it("sends under your saved full name, which beats your account's", async () => {
+    const { t, as, hooli, userId } = await setup()
+    await t.run((ctx) =>
+      ctx.db.insert("profileEntries", {
+        userId,
+        kind: "field",
+        group: "Contact",
+        key: "field",
+        label: "Full name",
+        value: "Samantha Lee",
+        order: 0,
+      })
+    )
+    await as.action(api.email.sendFromApplication, { applicationId: hooli, ...mail })
+    expect(body().from).toEqual({ address: "reach@example.com", name: "Samantha Lee" })
   })
 
   it("leaves Reply-To alone until mail to that address would arrive", async () => {

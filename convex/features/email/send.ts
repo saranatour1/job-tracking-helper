@@ -10,7 +10,7 @@ import { seal } from "../../lib/secrets"
 import { addressWithoutPlus, companyAddress } from "./addresses"
 import { createRule, ruleFor } from "./cloudflare"
 import { messageIdsIn } from "./match"
-import { aad, cloudflare, limits, openConnection, openJson, userIdOf } from "./utils"
+import { aad, cloudflare, limits, openConnection, openJson, senderOf, userIdOf } from "./utils"
 import { Received, SendMail } from "./validators"
 
 // What sending needs: the application's number, and the email being answered, sealed.
@@ -52,7 +52,13 @@ const recordSent = internalMutation({
   },
   returns: v.null(),
   handler: async (ctx, event) => {
-    await ctx.db.insert("mailEvents", { ...event, kind: "other", at: Date.now(), by: "sent" })
+    const id = await ctx.db.insert("mailEvents", {
+      ...event,
+      kind: "other",
+      at: Date.now(),
+      by: "sent",
+    })
+    await ctx.scheduler.runAfter(0, internal.contacts.learn, { eventId: id })
     return null
   },
 })
@@ -101,7 +107,7 @@ const sendFromApplication = action({
     const { error } = await ctx.runAction(components.cloudflareEmail.lib.send, {
       accountId: details.accountId,
       apiToken: token,
-      email,
+      email: { ...email, from: senderOf(details.fromAddress, row.senderName) },
     })
     await ctx.runMutation(components.cloudflareEmail.lib.markResult, {
       emailId,

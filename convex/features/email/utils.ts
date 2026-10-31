@@ -102,6 +102,12 @@ export const openConnection = async (ctx: ActionCtx, userId: Id<"users">) => {
   return { row, k, details, token }
 }
 
+/** Who mail is from, with the person's name when there is one. */
+export const senderOf = (address: string, name?: string) => {
+  const clean = name?.replace(/[\r\n]+/g, " ").trim()
+  return clean ? { address, name: clean } : address
+}
+
 export const sha256 = async (text: string) =>
   Array.from(new Uint8Array(await crypto.subtle.digest("SHA-256", new TextEncoder().encode(text))))
     .map((b) => b.toString(16).padStart(2, "0"))

@@ -5,7 +5,16 @@ import { arkToConvex, checked } from "../../lib/ark"
 import { authedMutation, authedQuery } from "../../lib/functions"
 import { open, seal } from "../../lib/secrets"
 import { accessOf, tokenStatus } from "./cloudflare"
-import { limits, openConnection, secretKeys, userIdOf, aad, keys, openJson } from "./utils"
+import {
+  limits,
+  openConnection,
+  secretKeys,
+  senderOf,
+  userIdOf,
+  aad,
+  keys,
+  openJson,
+} from "./utils"
 import { allowKeys, Details, Sent, Connect, vConnectionView } from "./validators"
 
 // The connection, opened for its owner. The token itself never leaves the server.
@@ -144,7 +153,7 @@ const sendTest = action({
     const { messageId, error } = await ctx.runAction(components.cloudflareEmail.lib.send, {
       accountId: details.accountId,
       apiToken,
-      email,
+      email: { ...email, from: senderOf(details.fromAddress, row.senderName) },
     })
     await ctx.runMutation(components.cloudflareEmail.lib.markResult, {
       emailId,

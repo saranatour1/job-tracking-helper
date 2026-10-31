@@ -12,6 +12,7 @@ import {
   RepeatIcon,
   Target02Icon,
   UserCircleIcon,
+  UserMultiple02Icon,
   WorkflowSquare03Icon,
 } from "@hugeicons/core-free-icons"
 import { HugeiconsIcon } from "@hugeicons/react"
@@ -67,6 +68,7 @@ const groups: { label?: string; items: readonly Item[] }[] = [
     items: [
       { title: "Goals", to: "/goals", icon: Target02Icon },
       { title: "Views", to: "/views", icon: Layers01Icon },
+      { title: "Contacts", to: "/contacts", icon: UserMultiple02Icon },
     ],
   },
   {

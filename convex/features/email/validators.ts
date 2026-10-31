@@ -210,6 +210,8 @@ export const vSealedConnection = v.union(
     allow: arkOutputToConvex(Allow),
     inbound: v.optional(arkOutputToConvex(Inbound)),
     userEmail: v.optional(v.string()),
+    // The name to send as: your saved full name, else your account's.
+    senderName: v.optional(v.string()),
   })
 )
 
