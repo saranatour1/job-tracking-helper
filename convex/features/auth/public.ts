@@ -24,7 +24,7 @@ const google = setupGoogle(auth, {
 const github = setupGithub(auth, {
   component: components.authGithub,
   allowedRedirectOrigins: [siteUrl],
-}).attachUserCallbacks(userCallbacks)
+}).attachUserCallbacks({ ...userCallbacks, onSignIn: internal.api.auth.onGithubSignIn })
 
 const anonymous = setupAnonymous(auth, {
   component: components.authAnonymous,

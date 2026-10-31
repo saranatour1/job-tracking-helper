@@ -60,12 +60,12 @@ Convex stores references as typed ids but doesn't enforce them or cascade delete
 
 ### You
 
-| Table            | Holds                                                                                      | Why it's a table               | Indexes                        |
-| ---------------- | ------------------------------------------------------------------------------------------ | ------------------------------ | ------------------------------ |
-| `users`          | name, email, username, image, `trashDays`, `onboardedAt`, `prepareAt`                      | Convex Auth points at it       | `by_userName`, `by_imageId`    |
-| `preferences`    | one row per person: `workMode`, the resume file, its text and last review, `prefilledAt`   | exception: keeps `users` basic | `by_userId`, `by_resumeId`     |
-| `preferenceTags` | one row per interest, skill, place, company or thing to avoid                              | 1                              | `by_userId_and_kind_and_order` |
-| `profileEntries` | one row per answer (`kind: answer`) or saved form field (`kind: field`), with usage stamps | 1                              | `by_userId_and_kind_and_order` |
+| Table            | Holds                                                                                                  | Why it's a table               | Indexes                        |
+| ---------------- | ------------------------------------------------------------------------------------------------------ | ------------------------------ | ------------------------------ |
+| `users`          | name, email, username, image, `avatarUrl`, `githubImportedAt`, `trashDays`, `onboardedAt`, `prepareAt` | Convex Auth points at it       | `by_userName`, `by_imageId`    |
+| `preferences`    | one row per person: `workMode`, the resume file, its text and last review, `prefilledAt`               | exception: keeps `users` basic | `by_userId`, `by_resumeId`     |
+| `preferenceTags` | one row per interest, skill, place, company or thing to avoid                                          | 1                              | `by_userId_and_kind_and_order` |
+| `profileEntries` | one row per answer (`kind: answer`) or saved form field (`kind: field`), with usage stamps             | 1                              | `by_userId_and_kind_and_order` |
 
 Built-in questions are a list in code (`preferences/rows.ts`), keyed so a label can change without touching stored answers.
 

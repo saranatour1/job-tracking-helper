@@ -12,4 +12,5 @@ export const {
   completeSignInWithGithub,
   signInAnonymously,
   createUser,
+  onGithubSignIn,
 } = authApi
