@@ -83,9 +83,9 @@ const inboundTarget = internalQuery({
 })
 
 const addAliasRule = internalMutation({
-  args: { userId: v.id("users"), applicationId: v.id("applications"), ruleId: v.string() },
+  args: { userId: v.id("users"), ruleId: v.string() },
   returns: v.null(),
-  handler: async (ctx, { userId, applicationId, ruleId }) => {
+  handler: async (ctx, { userId, ruleId }) => {
     const connection = await connectionOf(ctx, userId)
     if (!connection?.inbound) return null
     await ctx.db.patch("emailConnections", connection._id, {
@@ -94,7 +94,6 @@ const addAliasRule = internalMutation({
         aliasRules: [...(connection.inbound.aliasRules ?? []), ruleId],
       },
     })
-    await ctx.db.patch("applications", applicationId, { plainAddress: true })
     return null
   },
 })

@@ -422,7 +422,7 @@ Previews are the same text as plain words.
    application is still prepared with what matched by name, and the page shows **Open browser
    with my answers**. You check it, solve any CAPTCHA, finish anything listed as "do these by
    hand", and **press the form's own Submit**. The app never presses it. A location list that
-   doesn't have your city tries your country. With each application having its own address,
+   doesn't have your city tries your country. With each company having its own address,
    the form's email question gets that address, and the application is added as Saved when
    the browser opens, since a thank-you email can arrive before you say you sent it. It stays
    Saved if you close without sending. **Send to form** on an answer
@@ -555,8 +555,8 @@ isn't shown. Email lines are opened from their sealed note only when you look.
   own switch, and my token never shown again.
 - As a job seeker, I want an interview email to move its card to Interviewing, with an
   undo.
-- As a job seeker, I want each application to have its own address, and to write and reply
-  from it, so mail about it stays together.
+- As a job seeker, I want each company to have its own address, and to write and reply from
+  its application, so mail about it stays together.
 
 **Flows** (Account → Email)
 
@@ -570,8 +570,8 @@ isn't shown. Email lines are opened from their sealed note only when you look.
    - Keep incoming mail.
    - Let Jev read your mail.
    - Let Jev move cards (needs Jev reading first).
-   - Give each application its own address (needs incoming mail, and Subaddressing turned
-     on in Cloudflare, since without it mail to these addresses bounces).
+   - Give each company its own address (needs incoming mail, and Subaddressing turned on in
+     Cloudflare, since without it mail to these addresses bounces).
 3. **Send a test email** to yourself (5 an hour).
 4. **Set up incoming mail** (`api.email.setUpInbound`). The app uploads a small Worker
    and a routing rule for your address. Email Routing must already be on for the
@@ -583,13 +583,13 @@ isn't shown. Email lines are opened from their sealed note only when you look.
 5. **Recent mail:** the 10 newest, opened for you.
 6. **Disconnect:** removes the Worker, the rule and the saved token. Your emails stay.
 7. **On an application,** its Activity shows the address to give out, like
-   `you+app-12@yourdomain`, with Copy, or says why mail isn't tracked yet. **Email** and
+   `you+hooli@yourdomain`, with Copy, or says why mail isn't tracked yet. **Email** and
    **Reply** send from your plain address (`api.email.sendFromApplication`, 30 a day), with
-   replies aimed at the application's address. Sent mail joins its Activity, with no Inbox
+   replies aimed at that address. Sent mail joins its Activity, with no Inbox
    line or workflow event. A workflow's Send email about an application does the same.
-   **Form refuses a +** makes `you.app-12@yourdomain` for that application
+   **Form refuses a +** makes `you.hooli@yourdomain` for that company
    (`api.email.makeAddressWithoutPlus`). Cloudflare can't match a pattern, so each needs its
-   own routing rule. They stop at 150, and stopping incoming mail removes them.
+   own routing rule, and takes a few minutes to start working. They stop at 150, and stopping incoming mail removes them.
 8. **Import old mail** takes .eml or .mbox files (`api.email.importMail`). It keeps only mail
    matching an application by its address, thread or company name, and skips what's already
    here. It uses no AI, and adds no Inbox line, workflow event or suggestion.
@@ -602,7 +602,9 @@ isn't shown. Email lines are opened from their sealed note only when you look.
    - Past the limit it answers 503, so Cloudflare tries again.
    - Otherwise it seals the email, keeps only ids, and sorts it.
 2. **Sorting** (`internal.email.sortMail`):
-   1. Mail to an application's own address goes there, and nothing can override that.
+   1. Mail to a company's address goes to its application, and nothing can override that.
+      With several at one company, a role named in the subject wins, then the one still
+      going, then the newest.
    2. A reply joins the application its thread is on.
    3. Otherwise a company named in the sender or subject picks the application, by its name
       without "Inc" and the like, or its name on the job board. With several at one company,

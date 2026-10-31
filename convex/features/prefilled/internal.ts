@@ -6,7 +6,7 @@ import { internalMutation, internalQuery, type MutationCtx } from "../../_genera
 import { arkOutputToConvex } from "../../lib/ark"
 import { workLog } from "../../lib/log"
 import { changeStatus, nextNumber } from "../applications/utils"
-import { taggedAddress } from "../email/addresses"
+import { companyAddress } from "../email/addresses"
 import { trackingAddressOf } from "../email/utils"
 import { addUsage } from "../loops/utils"
 import { rowLimits } from "../preferences/rows"
@@ -185,8 +185,7 @@ const beginLive = internalMutation({
       const { application, lead } = await linkedTo(ctx, row)
       const applicationId = application?._id ?? (await newApplication(ctx, row, "saved"))
       if (lead) await ctx.db.patch("jobLeads", lead._id, { applicationId })
-      const number = (application ?? (await ctx.db.get("applications", applicationId)))!.number
-      tagged = { applicationId, address: taggedAddress(tracking, number) }
+      tagged = { applicationId, address: companyAddress(tracking, row.company) }
     }
     await ctx.db.patch("prefills", id, {
       status: "live",

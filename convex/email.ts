@@ -19,7 +19,6 @@ export const {
   threadOf,
   record,
   sortMail,
-  taggedApplication,
   sendContext,
   recordSent,
   sendFromApplication,

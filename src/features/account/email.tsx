@@ -431,9 +431,9 @@ const switches: {
   },
   {
     key: "tag",
-    label: "Give each application its own address",
+    label: "Give each company its own address",
     description:
-      "Like you+app-12@yourdomain, so mail lands on the right application. Turn on Subaddressing under Email Routing, then Settings, in Cloudflare first: without it, mail to these addresses bounces.",
+      "Like you+hooli@yourdomain, so mail lands on the right application. Turn on Subaddressing under Email Routing, then Settings, in Cloudflare first: without it, mail to these addresses bounces.",
     needs: "receiving",
   },
   {

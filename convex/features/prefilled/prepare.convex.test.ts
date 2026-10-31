@@ -211,8 +211,8 @@ describe("with each application having its own address", () => {
     const opened = await row()
     const app = await t.run((ctx) => ctx.db.get("applications", opened.applicationId!))
     expect(app).toMatchObject({ status: "saved", number: 1 })
-    expect(opened.fields[0]).toMatchObject({ answer: "reach+app-1@example.com", source: "saved" })
-    expect(mocks.interact.mock.calls.at(-1)![1]).toContain("reach+app-1@example.com")
+    expect(opened.fields[0]).toMatchObject({ answer: "reach+hooli@example.com", source: "saved" })
+    expect(mocks.interact.mock.calls.at(-1)![1]).toContain("reach+hooli@example.com")
 
     // Sending moves that same application along, rather than adding a second.
     await t.mutation(internal.prefilled.finish, {

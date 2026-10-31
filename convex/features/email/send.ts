@@ -1,5 +1,5 @@
 // Mail written from an application. It goes out from the person's plain address, with replies
-// aimed at the application's own address when that's on, so they come back to the right place
+// aimed at the company's own address when that's on, so they come back to the right place
 // however the other side's mail is set up. Cloudflare's send API returns no Message-ID, so a
 // reply is matched by that address, or by the email it answers.
 import { ConvexError, v } from "convex/values"
@@ -7,8 +7,8 @@ import { components, internal } from "../../_generated/api"
 import { action, internalMutation, internalQuery } from "../../_generated/server"
 import { arkToConvex, checked } from "../../lib/ark"
 import { seal } from "../../lib/secrets"
-import { addressWithoutPlus, taggedAddress } from "./addresses"
-import { createRule } from "./cloudflare"
+import { addressWithoutPlus, companyAddress } from "./addresses"
+import { createRule, ruleFor } from "./cloudflare"
 import { messageIdsIn } from "./match"
 import { aad, cloudflare, limits, openConnection, openJson, userIdOf } from "./utils"
 import { Received, SendMail } from "./validators"
@@ -23,8 +23,7 @@ const sendContext = internalQuery({
   returns: v.union(
     v.null(),
     v.object({
-      number: v.number(),
-      plainAddress: v.boolean(),
+      company: v.string(),
       parent: v.optional(v.string()),
     })
   ),
@@ -37,8 +36,7 @@ const sendContext = internalQuery({
         ? await ctx.runQuery(components.cloudflareEmail.lib.get, { emailId: event.emailId })
         : null
     return {
-      number: application.number,
-      plainAddress: application.plainAddress ?? false,
+      company: application.company,
       ...(email && { parent: email.payload }),
     }
   },
@@ -85,7 +83,7 @@ const sendFromApplication = action({
       text,
       ...(row.inbound &&
         row.allow.receive &&
-        row.allow.tag && { replyTo: taggedAddress(details.fromAddress, context.number) }),
+        row.allow.tag && { replyTo: companyAddress(details.fromAddress, context.company) }),
       ...(parentId && {
         headers: {
           "In-Reply-To": parentId,
@@ -141,8 +139,9 @@ const makeAddressWithoutPlus = action({
       throw new ConvexError("Turn on “Set up Cloudflare for you” first.")
     const context = await ctx.runQuery(internal.email.sendContext, { userId, applicationId })
     if (!context) throw new ConvexError("That application isn't here anymore.")
-    const address = addressWithoutPlus(details.fromAddress, context.number)
-    if (context.plainAddress) return address
+    const address = addressWithoutPlus(details.fromAddress, context.company)
+    // Applications at one company share it.
+    if (await ruleFor(details.zoneId, token, address)) return address
     if ((row.inbound.aliasRules?.length ?? 0) >= maxPlainAddresses)
       throw new ConvexError("That's as many of these as Cloudflare's rule limit leaves room for.")
     const { ok } = await limits.limit(ctx, "plainAddress", { key: userId })
@@ -152,7 +151,7 @@ const makeAddressWithoutPlus = action({
         throw cloudflare(cause)
       }
     )
-    await ctx.runMutation(internal.email.addAliasRule, { userId, applicationId, ruleId })
+    await ctx.runMutation(internal.email.addAliasRule, { userId, ruleId })
     return address
   },
 })

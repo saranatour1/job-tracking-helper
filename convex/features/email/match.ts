@@ -2,6 +2,7 @@
 // run on every email; Jev answers the same two questions instead when the person lets
 // it read their mail. Kept free of Convex imports so they're easy to test.
 import type { Status } from "../applications/validators"
+import { companyTag } from "./addresses"
 
 export const kinds = ["confirmation", "interview", "rejection", "offer", "portal", "other"] as const
 export type Kind = (typeof kinds)[number]
@@ -79,9 +80,7 @@ export type Candidate = {
   alias?: string
 }
 
-const legalSuffix = /[,\s]+(inc|llc|ltd|limited|gmbh|ag|corp|corporation|co|plc|bv|srl)\.?$/i
-
-const companyOf = (a: Candidate) => squash(a.company.replace(legalSuffix, ""))
+const companyOf = (a: Candidate) => companyTag(a.company)
 
 // Short slugs would match by accident: "app" is in far too many subjects.
 const namesOf = (a: Candidate) =>
@@ -92,6 +91,22 @@ const namesOf = (a: Candidate) =>
 // Mail is most likely about what's still going on, least about what's over.
 const stageOf = (status?: Status) =>
   status === "rejected" || status === "withdrawn" ? 2 : status === "saved" ? 1 : 0
+
+/** Among one company's applications: the role named in the subject, else the furthest along. */
+const pickAmong = (applications: Candidate[], subject: string) => {
+  const said = squash(subject)
+  return (
+    applications.find((a) => squash(a.role).length >= 3 && said.includes(squash(a.role))) ??
+    [...applications].sort((a, b) => stageOf(a.status) - stageOf(b.status) || b.at - a.at)[0]
+  )
+}
+
+/** The application an email sent to a company's address is about. */
+export const tagMatch = <T extends Candidate>(tag: string, subject: string, applications: T[]) =>
+  pickAmong(
+    applications.filter((a) => companyTag(a.company) === tag),
+    subject
+  ) as T | undefined
 
 /**
  * The application an email is about when its sender or subject names exactly one
@@ -106,11 +121,7 @@ export const ruleMatch = (
   const said = squash(`${mail.fromName ?? ""} ${domain} ${mail.subject}`)
   const named = applications.filter((a) => namesOf(a).some((name) => said.includes(name)))
   if (new Set(named.map(companyOf)).size !== 1) return undefined
-  const subject = squash(mail.subject)
-  return (
-    named.find((a) => squash(a.role).length >= 3 && subject.includes(squash(a.role))) ??
-    [...named].sort((a, b) => stageOf(a.status) - stageOf(b.status) || b.at - a.at)[0]
-  )
+  return pickAmong(named, mail.subject)
 }
 
 /** Message-IDs as postal-mime reads them, from a reply's In-Reply-To or References. */

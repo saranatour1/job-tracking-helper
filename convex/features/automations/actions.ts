@@ -6,7 +6,7 @@ import { components, internal } from "../../_generated/api"
 import type { Id } from "../../_generated/dataModel"
 import { action, internalAction } from "../../_generated/server"
 import { seal } from "../../lib/secrets"
-import { taggedAddress } from "../email/addresses"
+import { companyAddress } from "../email/addresses"
 import { openConnection, aad } from "../email/utils"
 import { jevModel } from "../workflows/judge"
 import { limits as rates } from "../workflows/manager"
@@ -72,7 +72,7 @@ const sendMail = internalAction({
       to?: string
       subject: string
       text: string
-      application?: { id: Id<"applications">; number: number }
+      application?: { id: Id<"applications">; company: string }
     } | null = await ctx.runQuery(internal.automations.emailOf, { runId, at })
     if (!mail) return null
     try {
@@ -88,7 +88,7 @@ const sendMail = internalAction({
           row.inbound &&
           row.allow.receive &&
           row.allow.tag && {
-            replyTo: taggedAddress(details.fromAddress, mail.application.number),
+            replyTo: companyAddress(details.fromAddress, mail.application.company),
           }),
       }
       const sealEmail = (value: object) => seal(k, JSON.stringify(value), aad.email(mail.userId))

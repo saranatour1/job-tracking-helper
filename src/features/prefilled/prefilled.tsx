@@ -331,12 +331,9 @@ const AnswerRow = ({
           </Button>
         </div>
       )}
-      {live &&
-        applicationId &&
-        isEmailQuestion(field.question) &&
-        field.answer?.includes("+app-") && (
-          <PlainEmail id={id} applicationId={applicationId} question={field.question} />
-        )}
+      {live && applicationId && isEmailQuestion(field.question) && field.answer?.includes("+") && (
+        <PlainEmail id={id} applicationId={applicationId} question={field.question} />
+      )}
       {error && (
         <span role="alert" className="text-destructive text-xs">
           {error}

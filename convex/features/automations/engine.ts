@@ -288,7 +288,7 @@ const emailOf = internalQuery({
       userId: found.userId,
       ...(application &&
         application.trashedAt === undefined && {
-          application: { id: application._id, number: application.number },
+          application: { id: application._id, company: application.company },
         }),
       to: fill(block.to, values).trim(),
       subject: fill(block.subject, values).slice(0, limits.subject),

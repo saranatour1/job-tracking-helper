@@ -1,7 +1,7 @@
-// Each application's own address: reach+app-12@example.com. Cloudflare's subaddressing
-// delivers it on the reach@ rule and keeps the tag where the Worker can read it. Numbers are
-// per person, and each person has their own inbound URL, so a tag can't reach anyone else's
-// application. Safe to import from the frontend.
+// A real-looking address per company: jobs+hooli@example.com. Cloudflare's subaddressing
+// delivers it on the jobs@ rule and keeps the tag where the Worker can read it. Each person has
+// their own inbound URL, so a tag can't reach anyone else's application. Safe to import from
+// the frontend.
 
 const partsOf = (address: string) => {
   const at = address.lastIndexOf("@")
@@ -15,22 +15,36 @@ export const baseAddress = (address: string) => {
   return local + domain
 }
 
-export const taggedAddress = (address: string, number: number) => {
+const legalSuffix = /[,\s]+(inc|llc|ltd|limited|gmbh|ag|corp|corporation|co|plc|bv|srl)\.?$/i
+
+/** A company's name as one lowercase word: "Acme, Inc." is "acme". Empty if nothing's left. */
+export const companyTag = (company: string) =>
+  company
+    .replace(legalSuffix, "")
+    .normalize("NFKD")
+    .toLowerCase()
+    .replace(/[^a-z0-9]/g, "")
+    .slice(0, 40)
+
+/** jobs+hooli@example.com, or the plain address for a name with no letters to use. */
+export const companyAddress = (address: string, company: string) => {
   const { local, domain } = partsOf(address)
-  return `${local}+app-${number}${domain}`
+  const tag = companyTag(company)
+  return tag ? `${local}+${tag}${domain}` : baseAddress(address)
 }
 
 /** For forms that refuse a plus. Each one needs its own routing rule, so only on request. */
-export const addressWithoutPlus = (address: string, number: number) => {
+export const addressWithoutPlus = (address: string, company: string) => {
   const { local, domain } = partsOf(address)
-  return `${local}.app-${number}${domain}`
+  const tag = companyTag(company)
+  return tag ? `${local}.${tag}${domain}` : baseAddress(address)
 }
 
-/** The application number in the addresses an email was sent to, if any. */
-export const numberIn = (addresses: string[]) => {
+/** The company tag in the addresses an email was sent to, if any. */
+export const tagIn = (addresses: string[]) => {
   for (const address of addresses) {
-    const tag = /[+.]app-(\d+)@/i.exec(address)
-    if (tag) return Number(tag[1])
+    const tag = /\+([^@]+)@/.exec(address)?.[1] ?? /^[^@.]+\.([a-z0-9]+)@/i.exec(address)?.[1]
+    if (tag) return tag.toLowerCase()
   }
   return undefined
 }

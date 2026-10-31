@@ -75,7 +75,6 @@ describe("applications table", () => {
         "notes",
         "goalId",
         "number",
-        "plainAddress",
         "archivedAt",
         "trashedAt",
         "purgeAt",

@@ -13,8 +13,6 @@ export const applicationsTable = defineTable(
       "goalId?": arkId("goals"),
       // Numbered 1, 2, 3… per person, shown as APP-1. Set by the server.
       number: "number",
-      // Has a routing rule for its address without a plus, for forms that refuse one.
-      "plainAddress?": "boolean",
       // Off the board but kept; after 30 days it moves to the Trash.
       "archivedAt?": "number",
       // In the Trash, out of everything else.
@@ -28,8 +26,6 @@ export const applicationsTable = defineTable(
   // eslint-disable-next-line @convex-dev/no-duplicate-indexes
   .index("by_userId", ["userId"])
   .index("by_userId_and_goalId", ["userId", "goalId"])
-  // Which application an email to its own address is for.
-  .index("by_userId_and_number", ["userId", "number"])
   // `trashedAt: undefined` is everything not in the Trash, newest last.
   .index("by_userId_and_trashedAt", ["userId", "trashedAt"])
   .index("by_archivedAt", ["archivedAt"])

@@ -1,6 +1,6 @@
 import { api } from "@convex/_generated/api"
 import type { Id } from "@convex/_generated/dataModel"
-import { taggedAddress } from "@convex/features/email/addresses"
+import { companyAddress } from "@convex/features/email/addresses"
 import { Mail01Icon } from "@hugeicons/core-free-icons"
 import { HugeiconsIcon } from "@hugeicons/react"
 import { Link } from "@tanstack/react-router"
@@ -165,8 +165,8 @@ export const MailStatus = ({ a }: { a: Application }) => {
     {}
   )
   const { real } = useSource()
-  if (!real || connection === undefined || a.number === undefined) return null
-  const tagged = connection?.tracking ? taggedAddress(connection.fromAddress, a.number) : null
+  if (!real || connection === undefined) return null
+  const tagged = connection?.tracking ? companyAddress(connection.fromAddress, a.company) : null
   const address = plain.address ?? tagged
   return (
     <div className="bg-muted/40 flex flex-wrap items-center gap-2 rounded-lg border px-3 py-2 text-[13px]">
@@ -187,7 +187,7 @@ export const MailStatus = ({ a }: { a: Application }) => {
           <>
             Mail is matched by company name.{" "}
             <Link to="/account" className="underline underline-offset-2">
-              Give each application its own address
+              Give each company its own address
             </Link>
           </>
         )}

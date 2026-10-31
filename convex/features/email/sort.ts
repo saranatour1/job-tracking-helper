@@ -11,7 +11,7 @@ import { changeStatus } from "../applications/utils"
 import { boardOf } from "../jobs/boards"
 import { fireEvent } from "../automations/fire"
 import { mailNotificationKind } from "../notifications/kinds"
-import { numberIn } from "./addresses"
+import { tagIn } from "./addresses"
 import { secretKeys, aad, keys, openJson, threadKeyOf, askJev, ownEvent } from "./utils"
 import {
   type Candidate,
@@ -23,16 +23,9 @@ import {
   textOfHtml,
   ruleMatch,
   suggestionOf,
+  tagMatch,
 } from "./match"
-import {
-  MailNote,
-  Received,
-  vCandidate,
-  vSortContext,
-  vRecordArgs,
-  vTimeline,
-  vMailBody,
-} from "./validators"
+import { MailNote, Received, vSortContext, vRecordArgs, vTimeline, vMailBody } from "./validators"
 
 // The application an earlier email in the same thread was filed under, newest first.
 const threadOf = internalQuery({
@@ -62,19 +55,6 @@ const candidateOf = (a: Doc<"applications">) => {
   }
 }
 
-// The application whose own address this email was sent to.
-const taggedApplication = internalQuery({
-  args: { userId: v.id("users"), number: v.number() },
-  returns: v.union(vCandidate, v.null()),
-  handler: async (ctx, { userId, number }) => {
-    const found = await ctx.db
-      .query("applications")
-      .withIndex("by_userId_and_number", (q) => q.eq("userId", userId).eq("number", number))
-      .first()
-    return found && found.trashedAt === undefined ? candidateOf(found) : null
-  },
-})
-
 const knownMessage = internalQuery({
   args: { userId: v.id("users"), messageKey: v.string() },
   returns: v.boolean(),
@@ -93,31 +73,15 @@ const knownMessage = internalQuery({
 const importTarget = internalQuery({
   args: {
     userId: v.id("users"),
-    number: v.optional(v.number()),
+    tag: v.optional(v.string()),
     threadKeys: v.array(v.string()),
     mail: v.object({ from: v.string(), fromName: v.optional(v.string()), subject: v.string() }),
   },
   returns: v.union(v.id("applications"), v.null()),
-  handler: async (ctx, { userId, number, threadKeys, mail }) => {
+  handler: async (ctx, { userId, tag, threadKeys, mail }) => {
     const live = async (id: Id<"applications"> | undefined) => {
       const found = id && (await ctx.db.get("applications", id))
       return found && found.trashedAt === undefined ? found._id : null
-    }
-    if (number !== undefined) {
-      const tagged = await ctx.db
-        .query("applications")
-        .withIndex("by_userId_and_number", (q) => q.eq("userId", userId).eq("number", number))
-        .first()
-      const id = await live(tagged?._id)
-      if (id) return id
-    }
-    for (const key of threadKeys.slice(-20).reverse()) {
-      const earlier = await ctx.db
-        .query("mailEvents")
-        .withIndex("by_userId_and_messageKey", (q) => q.eq("userId", userId).eq("messageKey", key))
-        .first()
-      const id = await live(earlier?.applicationId)
-      if (id) return id
     }
     const applications = await ctx.db
       .query("applications")
@@ -126,7 +90,18 @@ const importTarget = internalQuery({
       )
       .order("desc")
       .take(1000)
-    return (ruleMatch(mail, applications.map(candidateOf))?.id as Id<"applications">) ?? null
+    const candidates = applications.map(candidateOf)
+    const tagged = tag && tagMatch(tag, mail.subject, candidates)
+    if (tagged) return tagged.id as Id<"applications">
+    for (const key of threadKeys.slice(-20).reverse()) {
+      const earlier = await ctx.db
+        .query("mailEvents")
+        .withIndex("by_userId_and_messageKey", (q) => q.eq("userId", userId).eq("messageKey", key))
+        .first()
+      const id = await live(earlier?.applicationId)
+      if (id) return id
+    }
+    return (ruleMatch(mail, candidates)?.id as Id<"applications">) ?? null
   },
 })
 
@@ -217,12 +192,9 @@ const sortMail = internalAction({
     const mail = await openJson(k, context.payload, aad.email(userId), Received)
     if (!mail) return null
     const text = mail.text ?? ""
-    // Sent to an application's own address: nothing else needs to guess.
-    const number = numberIn(mail.to)
-    const tagged =
-      number === undefined
-        ? null
-        : await ctx.runQuery(internal.email.taggedApplication, { userId, number })
+    // Sent to a company's address: nothing else needs to guess.
+    const tag = tagIn(mail.to)
+    const tagged = tag ? tagMatch(tag, mail.subject, context.applications) : undefined
     // A reply goes where the email it answers went: the thread decides next.
     const parents = await Promise.all(
       [...messageIdsIn(mail.references), ...messageIdsIn(mail.inReplyTo)].map((id) =>
@@ -399,7 +371,6 @@ export const sortApi = {
   knownMessage,
   importTarget,
   mailBody,
-  taggedApplication,
   sortContext,
   threadOf,
   record,

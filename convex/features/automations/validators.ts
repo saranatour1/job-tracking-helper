@@ -453,7 +453,7 @@ export const vEmailToSend = v.union(
     subject: v.string(),
     text: v.string(),
     // What the email is about, so a reply comes back to it and it joins its activity.
-    application: v.optional(v.object({ id: v.id("applications"), number: v.number() })),
+    application: v.optional(v.object({ id: v.id("applications"), company: v.string() })),
   })
 )
 

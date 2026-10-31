@@ -7,7 +7,7 @@ import { action, env, httpAction } from "../../_generated/server"
 import { arkToConvex, checked } from "../../lib/ark"
 import { authedQuery } from "../../lib/functions"
 import { seal } from "../../lib/secrets"
-import { baseAddress, numberIn } from "./addresses"
+import { baseAddress, tagIn } from "./addresses"
 import { kindOf, messageIdsIn, portalOf, slotOf, zoneOf } from "./match"
 import { createRule, removeInbound, routingEnabled, ruleFor, uploadWorker } from "./cloudflare"
 import {
@@ -205,7 +205,7 @@ const importMail = action({
       return "known"
     const application = await ctx.runQuery(internal.email.importTarget, {
       userId,
-      number: numberIn(mail.to),
+      tag: tagIn(mail.to),
       threadKeys: await Promise.all(
         [...messageIdsIn(mail.references), ...messageIdsIn(mail.inReplyTo)].map((id) =>
           threadKeyOf(userId, id)

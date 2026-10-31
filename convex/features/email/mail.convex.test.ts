@@ -104,17 +104,36 @@ describe("incoming mail", () => {
   it("files mail to an application's address there, even if it names another company", async () => {
     const { receive, hooli } = await setup()
     const event = await receive({
-      to: ["reach+app-3@example.com"],
+      to: ["reach+hooli@example.com"],
       subject: "Your application at Acme",
     })
     expect(event).toMatchObject({ applicationId: hooli, by: "tag" })
   })
 
+  it("picks by role when a company has two applications", async () => {
+    const { t, userId, receive } = await setup()
+    const designer = await t.run((ctx) =>
+      ctx.db.insert("applications", {
+        userId,
+        company: "Hooli",
+        role: "Product Designer",
+        status: "saved",
+        number: 9,
+        history: [],
+      })
+    )
+    const event = await receive({
+      to: ["reach+hooli@example.com"],
+      subject: "Your Product Designer application",
+    })
+    expect(event?.applicationId).toBe(designer)
+  })
+
   it("falls back to guessing for a tag that matches nothing, or one in the Trash", async () => {
     const { t, receive, acme } = await setup()
-    expect((await receive({ to: ["reach+app-99@example.com"] }))?.applicationId).toBeUndefined()
+    expect((await receive({ to: ["reach+nobody@example.com"] }))?.applicationId).toBeUndefined()
     await t.run((ctx) => ctx.db.patch("applications", acme, { trashedAt: 5 }))
-    expect((await receive({ to: ["reach+app-4@example.com"] }))?.applicationId).toBeUndefined()
+    expect((await receive({ to: ["reach+acme@example.com"] }))?.applicationId).toBeUndefined()
   })
 })
 
@@ -198,19 +217,24 @@ describe("importing old mail", () => {
 describe("an address without a plus", () => {
   it("adds one routing rule, once, and files mail sent to it", async () => {
     const { as, hooli, receive } = await setup()
-    fetchMock.mockImplementation(
-      async () =>
-        new Response(JSON.stringify({ success: true, result: { id: "rule1" } }), { status: 200 })
-    )
+    const rules: { id: string; matchers: { type: string; value: string }[] }[] = []
+    fetchMock.mockImplementation(async (_, init) => {
+      if (init?.method === "POST") {
+        const { matchers } = JSON.parse(init.body as string)
+        rules.push({ id: "rule1", matchers })
+        return new Response(JSON.stringify({ success: true, result: { id: "rule1" } }), {
+          status: 200,
+        })
+      }
+      return new Response(JSON.stringify({ success: true, result: rules }), { status: 200 })
+    })
     const args = { applicationId: hooli }
-    expect(await as.action(api.email.makeAddressWithoutPlus, args)).toBe("reach.app-3@example.com")
-    expect(await as.action(api.email.makeAddressWithoutPlus, args)).toBe("reach.app-3@example.com")
-    expect(fetchMock).toHaveBeenCalledTimes(1)
-    expect(JSON.parse(fetchMock.mock.calls[0]![1]!.body as string).matchers[0].value).toBe(
-      "reach.app-3@example.com"
-    )
+    expect(await as.action(api.email.makeAddressWithoutPlus, args)).toBe("reach.hooli@example.com")
+    expect(await as.action(api.email.makeAddressWithoutPlus, args)).toBe("reach.hooli@example.com")
+    expect(rules).toHaveLength(1)
+    expect(rules[0]?.matchers[0]?.value).toBe("reach.hooli@example.com")
     expect((await as.query(api.email.connection, {}))?.tracking).toBe(true)
-    expect(await receive({ to: ["reach.app-3@example.com"] })).toMatchObject({
+    expect(await receive({ to: ["reach.hooli@example.com"] })).toMatchObject({
       applicationId: hooli,
       by: "tag",
     })
@@ -274,7 +298,7 @@ describe("sending from an application", () => {
     await as.action(api.email.sendFromApplication, { applicationId: hooli, ...mail })
     expect(body()).toMatchObject({
       from: "reach@example.com",
-      reply_to: "reach+app-3@example.com",
+      reply_to: "reach+hooli@example.com",
       to: ["pat@hooli.com"],
     })
     const [line] = await as.query(api.email.timeline, {})
@@ -294,7 +318,7 @@ describe("sending from an application", () => {
   it("threads a reply to the email it answers", async () => {
     const { as, hooli, receive } = await setup()
     const event = await receive({
-      to: ["reach+app-3@example.com"],
+      to: ["reach+hooli@example.com"],
       messageId: "<new@y.io>",
       references: "<old@y.io>",
     })
