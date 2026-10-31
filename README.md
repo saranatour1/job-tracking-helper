@@ -68,9 +68,11 @@ sh scripts/push-secrets.test.sh
 
 ### Deploy
 
-The site runs on Cloudflare Workers. The build reads the Convex URLs from `.env.production`. In the Cloudflare project, set the build command to `pnpm run build` and the deploy command to `npx convex deploy && npx wrangler deploy`, which ships the backend first. The Worker name in `wrangler.jsonc` must match the project.
+The site runs on Cloudflare Workers. In the Cloudflare project, set the build command to `pnpm convex deploy --cmd "vp build"`, which builds the site and ships the backend, and the deploy command to `npx wrangler deploy`. The Worker name in `wrangler.jsonc` must match the project.
 
-The deploy command needs a production deploy key from the Convex dashboard. Add it in the Cloudflare project's build settings as a secret named `CONVEX_DEPLOY_KEY`.
+The build command needs a production deploy key from the Convex dashboard. Add it in the Cloudflare project's build settings as a secret named `CONVEX_DEPLOY_KEY`. Turn off builds for other branches, since they would deploy their backend to production too.
+
+`vp run deploy` does the same from your machine. A plain `vp build` reads the Convex URLs from `.env.production`.
 
 ## Folder structure
 
