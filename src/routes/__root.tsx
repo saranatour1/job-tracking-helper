@@ -3,7 +3,7 @@ import { HeadContent, ScriptOnce, Scripts, createRootRoute } from "@tanstack/rea
 import { ConvexAuthProvider } from "@convex-dev/auth/react"
 import { ConvexReactClient } from "convex/react"
 import { ConvexQueryCacheProvider } from "convex-helpers/react/cache/provider"
-import { api } from "@convex/_generated/api"
+import { api } from "@/lib/api"
 import { themeScript } from "@/features/shell/theme"
 import appCss from "@/styles.css?url"
 

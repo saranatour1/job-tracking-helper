@@ -58,7 +58,7 @@ const judgeOne = internalAction({
   args: { jobId: v.id("jobs"), profile: vProfile },
   returns: vJudgeResult,
   handler: async (ctx, { jobId, profile }): Promise<Infer<typeof vJudgeResult>> => {
-    const job: Doc<"jobs"> | null = await ctx.runQuery(internal.jobs.get, { jobId })
+    const job: Doc<"jobs"> | null = await ctx.runQuery(internal.api.jobs.get, { jobId })
     if (!job) return { cost: 0, judged: null }
     const { cost, ...verdict } = await judge(profile, job)
     return {

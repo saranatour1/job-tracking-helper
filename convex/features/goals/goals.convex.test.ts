@@ -43,35 +43,35 @@ const setup = async () => {
 describe("goals", () => {
   it("creates, lists, updates and ticks milestones", async () => {
     const { as } = await setup()
-    const id = await as.mutation(api.goals.create, goal)
-    expect((await as.query(api.goals.list)).map((g) => g._id)).toEqual([id])
+    const id = await as.mutation(api.api.goals.create, goal)
+    expect((await as.query(api.api.goals.list)).map((g) => g._id)).toEqual([id])
 
-    await as.mutation(api.goals.update, {
+    await as.mutation(api.api.goals.update, {
       id,
       name: "  Land a role  ",
       milestones: [{ name: "Polish resume", done: true }],
     })
-    const [saved] = await as.query(api.goals.list)
+    const [saved] = await as.query(api.api.goals.list)
     expect(saved?.name).toBe("Land a role")
     expect(saved?.milestones[0]?.done).toBe(true)
   })
 
   it("refuses a blank name and a date that isn't a day", async () => {
     const { as } = await setup()
-    await expect(as.mutation(api.goals.create, { ...goal, name: "  " })).rejects.toThrow()
-    await expect(as.mutation(api.goals.create, { ...goal, start: "soon" })).rejects.toThrow()
+    await expect(as.mutation(api.api.goals.create, { ...goal, name: "  " })).rejects.toThrow()
+    await expect(as.mutation(api.api.goals.create, { ...goal, start: "soon" })).rejects.toThrow()
   })
 
   it("lets an application join a goal, and leave it when the goal goes", async () => {
     const { t, as, addApplication } = await setup()
-    const goalId = await as.mutation(api.goals.create, goal)
+    const goalId = await as.mutation(api.api.goals.create, goal)
     const applicationId = await addApplication()
 
-    await as.mutation(api.applications.setGoal, { id: applicationId, goalId })
+    await as.mutation(api.api.applications.setGoal, { id: applicationId, goalId })
     expect((await t.run((ctx) => ctx.db.get("applications", applicationId)))?.goalId).toBe(goalId)
 
-    await as.mutation(api.goals.remove, { id: goalId })
-    expect(await as.query(api.goals.list)).toEqual([])
+    await as.mutation(api.api.goals.remove, { id: goalId })
+    expect(await as.query(api.api.goals.list)).toEqual([])
     expect((await t.run((ctx) => ctx.db.get("applications", applicationId)))?.goalId).toBe(
       undefined
     )
@@ -79,14 +79,14 @@ describe("goals", () => {
 
   it("retries a goal as a fresh one, starting today for the same length", async () => {
     const { as } = await setup()
-    const id = await as.mutation(api.goals.create, {
+    const id = await as.mutation(api.api.goals.create, {
       ...goal,
       start: "2026-01-01",
       target: "2026-01-31",
       milestones: [{ name: "Polish resume", done: true, target: "2026-01-10" }],
     })
-    const retried = await as.mutation(api.goals.retry, { id })
-    const goals = await as.query(api.goals.list)
+    const retried = await as.mutation(api.api.goals.retry, { id })
+    const goals = await as.query(api.api.goals.list)
     const fresh = goals.find((g) => g._id === retried)
     const today = new Date().toISOString().slice(0, 10)
     expect(goals).toHaveLength(2)
@@ -129,13 +129,13 @@ describe("goals", () => {
     const other = await t.run((ctx) => ctx.db.insert("users", { name: "Ada" }))
     const theirs = await addLoop(other, "Theirs")
 
-    const id = await as.mutation(api.goals.create, { ...goal, loopId })
-    expect((await as.query(api.goals.list))[0]?.loopId).toBe(loopId)
-    await expect(as.mutation(api.goals.update, { id, loopId: theirs })).rejects.toThrow(
+    const id = await as.mutation(api.api.goals.create, { ...goal, loopId })
+    expect((await as.query(api.api.goals.list))[0]?.loopId).toBe(loopId)
+    await expect(as.mutation(api.api.goals.update, { id, loopId: theirs })).rejects.toThrow(
       "That loop isn't yours."
     )
-    await as.mutation(api.goals.update, { id, loopId: null })
-    expect((await as.query(api.goals.list))[0]?.loopId).toBe(undefined)
+    await as.mutation(api.api.goals.update, { id, loopId: null })
+    expect((await as.query(api.api.goals.list))[0]?.loopId).toBe(undefined)
   })
 
   it("stops taking roles from a loop that's removed", async () => {
@@ -162,22 +162,22 @@ describe("goals", () => {
         nextRunAt: 0,
       })
     )
-    const id = await as.mutation(api.goals.create, { ...goal, loopId })
-    await as.mutation(api.loops.remove, { loopId })
-    const row = (await as.query(api.goals.list)).find((g) => g._id === id)
+    const id = await as.mutation(api.api.goals.create, { ...goal, loopId })
+    await as.mutation(api.api.loops.remove, { loopId })
+    const row = (await as.query(api.api.goals.list)).find((g) => g._id === id)
     expect(row?.loopId).toBe(undefined)
   })
 
   it("takes applications off a goal that's removed, and only those", async () => {
     const { as, addApplication } = await setup()
-    const id = await as.mutation(api.goals.create, goal)
-    const kept = await as.mutation(api.goals.create, { ...goal, name: "Other" })
+    const id = await as.mutation(api.api.goals.create, goal)
+    const kept = await as.mutation(api.api.goals.create, { ...goal, name: "Other" })
     const on = await addApplication()
     const elsewhere = await addApplication()
-    await as.mutation(api.applications.setGoal, { id: on, goalId: id })
-    await as.mutation(api.applications.setGoal, { id: elsewhere, goalId: kept })
-    await as.mutation(api.goals.remove, { id })
-    const goals = new Map((await as.query(api.applications.list)).map((a) => [a._id, a.goalId]))
+    await as.mutation(api.api.applications.setGoal, { id: on, goalId: id })
+    await as.mutation(api.api.applications.setGoal, { id: elsewhere, goalId: kept })
+    await as.mutation(api.api.goals.remove, { id })
+    const goals = new Map((await as.query(api.api.applications.list)).map((a) => [a._id, a.goalId]))
     expect(goals.get(on)).toBe(undefined)
     expect(goals.get(elsewhere)).toBe(kept)
   })
@@ -187,14 +187,14 @@ describe("goals", () => {
     const other = t.withIdentity({
       subject: await t.run((ctx) => ctx.db.insert("users", { name: "Ada" })),
     })
-    const goalId = await other.mutation(api.goals.create, goal)
+    const goalId = await other.mutation(api.api.goals.create, goal)
     const applicationId = await addApplication()
 
-    expect(await as.query(api.goals.list)).toEqual([])
+    expect(await as.query(api.api.goals.list)).toEqual([])
     await expect(
-      as.mutation(api.applications.setGoal, { id: applicationId, goalId })
+      as.mutation(api.api.applications.setGoal, { id: applicationId, goalId })
     ).rejects.toThrow("That goal isn't yours.")
-    await expect(as.mutation(api.goals.remove, { id: goalId })).rejects.toThrow(
+    await expect(as.mutation(api.api.goals.remove, { id: goalId })).rejects.toThrow(
       "That goal isn't yours."
     )
   })

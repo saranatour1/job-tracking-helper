@@ -87,7 +87,7 @@ export const deleteEmail = async (ctx: MutationCtx, userId: Id<"users">) => {
     .query("mailEvents")
     .withIndex("by_userId_and_applicationId", (q) => q.eq("userId", userId)))
     await ctx.db.delete("mailEvents", event._id)
-  await ctx.scheduler.runAfter(0, internal.email.removeEmails, { owner: userId })
+  await ctx.scheduler.runAfter(0, internal.api.email.removeEmails, { owner: userId })
 }
 
 export const limits = new RateLimiter(components.rateLimiter, {
@@ -115,7 +115,7 @@ export const secretKeys = () =>
 
 /** The connection with its details and token opened in memory, for an action to use. */
 export const openConnection = async (ctx: ActionCtx, userId: Id<"users">) => {
-  const row = await ctx.runQuery(internal.email.sealed, { userId })
+  const row = await ctx.runQuery(internal.api.email.sealed, { userId })
   if (!row) throw new ConvexError("Connect Cloudflare first.")
   const k = await secretKeys()
   const details = await openJson(k, row.details, aad.details(userId), Details)

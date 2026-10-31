@@ -19,7 +19,7 @@ type Authed = { query: ReturnType<typeof convexTest>["query"] }
 
 const trashedOf = async (as: Authed) =>
   (
-    await as.query(api.applications.trashed, {
+    await as.query(api.api.applications.trashed, {
       paginationOpts: { numItems: 100, cursor: null },
     })
   ).page
@@ -57,17 +57,17 @@ describe("archive and trash", () => {
   it("keeps archived ones listed and marked, and trashed ones out of the list", async () => {
     const { as, add } = await setup()
     const [a, b, c] = [await add("Acme"), await add("Hooli"), await add("Initech")]
-    await as.mutation(api.applications.archive, { id: a, archived: true })
-    await as.mutation(api.applications.trash, { id: b })
-    const list = await as.query(api.applications.list, {})
+    await as.mutation(api.api.applications.archive, { id: a, archived: true })
+    await as.mutation(api.api.applications.trash, { id: b })
+    const list = await as.query(api.api.applications.list, {})
     expect(list.map((x) => [x.company, x.archivedAt !== undefined])).toEqual([
       ["Acme", true],
       ["Initech", false],
     ])
     expect((await trashedOf(as)).map((x) => x.company)).toEqual(["Hooli"])
-    await as.mutation(api.applications.restore, { id: b })
+    await as.mutation(api.api.applications.restore, { id: b })
     expect(await trashedOf(as)).toEqual([])
-    expect((await as.query(api.applications.list, {})).map((x) => x._id)).toContain(c)
+    expect((await as.query(api.api.applications.list, {})).map((x) => x._id)).toContain(c)
   })
 
   it("deletes for good only from the Trash, and unlinks what pointed at it", async () => {
@@ -87,11 +87,11 @@ describe("archive and trash", () => {
         status: "applied",
       })
     )
-    await expect(as.mutation(api.applications.deleteForever, { id })).rejects.toThrow(
+    await expect(as.mutation(api.api.applications.deleteForever, { id })).rejects.toThrow(
       "Move it to the Trash before deleting it."
     )
-    await as.mutation(api.applications.trash, { id })
-    await as.mutation(api.applications.deleteForever, { id })
+    await as.mutation(api.api.applications.trash, { id })
+    await as.mutation(api.api.applications.deleteForever, { id })
     expect(await t.run((ctx) => ctx.db.get("applications", id))).toBeNull()
     // The lead stays tracked, so loops won't offer the role again.
     const lead = await t.run((ctx) => ctx.db.get("jobLeads", leadId))
@@ -103,27 +103,27 @@ describe("archive and trash", () => {
     const { t, as, add } = await setup()
     const archived = await add("Acme")
     const trashed = await add("Hooli")
-    await as.mutation(api.applications.archive, { id: archived, archived: true })
-    await as.mutation(api.applications.trash, { id: trashed })
+    await as.mutation(api.api.applications.archive, { id: archived, archived: true })
+    await as.mutation(api.api.applications.trash, { id: trashed })
 
     vi.setSystemTime(Date.now() + 31 * day)
-    expect(await t.mutation(internal.applications.sweep, {})).toEqual({ trashed: 1, deleted: 0 })
+    expect(await t.mutation(internal.api.applications.sweep, {})).toEqual({ trashed: 1, deleted: 0 })
     expect((await trashedOf(as)).map((x) => x.company)).toEqual(["Acme", "Hooli"])
 
     // 90 days by default: Hooli, trashed first, goes; Acme, trashed 31 days later, stays.
     vi.setSystemTime(Date.now() + 60 * day)
-    expect(await t.mutation(internal.applications.sweep, {})).toEqual({ trashed: 0, deleted: 1 })
+    expect(await t.mutation(internal.api.applications.sweep, {})).toEqual({ trashed: 0, deleted: 1 })
     expect((await trashedOf(as)).map((x) => x.company)).toEqual(["Acme"])
   })
 
   it("keeps the Trash when set to never, and takes only the offered choices", async () => {
     const { t, as, add } = await setup()
     const id = await add("Acme")
-    await as.mutation(api.applications.trash, { id })
-    await as.mutation(api.applications.setTrashDays, { days: 0 })
+    await as.mutation(api.api.applications.trash, { id })
+    await as.mutation(api.api.applications.setTrashDays, { days: 0 })
     vi.setSystemTime(Date.now() + 400 * day)
-    expect(await t.mutation(internal.applications.sweep, {})).toEqual({ trashed: 0, deleted: 0 })
-    await expect(as.mutation(api.applications.setTrashDays, { days: 7 })).rejects.toThrow(
+    expect(await t.mutation(internal.api.applications.sweep, {})).toEqual({ trashed: 0, deleted: 0 })
+    await expect(as.mutation(api.api.applications.setTrashDays, { days: 7 })).rejects.toThrow(
       "Pick one of the choices."
     )
   })
@@ -131,12 +131,12 @@ describe("archive and trash", () => {
   it("takes an archived one out of the Archive when it's trashed", async () => {
     const { t, as, add } = await setup()
     const id = await add("Acme")
-    await as.mutation(api.applications.archive, { id, archived: true })
-    await as.mutation(api.applications.trash, { id })
+    await as.mutation(api.api.applications.archive, { id, archived: true })
+    await as.mutation(api.api.applications.trash, { id })
     const doc = await t.run((ctx) => ctx.db.get("applications", id))
     expect(doc?.archivedAt).toBeUndefined()
     expect(doc!.purgeAt! - doc!.trashedAt!).toBe(90 * day)
-    await expect(as.mutation(api.applications.setStatus, { id, status: "offer" })).rejects.toThrow(
+    await expect(as.mutation(api.api.applications.setStatus, { id, status: "offer" })).rejects.toThrow(
       "That application is in the Trash."
     )
   })
@@ -144,10 +144,10 @@ describe("archive and trash", () => {
   it("moves what's in the Trash to a new date when the setting changes", async () => {
     const { t, as, add } = await setup()
     const id = await add("Acme")
-    await as.mutation(api.applications.trash, { id })
-    await as.mutation(api.applications.setTrashDays, { days: 30 })
+    await as.mutation(api.api.applications.trash, { id })
+    await as.mutation(api.api.applications.setTrashDays, { days: 30 })
     vi.setSystemTime(Date.now() + 31 * day)
-    expect(await t.mutation(internal.applications.sweep, {})).toEqual({ trashed: 0, deleted: 1 })
+    expect(await t.mutation(internal.api.applications.sweep, {})).toEqual({ trashed: 0, deleted: 1 })
   })
 
   it("deletes one person's due Trash whatever others keep", async () => {
@@ -170,9 +170,9 @@ describe("archive and trash", () => {
       } as never)
     )
     const mine = await add("Acme")
-    await as.mutation(api.applications.trash, { id: mine })
+    await as.mutation(api.api.applications.trash, { id: mine })
     vi.setSystemTime(Date.now() + 100 * day)
-    await t.mutation(internal.applications.sweep, {})
+    await t.mutation(internal.api.applications.sweep, {})
     expect(await t.run((ctx) => ctx.db.get("applications", mine))).toBeNull()
     expect(await t.run((ctx) => ctx.db.get("applications", theirs))).not.toBeNull()
   })
@@ -180,8 +180,8 @@ describe("archive and trash", () => {
   it("empties a big Trash in batches", async () => {
     const { t, as, add } = await setup()
     for (let i = 0; i < 30; i++)
-      await as.mutation(api.applications.trash, { id: await add(`Co ${i}`) })
-    expect(await as.mutation(api.applications.emptyTrash, {})).toBe(25)
+      await as.mutation(api.api.applications.trash, { id: await add(`Co ${i}`) })
+    expect(await as.mutation(api.api.applications.emptyTrash, {})).toBe(25)
     await t.finishAllScheduledFunctions(vi.runAllTimers)
     expect(await trashedOf(as)).toEqual([])
   })
@@ -190,26 +190,26 @@ describe("archive and trash", () => {
     const { as, add } = await setup()
     const ids = [await add("Old"), await add("Middle"), await add("New"), await add("Kept")]
     for (const id of ids.slice(0, 3)) {
-      await as.mutation(api.applications.trash, { id })
+      await as.mutation(api.api.applications.trash, { id })
       vi.advanceTimersByTime(1000)
     }
-    const first = await as.query(api.applications.trashed, {
+    const first = await as.query(api.api.applications.trashed, {
       paginationOpts: { numItems: 2, cursor: null },
     })
     expect(first.page.map((a) => a.company)).toEqual(["New", "Middle"])
     expect(first.isDone).toBe(false)
-    const second = await as.query(api.applications.trashed, {
+    const second = await as.query(api.api.applications.trashed, {
       paginationOpts: { numItems: 2, cursor: first.continueCursor },
     })
     expect(second.page.map((a) => a.company)).toEqual(["Old"])
-    expect((await as.query(api.applications.list, {})).map((a) => a.company)).toEqual(["Kept"])
+    expect((await as.query(api.api.applications.list, {})).map((a) => a.company)).toEqual(["Kept"])
   })
 
   it("keeps the board oldest first", async () => {
     const { as, add } = await setup()
     await add("First")
     await add("Second")
-    expect((await as.query(api.applications.list, {})).map((a) => a.company)).toEqual([
+    expect((await as.query(api.api.applications.list, {})).map((a) => a.company)).toEqual([
       "First",
       "Second",
     ])
@@ -220,7 +220,7 @@ describe("archive and trash", () => {
     const id = await add("Acme")
     const other = await t.run((ctx) => ctx.db.insert("users", { name: "Alex" }))
     await expect(
-      t.withIdentity({ subject: other }).mutation(api.applications.trash, { id })
+      t.withIdentity({ subject: other }).mutation(api.api.applications.trash, { id })
     ).rejects.toThrow("That application isn't yours.")
   })
 })

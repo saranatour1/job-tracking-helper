@@ -69,7 +69,7 @@ const save = action({
     if (!details.name && !details.email) throw new ConvexError("Give it a name or an email.")
     const k = await secretKeys()
     const email = details.email.toLowerCase()
-    const result = await ctx.runMutation(internal.contacts.store, {
+    const result = await ctx.runMutation(internal.api.contacts.store, {
       userId,
       ...(id && { id }),
       // With no address there's nothing to match later mail to, so any unique key will do.

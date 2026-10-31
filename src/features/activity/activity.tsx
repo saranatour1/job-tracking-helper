@@ -1,4 +1,4 @@
-import { api } from "@convex/_generated/api"
+import { api } from "@/lib/api"
 import { getRouteApi, Link } from "@tanstack/react-router"
 import type { FunctionReturnType } from "convex/server"
 import { useMutation } from "convex/react"

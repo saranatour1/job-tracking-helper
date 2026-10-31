@@ -102,7 +102,7 @@ const sweep = internalMutation({
       .withIndex("by_at", (q) => q.lt("at", Date.now() - keepFor))
       .take(sweepSize)
     await Promise.all(old.map((row) => ctx.db.delete("activityEvents", row._id)))
-    if (old.length === sweepSize) await ctx.scheduler.runAfter(0, internal.activity.sweep, {})
+    if (old.length === sweepSize) await ctx.scheduler.runAfter(0, internal.api.activity.sweep, {})
     return null
   },
 })

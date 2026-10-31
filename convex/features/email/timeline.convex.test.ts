@@ -51,7 +51,7 @@ describe("the mail timeline", () => {
         by: "rules",
       })
     })
-    const events = await t.withIdentity({ subject: userId }).query(api.email.timeline, {})
+    const events = await t.withIdentity({ subject: userId }).query(api.api.email.timeline, {})
     expect(events).toHaveLength(300)
     expect(events[0]?.at).toBe(1000)
   })

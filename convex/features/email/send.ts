@@ -63,7 +63,7 @@ const recordSent = internalMutation({
       by: "sent",
       box: "sent",
     })
-    await ctx.scheduler.runAfter(0, internal.contacts.learn, { eventId: id })
+    await ctx.scheduler.runAfter(0, internal.api.contacts.learn, { eventId: id })
     return null
   },
 })
@@ -77,7 +77,7 @@ const sendOne = async (
   const { applicationId, to, subject, text, replyTo, html, draftId } = checked(SendMail, args)
   const { row, k, details, token } = await openConnection(ctx, userId)
   if (!row.allow.send) throw new ConvexError("Turn on “Send email” under Account first.")
-  const context = await ctx.runQuery(internal.email.sendContext, {
+  const context = await ctx.runQuery(internal.api.email.sendContext, {
     userId,
     ...(applicationId && { applicationId }),
     ...(replyTo && { replyTo }),
@@ -123,7 +123,7 @@ const sendOne = async (
     error: error && (await seal(k, error, aad.email(userId))),
   })
   if (error) throw new ConvexError(`Cloudflare didn't send it: ${error}`)
-  await ctx.runMutation(internal.email.recordSent, {
+  await ctx.runMutation(internal.api.email.recordSent, {
     userId,
     ...(applicationId && { applicationId }),
     emailId,
@@ -133,7 +133,7 @@ const sendOne = async (
       aad.email(userId)
     ),
   })
-  if (draftId) await ctx.runMutation(api.mailbox.deleteDraft, { id: draftId })
+  if (draftId) await ctx.runMutation(api.api.mailbox.deleteDraft, { id: draftId })
 }
 
 const sendFromApplication = action({
@@ -174,7 +174,7 @@ const makeAddressWithoutPlus = action({
     if (!row.inbound || !row.allow.receive) throw new ConvexError("Set up incoming mail first.")
     if (!row.allow.setup || !details.zoneId)
       throw new ConvexError("Turn on “Set up Cloudflare for you” first.")
-    const context = await ctx.runQuery(internal.email.sendContext, { userId, applicationId })
+    const context = await ctx.runQuery(internal.api.email.sendContext, { userId, applicationId })
     if (!context?.company) throw new ConvexError("That application isn't here anymore.")
     const address = addressWithoutPlus(details.fromAddress, context.company)
     // Applications at one company share it.
@@ -188,7 +188,7 @@ const makeAddressWithoutPlus = action({
         throw cloudflare(cause)
       }
     )
-    await ctx.runMutation(internal.email.addAliasRule, { userId, ruleId })
+    await ctx.runMutation(internal.api.email.addAliasRule, { userId, ruleId })
     return address
   },
 })

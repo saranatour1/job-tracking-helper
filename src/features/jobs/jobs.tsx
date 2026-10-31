@@ -1,4 +1,4 @@
-import { api } from "@convex/_generated/api"
+import { api } from "@/lib/api"
 import { rowLimits } from "@convex/features/preferences/rows"
 import { PrepareButton } from "@/features/prefilled/prefilled"
 import { Cancel01Icon, LinkSquare02Icon, Search01Icon } from "@hugeicons/core-free-icons"

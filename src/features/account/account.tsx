@@ -1,5 +1,5 @@
 import { useAuthActions } from "@convex-dev/auth/react"
-import { api } from "@convex/_generated/api"
+import { api } from "@/lib/api"
 import type { Id } from "@convex/_generated/dataModel"
 import { maxImageBytes, Profile } from "@convex/features/users/validators"
 import { useForm } from "@tanstack/react-form"

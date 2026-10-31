@@ -1,4 +1,4 @@
-import { api } from "@convex/_generated/api"
+import { api } from "@/lib/api"
 import type { Doc } from "@convex/_generated/dataModel"
 import { blocksOf } from "@convex/features/automations/validators"
 import { Link, useNavigate } from "@tanstack/react-router"

@@ -74,8 +74,8 @@ const setup = async () => {
   const as = t.withIdentity({ subject: userId })
   // A row prepared and waiting, as `prepareForm` leaves it.
   const prepared = async (fields: Parameters<typeof field>[0][] = []) => {
-    const id = await as.mutation(api.prefilled.prepare, { jobId })
-    await t.mutation(internal.prefilled.savePrepared, {
+    const id = await as.mutation(api.api.prefilled.prepare, { jobId })
+    await t.mutation(internal.api.prefilled.savePrepared, {
       id,
       fields: fields.map((q) => field(q)),
       credits: 2,
@@ -100,10 +100,10 @@ const lead = (userId: Id<"users">, n: number, url: string) => ({
 describe("preparing an application", () => {
   it("makes one row per posting, however many times it's asked", async () => {
     const { t, as, jobId } = await setup()
-    const id = await as.mutation(api.prefilled.prepare, { jobId })
-    expect(await as.mutation(api.prefilled.prepare, { jobId })).toBe(id)
+    const id = await as.mutation(api.api.prefilled.prepare, { jobId })
+    expect(await as.mutation(api.api.prefilled.prepare, { jobId })).toBe(id)
     expect(await t.run((ctx) => ctx.db.query("prefills").collect())).toHaveLength(1)
-    const [row] = await as.query(api.prefilled.list)
+    const [row] = await as.query(api.api.prefilled.list)
     expect([row?.status, row?.company]).toEqual(["preparing", "Hooli"])
   })
 
@@ -116,7 +116,7 @@ describe("preparing an application", () => {
         .unique()
       await ctx.db.patch("preferences", row!._id, { resumeId: undefined })
     })
-    await expect(as.mutation(api.prefilled.prepare, { jobId })).rejects.toThrow(
+    await expect(as.mutation(api.api.prefilled.prepare, { jobId })).rejects.toThrow(
       "Upload a resume on the Resume page first."
     )
   })
@@ -124,9 +124,9 @@ describe("preparing an application", () => {
   it("says what it needs from you, and is ready once you've answered", async () => {
     const { as, prepared } = await setup()
     const id = await prepared(["Why this role?"])
-    expect((await as.query(api.prefilled.get, { id }))?.prefill.status).toBe("needsAnswers")
-    await as.mutation(api.prefilled.setAnswer, { id, question: "Why this role?", answer: "  Fit " })
-    const row = (await as.query(api.prefilled.get, { id }))!.prefill
+    expect((await as.query(api.api.prefilled.get, { id }))?.prefill.status).toBe("needsAnswers")
+    await as.mutation(api.api.prefilled.setAnswer, { id, question: "Why this role?", answer: "  Fit " })
+    const row = (await as.query(api.api.prefilled.get, { id }))!.prefill
     expect(row.status).toBe("ready")
     expect(row.fields[0]).toMatchObject({ answer: "Fit", source: "you" })
   })
@@ -134,14 +134,14 @@ describe("preparing an application", () => {
   it("keeps an answer for future forms only when asked, and only once", async () => {
     const { t, as, prepared, userId } = await setup()
     const id = await prepared(["Why this role?", "Portfolio"])
-    await as.mutation(api.prefilled.setAnswer, { id, question: "Portfolio", answer: "site.dev" })
-    await as.mutation(api.prefilled.setAnswer, {
+    await as.mutation(api.api.prefilled.setAnswer, { id, question: "Portfolio", answer: "site.dev" })
+    await as.mutation(api.api.prefilled.setAnswer, {
       id,
       question: "Why this role?",
       answer: "One",
       keep: true,
     })
-    await as.mutation(api.prefilled.setAnswer, {
+    await as.mutation(api.api.prefilled.setAnswer, {
       id,
       question: "Why this role?",
       answer: "Two",
@@ -163,46 +163,46 @@ describe("preparing an application", () => {
 
   it("refuses an option the form doesn't offer", async () => {
     const { t, as, jobId } = await setup()
-    const id = await as.mutation(api.prefilled.prepare, { jobId })
-    await t.mutation(internal.prefilled.savePrepared, {
+    const id = await as.mutation(api.api.prefilled.prepare, { jobId })
+    await t.mutation(internal.api.prefilled.savePrepared, {
       id,
       fields: [field("Sponsorship?", { options: ["Yes", "No"] })],
       credits: 0,
     })
     await expect(
-      as.mutation(api.prefilled.setAnswer, { id, question: "Sponsorship?", answer: "Maybe" })
+      as.mutation(api.api.prefilled.setAnswer, { id, question: "Sponsorship?", answer: "Maybe" })
     ).rejects.toThrow("Pick one of the form's options.")
   })
 
   it("keeps what you typed when the form is read again", async () => {
     const { t, as, prepared } = await setup()
     const id = await prepared(["Why this role?"])
-    await as.mutation(api.prefilled.setAnswer, { id, question: "Why this role?", answer: "Mine" })
-    await as.mutation(api.prefilled.prepareAgain, { id })
-    await t.mutation(internal.prefilled.savePrepared, {
+    await as.mutation(api.api.prefilled.setAnswer, { id, question: "Why this role?", answer: "Mine" })
+    await as.mutation(api.api.prefilled.prepareAgain, { id })
+    await t.mutation(internal.api.prefilled.savePrepared, {
       id,
       fields: [field("Why this role?")],
       credits: 2,
     })
-    const row = (await as.query(api.prefilled.get, { id }))!.prefill
+    const row = (await as.query(api.api.prefilled.get, { id }))!.prefill
     expect(row.fields[0]).toMatchObject({ answer: "Mine", source: "you" })
     expect(row.credits).toBe(4)
     // The Inbox heard about it once.
-    expect(await as.query(api.inbox.inbox)).toHaveLength(1)
+    expect(await as.query(api.api.inbox.inbox)).toHaveLength(1)
   })
 
   it("keeps a draft when the form is read again, until a saved answer covers it", async () => {
     const { t, as, jobId } = await setup()
-    const id = await as.mutation(api.prefilled.prepare, { jobId })
-    await t.mutation(internal.prefilled.savePrepared, {
+    const id = await as.mutation(api.api.prefilled.prepare, { jobId })
+    await t.mutation(internal.api.prefilled.savePrepared, {
       id,
       fields: [field("Why us?", { answer: "Drafted.", source: "ai" })],
       credits: 2,
     })
     const again = async (fields: ReturnType<typeof field>[]) => {
-      await as.mutation(api.prefilled.prepareAgain, { id })
-      await t.mutation(internal.prefilled.savePrepared, { id, fields, credits: 2 })
-      return (await as.query(api.prefilled.get, { id }))!.prefill
+      await as.mutation(api.api.prefilled.prepareAgain, { id })
+      await t.mutation(internal.api.prefilled.savePrepared, { id, fields, credits: 2 })
+      return (await as.query(api.api.prefilled.get, { id }))!.prefill
     }
     const kept = await again([field("Why us?")])
     expect(kept.fields[0]).toMatchObject({ answer: "Drafted.", source: "ai" })
@@ -214,29 +214,29 @@ describe("preparing an application", () => {
 
   it("counts a draft as yours once you've saved it", async () => {
     const { t, as, jobId } = await setup()
-    const id = await as.mutation(api.prefilled.prepare, { jobId })
-    await t.mutation(internal.prefilled.savePrepared, {
+    const id = await as.mutation(api.api.prefilled.prepare, { jobId })
+    await t.mutation(internal.api.prefilled.savePrepared, {
       id,
       fields: [field("Why us?", { answer: "Drafted.", source: "ai" })],
       credits: 2,
     })
-    await as.mutation(api.prefilled.setAnswer, { id, question: "Why us?", answer: "Drafted." })
-    const row = (await as.query(api.prefilled.get, { id }))!.prefill
+    await as.mutation(api.api.prefilled.setAnswer, { id, question: "Why us?", answer: "Drafted." })
+    const row = (await as.query(api.api.prefilled.get, { id }))!.prefill
     expect(row.fields[0]).toMatchObject({ answer: "Drafted.", source: "you" })
     expect(row.status).toBe("ready")
   })
 
   it("marks a prepare that died as failed, and lets you try again", async () => {
     const { t, as, jobId } = await setup()
-    const id = await as.mutation(api.prefilled.prepare, { jobId })
-    await t.mutation(internal.prefilled.ended, {
+    const id = await as.mutation(api.api.prefilled.prepare, { jobId })
+    await t.mutation(internal.api.prefilled.ended, {
       workId: "w1" as never,
       context: { id },
       result: { kind: "failed", error: "timeout" },
     })
-    expect((await as.query(api.prefilled.get, { id }))?.prefill.status).toBe("failed")
-    await as.mutation(api.prefilled.prepareAgain, { id })
-    expect((await as.query(api.prefilled.get, { id }))?.prefill.status).toBe("preparing")
+    expect((await as.query(api.api.prefilled.get, { id }))?.prefill.status).toBe("failed")
+    await as.mutation(api.api.prefilled.prepareAgain, { id })
+    expect((await as.query(api.api.prefilled.get, { id }))?.prefill.status).toBe("preparing")
   })
 })
 
@@ -263,7 +263,7 @@ describe("preparing what a loop finds", () => {
 
   it("prepares each fit once, up to the day's budget, skipping boards it can't read", async () => {
     const { t, as, userId } = await setup()
-    await as.mutation(api.prefilled.setAutoPrepare, { on: true })
+    await as.mutation(api.api.prefilled.setAutoPrepare, { on: true })
     expect(await fits(t, userId, 12)).toBe(10)
     const other = await t.run(async (ctx) => {
       const id = await ctx.db.insert("jobLeads", lead(userId, 99, "https://example.com/careers/1"))
@@ -277,8 +277,8 @@ describe("preparing what a loop finds", () => {
 
 describe("applying with you there", () => {
   const live = async (s: Awaited<ReturnType<typeof setup>>, id: Id<"prefills">) => {
-    await s.t.mutation(internal.prefilled.beginLive, { userId: s.userId, id })
-    await s.t.mutation(internal.prefilled.goLive, {
+    await s.t.mutation(internal.api.prefilled.beginLive, { userId: s.userId, id })
+    await s.t.mutation(internal.api.prefilled.goLive, {
       id,
       scrapeId: "s1",
       liveUrl: "https://liveview.example/s1",
@@ -292,14 +292,14 @@ describe("applying with you there", () => {
     const s = await setup()
     const id = await s.prepared()
     await live(s, id)
-    expect((await s.as.query(api.prefilled.get, { id }))?.prefill.liveUrl).toContain("liveview")
-    const [row] = await s.as.query(api.prefilled.list)
+    expect((await s.as.query(api.api.prefilled.get, { id }))?.prefill.liveUrl).toContain("liveview")
+    const [row] = await s.as.query(api.api.prefilled.list)
     expect(row).not.toHaveProperty("liveUrl")
     expect(row).not.toHaveProperty("scrapeId")
     const otherId = await s.t.run((ctx) => ctx.db.insert("users", { name: "Other" }))
     const other = s.t.withIdentity({ subject: otherId })
-    expect(await other.query(api.prefilled.get, { id })).toBeNull()
-    await expect(other.mutation(api.prefilled.dismiss, { id })).rejects.toThrow("That isn't yours.")
+    expect(await other.query(api.api.prefilled.get, { id })).toBeNull()
+    await expect(other.mutation(api.api.prefilled.dismiss, { id })).rejects.toThrow("That isn't yours.")
   })
 
   it("won't open twice or change answers while open", async () => {
@@ -307,7 +307,7 @@ describe("applying with you there", () => {
     const id = await s.prepared(["Why?"])
     await live(s, id)
     await expect(
-      s.t.mutation(internal.prefilled.beginLive, { userId: s.userId, id })
+      s.t.mutation(internal.api.prefilled.beginLive, { userId: s.userId, id })
     ).rejects.toThrow("already open")
   })
 
@@ -315,72 +315,72 @@ describe("applying with you there", () => {
     const s = await setup()
     const id = await s.prepared(["Why?"])
     await live(s, id)
-    await s.as.mutation(api.prefilled.setAnswer, { id, question: "Why?", answer: "Because." })
-    const row = (await s.as.query(api.prefilled.get, { id }))!.prefill
+    await s.as.mutation(api.api.prefilled.setAnswer, { id, question: "Why?", answer: "Because." })
+    const row = (await s.as.query(api.api.prefilled.get, { id }))!.prefill
     expect(row.fields[0]).toMatchObject({ answer: "Because.", source: "you" })
     expect(row.status).toBe("live")
   })
 
   it("makes one application however many times it's confirmed, and stamps saved answers", async () => {
     const s = await setup()
-    const id = await s.as.mutation(api.prefilled.prepare, { jobId: s.jobId })
-    await s.t.mutation(internal.prefilled.savePrepared, {
+    const id = await s.as.mutation(api.api.prefilled.prepare, { jobId: s.jobId })
+    await s.t.mutation(internal.api.prefilled.savePrepared, {
       id,
       fields: [field("Phone", { answer: "+1", source: "saved", entryKey: s.fieldId })],
       credits: 2,
     })
     await live(s, id)
     const sent = { userId: s.userId, id, confirmation: "Thank you for applying", credits: 1 }
-    await s.t.mutation(internal.prefilled.finish, sent)
-    await s.t.mutation(internal.prefilled.finish, sent)
+    await s.t.mutation(internal.api.prefilled.finish, sent)
+    await s.t.mutation(internal.api.prefilled.finish, sent)
     expect(await s.t.run((ctx) => ctx.db.query("applications").collect())).toMatchObject([
       { status: "applied", company: "Hooli", role: "Frontend Engineer", labels: ["Remote"] },
     ])
-    const row = (await s.as.query(api.prefilled.get, { id }))!.prefill
+    const row = (await s.as.query(api.api.prefilled.get, { id }))!.prefill
     expect([row.status, row.liveUrl, row.scrapeId]).toEqual(["applied", undefined, undefined])
     const entry = await s.t.run((ctx) => ctx.db.get("profileEntries", s.fieldId))
     expect(entry?.useCount).toBe(1)
     // Sent once: it stays closed.
-    expect(await s.as.mutation(api.prefilled.prepare, { jobId: s.jobId })).toBe(id)
-    expect((await s.as.query(api.prefilled.get, { id }))?.prefill.status).toBe("applied")
-    await expect(s.as.mutation(api.prefilled.dismiss, { id })).rejects.toThrow("can't be dismissed")
+    expect(await s.as.mutation(api.api.prefilled.prepare, { jobId: s.jobId })).toBe(id)
+    expect((await s.as.query(api.api.prefilled.get, { id }))?.prefill.status).toBe("applied")
+    await expect(s.as.mutation(api.api.prefilled.dismiss, { id })).rejects.toThrow("can't be dismissed")
   })
 
   it("stays closed, without the link, when its application is deleted", async () => {
     const s = await setup()
     const id = await s.prepared()
     await live(s, id)
-    await s.t.mutation(internal.prefilled.finish, {
+    await s.t.mutation(internal.api.prefilled.finish, {
       userId: s.userId,
       id,
       confirmation: "Thank you for applying",
       credits: 1,
     })
-    const { applicationId } = (await s.as.query(api.prefilled.get, { id }))!.prefill
+    const { applicationId } = (await s.as.query(api.api.prefilled.get, { id }))!.prefill
     await s.t.run(async (ctx) => {
       const application = await ctx.db.get("applications", applicationId!)
       await deleteApplication(ctx, application!)
     })
-    const row = (await s.as.query(api.prefilled.get, { id }))!.prefill
+    const row = (await s.as.query(api.api.prefilled.get, { id }))!.prefill
     expect([row.status, row.applicationId]).toEqual(["applied", undefined])
-    expect(await s.as.mutation(api.prefilled.prepare, { jobId: s.jobId })).toBe(id)
+    expect(await s.as.mutation(api.api.prefilled.prepare, { jobId: s.jobId })).toBe(id)
   })
 
   it("goes back to waiting when the browser closes, unless it's a newer one", async () => {
     const s = await setup()
     const id = await s.prepared()
     await live(s, id)
-    await s.t.mutation(internal.prefilled.endLive, { id, scrapeId: "older" })
-    expect((await s.as.query(api.prefilled.get, { id }))?.prefill.status).toBe("live")
-    await s.t.mutation(internal.prefilled.endLive, { id, scrapeId: "s1", error: "Closed." })
-    const row = (await s.as.query(api.prefilled.get, { id }))!.prefill
+    await s.t.mutation(internal.api.prefilled.endLive, { id, scrapeId: "older" })
+    expect((await s.as.query(api.api.prefilled.get, { id }))?.prefill.status).toBe("live")
+    await s.t.mutation(internal.api.prefilled.endLive, { id, scrapeId: "s1", error: "Closed." })
+    const row = (await s.as.query(api.api.prefilled.get, { id }))!.prefill
     expect([row.status, row.liveUrl, row.error]).toEqual(["ready", undefined, "Closed."])
   })
 
   it("shows up in the Inbox when it's ready", async () => {
     const s = await setup()
     await s.prepared(["Why?"])
-    const [line] = await s.as.query(api.inbox.inbox)
+    const [line] = await s.as.query(api.api.inbox.inbox)
     expect(line).toMatchObject({
       title: "Frontend Engineer · Hooli",
       link: "/prefilled",

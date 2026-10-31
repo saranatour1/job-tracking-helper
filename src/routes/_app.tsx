@@ -1,4 +1,4 @@
-import { api } from "@convex/_generated/api"
+import { api } from "@/lib/api"
 import { Navigate, Outlet, createFileRoute, useRouterState } from "@tanstack/react-router"
 import { Authenticated, Unauthenticated } from "convex/react"
 import { useQuery } from "convex-helpers/react/cache/hooks"

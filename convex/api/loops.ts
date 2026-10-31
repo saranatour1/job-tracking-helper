@@ -1,5 +1,5 @@
-// Registers `api.loops.*` and `internal.loops.*`. Definitions live in ./features/loops.
-import { loopsApi } from "./features/loops"
+// Registers `api.api.loops.*` and `internal.api.loops.*`. Definitions live in ../features/loops.
+import { loopsApi } from "../features/loops"
 
 export const {
   list,

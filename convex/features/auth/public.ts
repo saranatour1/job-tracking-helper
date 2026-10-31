@@ -7,7 +7,7 @@ import { components, internal } from "../../_generated/api"
 import { env } from "../../_generated/server"
 
 const siteUrl = env.SITE_URL
-const userCallbacks = { createUser: internal.auth.createUser }
+const userCallbacks = { createUser: internal.api.auth.createUser }
 
 const auth = setupConvexAuth({ component: components.auth })
 

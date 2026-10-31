@@ -30,7 +30,7 @@ const refreshDue = internalMutation({
     if (!due.length) return 0
     await readPool.enqueueActionBatch(
       ctx,
-      internal.jobs.fetchBoard,
+      internal.api.jobs.fetchBoard,
       due.map((b) => ({ boardId: b._id }))
     )
     // Marked now, so the next tick doesn't queue them again while they're fetching.

@@ -22,8 +22,8 @@ const evaluate = action({
     if (!userId) throw new Error("Not signed in")
     const { ok } = await rates.limit(ctx, "goalEvaluate", { key: userId })
     if (!ok) throw new ConvexError("That's 10 re-evaluations today. Try again tomorrow.")
-    const found: FunctionReturnType<typeof internal.goals.toEvaluate> = await ctx.runQuery(
-      internal.goals.toEvaluate,
+    const found: FunctionReturnType<typeof internal.api.goals.toEvaluate> = await ctx.runQuery(
+      internal.api.goals.toEvaluate,
       { userId, id }
     )
     if (!found) throw new ConvexError("That goal isn't yours.")

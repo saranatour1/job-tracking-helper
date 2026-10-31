@@ -192,7 +192,7 @@ const removeNotifications = internalMutation({
   returns: v.null(),
   handler: async (ctx, { owner }) => {
     const more = await ctx.runMutation(components.notifications.lib.removeOwner, { owner })
-    if (more) await ctx.scheduler.runAfter(0, internal.inbox.removeNotifications, { owner })
+    if (more) await ctx.scheduler.runAfter(0, internal.api.inbox.removeNotifications, { owner })
     return null
   },
 })

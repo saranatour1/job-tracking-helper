@@ -78,7 +78,7 @@ const setup = async () => {
   })
   const as = t.withIdentity({ subject: userId })
   const events = async (failed?: boolean) =>
-    (await as.query(api.activity.page, { ...(failed && { failed }), paginationOpts: first })).page
+    (await as.query(api.api.activity.page, { ...(failed && { failed }), paginationOpts: first })).page
   return { t, as, userId, otherId, hooli, events, k }
 }
 
@@ -106,7 +106,7 @@ describe("activityOf", () => {
 describe("activity", () => {
   it("records sent mail without its subject or address", async () => {
     const { as, hooli, events } = await setup()
-    await as.action(api.email.sendFromApplication, {
+    await as.action(api.api.email.sendFromApplication, {
       applicationId: hooli,
       to: "pat@hooli.com",
       subject: "A private subject",
@@ -132,7 +132,7 @@ describe("activity", () => {
         })
     )
     await expect(
-      as.action(api.email.sendFromApplication, {
+      as.action(api.api.email.sendFromApplication, {
         applicationId: hooli,
         to: "pat@hooli.com",
         subject: "Hi",
@@ -150,7 +150,7 @@ describe("activity", () => {
       const emailId: string = await t.run((ctx) =>
         ctx.runMutation(components.cloudflareEmail.lib.receive, { owner: userId, payload })
       )
-      return t.action(internal.email.sortMail, { userId, emailId })
+      return t.action(internal.api.email.sortMail, { userId, emailId })
     }
     await receive(
       await seal(
@@ -175,7 +175,7 @@ describe("activity", () => {
 
   it("records status changes, and only shows your own", async () => {
     const { t, as, hooli, otherId, events } = await setup()
-    await as.mutation(api.applications.setStatus, { id: hooli, status: "interviewing" })
+    await as.mutation(api.api.applications.setStatus, { id: hooli, status: "interviewing" })
     expect(await events()).toEqual([
       expect.objectContaining({
         work: "application.status",
@@ -183,14 +183,14 @@ describe("activity", () => {
       }),
     ])
     const other = t.withIdentity({ subject: otherId })
-    expect((await other.query(api.activity.page, { paginationOpts: first })).page).toEqual([])
+    expect((await other.query(api.api.activity.page, { paginationOpts: first })).page).toEqual([])
   })
 
   it("records what you edit, without what you wrote, and when you joined", async () => {
     const { t, as, hooli, userId, events } = await setup()
-    await as.mutation(api.applications.addNote, { id: hooli, text: "A private note" })
-    await as.mutation(api.applications.update, { id: hooli, role: "Lead" })
-    await as.action(api.contacts.save, {
+    await as.mutation(api.api.applications.addNote, { id: hooli, text: "A private note" })
+    await as.mutation(api.api.applications.update, { id: hooli, role: "Lead" })
+    await as.action(api.api.contacts.save, {
       company: "Hooli",
       name: "Pat Private",
       email: "pat@hooli.com",
@@ -198,12 +198,12 @@ describe("activity", () => {
       phone: "",
       notes: "",
     })
-    await as.mutation(api.mailbox.saveTemplate, {
+    await as.mutation(api.api.mailbox.saveTemplate, {
       name: "Private template",
       subject: "Hi",
       html: "<p>Hi</p>",
     })
-    await as.mutation(api.users.updateProfile, { name: "Sam", email: "", userName: "" })
+    await as.mutation(api.api.users.updateProfile, { name: "Sam", email: "", userName: "" })
     const rows = await events()
     // The clock's frozen here, so rows from the same moment can come in either order.
     expect(new Set(rows.map((r) => r.summary))).toEqual(
@@ -217,7 +217,7 @@ describe("activity", () => {
     )
     expect(JSON.stringify(rows)).not.toMatch(/private|pat@hooli/i)
     const user = await t.run((ctx) => ctx.db.get("users", userId))
-    expect(await as.query(api.activity.joinedAt, {})).toBe(user?._creationTime)
+    expect(await as.query(api.api.activity.joinedAt, {})).toBe(user?._creationTime)
   })
 
   it("rolls an edit's row back with the edit", async () => {
@@ -232,7 +232,7 @@ describe("activity", () => {
         history: [],
       })
     )
-    await expect(as.mutation(api.applications.addNote, { id: theirs, text: "x" })).rejects.toThrow()
+    await expect(as.mutation(api.api.applications.addNote, { id: theirs, text: "x" })).rejects.toThrow()
     expect(await events()).toEqual([])
   })
 
@@ -253,7 +253,7 @@ describe("activity", () => {
     await failed(userId, now - 2000, "older")
     await failed(userId, now - 1000, "newer")
     await failed(otherId, now - 1000, "theirs")
-    const groups = await t.query(internal.activity.failures, {})
+    const groups = await t.query(internal.api.activity.failures, {})
     expect(groups).toHaveLength(2)
     expect(groups.find((g) => g.userId === userId)).toMatchObject({
       work: "mail.send",
@@ -261,7 +261,7 @@ describe("activity", () => {
       lastError: "newer",
     })
     await failed(userId, now - 91 * 24 * 60 * 60 * 1000, "ancient")
-    await t.mutation(internal.activity.sweep, {})
+    await t.mutation(internal.api.activity.sweep, {})
     const left = await t.run((ctx) => ctx.db.query("activityEvents").collect())
     expect(new Set(left.map((r) => r.error))).toEqual(new Set(["newer", "older", "theirs"]))
   })

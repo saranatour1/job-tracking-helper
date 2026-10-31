@@ -1,5 +1,5 @@
-// Registers `api.mailbox.*` and `internal.mailbox.*`. Definitions live in ./features/mailbox.
-import { mailboxApi } from "./features/mailbox/public"
+// Registers `api.api.mailbox.*` and `internal.api.mailbox.*`. Definitions live in ../features/mailbox.
+import { mailboxApi } from "../features/mailbox/public"
 
 export const {
   page,

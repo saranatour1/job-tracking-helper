@@ -126,7 +126,7 @@ and the rules both go by. For the rest of the app, see [flows.md](flows.md).
 
 ### Starting runs
 
-- **Schedule:** a cron calls `internal.automations.startDue` every 5 minutes, so one set
+- **Schedule:** a cron calls `internal.api.automations.startDue` every 5 minutes, so one set
   for 09:00 starts by 09:05. It starts each workflow that's due and sets its next time.
 - **Events:** five places call `fireEvent` (`convex/features/automations/fire.ts`):
   - the email sorter, after it files an email (`email/sort.ts`);
@@ -135,7 +135,7 @@ and the rules both go by. For the rest of the app, see [flows.md](flows.md).
   - `setGoal`, when an application is put on a goal (`applications/public.ts`), and
     `track`, when a role from a goal's loop lands on the board (`loops/public.ts`).
 
-  `fireEvent` only schedules `internal.automations.onEvent` when the person has an
+  `fireEvent` only schedules `internal.api.automations.onEvent` when the person has an
   active workflow with that kind of trigger. `onEvent` starts each one the event
   matches, up to 200 event runs a day.
 
@@ -147,7 +147,7 @@ and the rules both go by. For the rest of the app, see [flows.md](flows.md).
 
 ### Running the steps
 
-`internal.automations.run` is a workflow on the Convex workflow component. For each step:
+`internal.api.automations.run` is a workflow on the Convex workflow component. For each step:
 
 - **A block** is one mutation (`runStep`). It records the step's outcome before
   anything else happens.

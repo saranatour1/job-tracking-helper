@@ -42,9 +42,9 @@ export const blockedBy = async (ctx: MutationCtx, userId: Id<"users">) => {
 export const enqueue = async (ctx: MutationCtx, id: Id<"prefills">) => {
   await applyPool.enqueueAction(
     ctx,
-    internal.prefilled.prepareForm,
+    internal.api.prefilled.prepareForm,
     { id },
-    { retry: false, onComplete: internal.prefilled.ended, context: { id } }
+    { retry: false, onComplete: internal.api.prefilled.ended, context: { id } }
   )
 }
 

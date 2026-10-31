@@ -98,7 +98,7 @@ const setUpInbound = action({
         row.inbound.ruleId,
         row.inbound.aliasRules
       )
-    await ctx.runMutation(internal.email.setInbound, {
+    await ctx.runMutation(internal.api.email.setInbound, {
       userId,
       inboundId,
       inbound: {
@@ -123,7 +123,7 @@ const stopInbound = action({
   handler: async (ctx) => {
     const userId = await userIdOf(ctx)
     await tearDown(ctx, userId)
-    await ctx.runMutation(internal.email.setInbound, { userId })
+    await ctx.runMutation(internal.api.email.setInbound, { userId })
     await logEditFromAction(ctx, userId, "mail.setup", "Turned off incoming mail")
     return null
   },
@@ -137,7 +137,7 @@ const disconnect = action({
   handler: async (ctx) => {
     const userId = await userIdOf(ctx)
     await tearDown(ctx, userId).catch(() => null)
-    await ctx.runMutation(internal.email.remove, { userId })
+    await ctx.runMutation(internal.api.email.remove, { userId })
     await logEditFromAction(ctx, userId, "mail.connect", "Disconnected Cloudflare")
     return null
   },
@@ -147,7 +147,7 @@ const disconnect = action({
 // Worker turn the message away; a 5xx makes Cloudflare try again later.
 export const receive = httpAction(async (ctx, req) => {
   const inboundId = new URL(req.url).pathname.split("/").pop() ?? ""
-  const target = await ctx.runQuery(internal.email.inboundTarget, { inboundId })
+  const target = await ctx.runQuery(internal.api.email.inboundTarget, { inboundId })
   const bearer = req.headers.get("Authorization")?.replace(/^Bearer /, "") ?? ""
   // Comparing hashes: the secret is random, so how long the comparison takes says nothing.
   if (!target || (await sha256(bearer)) !== target.secretHash)
@@ -164,7 +164,7 @@ export const receive = httpAction(async (ctx, req) => {
     owner: target.userId,
     payload: await seal(k, JSON.stringify(email), aad.email(target.userId)),
   })
-  await ctx.scheduler.runAfter(0, internal.email.sortMail, { userId: target.userId, emailId })
+  await ctx.scheduler.runAfter(0, internal.api.email.sortMail, { userId: target.userId, emailId })
   return new Response(null, { status: 204 })
 })
 
@@ -208,7 +208,7 @@ const importMail = action({
   returns: v.union(v.literal("filed"), v.literal("known"), v.literal("unmatched")),
   handler: async (ctx, { raw }) => {
     const userId = await userIdOf(ctx)
-    const row = await ctx.runQuery(internal.email.sealed, { userId })
+    const row = await ctx.runQuery(internal.api.email.sealed, { userId })
     if (!row) throw new ConvexError("Connect Cloudflare first.")
     if (!row.allow.receive) throw new ConvexError("Turn on “Keep incoming mail” first.")
     const { ok } = await limits.limit(ctx, "importMail", { key: userId })
@@ -216,9 +216,9 @@ const importMail = action({
     const k = await secretKeys()
     const mail = await parseMail(raw)
     const messageKey = mail.messageId ? await threadKeyOf(userId, mail.messageId) : undefined
-    if (messageKey && (await ctx.runQuery(internal.email.knownMessage, { userId, messageKey })))
+    if (messageKey && (await ctx.runQuery(internal.api.email.knownMessage, { userId, messageKey })))
       return "known"
-    const application = await ctx.runQuery(internal.email.importTarget, {
+    const application = await ctx.runQuery(internal.api.email.importTarget, {
       userId,
       tag: tagIn(mail.to),
       threadKeys: await Promise.all(
@@ -240,7 +240,7 @@ const importMail = action({
     const at = mail.date ? Date.parse(mail.date) || Date.now() : Date.now()
     const text = mail.text ?? ""
     const kind = kindOf(mail.subject, text)
-    await ctx.runMutation(internal.email.record, {
+    await ctx.runMutation(internal.api.email.record, {
       event: {
         userId,
         emailId,

@@ -137,9 +137,9 @@ const queueJudging = internalMutation({
   handler: async (ctx, { runId, jobIds, profile }) => {
     const readWorkIds = await readPool.enqueueActionBatch(
       ctx,
-      internal.workflows.judgeOne,
+      internal.api.workflows.judgeOne,
       jobIds.map((jobId) => ({ jobId, profile })),
-      { onComplete: internal.loops.judged, context: { runId } }
+      { onComplete: internal.api.loops.judged, context: { runId } }
     )
     await ctx.db.patch("loopRuns", runId, {
       readsLeft: jobIds.length,

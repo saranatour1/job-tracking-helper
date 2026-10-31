@@ -1,4 +1,4 @@
-import { api } from "@convex/_generated/api"
+import { api } from "@/lib/api"
 import type { Doc } from "@convex/_generated/dataModel"
 import { useQuery } from "convex-helpers/react/cache/hooks"
 import { statusLabels, statuses } from "@convex/features/applications/validators"

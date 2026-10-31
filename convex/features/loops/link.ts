@@ -19,11 +19,11 @@ const checkLink = action({
     const link = url.trim()
     if (!isLink(link)) throw new ConvexError("That isn't a link to a job posting.")
     const key = urlKey(link)
-    const known = await ctx.runQuery(internal.loops.leadByUrlKey, { userId, urlKey: key })
+    const known = await ctx.runQuery(internal.api.loops.leadByUrlKey, { userId, urlKey: key })
     if (known) return known
     const { ok } = await limits.limit(ctx, "checkLink", { key: userId })
     if (!ok) throw new ConvexError("You've checked 10 links today. Try again tomorrow.")
-    return ctx.runMutation(internal.loops.savePasted, {
+    return ctx.runMutation(internal.api.loops.savePasted, {
       userId,
       ...(await readAndJudge(ctx, userId, link, key)),
     })
@@ -40,9 +40,9 @@ const enrichApplication = internalAction({
     const link = url.trim()
     if (!isLink(link)) return null
     const key = urlKey(link)
-    const known = await ctx.runQuery(internal.loops.leadByUrlKey, { userId, urlKey: key })
+    const known = await ctx.runQuery(internal.api.loops.leadByUrlKey, { userId, urlKey: key })
     if (known) {
-      await ctx.runMutation(internal.loops.attachLead, { leadId: known, applicationId })
+      await ctx.runMutation(internal.api.loops.attachLead, { leadId: known, applicationId })
       return null
     }
     // shortcut: past the day's 10 checks the application keeps what was typed; a retry
@@ -51,7 +51,7 @@ const enrichApplication = internalAction({
     if (!ok) return null
     const result = await readAndJudge(ctx, userId, link, key).catch(() => null)
     if (result)
-      await ctx.runMutation(internal.loops.savePasted, { userId, ...result, applicationId })
+      await ctx.runMutation(internal.api.loops.savePasted, { userId, ...result, applicationId })
     return null
   },
 })

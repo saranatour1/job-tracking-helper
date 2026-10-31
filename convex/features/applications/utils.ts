@@ -99,7 +99,7 @@ export const emptySome = async (ctx: MutationCtx, userId: Id<"users">) => {
   const now = inTrash.slice(0, batch)
   for (const application of now) await deleteApplication(ctx, application)
   if (inTrash.length > batch)
-    await ctx.scheduler.runAfter(0, internal.applications.emptyTrashFor, { userId })
+    await ctx.scheduler.runAfter(0, internal.api.applications.emptyTrashFor, { userId })
   return now.length
 }
 

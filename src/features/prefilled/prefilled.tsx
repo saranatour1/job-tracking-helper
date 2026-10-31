@@ -1,4 +1,4 @@
-import { api } from "@convex/_generated/api"
+import { api } from "@/lib/api"
 import type { Doc, Id } from "@convex/_generated/dataModel"
 import { isEmailQuestion } from "@convex/features/prefilled/match"
 import { Link } from "@tanstack/react-router"

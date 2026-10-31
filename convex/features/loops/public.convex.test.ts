@@ -39,10 +39,10 @@ describe("editing a loop", () => {
     const t = convexTest(schema, modules)
     const userId = await t.run((ctx) => ctx.db.insert("users", { name: "Sam" }))
     const as = t.withIdentity({ subject: userId })
-    const loopId = await as.mutation(api.loops.create, loop)
+    const loopId = await as.mutation(api.api.loops.create, loop)
     const before = await t.run((ctx) => ctx.db.get("loops", loopId))
 
-    await as.mutation(api.loops.update, {
+    await as.mutation(api.api.loops.update, {
       loopId,
       ...loop,
       name: "Remote, fewer",
@@ -63,12 +63,12 @@ describe("editing a loop", () => {
       await ctx.db.insert("users", { name: "Sam" }),
       await ctx.db.insert("users", { name: "Alex" }),
     ])
-    const loopId = await t.withIdentity({ subject: mine }).mutation(api.loops.create, loop)
+    const loopId = await t.withIdentity({ subject: mine }).mutation(api.api.loops.create, loop)
     await expect(
-      t.withIdentity({ subject: theirs }).mutation(api.loops.update, { loopId, ...loop })
+      t.withIdentity({ subject: theirs }).mutation(api.api.loops.update, { loopId, ...loop })
     ).rejects.toThrow("That loop doesn't exist.")
     await expect(
-      t.withIdentity({ subject: mine }).mutation(api.loops.update, {
+      t.withIdentity({ subject: mine }).mutation(api.api.loops.update, {
         loopId,
         ...loop,
         answers: { ...answers, nearMe: true },

@@ -1,5 +1,5 @@
-// Registers `api.email.*` and `internal.email.*`. Definitions live in ./features/email.
-import { emailApi } from "./features/email"
+// Registers `api.api.email.*` and `internal.api.email.*`. Definitions live in ../features/email.
+import { emailApi } from "../features/email"
 
 export const {
   connection,

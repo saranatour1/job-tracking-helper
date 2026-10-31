@@ -74,7 +74,7 @@ describe("a workflow run", () => {
 
   it("runs each step in order, waits, and keeps a history", async () => {
     const { t, as, userId, applicationId } = await setup()
-    const id = await as.mutation(api.automations.save, {
+    const id = await as.mutation(api.api.automations.save, {
       name: "Nudge",
       trigger: { kind: "manual" },
       active: true,
@@ -84,7 +84,7 @@ describe("a workflow run", () => {
         { kind: "notify", message: "{workflow.name} is done" },
       ],
     })
-    const runId = await as.mutation(api.automations.runNow, { id })
+    const runId = await as.mutation(api.api.automations.runNow, { id })
     await t.finishAllScheduledFunctions(vi.runAllTimers)
 
     const run = await t.run((ctx) => ctx.db.get("automationRuns", runId))
@@ -105,14 +105,14 @@ describe("a workflow run", () => {
 
   it("fails the run, with a reason, when a step can't run", async () => {
     const { t, as, applicationId } = await setup()
-    const id = await as.mutation(api.automations.save, {
+    const id = await as.mutation(api.api.automations.save, {
       name: "Note",
       trigger: { kind: "manual" },
       active: true,
       steps: [{ kind: "addNote", applicationId, text: "Hi" }],
     })
     await t.run((ctx) => ctx.db.delete("applications", applicationId))
-    const runId = await as.mutation(api.automations.runNow, { id })
+    const runId = await as.mutation(api.api.automations.runNow, { id })
     await t.finishAllScheduledFunctions(vi.runAllTimers)
 
     const run = await t.run((ctx) => ctx.db.get("automationRuns", runId))
@@ -127,14 +127,14 @@ describe("a workflow run", () => {
       { kind: "wait" as const, minutes: 60 },
       { kind: "notify" as const, message: "Late" },
     ]
-    const id = await as.mutation(api.automations.save, {
+    const id = await as.mutation(api.api.automations.save, {
       name: "Slow",
       trigger: { kind: "manual" },
       active: true,
       steps,
     })
-    const runId = await as.mutation(api.automations.runNow, { id })
-    await as.mutation(api.automations.save, {
+    const runId = await as.mutation(api.api.automations.runNow, { id })
+    await as.mutation(api.api.automations.save, {
       id,
       name: "Slow",
       trigger: { kind: "manual" },
@@ -148,7 +148,7 @@ describe("a workflow run", () => {
       const waiting = await t.run((ctx) => ctx.db.get("automationRuns", runId))
       if (waiting?.log.some((e) => e.status === "waiting")) break
     }
-    await as.mutation(api.automations.stopRun, { runId })
+    await as.mutation(api.api.automations.stopRun, { runId })
     await t.finishAllScheduledFunctions(vi.runAllTimers)
     const run = await t.run((ctx) => ctx.db.get("automationRuns", runId))
     expect(run?.steps).toEqual(steps)
@@ -158,7 +158,7 @@ describe("a workflow run", () => {
 
   it("runs paths side by side, then goes on, and counts how runs ended", async () => {
     const { t, as, applicationId } = await setup()
-    const id = await as.mutation(api.automations.save, {
+    const id = await as.mutation(api.api.automations.save, {
       name: "Split",
       trigger: { kind: "manual" },
       active: true,
@@ -179,7 +179,7 @@ describe("a workflow run", () => {
         { kind: "notify", message: "After" },
       ],
     })
-    const runId = await as.mutation(api.automations.runNow, { id })
+    const runId = await as.mutation(api.api.automations.runNow, { id })
     await t.finishAllScheduledFunctions(vi.runAllTimers)
     const run = await t.run((ctx) => ctx.db.get("automationRuns", runId))
     expect(run?.status).toBe("done")
@@ -192,9 +192,9 @@ describe("a workflow run", () => {
     ])
 
     await t.run((ctx) => ctx.db.delete("applications", applicationId))
-    await as.mutation(api.automations.runNow, { id })
+    await as.mutation(api.api.automations.runNow, { id })
     await t.finishAllScheduledFunctions(vi.runAllTimers)
-    expect(await as.query(api.automations.counts, { automationId: id })).toEqual({
+    expect(await as.query(api.api.automations.counts, { automationId: id })).toEqual({
       running: 0,
       done: 1,
       failed: 1,
@@ -204,7 +204,7 @@ describe("a workflow run", () => {
 
   it("lets one path run on while another waits", async () => {
     const { t, as } = await setup()
-    const id = await as.mutation(api.automations.save, {
+    const id = await as.mutation(api.api.automations.save, {
       name: "Independent",
       trigger: { kind: "manual" },
       active: true,
@@ -225,7 +225,7 @@ describe("a workflow run", () => {
         },
       ],
     })
-    const runId = await as.mutation(api.automations.runNow, { id })
+    const runId = await as.mutation(api.api.automations.runNow, { id })
     // Move time on by seconds, not the hour the slow path waits.
     const statusAt = async (at: string) =>
       (await t.run((ctx) => ctx.db.get("automationRuns", runId)))?.log.find((e) => e.at === at)
@@ -244,7 +244,7 @@ describe("a workflow run", () => {
 
   it("stops every path when a run is stopped mid-split", async () => {
     const { t, as } = await setup()
-    const id = await as.mutation(api.automations.save, {
+    const id = await as.mutation(api.api.automations.save, {
       name: "Stopped",
       trigger: { kind: "manual" },
       active: true,
@@ -265,7 +265,7 @@ describe("a workflow run", () => {
         { kind: "notify", message: "After" },
       ],
     })
-    const runId = await as.mutation(api.automations.runNow, { id })
+    const runId = await as.mutation(api.api.automations.runNow, { id })
     const statusAt = async (at: string) =>
       (await t.run((ctx) => ctx.db.get("automationRuns", runId)))?.log.find((e) => e.at === at)
         ?.status
@@ -273,7 +273,7 @@ describe("a workflow run", () => {
       vi.advanceTimersByTime(1000)
       await t.finishInProgressScheduledFunctions()
     }
-    await as.mutation(api.automations.stopRun, { runId })
+    await as.mutation(api.api.automations.stopRun, { runId })
     await t.finishAllScheduledFunctions(vi.runAllTimers)
     const run = await t.run((ctx) => ctx.db.get("automationRuns", runId))
     expect(run?.status).toBe("canceled")
@@ -302,7 +302,7 @@ describe("a workflow run", () => {
         nextRunAt: Date.now() - 1000,
       })
     })
-    expect(await t.mutation(internal.automations.startDue, {})).toBe(1)
+    expect(await t.mutation(internal.api.automations.startDue, {})).toBe(1)
     const runs = await t.run((ctx) =>
       ctx.db
         .query("automationRuns")
@@ -316,47 +316,47 @@ describe("a workflow run", () => {
 
   it("stops a run whose workflow already ended without a word back", async () => {
     const { t, as } = await setup()
-    const id = await as.mutation(api.automations.save, {
+    const id = await as.mutation(api.api.automations.save, {
       name: "Quick",
       trigger: { kind: "manual" },
       active: true,
       steps: [{ kind: "notify", message: "Hi" }],
     })
-    const runId = await as.mutation(api.automations.runNow, { id })
+    const runId = await as.mutation(api.api.automations.runNow, { id })
     await t.finishAllScheduledFunctions(vi.runAllTimers)
     // As if the completion handler had failed: the workflow is over, the run says running.
     await t.run(async (ctx) => {
       const run = await ctx.db.get("automationRuns", runId)
       await patchRun(ctx as never, run!, { status: "running" })
     })
-    await as.mutation(api.automations.stopRun, { runId })
+    await as.mutation(api.api.automations.stopRun, { runId })
     const run = await t.run((ctx) => ctx.db.get("automationRuns", runId))
     expect(run?.status).toBe("canceled")
-    await as.mutation(api.automations.remove, { id })
+    await as.mutation(api.api.automations.remove, { id })
     expect(await t.run((ctx) => ctx.db.get("automations", id))).toBeNull()
   })
 
   it("deletes a workflow with its runs and their Inbox lines", async () => {
     const { t, as, userId } = await setup()
-    const id = await as.mutation(api.automations.save, {
+    const id = await as.mutation(api.api.automations.save, {
       name: "Ping",
       trigger: { kind: "manual" },
       active: true,
       steps: [{ kind: "notify", message: "Hi" }],
     })
-    await as.mutation(api.automations.runNow, { id })
+    await as.mutation(api.api.automations.runNow, { id })
     await t.finishAllScheduledFunctions(vi.runAllTimers)
     const inbox = () =>
       t.run((ctx) => ctx.runQuery(components.notifications.lib.list, { owner: userId }))
     expect(await inbox()).toHaveLength(1)
-    await as.mutation(api.automations.remove, { id })
+    await as.mutation(api.api.automations.remove, { id })
     expect(await inbox()).toHaveLength(0)
     expect(await t.run((ctx) => ctx.db.query("automationRuns").collect())).toHaveLength(0)
   })
 
   it("keeps the newest 50 runs of a workflow", async () => {
     const { t, as, userId } = await setup()
-    const id = await as.mutation(api.automations.save, {
+    const id = await as.mutation(api.api.automations.save, {
       name: "Busy",
       trigger: { kind: "manual" },
       active: true,
@@ -375,11 +375,11 @@ describe("a workflow run", () => {
           log: [],
         })
     })
-    await as.mutation(api.automations.runNow, { id })
+    await as.mutation(api.api.automations.runNow, { id })
     const runs = await t.run((ctx) => ctx.db.query("automationRuns").collect())
     expect(runs).toHaveLength(50)
     expect(Math.min(...runs.map((r) => r.startedAt))).toBe(6)
-    const counts = await as.query(api.automations.counts, { automationId: id })
+    const counts = await as.query(api.api.automations.counts, { automationId: id })
     expect(counts.done + counts.running).toBe(50)
   })
 
@@ -388,7 +388,7 @@ describe("a workflow run", () => {
     const otherId = await t.run((ctx) => ctx.db.insert("users", { name: "Alex" }))
     const other = t.withIdentity({ subject: otherId })
     await expect(
-      other.mutation(api.automations.save, {
+      other.mutation(api.api.automations.save, {
         name: "Snoop",
         trigger: { kind: "manual" },
         active: true,
@@ -399,14 +399,14 @@ describe("a workflow run", () => {
 
   it("starts on a status change, about that application", async () => {
     const { t, as, applicationId } = await setup()
-    await as.mutation(api.automations.save, {
+    await as.mutation(api.api.automations.save, {
       name: "Prep",
       trigger: { kind: "status", to: ["interviewing"] },
       active: true,
       steps: [{ kind: "addNote", text: "{status.from} → {status.to} at {application.company}" }],
     })
-    await as.mutation(api.applications.setStatus, { id: applicationId, status: "rejected" })
-    await as.mutation(api.applications.setStatus, { id: applicationId, status: "interviewing" })
+    await as.mutation(api.api.applications.setStatus, { id: applicationId, status: "rejected" })
+    await as.mutation(api.api.applications.setStatus, { id: applicationId, status: "interviewing" })
     await t.finishAllScheduledFunctions(vi.runAllTimers)
 
     const runs = await t.run((ctx) => ctx.db.query("automationRuns").collect())
@@ -417,13 +417,13 @@ describe("a workflow run", () => {
 
   it("moves an application without starting itself again", async () => {
     const { t, as, applicationId } = await setup()
-    await as.mutation(api.automations.save, {
+    await as.mutation(api.api.automations.save, {
       name: "Bounce",
       trigger: { kind: "status", to: [] },
       active: true,
       steps: [{ kind: "move", to: "offer" }],
     })
-    await as.mutation(api.applications.setStatus, { id: applicationId, status: "interviewing" })
+    await as.mutation(api.api.applications.setStatus, { id: applicationId, status: "interviewing" })
     await t.finishAllScheduledFunctions(vi.runAllTimers)
 
     const runs = await t.run((ctx) => ctx.db.query("automationRuns").collect())
@@ -456,7 +456,7 @@ describe("a workflow run", () => {
         milestones: [],
       })
     )
-    await as.mutation(api.automations.save, {
+    await as.mutation(api.api.automations.save, {
       name: "On goal",
       trigger: { kind: "goal", goals: [goalId] },
       active: true,
@@ -465,7 +465,7 @@ describe("a workflow run", () => {
         { kind: "putOnGoal", goalId: otherGoal },
       ],
     })
-    await as.mutation(api.applications.setGoal, { id: applicationId, goalId })
+    await as.mutation(api.api.applications.setGoal, { id: applicationId, goalId })
     await t.finishAllScheduledFunctions(vi.runAllTimers)
 
     const runs = await t.run((ctx) => ctx.db.query("automationRuns").collect())
@@ -478,7 +478,7 @@ describe("a workflow run", () => {
 
   it("runs only the path Jev picks, and counts its answers", async () => {
     const { t, as, userId } = await setup()
-    const id = await as.mutation(api.automations.save, {
+    const id = await as.mutation(api.api.automations.save, {
       name: "Ask",
       trigger: { kind: "manual" },
       active: true,
@@ -495,10 +495,10 @@ describe("a workflow run", () => {
       ],
     })
     jev.choice = "p0"
-    await as.mutation(api.automations.runNow, { id })
+    await as.mutation(api.api.automations.runNow, { id })
     await t.finishAllScheduledFunctions(vi.runAllTimers)
     jev.choice = "p1"
-    await as.mutation(api.automations.runNow, { id })
+    await as.mutation(api.api.automations.runNow, { id })
     await t.finishAllScheduledFunctions(vi.runAllTimers)
 
     const runs = await t.run((ctx) => ctx.db.query("automationRuns").collect())
@@ -513,7 +513,7 @@ describe("a workflow run", () => {
       ctx.runQuery(components.notifications.lib.list, { owner: userId })
     )
     expect(inbox).toHaveLength(3)
-    expect(await as.query(api.automations.choices, { automationId: id })).toEqual({
+    expect(await as.query(api.api.automations.choices, { automationId: id })).toEqual({
       "0": { Yes: 1, No: 1 },
     })
   })
@@ -521,14 +521,14 @@ describe("a workflow run", () => {
   it("starts on a sorted email of a kind it watches, and opens its words for a step", async () => {
     vi.stubEnv("SECRETS_KEYS", `v1:${btoa(String.fromCharCode(...new Uint8Array(32).fill(7)))}`)
     const { t, as, userId, applicationId } = await setup()
-    await as.mutation(api.automations.save, {
+    await as.mutation(api.api.automations.save, {
       name: "Interviews",
       trigger: { kind: "mail", kinds: ["interview"] },
       active: true,
       steps: [{ kind: "addNote", text: "{email.from} wrote: {email.subject} ({email.kind})" }],
     })
     const mail = async (emailId: string, kind: "interview" | "rejection", subject: string) =>
-      t.mutation(internal.email.record, {
+      t.mutation(internal.api.email.record, {
         event: {
           userId,
           emailId,
@@ -571,30 +571,30 @@ describe("a workflow run", () => {
       ],
     }
     const draft = { name: "Ask", trigger: { kind: "manual" as const }, active: true }
-    const id = await as.mutation(api.automations.save, { ...draft, steps: [decide] })
+    const id = await as.mutation(api.api.automations.save, { ...draft, steps: [decide] })
     jev.choice = "p0"
-    await as.mutation(api.automations.runNow, { id })
+    await as.mutation(api.api.automations.runNow, { id })
     await t.finishAllScheduledFunctions(vi.runAllTimers)
 
     // A step added before it moves it from "0" to "1".
-    await as.mutation(api.automations.save, {
+    await as.mutation(api.api.automations.save, {
       id,
       ...draft,
       steps: [{ kind: "notify", message: "first" }, decide],
     })
-    expect(await as.query(api.automations.choices, { automationId: id })).toEqual({
+    expect(await as.query(api.api.automations.choices, { automationId: id })).toEqual({
       "1": { Yes: 1, No: 0 },
     })
     // Old runs still find their entries to remove.
     const counted = () => t.run((ctx) => choiceCounts.count(ctx as never, { namespace: id }))
     expect(await counted()).toBe(1)
-    await as.mutation(api.automations.remove, { id })
+    await as.mutation(api.api.automations.remove, { id })
     expect(await counted()).toBe(0)
   })
 
   it("ends a run quietly when an Only go on if doesn't hold", async () => {
     const { t, as, userId, applicationId } = await setup()
-    const id = await as.mutation(api.automations.save, {
+    const id = await as.mutation(api.api.automations.save, {
       name: "Check",
       trigger: { kind: "status", to: [] },
       active: true,
@@ -616,7 +616,7 @@ describe("a workflow run", () => {
         { kind: "notify", message: "after" },
       ],
     })
-    await as.mutation(api.applications.setStatus, { id: applicationId, status: "interviewing" })
+    await as.mutation(api.api.applications.setStatus, { id: applicationId, status: "interviewing" })
     await t.finishAllScheduledFunctions(vi.runAllTimers)
 
     const [run] = await t.run((ctx) => ctx.db.query("automationRuns").collect())
@@ -639,7 +639,7 @@ describe("a workflow run", () => {
 
   it("stops with Jev's reason when it can't answer", async () => {
     const { t, as } = await setup()
-    const id = await as.mutation(api.automations.save, {
+    const id = await as.mutation(api.api.automations.save, {
       name: "Ask",
       trigger: { kind: "manual" },
       active: true,
@@ -655,7 +655,7 @@ describe("a workflow run", () => {
       ],
     })
     jev.choice = new Error("offline")
-    const runId = await as.mutation(api.automations.runNow, { id })
+    const runId = await as.mutation(api.api.automations.runNow, { id })
     await t.finishAllScheduledFunctions(vi.runAllTimers)
     const run = await t.run((ctx) => ctx.db.get("automationRuns", runId))
     expect(run?.status).toBe("failed")
@@ -685,7 +685,7 @@ describe("a workflow run", () => {
         nextRunAt: 0,
       })
     )
-    const id = await as.mutation(api.automations.save, {
+    const id = await as.mutation(api.api.automations.save, {
       name: "Search",
       trigger: { kind: "manual" },
       active: true,
@@ -694,7 +694,7 @@ describe("a workflow run", () => {
         { kind: "notify", message: "{roles.fits} of {roles.judged} from {loop.name}" },
       ],
     })
-    const runId = await as.mutation(api.automations.runNow, { id })
+    const runId = await as.mutation(api.api.automations.runNow, { id })
     await t.finishAllScheduledFunctions(vi.runAllTimers)
 
     const run = await t.run((ctx) => ctx.db.get("automationRuns", runId))
@@ -735,7 +735,7 @@ describe("a workflow run", () => {
     )
     const otherId = await t.run((ctx) => ctx.db.insert("users", { name: "Alex" }))
     await expect(
-      t.withIdentity({ subject: otherId }).mutation(api.automations.save, {
+      t.withIdentity({ subject: otherId }).mutation(api.api.automations.save, {
         name: "Snoop",
         trigger: { kind: "manual" },
         active: true,
@@ -746,13 +746,13 @@ describe("a workflow run", () => {
 
   it("stops Send email when a placeholder doesn't fill in to one address", async () => {
     const { t, as } = await setup()
-    const id = await as.mutation(api.automations.save, {
+    const id = await as.mutation(api.api.automations.save, {
       name: "Mail",
       trigger: { kind: "manual" },
       active: true,
       steps: [{ kind: "sendEmail", to: "{email.from}", subject: "Hi", text: "Hello" }],
     })
-    const runId = await as.mutation(api.automations.runNow, { id })
+    const runId = await as.mutation(api.api.automations.runNow, { id })
     await t.finishAllScheduledFunctions(vi.runAllTimers)
     const run = await t.run((ctx) => ctx.db.get("automationRuns", runId))
     expect(run?.status).toBe("failed")
@@ -761,13 +761,13 @@ describe("a workflow run", () => {
 
   it("won't send email without a Cloudflare connection", async () => {
     const { t, as } = await setup()
-    const id = await as.mutation(api.automations.save, {
+    const id = await as.mutation(api.api.automations.save, {
       name: "Mail",
       trigger: { kind: "manual" },
       active: true,
       steps: [{ kind: "sendEmail", to: "sam@example.com", subject: "Hi", text: "Hello" }],
     })
-    const runId = await as.mutation(api.automations.runNow, { id })
+    const runId = await as.mutation(api.api.automations.runNow, { id })
     await t.finishAllScheduledFunctions(vi.runAllTimers)
     const run = await t.run((ctx) => ctx.db.get("automationRuns", runId))
     expect(run?.status).toBe("failed")

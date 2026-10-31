@@ -10,5 +10,5 @@ export const fireEvent = async (ctx: MutationCtx, userId: Id<"users">, event: Au
     .withIndex("by_userId", (q) => q.eq("userId", userId))
     .take(limits.automations)
   if (listening.some((a) => a.active && a.trigger.kind === event.kind))
-    await ctx.scheduler.runAfter(0, internal.automations.onEvent, { userId, event })
+    await ctx.scheduler.runAfter(0, internal.api.automations.onEvent, { userId, event })
 }

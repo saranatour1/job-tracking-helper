@@ -34,7 +34,7 @@ const review = action({
     if (!userId) throw new Error("Not signed in")
     const { ok } = await rates.limit(ctx, "resumeReview", { key: userId })
     if (!ok) throw new ConvexError("That's 10 reviews today. Try again tomorrow.")
-    const found = await ctx.runQuery(internal.preferences.resumeToReview, { userId })
+    const found = await ctx.runQuery(internal.api.preferences.resumeToReview, { userId })
     if (!found) throw new ConvexError("Upload a resume first.")
     const file = await ctx.storage.get(found.resumeId)
     if (!file) throw new ConvexError("The resume file is gone. Upload it again.")
@@ -100,7 +100,7 @@ const review = action({
         note: "Jev couldn't read it just now, so this is the ATS check alone. Review again later for suggestions.",
       }),
     }
-    await ctx.runMutation(internal.preferences.setResumeReview, { userId, text, review: reviewed })
+    await ctx.runMutation(internal.api.preferences.setResumeReview, { userId, text, review: reviewed })
     return reviewed
   },
 })
