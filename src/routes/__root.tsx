@@ -1,6 +1,7 @@
 import { HeadContent, ScriptOnce, Scripts, createRootRoute } from "@tanstack/react-router"
 
 import { ConvexAuthProvider } from "@convex-dev/auth/react"
+import { Databuddy } from "@databuddy/sdk/react"
 import { ConvexReactClient } from "convex/react"
 import { ConvexQueryCacheProvider } from "convex-helpers/react/cache/provider"
 import { api } from "@/lib/api"
@@ -27,6 +28,14 @@ const RootDocument = ({ children }: { children: React.ReactNode }) => (
             to a page shows it right away instead of loading again. */}
         <ConvexQueryCacheProvider>{children}</ConvexQueryCacheProvider>
       </ConvexAuthProvider>
+      <Databuddy
+        clientId="8ed4f691-f76a-400e-b1fb-a9233678940e"
+        trackHashChanges={true}
+        trackAttributes={true}
+        trackOutgoingLinks={true}
+        trackWebVitals={true}
+        replay
+      />
       <Scripts />
     </body>
   </html>
