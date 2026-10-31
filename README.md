@@ -74,7 +74,7 @@ The build command needs a production deploy key from the Convex dashboard. Add i
 
 Production only takes new accounts from GitHub until email is set up, so `AUTH_GITHUB_CLIENT_ID` and `AUTH_GITHUB_CLIENT_SECRET` must be set there.
 
-`vp run deploy` does the same from your machine. A plain `vp build` reads the Convex URLs from `.env.production`.
+`vp run deploy` does the same from your machine.
 
 ## Folder structure
 
