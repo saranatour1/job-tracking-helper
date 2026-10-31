@@ -66,6 +66,12 @@ vp test
 sh scripts/push-secrets.test.sh
 ```
 
+### Deploy
+
+The site runs on Cloudflare Workers. The build reads the Convex URLs from `.env.production`. In the Cloudflare project, set the build command to `pnpm run build` and the deploy command to `npx wrangler deploy`. The Worker name in `wrangler.jsonc` must match the project.
+
+The backend deploys on its own with `pnpm exec convex deploy`.
+
 ## Folder structure
 
 ```
@@ -125,6 +131,7 @@ Arguments use arktype when text has rules Convex can't check, like trimming or l
 | Type checking | tsrs                                                                    |
 | Convex lint   | `@convex-dev/eslint-plugin`, loaded by oxlint                           |
 | Secrets       | 1Password CLI (`op`)                                                    |
+| Hosting       | Cloudflare Workers, through `@cloudflare/vite-plugin`                   |
 
 Some of this was written for this repo:
 

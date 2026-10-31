@@ -1,4 +1,5 @@
 import { defineConfig } from "vite-plus"
+import { cloudflare } from "@cloudflare/vite-plugin"
 import { tanstackStart } from "@tanstack/react-start/plugin/vite"
 import viteReact from "@vitejs/plugin-react"
 import tailwindcss from "@tailwindcss/vite"
@@ -15,7 +16,13 @@ export default defineConfig({
       "@convex-dev/auth/methods/anonymous/react",
     ],
   },
-  plugins: [tailwindcss(), tanstackStart(), viteReact()],
+  plugins: [
+    // Only for the build: local dev keeps running in Node.
+    process.argv.includes("build") && cloudflare({ viteEnvironment: { name: "ssr" } }),
+    tailwindcss(),
+    tanstackStart(),
+    viteReact(),
+  ],
   lint: {
     // kloq is the calendar's source from its registry, kept as it ships.
     ignorePatterns: [
