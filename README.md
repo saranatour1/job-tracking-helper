@@ -26,6 +26,8 @@ Your resume file only gets attached to applications until you press Review on th
 
 Demographic questions are never answered or stored, and neither are job-site passwords. Pasted tokens and email contents are encrypted with AES-256-GCM, under a key only the server holds.
 
+The site sends page views, web vitals, outgoing link clicks and session replays to Databuddy. Replays mask text.
+
 ## How to run
 
 You need [Vite+](https://viteplus.dev) (`vp`) and pnpm.
@@ -136,6 +138,7 @@ Arguments use arktype when text has rules Convex can't check, like trimming or l
 | Convex lint   | `@convex-dev/eslint-plugin`, loaded by oxlint                           |
 | Secrets       | 1Password CLI (`op`)                                                    |
 | Hosting       | Cloudflare Workers, through `@cloudflare/vite-plugin`                   |
+| Analytics     | Databuddy                                                               |
 
 Some of this was written for this repo:
 
