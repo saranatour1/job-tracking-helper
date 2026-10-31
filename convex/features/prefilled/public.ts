@@ -104,11 +104,13 @@ const setAnswer = arkMutation({
       throw new ConvexError("Pick one of the form's options.")
     const fields = row.fields.map((f) => {
       if (f.question !== question) return f
-      const { answer: _answer, entryKey: _entryKey, ...rest } = f
+      const { answer: _answer, entryKey: _entryKey, fill, ...rest } = f
       return {
         ...rest,
         source: answer ? ("you" as const) : ("none" as const),
         ...(answer && { answer }),
+        // A changed answer isn't the one in the browser any more.
+        ...(fill && f.answer === answer && { fill }),
       }
     })
     await ctx.db.patch("prefills", id, {

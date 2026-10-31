@@ -162,10 +162,16 @@ const goLive = internalMutation({
     if (row?.status !== "live") return null
     if (credits) await addUsage(ctx, "firecrawl", credits, false)
     const where = new Map(spots.map((s) => [s.question, s.selector]))
+    const missed = new Set(unfilled)
     await ctx.db.patch("prefills", id, {
-      fields: row.fields.map(({ selector: _old, ...f }) => {
+      fields: row.fields.map(({ selector: _old, fill: _fill, ...f }) => {
         const selector = where.get(f.question)
-        return selector ? { ...f, selector } : f
+        const fill = missed.has(f.question) ? "byHand" : f.answer && selector ? "filled" : undefined
+        return {
+          ...f,
+          ...(selector && { selector }),
+          ...(fill && { fill: fill as "filled" | "byHand" }),
+        }
       }),
       scrapeId,
       liveUrl,
@@ -284,15 +290,32 @@ const session = internalQuery({
   },
 })
 
-// Firecrawl charged for one question sent to the open browser.
-const spent = internalMutation({
-  args: { id: v.id("prefills"), credits: v.number() },
+// One question went to the open browser: how it went, and what Firecrawl charged. `filled` is
+// left out when there was no answer to put in, only a question to point at.
+const sent = internalMutation({
+  args: {
+    id: v.id("prefills"),
+    question: v.string(),
+    filled: v.optional(v.boolean()),
+    credits: v.number(),
+  },
   returns: v.null(),
-  handler: async (ctx, { id, credits }) => {
+  handler: async (ctx, { id, question, filled, credits }) => {
     const row = await ctx.db.get("prefills", id)
     if (!row) return null
     await addUsage(ctx, "firecrawl", credits, false)
-    await ctx.db.patch("prefills", id, { credits: (row.credits ?? 0) + credits })
+    const others = (row.unfilled ?? []).filter((q) => q !== question)
+    await ctx.db.patch("prefills", id, {
+      credits: (row.credits ?? 0) + credits,
+      ...(filled !== undefined && {
+        fields: row.fields.map((f) =>
+          f.question === question
+            ? { ...f, fill: filled ? ("filled" as const) : ("byHand" as const) }
+            : f
+        ),
+        unfilled: filled ? others : [...others, question],
+      }),
+    })
     return null
   },
 })
@@ -307,5 +330,5 @@ export const internalApi = {
   endLive,
   finish,
   session,
-  spent,
+  sent,
 }

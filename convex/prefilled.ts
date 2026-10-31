@@ -20,7 +20,7 @@ export const {
   endLive,
   finish,
   session,
-  spent,
+  sent,
   prepareForm,
   startLive,
   sendToForm,

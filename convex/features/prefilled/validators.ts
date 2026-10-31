@@ -32,6 +32,9 @@ export const PrefillField = type({
   "fallback?": "string",
   // Where it is in the open browser, so it can be sent there.
   "selector?": "string",
+  // Whether the app got this answer into the open browser. Only means anything while it's
+  // open, and says nothing about edits made directly in the form.
+  "fill?": "'filled' | 'byHand'",
 })
 export type PrefillField = typeof PrefillField.infer
 

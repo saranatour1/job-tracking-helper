@@ -271,8 +271,14 @@ const sendToForm = action({
       }),
       60
     )
-    await ctx.runMutation(internal.prefilled.spent, { id, credits: 1 })
-    return { filled: Boolean(field.answer) && FillResult.assert(sent.value).unfilled.length === 0 }
+    const filled = field.answer ? FillResult.assert(sent.value).unfilled.length === 0 : undefined
+    await ctx.runMutation(internal.prefilled.sent, {
+      id,
+      question,
+      credits: 1,
+      ...(filled !== undefined && { filled }),
+    })
+    return { filled: Boolean(filled) }
   },
 })
 
