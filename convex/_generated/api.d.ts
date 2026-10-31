@@ -137,6 +137,7 @@ import type * as lib_log from "../lib/log.js";
 import type * as lib_markdown from "../lib/markdown.js";
 import type * as lib_secrets from "../lib/secrets.js";
 import type * as loops from "../loops.js";
+import type * as migrations from "../migrations.js";
 import type * as preferences from "../preferences.js";
 import type * as prefilled from "../prefilled.js";
 import type * as resume from "../resume.js";
@@ -280,6 +281,7 @@ declare const fullApi: ApiFromModules<{
   "lib/markdown": typeof lib_markdown;
   "lib/secrets": typeof lib_secrets;
   loops: typeof loops;
+  migrations: typeof migrations;
   preferences: typeof preferences;
   prefilled: typeof prefilled;
   resume: typeof resume;

@@ -105,18 +105,33 @@ export const own = async (ctx: MutationCtx, userId: Id<"users">, id: Id<"applica
 
 export const capped = <T>(items: T[], max: number) => items.slice(-max)
 
-// The next APP number for someone. Applications from before numbers existed get theirs
-// here, oldest first, so every code stays unique and in order.
-export const nextNumber = async (ctx: MutationCtx, userId: Id<"users">) => {
-  // shortcut: reads all of a person's applications; keep a counter on users past a few thousand.
-  const all = await ctx.db
+// Gives someone's oldest applications what they lack from before numbers and history were
+// kept, oldest first, so every code stays unique and in order. Returns the next free number.
+// Goes once the migration has run everywhere.
+export const fillOldApplications = async (ctx: MutationCtx, userId: Id<"users">) => {
+  let highest = 0
+  const lacking: Doc<"applications">[] = []
+  for await (const a of ctx.db
     .query("applications")
-    .withIndex("by_userId", (q) => q.eq("userId", userId))
-    .collect()
-  let next = Math.max(0, ...all.map((a) => a.number ?? 0)) + 1
-  for (const a of all)
-    if (a.number === undefined) await ctx.db.patch("applications", a._id, { number: next++ })
+    .withIndex("by_userId", (q) => q.eq("userId", userId))) {
+    highest = Math.max(highest, a.number ?? 0)
+    if (a.number === undefined || a.history === undefined) lacking.push(a)
+  }
+  let next = highest + 1
+  for (const a of lacking)
+    await ctx.db.patch("applications", a._id, {
+      ...(a.number === undefined && { number: next++ }),
+      ...(a.history === undefined && { history: [{ status: a.status, at: a._creationTime }] }),
+    })
   return next
+}
+
+// The next APP number for someone. Numbers aren't reused, even after a delete.
+export const nextNumber = async (ctx: MutationCtx, userId: Id<"users">) => {
+  const user = await ctx.db.get("users", userId)
+  const number = user?.nextApplicationNumber ?? (await fillOldApplications(ctx, userId))
+  await ctx.db.patch("users", userId, { nextApplicationNumber: number + 1 })
+  return number
 }
 
 // Every status change goes through here, so history stays complete: the tracker, a

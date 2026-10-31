@@ -27,6 +27,9 @@ export const User = type({
   // How many days applications stay in the Trash before they're deleted; 0 keeps them.
   // Unset means 90.
   "trashDays?": "number",
+  // The next APP number, so adding an application needn't read the others. Unset until
+  // their first application.
+  "nextApplicationNumber?": "number",
   // From before Prefilled applications; the schema pass removes these two.
   "autoApplyAt?": "number",
   "autoApplyDryRun?": "boolean",
