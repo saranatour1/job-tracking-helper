@@ -1,15 +1,14 @@
 import { paginationOptsValidator, paginationResultValidator } from "convex/server"
 import { v } from "convex/values"
-import { internal } from "../../_generated/api"
 import { internalMutation, internalQuery } from "../../_generated/server"
 import { arkOutputToConvex } from "../../lib/ark"
 import { authedQuery } from "../../lib/functions"
 import schema from "../../schema"
+import { startDelete } from "../deletes/utils"
 import { ActivityEvent } from "./validators"
 
 const day = 24 * 60 * 60 * 1000
 const keepFor = 90 * day
-const sweepSize = 500
 
 // What happened for you, newest first, a page at a time.
 const page = authedQuery({
@@ -97,12 +96,7 @@ const sweep = internalMutation({
   args: {},
   returns: v.null(),
   handler: async (ctx) => {
-    const old = await ctx.db
-      .query("activityEvents")
-      .withIndex("by_at", (q) => q.lt("at", Date.now() - keepFor))
-      .take(sweepSize)
-    await Promise.all(old.map((row) => ctx.db.delete("activityEvents", row._id)))
-    if (old.length === sweepSize) await ctx.scheduler.runAfter(0, internal.api.activity.sweep, {})
+    await startDelete(ctx, { kind: "oldActivity", before: Date.now() - keepFor })
     return null
   },
 })

@@ -78,15 +78,11 @@ export const signatureInfoOf = async (
 export const reseal = async (k: Keys, sealedText: string, aadText: string) =>
   seal(k, await open(k, sealedText, aadText), aadText)
 
-// For account deletion: the connection now, the emails in batches.
+// For account deletion: the connection now, so mail stops, and the stored emails in batches.
 export const deleteEmail = async (ctx: MutationCtx, userId: Id<"users">) => {
   const connection = await connectionOf(ctx, userId)
   if (connection?.signaturePhoto) await ctx.storage.delete(connection.signaturePhoto)
   if (connection) await ctx.db.delete("emailConnections", connection._id)
-  for await (const event of ctx.db
-    .query("mailEvents")
-    .withIndex("by_userId_and_applicationId", (q) => q.eq("userId", userId)))
-    await ctx.db.delete("mailEvents", event._id)
   await ctx.scheduler.runAfter(0, internal.api.email.removeEmails, { owner: userId })
 }
 

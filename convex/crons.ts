@@ -23,4 +23,7 @@ crons.daily(
 // Activity keeps three months.
 crons.daily("sweep activity", { hourUTC: 3, minuteUTC: 47 }, internal.api.activity.sweep, {})
 
+// A big delete that's sat this long means the worker needs a nudge.
+crons.interval("restart stuck deletes", { minutes: 15 }, internal.api.deletes.restartIfStuck, {})
+
 export default crons

@@ -50,14 +50,6 @@ export const deleteWorkflow = async (ctx: MutationCtx, automation: Doc<"automati
   await ctx.db.delete("automations", automation._id)
 }
 
-// For account deletion.
-export const deleteAutomations = async (ctx: MutationCtx, userId: Id<"users">) => {
-  for await (const automation of ctx.db
-    .query("automations")
-    .withIndex("by_userId", (q) => q.eq("userId", userId)))
-    await deleteWorkflow(ctx, automation)
-}
-
 export type LogEntry = Infer<typeof vLogEntry>
 
 export const runBlock = async (

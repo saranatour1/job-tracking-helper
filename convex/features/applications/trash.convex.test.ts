@@ -1,5 +1,6 @@
 // @vitest-environment edge-runtime
 /// <reference types="vite/client" />
+import batchWorker from "@convex-dev/batch-worker/test"
 import { convexTest } from "convex-test"
 import { afterEach, beforeEach, describe, expect, it, vi } from "vite-plus/test"
 
@@ -26,6 +27,7 @@ const trashedOf = async (as: Authed) =>
 
 const setup = async () => {
   const t = convexTest(schema, modules)
+  batchWorker.register(t as never)
   const userId = await t.run((ctx) => ctx.db.insert("users", { name: "Sam" }))
   const as = t.withIdentity({ subject: userId })
   const add = (company: string) =>
@@ -107,12 +109,13 @@ describe("archive and trash", () => {
     await as.mutation(api.api.applications.trash, { id: trashed })
 
     vi.setSystemTime(Date.now() + 31 * day)
-    expect(await t.mutation(internal.api.applications.sweep, {})).toEqual({ trashed: 1, deleted: 0 })
+    expect(await t.mutation(internal.api.applications.sweep, {})).toEqual({ trashed: 1, due: false })
     expect((await trashedOf(as)).map((x) => x.company)).toEqual(["Acme", "Hooli"])
 
     // 90 days by default: Hooli, trashed first, goes; Acme, trashed 31 days later, stays.
     vi.setSystemTime(Date.now() + 60 * day)
-    expect(await t.mutation(internal.api.applications.sweep, {})).toEqual({ trashed: 0, deleted: 1 })
+    expect(await t.mutation(internal.api.applications.sweep, {})).toEqual({ trashed: 0, due: true })
+    await t.finishAllScheduledFunctions(vi.runAllTimers)
     expect((await trashedOf(as)).map((x) => x.company)).toEqual(["Acme"])
   })
 
@@ -122,7 +125,7 @@ describe("archive and trash", () => {
     await as.mutation(api.api.applications.trash, { id })
     await as.mutation(api.api.applications.setTrashDays, { days: 0 })
     vi.setSystemTime(Date.now() + 400 * day)
-    expect(await t.mutation(internal.api.applications.sweep, {})).toEqual({ trashed: 0, deleted: 0 })
+    expect(await t.mutation(internal.api.applications.sweep, {})).toEqual({ trashed: 0, due: false })
     await expect(as.mutation(api.api.applications.setTrashDays, { days: 7 })).rejects.toThrow(
       "Pick one of the choices."
     )
@@ -147,7 +150,7 @@ describe("archive and trash", () => {
     await as.mutation(api.api.applications.trash, { id })
     await as.mutation(api.api.applications.setTrashDays, { days: 30 })
     vi.setSystemTime(Date.now() + 31 * day)
-    expect(await t.mutation(internal.api.applications.sweep, {})).toEqual({ trashed: 0, deleted: 1 })
+    expect(await t.mutation(internal.api.applications.sweep, {})).toEqual({ trashed: 0, due: true })
   })
 
   it("deletes one person's due Trash whatever others keep", async () => {
@@ -173,6 +176,7 @@ describe("archive and trash", () => {
     await as.mutation(api.api.applications.trash, { id: mine })
     vi.setSystemTime(Date.now() + 100 * day)
     await t.mutation(internal.api.applications.sweep, {})
+    await t.finishAllScheduledFunctions(vi.runAllTimers)
     expect(await t.run((ctx) => ctx.db.get("applications", mine))).toBeNull()
     expect(await t.run((ctx) => ctx.db.get("applications", theirs))).not.toBeNull()
   })
@@ -181,7 +185,7 @@ describe("archive and trash", () => {
     const { t, as, add } = await setup()
     for (let i = 0; i < 30; i++)
       await as.mutation(api.api.applications.trash, { id: await add(`Co ${i}`) })
-    expect(await as.mutation(api.api.applications.emptyTrash, {})).toBe(25)
+    await as.mutation(api.api.applications.emptyTrash, {})
     await t.finishAllScheduledFunctions(vi.runAllTimers)
     expect(await trashedOf(as)).toEqual([])
   })

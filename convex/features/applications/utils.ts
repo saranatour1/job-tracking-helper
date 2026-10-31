@@ -4,7 +4,6 @@ import { ConvexError } from "convex/values"
 import { defaultTrashDays, type Status, limits, priorityFor, statusLabels } from "./validators"
 import { workLog } from "../../lib/log"
 import { keepLog, logEdit } from "../activity/utils"
-import { internal } from "../../_generated/api"
 import { fireEvent } from "../automations/fire"
 
 // Archived applications leave the board but stay; after `archiveDays` they move to the
@@ -87,20 +86,6 @@ export const moveToTrash = async (ctx: MutationCtx, application: Doc<"applicatio
     archivedAt: undefined,
     purgeAt: purgeAtOf(now, days),
   })
-}
-
-// One batch of someone's Trash, and the next scheduled while any is left, so emptying a
-// big Trash stays within a mutation's limits.
-export const emptySome = async (ctx: MutationCtx, userId: Id<"users">) => {
-  const inTrash = await ctx.db
-    .query("applications")
-    .withIndex("by_userId_and_trashedAt", (q) => q.eq("userId", userId).gt("trashedAt", 0))
-    .take(batch + 1)
-  const now = inTrash.slice(0, batch)
-  for (const application of now) await deleteApplication(ctx, application)
-  if (inTrash.length > batch)
-    await ctx.scheduler.runAfter(0, internal.api.applications.emptyTrashFor, { userId })
-  return now.length
 }
 
 export const own = async (ctx: MutationCtx, userId: Id<"users">, id: Id<"applications">) => {

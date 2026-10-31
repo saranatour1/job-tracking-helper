@@ -117,13 +117,8 @@ export const markOnboarded = async (ctx: MutationCtx, userId: Id<"users">) => {
     await ctx.db.patch("users", userId, { onboardedAt: Date.now() })
 }
 
-// Everything Preferences stored for the user, for deleting an account.
-export const deletePreferences = async (ctx: MutationCtx, userId: Id<"users">) => {
+// For deleting an account: the file goes now, and its rows in batches.
+export const deleteResumeFile = async (ctx: MutationCtx, userId: Id<"users">) => {
   const row = await rowOf(ctx, userId)
   if (row?.resumeId) await ctx.storage.delete(row.resumeId)
-  if (row) await ctx.db.delete("preferences", row._id)
-  for (const tag of await tagsOf(ctx, userId)) await ctx.db.delete("preferenceTags", tag._id)
-  for (const kind of entryKinds)
-    for (const entry of await entriesOf(ctx, userId, kind))
-      await ctx.db.delete("profileEntries", entry._id)
 }
