@@ -76,7 +76,13 @@ export const Inbound = type({
 
 // What the token was allowed to do when it was added. Sending is unknown when the
 // token can't list the domain's sending settings; a test send tells for sure.
-export const Access = type({ "sending?": "boolean", workers: "boolean", routing: "boolean" })
+export const Access = type({
+  "sending?": "boolean",
+  workers: "boolean",
+  routing: "boolean",
+  // Whether the token can see the domain. Unknown on connections from before this was checked.
+  "zone?": "boolean",
+})
 
 // What the person lets the app do for them: send mail, change their Cloudflare setup,
 // keep mail sent to them, and let Jev read it. All off until they turn one on.

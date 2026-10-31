@@ -70,6 +70,8 @@ export const accessOf = async (accountId: string, token: string, domain: string)
         : undefined,
       workers: workers !== undefined,
       routing: routing !== undefined,
+      // Everything about the domain depends on this, so it's the first thing to fix.
+      zone: zoneId !== undefined,
     },
   }
 }

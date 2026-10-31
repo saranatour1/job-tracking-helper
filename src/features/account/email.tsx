@@ -334,6 +334,7 @@ const Connected = ({ connection }: { connection: Connection }) => {
           <Access ok={connection.access.sending} label="Sending" />
           <Access ok={connection.access.workers} label="Workers" />
           <Access ok={connection.access.routing} label="Routing" />
+          {connection.access.zone === false && <Access ok={false} label="Domain" />}
         </div>
       </Row>
       <Row
@@ -460,7 +461,9 @@ const OnYourBehalf = ({ connection }: { connection: Connection }) => {
         const blocked =
           needs === "setup"
             ? !canSetUp &&
-              "Your token can't do this yet: it needs Workers Scripts and Email Routing Rules."
+              (connection.access.zone === false
+                ? `Your token can't see ${connection.fromAddress.split("@")[1]}. In Cloudflare, give it Zone Read and Email Routing Rules Edit for that domain, then save again above.`
+                : "Your token can't do this yet: it needs Workers Scripts and Email Routing Rules.")
             : needs === "read"
               ? !connection.allow.read && "Turn on “Let Jev read your mail” first."
               : needs === "receiving" && !connection.receivingSince && "Set up incoming mail first."
