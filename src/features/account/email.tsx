@@ -1,4 +1,5 @@
 import { api } from "@convex/_generated/api"
+import type { Id } from "@convex/_generated/dataModel"
 import { type allowKeys, Connect } from "@convex/features/email/validators"
 import { SquareLock02Icon } from "@hugeicons/core-free-icons"
 import { HugeiconsIcon } from "@hugeicons/react"
@@ -10,6 +11,7 @@ import { startTransition, useActionState } from "react"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { messagesIn } from "@convex/features/email/addresses"
+import { hasSignature, signatureHtml } from "@convex/features/email/signature"
 import { Input } from "@/components/ui/input"
 import { Switch } from "@/components/ui/switch"
 import { messageOf, Row, Section } from "@/features/account/settings"
@@ -257,6 +259,134 @@ const testOf = (connection: Connection) => {
   return `Sent to ${test.to} on ${dateOf(test.at)}.`
 }
 
+// A small square copy, since this goes inside every email.
+const signatureCopy = async (source: Blob) => {
+  const image = await createImageBitmap(source)
+  const side = Math.min(image.width, image.height)
+  const canvas = document.createElement("canvas")
+  canvas.width = canvas.height = 160
+  canvas
+    .getContext("2d")
+    ?.drawImage(
+      image,
+      (image.width - side) / 2,
+      (image.height - side) / 2,
+      side,
+      side,
+      0,
+      0,
+      160,
+      160
+    )
+  return new Promise<Blob>((resolve, reject) =>
+    canvas.toBlob(
+      (blob) => (blob ? resolve(blob) : reject(new Error("That photo couldn't be read."))),
+      "image/jpeg",
+      0.85
+    )
+  )
+}
+
+const SignaturePhoto = ({ connection }: { connection: Connection }) => {
+  const me = useQuery(api.users.me)
+  const uploadUrl = useMutation(api.users.generateUploadUrl)
+  const setPhoto = useMutation(api.email.setSignaturePhoto)
+  const [error, run, pending] = useActionState(
+    async (_: string | undefined, step: Blob | string | null) => {
+      try {
+        if (step === null) return void (await setPhoto({}))
+        const source = typeof step === "string" ? await (await fetch(step)).blob() : step
+        const res = await fetch(await uploadUrl(), {
+          method: "POST",
+          headers: { "Content-Type": "image/jpeg" },
+          body: await signatureCopy(source),
+        })
+        const { storageId } = (await res.json()) as { storageId: Id<"_storage"> }
+        return void (await setPhoto({ photo: storageId }))
+      } catch (cause) {
+        return messageOf(cause)
+      }
+    },
+    undefined
+  )
+  const go = (step: Blob | string | null) => startTransition(() => run(step))
+  return (
+    <Row
+      label="Signature photo"
+      description={
+        error ? (
+          <span className="text-destructive">{error}</span>
+        ) : connection.signaturePhotoUrl ? (
+          "Goes under your name on mail you write. Replies you send from Gmail use Gmail's signature."
+        ) : (
+          "Adds your photo and name under mail you write here."
+        )
+      }
+    >
+      <div className="flex flex-wrap items-center justify-end gap-2">
+        {connection.signaturePhotoUrl && (
+          <img src={connection.signaturePhotoUrl} alt="" className="size-8 rounded-full" />
+        )}
+        {me?.imageUrl && (
+          <Button
+            type="button"
+            size="sm"
+            variant="outline"
+            disabled={pending}
+            onClick={() => go(me.imageUrl!)}
+          >
+            Use my profile photo
+          </Button>
+        )}
+        <Button size="sm" variant="outline" disabled={pending} render={<label />}>
+          Choose photo
+          <input
+            type="file"
+            accept="image/jpeg,image/png"
+            className="sr-only"
+            disabled={pending}
+            onChange={(e) => {
+              const file = e.target.files?.[0]
+              if (file) go(file)
+            }}
+          />
+        </Button>
+        {connection.signaturePhotoUrl && (
+          <Button
+            type="button"
+            size="sm"
+            variant="ghost"
+            disabled={pending}
+            onClick={() => go(null)}
+          >
+            Remove
+          </Button>
+        )}
+      </div>
+    </Row>
+  )
+}
+
+// What goes out, drawn by the same code. Mail gets no scripts, so this frame allows none either.
+const SignaturePreview = ({ connection }: { connection: Connection }) => (
+  <div className="flex flex-col gap-2 px-4 py-3">
+    <div>
+      <p className="text-[13px] font-medium">Signature preview</p>
+      <p className="text-muted-foreground text-xs">
+        {hasSignature(connection.signature, Boolean(connection.signaturePhotoUrl))
+          ? "What goes under mail you write here. Change the details under Profile."
+          : "Add a photo here, or a link under Profile, and this goes under mail you write."}
+      </p>
+    </div>
+    <iframe
+      title="Email signature preview"
+      sandbox=""
+      className="h-28 w-full rounded-lg border bg-white"
+      srcDoc={`<!doctype html><body style="margin:0;padding:0 12px;background:#fff">${signatureHtml(connection.signature, connection.signaturePhotoUrl)}</body>`}
+    />
+  </div>
+)
+
 // Reads files here and sends one email at a time, so a big export can't hit a size limit.
 const ImportMail = ({ allowed }: { allowed: boolean }) => {
   const importMail = useAction(api.email.importMail)
@@ -384,6 +514,8 @@ const Connected = ({ connection }: { connection: Connection }) => {
           </form>
         )}
       </Row>
+      <SignaturePhoto connection={connection} />
+      <SignaturePreview connection={connection} />
       <ImportMail allowed={connection.allow.receive} />
       <Row
         label="Disconnect"

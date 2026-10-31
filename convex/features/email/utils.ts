@@ -8,6 +8,8 @@ import { getAuthUserId } from "@convex-dev/auth/server"
 import { ConvexError } from "convex/values"
 import { Details, Received } from "./validators"
 import { removeInbound } from "./cloudflare"
+import { hasSignature, type SignatureInfo, signed, toBase64 } from "./signature"
+import { rowLimits } from "../preferences/rows"
 import { type Candidate, type Kind, kindLabels, kinds } from "./match"
 import { experimental_decide as decide } from "ai"
 import { convexGateway } from "@convex-dev/ai-sdk-provider"
@@ -53,12 +55,33 @@ export const trackingAddressOf = async (ctx: QueryCtx, userId: Id<"users">) => {
   return details ? details.fromAddress : null
 }
 
+/** Your preferred name, else your saved full name, else your account's. */
+export const signatureInfoOf = async (
+  ctx: QueryCtx,
+  userId: Id<"users">
+): Promise<SignatureInfo> => {
+  const user = await ctx.db.get("users", userId)
+  const fields = await ctx.db
+    .query("profileEntries")
+    .withIndex("by_userId_and_kind_and_order", (q) => q.eq("userId", userId).eq("kind", "field"))
+    .take(rowLimits.field)
+  const saved = fields.find((f) => /\bfull name\b/i.test(f.label))?.value.trim()
+  return {
+    name: user?.preferredName || saved || user?.name || "",
+    email: user?.email ?? "",
+    linkedin: user?.linkedin ?? "",
+    github: user?.github ?? "",
+    x: user?.x ?? "",
+  }
+}
+
 export const reseal = async (k: Keys, sealedText: string, aadText: string) =>
   seal(k, await open(k, sealedText, aadText), aadText)
 
 // For account deletion: the connection now, the emails in batches.
 export const deleteEmail = async (ctx: MutationCtx, userId: Id<"users">) => {
   const connection = await connectionOf(ctx, userId)
+  if (connection?.signaturePhoto) await ctx.storage.delete(connection.signaturePhoto)
   if (connection) await ctx.db.delete("emailConnections", connection._id)
   for await (const event of ctx.db
     .query("mailEvents")
@@ -106,6 +129,27 @@ export const openConnection = async (ctx: ActionCtx, userId: Id<"users">) => {
 export const senderOf = (address: string, name?: string) => {
   const clean = name?.replace(/[\r\n]+/g, " ").trim()
   return clean ? { address, name: clean } : address
+}
+
+/** What to hand to Cloudflare: under your name, and signed if there's a signature to add. */
+export const outgoing = async <T extends { from: string; text: string }>(
+  ctx: ActionCtx,
+  row: { signature: SignatureInfo; signaturePhoto?: Id<"_storage"> | undefined },
+  email: T,
+  { sign = true }: { sign?: boolean } = {}
+) => {
+  const named = { ...email, from: senderOf(email.from, row.signature.name) }
+  if (!sign) return named
+  const photo = row.signaturePhoto ? await ctx.storage.get(row.signaturePhoto) : null
+  if (!hasSignature(row.signature, Boolean(photo))) return named
+  return {
+    ...named,
+    ...signed(
+      email.text,
+      row.signature,
+      photo ? { base64: toBase64(await photo.arrayBuffer()), type: photo.type } : undefined
+    ),
+  }
 }
 
 export const sha256 = async (text: string) =>

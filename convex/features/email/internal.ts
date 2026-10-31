@@ -13,8 +13,7 @@ import {
   vConnectionsPage,
   vResealArgs,
 } from "./validators"
-import { rowLimits } from "../preferences/rows"
-import { aad, keys, connectionOf, reseal } from "./utils"
+import { aad, keys, connectionOf, reseal, signatureInfoOf } from "./utils"
 
 // Adding a token, or replacing it, writes one row: the old token is gone once this
 // commits. A replaced token keeps the switches and incoming mail already set up.
@@ -29,6 +28,7 @@ const save = internalMutation({
         allow: existing.allow,
         inboundId: existing.inboundId,
         inbound: existing.inbound,
+        signaturePhoto: existing.signaturePhoto,
       })
     else await ctx.db.insert("emailConnections", { ...connection, allow: nothingAllowed })
     return null
@@ -43,21 +43,16 @@ const sealed = internalQuery({
     const connection = await connectionOf(ctx, userId)
     if (!connection) return null
     const user = await ctx.db.get("users", userId)
-    const fields = await ctx.db
-      .query("profileEntries")
-      .withIndex("by_userId_and_kind_and_order", (q) => q.eq("userId", userId).eq("kind", "field"))
-      .take(rowLimits.field)
-    const saved = fields.find((f) => /\bfull name\b/i.test(f.label))?.value.trim()
-    const senderName = saved || user?.name
-    const { details, token, tokenAddedAt, allow, inbound } = connection
+    const { details, token, tokenAddedAt, allow, inbound, signaturePhoto } = connection
     return {
       details,
       token,
       tokenAddedAt,
       allow,
       inbound,
+      signaturePhoto,
       userEmail: user?.email,
-      ...(senderName && { senderName }),
+      signature: await signatureInfoOf(ctx, userId),
     }
   },
 })
@@ -118,6 +113,7 @@ const remove = internalMutation({
   returns: v.null(),
   handler: async (ctx, { userId }) => {
     const connection = await connectionOf(ctx, userId)
+    if (connection?.signaturePhoto) await ctx.storage.delete(connection.signaturePhoto)
     if (connection) await ctx.db.delete("emailConnections", connection._id)
     return null
   },

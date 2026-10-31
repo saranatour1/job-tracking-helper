@@ -6,6 +6,7 @@ export const {
   connect,
   setAllow,
   sendTest,
+  setSignaturePhoto,
   setUpInbound,
   stopInbound,
   disconnect,

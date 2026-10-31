@@ -7,7 +7,7 @@ import type { Id } from "../../_generated/dataModel"
 import { action, internalAction } from "../../_generated/server"
 import { seal } from "../../lib/secrets"
 import { companyAddress } from "../email/addresses"
-import { openConnection, aad, senderOf } from "../email/utils"
+import { openConnection, aad, outgoing } from "../email/utils"
 import { jevModel } from "../workflows/judge"
 import { limits as rates } from "../workflows/manager"
 import { type DescribeAnswers, describeQuestions, draftFrom } from "./describe"
@@ -100,7 +100,8 @@ const sendMail = internalAction({
       const { messageId, error } = await ctx.runAction(components.cloudflareEmail.lib.send, {
         accountId: details.accountId,
         apiToken,
-        email: { ...email, from: senderOf(details.fromAddress, row.senderName) },
+        // Notify me goes to you, so it needs no signature.
+        email: await outgoing(ctx, row, email, { sign: mail.to !== undefined }),
       })
       await ctx.runMutation(components.cloudflareEmail.lib.markResult, {
         emailId,

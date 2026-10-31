@@ -9,7 +9,8 @@ import {
   limits,
   openConnection,
   secretKeys,
-  senderOf,
+  outgoing,
+  signatureInfoOf,
   userIdOf,
   aad,
   keys,
@@ -32,6 +33,7 @@ const connection = authedQuery({
     const k = await keys().catch(() => null)
     const details = k && (await openJson(k, row.details, aad.details(ctx.userId), Details))
     if (!k || !details) return null
+    const photoUrl = row.signaturePhoto && (await ctx.storage.getUrl(row.signaturePhoto))
     const [last] = await ctx.runQuery(components.cloudflareEmail.lib.list, {
       owner: ctx.userId,
       direction: "outbound",
@@ -47,6 +49,8 @@ const connection = authedQuery({
       receivingSince: row.inbound?.at ?? null,
       ...(details.forwardTo && { forwardTo: details.forwardTo }),
       tracking: Boolean(row.inbound && row.allow.receive && row.allow.tag),
+      ...(photoUrl && { signaturePhotoUrl: photoUrl }),
+      signature: await signatureInfoOf(ctx, ctx.userId),
       lastTest:
         last && sent
           ? {
@@ -153,7 +157,7 @@ const sendTest = action({
     const { messageId, error } = await ctx.runAction(components.cloudflareEmail.lib.send, {
       accountId: details.accountId,
       apiToken,
-      email: { ...email, from: senderOf(details.fromAddress, row.senderName) },
+      email: await outgoing(ctx, row, email),
     })
     await ctx.runMutation(components.cloudflareEmail.lib.markResult, {
       emailId,
@@ -166,4 +170,30 @@ const sendTest = action({
   },
 })
 
-export const publicApi = { connection, connect, setAllow, sendTest }
+// Small on purpose: this goes inside every email you write.
+const maxSignaturePhotoBytes = 300 * 1024
+
+// Sets or removes your signature photo. The page sends a small copy.
+const setSignaturePhoto = authedMutation({
+  args: { photo: v.optional(v.id("_storage")) },
+  returns: v.null(),
+  handler: async (ctx, { photo }) => {
+    const row = await ctx.db
+      .query("emailConnections")
+      .withIndex("by_userId", (q) => q.eq("userId", ctx.userId))
+      .unique()
+    if (!row) throw new ConvexError("Connect Cloudflare first.")
+    if (photo) {
+      const file = await ctx.db.system.get("_storage", photo)
+      if (!file?.contentType || !["image/jpeg", "image/png"].includes(file.contentType))
+        throw new ConvexError("Use a JPEG or PNG photo.")
+      if (file.size > maxSignaturePhotoBytes) throw new ConvexError("That photo is too big.")
+    }
+    if (row.signaturePhoto && row.signaturePhoto !== photo)
+      await ctx.storage.delete(row.signaturePhoto)
+    await ctx.db.patch("emailConnections", row._id, { signaturePhoto: photo })
+    return null
+  },
+})
+
+export const publicApi = { connection, connect, setAllow, sendTest, setSignaturePhoto }

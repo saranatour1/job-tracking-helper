@@ -585,13 +585,19 @@ isn't shown. Email lines are opened from their sealed note only when you look.
 6. **Disconnect:** removes the Worker, the rule and the saved token. Your emails stay.
 7. **On an application,** its Activity shows the address to give out, like
    `you+hooli@yourdomain`, with Copy, or says why mail isn't tracked yet. **Email** and
-   **Reply** send under your name, your saved Full name or else your account's, from your plain address (`api.email.sendFromApplication`, 30 a day), with
+   **Reply** send under your name from your plain address (`api.email.sendFromApplication`, 30 a day), with
    replies aimed at that address. Sent mail joins its Activity, with no Inbox
    line or workflow event. A workflow's Send email about an application does the same.
    **Form refuses a +** makes `you.hooli@yourdomain` for that company
    (`api.email.makeAddressWithoutPlus`). Cloudflare can't match a pattern, so each needs its
    own routing rule, and takes a few minutes to start working. They stop at 150, and stopping incoming mail removes them.
-8. **Import old mail** takes .eml or .mbox files (`api.email.importMail`). It keeps only mail
+8. **Signature** (`api.email.setSignaturePhoto`, and your Profile): your photo, name, account
+   email and any LinkedIn, GitHub and X you've added. **Signature preview** shows it as it goes
+   out. It's added to mail you write here and workflow emails, not Notify me, once there's a
+   photo or a link. The photo is a small embedded copy. The Activity shows what you wrote,
+   without the signature. Your preferred name, else your saved full name, else your account
+   name, is who mail is from.
+9. **Import old mail** takes .eml or .mbox files (`api.email.importMail`). It keeps only mail
    matching an application by its address, thread or company name, and skips what's already
    here. It uses no AI, and adds no Inbox line, workflow event or suggestion.
 

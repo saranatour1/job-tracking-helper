@@ -23,6 +23,10 @@ const me = authedQuery({
       name: user?.name ?? "",
       email: user?.email ?? "",
       userName: user?.userName ?? "",
+      preferredName: user?.preferredName ?? "",
+      linkedin: user?.linkedin ?? "",
+      github: user?.github ?? "",
+      x: user?.x ?? "",
       imageUrl: user?.imageId ? await ctx.storage.getUrl(user.imageId) : null,
       onboarded: user?.onboardedAt !== undefined,
     }
@@ -32,7 +36,7 @@ const me = authedQuery({
 const updateProfile = arkMutation({
   args: Profile,
   returns: v.null(),
-  handler: async (ctx, { name, email, userName }) => {
+  handler: async (ctx, { name, email, userName, preferredName, linkedin, github, x }) => {
     if (userName) {
       const owner = await ctx.db
         .query("users")
@@ -44,6 +48,10 @@ const updateProfile = arkMutation({
       name: name || undefined,
       email: email || undefined,
       userName: userName || undefined,
+      preferredName: preferredName || undefined,
+      linkedin: linkedin || undefined,
+      github: github || undefined,
+      x: x || undefined,
     })
     return null
   },

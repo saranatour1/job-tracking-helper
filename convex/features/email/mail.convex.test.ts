@@ -326,6 +326,71 @@ describe("sending from an application", () => {
     expect(body().from).toEqual({ address: "reach@example.com", name: "Samantha Lee" })
   })
 
+  it("signs with your photo when you've set one, and keeps the activity plain", async () => {
+    const { t, as, hooli } = await setup()
+    const photo = await t.run((ctx) =>
+      ctx.storage.store(new Blob(["fake-photo"], { type: "image/jpeg" }))
+    )
+    await as.mutation(api.email.setSignaturePhoto, { photo })
+    await as.action(api.email.sendFromApplication, {
+      applicationId: hooli,
+      ...mail,
+      text: "Hi <Pat> & co",
+    })
+    const sent = body()
+    expect(sent.text).toBe("Hi <Pat> & co\n\n-- \nSam\nsam@example.com")
+    expect(sent.html).toContain("Hi &lt;Pat&gt; &amp; co")
+    expect(sent.html).toContain('src="cid:signature-photo"')
+    expect(sent.attachments).toEqual([
+      {
+        content: btoa("fake-photo"),
+        filename: "signature.jpg",
+        type: "image/jpeg",
+        disposition: "inline",
+        content_id: "signature-photo",
+      },
+    ])
+    const [line] = await as.query(api.email.timeline, {})
+    expect((await as.query(api.email.mailBody, { eventId: line!.id }))?.text).toBe("Hi <Pat> & co")
+  })
+
+  it("sends under your preferred name, and signs with your links", async () => {
+    const { t, as, hooli, userId } = await setup()
+    await t.run((ctx) =>
+      ctx.db.patch("users", userId, { preferredName: "Sammy", github: "sammy", x: "@sammy" })
+    )
+    await as.action(api.email.sendFromApplication, { applicationId: hooli, ...mail })
+    const sent = body()
+    expect(sent.from).toEqual({ address: "reach@example.com", name: "Sammy" })
+    expect(sent.text).toBe(
+      "Hi Pat\n\n-- \nSammy\nsam@example.com\nGitHub: https://github.com/sammy\nX: https://x.com/sammy"
+    )
+    expect(sent.html).toContain('href="https://github.com/sammy"')
+    expect(sent.attachments).toBeUndefined()
+  })
+
+  it("sends plain text with no photo or links", async () => {
+    const { as, hooli } = await setup()
+    await as.action(api.email.sendFromApplication, { applicationId: hooli, ...mail })
+    expect(body().html).toBeUndefined()
+    expect(body().attachments).toBeUndefined()
+    expect(body().text).toBe("Hi Pat")
+  })
+
+  it("refuses a signature photo that's too big or not a photo", async () => {
+    const { t, as } = await setup()
+    const big = await t.run((ctx) =>
+      ctx.storage.store(new Blob([new Uint8Array(400 * 1024)], { type: "image/jpeg" }))
+    )
+    await expect(as.mutation(api.email.setSignaturePhoto, { photo: big })).rejects.toThrow(
+      "too big"
+    )
+    const pdf = await t.run((ctx) =>
+      ctx.storage.store(new Blob(["x"], { type: "application/pdf" }))
+    )
+    await expect(as.mutation(api.email.setSignaturePhoto, { photo: pdf })).rejects.toThrow("JPEG")
+  })
+
   it("leaves Reply-To alone until mail to that address would arrive", async () => {
     const { as, hooli } = await setup({ tag: false })
     await as.action(api.email.sendFromApplication, { applicationId: hooli, ...mail })

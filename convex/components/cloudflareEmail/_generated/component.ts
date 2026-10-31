@@ -112,6 +112,13 @@ export type ComponentApi<Name extends string | undefined = string | undefined> =
           accountId: string;
           apiToken: string;
           email: {
+            attachments?: Array<{
+              content: string;
+              content_id?: string;
+              disposition: string;
+              filename: string;
+              type: string;
+            }>;
             bcc?: Array<string>;
             cc?: Array<string>;
             from: string | { address: string; name: string };
