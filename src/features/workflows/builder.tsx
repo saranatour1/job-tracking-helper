@@ -1,3 +1,4 @@
+import { dateText, routeIds, useLoopRoutes } from "@/lib/route-ids"
 import { api } from "@/lib/api"
 import type { Doc, Id } from "@convex/_generated/dataModel"
 import { vDraft, problemOf, type Step } from "@convex/features/automations/validators"
@@ -87,6 +88,11 @@ const RunList = ({
   selected?: string
 }) => {
   const runs = useQuery(api.automations.runs, { automationId }) ?? []
+  const routes = routeIds(
+    runs,
+    (r) => r._id,
+    (r) => dateText(r.startedAt)
+  )
   const counts = useQuery(api.automations.counts, { automationId })
   const navigate = useNavigate({ from: "/workflows/$id" })
   return (
@@ -105,7 +111,10 @@ const RunList = ({
             <button
               type="button"
               onClick={() =>
-                void navigate({ search: (s) => ({ ...s, run: run._id }), replace: true })
+                void navigate({
+                  search: (s) => ({ ...s, run: routes.text(run._id) }),
+                  replace: true,
+                })
               }
               className={cn(
                 "hover:bg-accent/50 flex w-full items-center gap-2 rounded-md px-2 py-1.5 text-start transition-colors",
@@ -166,13 +175,19 @@ const Editor = ({ saved }: { saved?: Doc<"automations"> }) => {
   const applications = useQuery(api.applications.list) ?? []
   const loops = useQuery(api.loops.list) ?? []
   const goals = useQuery(api.goals.list) ?? []
+  const loopRoutes = useLoopRoutes()
+  const workflows = useQuery(api.automations.list) ?? []
   const zone = useCalendarSettings()?.timeZone ?? Intl.DateTimeFormat().resolvedOptions().timeZone
 
   const unsaved = useRef<Draft>(null)
   unsaved.current ??= search.draft
     ? search.draft
     : search.template
-      ? draftOf(search.template, browserZone, search.loop)
+      ? draftOf(
+          search.template,
+          browserZone,
+          search.loop && (loopRoutes.id(search.loop) ?? search.loop)
+        )
       : blank
   const initial: Draft = saved
     ? { name: saved.name, trigger: saved.trigger, steps: saved.steps, active: saved.active }
@@ -183,9 +198,16 @@ const Editor = ({ saved }: { saved?: Doc<"automations"> }) => {
   const setSteps = (steps: Step[]) => form.setFieldValue("steps", steps)
 
   const runs = useQuery(api.automations.runs, saved ? { automationId: saved._id } : "skip")
+  const runRoutes = routeIds(
+    runs ?? [],
+    (r) => r._id,
+    (r) => dateText(r.startedAt)
+  )
   const choices = useQuery(api.automations.choices, saved ? { automationId: saved._id } : "skip")
   const history = search.tab === "history" && saved
-  const run = history ? (runs?.find((r) => r._id === search.run) ?? runs?.[0]) : undefined
+  const run = history
+    ? (runs?.find((r) => r._id === runRoutes.id(search.run ?? "")) ?? runs?.[0])
+    : undefined
   const statuses: Record<string, StepStatus> = Object.fromEntries(
     (run?.log ?? []).map((e) => [e.at, e.status])
   )
@@ -202,8 +224,9 @@ const Editor = ({ saved }: { saved?: Doc<"automations"> }) => {
           await removing
         }
         if (action === "run" && saved) {
-          const runId = await runNow({ id: saved._id })
-          write({ tab: "history", run: runId, step: undefined })
+          await runNow({ id: saved._id })
+          // With no run named, History opens the newest, which is this one.
+          write({ tab: "history", run: undefined, step: undefined })
         }
         if (action === "save") {
           // Saved as the server keeps it, so the page doesn't look unsaved afterwards.
@@ -212,7 +235,19 @@ const Editor = ({ saved }: { saved?: Doc<"automations"> }) => {
           if (problem) return problem
           const id = await save({ ...(saved && { id: saved._id }), ...next })
           form.reset(next)
-          if (!saved) void navigate({ to: "/workflows/$id", params: { id }, replace: true })
+          if (!saved) {
+            // The new one isn't in the list here yet.
+            const withNew = [
+              ...workflows.map((w) => ({ id: w._id, name: w.name })),
+              { id, name: next.name },
+            ]
+            const text = routeIds(
+              withNew,
+              (w) => w.id,
+              (w) => w.name
+            ).text(id)
+            void navigate({ to: "/workflows/$id", params: { id: text }, replace: true })
+          }
         }
         return undefined
       } catch (cause) {
@@ -422,7 +457,9 @@ const Editor = ({ saved }: { saved?: Doc<"automations"> }) => {
 /** The builder for one workflow, or a new one when `id` is "new". */
 export const WorkflowBuilder = ({ id }: { id: string }) => {
   const list = useQuery(api.automations.list)
-  if (list === undefined) return <div className="h-svh" />
+  // A template can name a loop, and the first draft is made once.
+  const loops = useQuery(api.loops.list)
+  if (list === undefined || loops === undefined) return <div className="h-svh" />
   const saved = list.find((a) => a._id === id)
   if (id !== "new" && !saved)
     return (

@@ -1,3 +1,4 @@
+import { dateText, routeIds, useApplicationRoutes } from "@/lib/route-ids"
 import { api } from "@/lib/api"
 import type { Id } from "@convex/_generated/dataModel"
 import { type Box, maxUnreadCount } from "@convex/features/mailbox/validators"
@@ -217,12 +218,12 @@ const UnreadDot = ({ unread, className }: { unread: boolean; className?: string 
 )
 
 // A collapsed email in a thread. Only the one you're reading gets opened.
-const ThreadLine = ({ message }: { message: Row }) => {
+const ThreadLine = ({ message, text }: { message: Row; text: string }) => {
   const markRead = useMutation(api.mailbox.markRead)
   return (
     <Link
       from="/email"
-      search={(s) => ({ ...s, message: message.id })}
+      search={(s) => ({ ...s, message: text })}
       onClick={() => {
         if (!message.read) void markRead({ eventId: message.id })
       }}
@@ -237,20 +238,31 @@ const ThreadLine = ({ message }: { message: Row }) => {
   )
 }
 
-const ThreadLines = ({ messages }: { messages: Row[] }) =>
+const ThreadLines = ({ messages, routes }: { messages: Row[]; routes: RouteIdsOf }) =>
   messages.length > 0 && (
     <div className="max-h-[25%] shrink-0 overflow-y-auto border-t">
       {messages.map((message) => (
-        <ThreadLine key={message.id} message={message} />
+        <ThreadLine key={message.id} message={message} text={routes.text(message.id)} />
       ))}
     </div>
   )
+
+// An email's text in the URL is its date, so a private subject never gets there.
+const mailRoutes = (rows: Row[]) =>
+  routeIds(
+    rows,
+    (r) => r.id,
+    (r) => dateText(r.at)
+  )
+type RouteIdsOf = ReturnType<typeof mailRoutes>
 
 const Reader = ({ row }: { row: Row }) => {
   const { reply, message } = route.useSearch()
   const thread = useQuery(api.mailbox.thread, { eventId: row.id })
   const messages = thread?.some((m) => m.id === row.id) ? thread : [row]
-  const shown = messages.find((m) => m.id === message) ?? row
+  const routes = mailRoutes(messages)
+  const applications = useApplicationRoutes()
+  const shown = messages.find((m) => m.id === routes.id(message ?? "")) ?? row
   const shownAt = messages.findIndex((m) => m.id === shown.id)
   const mail = useQuery(api.mailbox.content, { eventId: shown.id })
   const move = useMutation(api.mailbox.move)
@@ -322,7 +334,7 @@ const Reader = ({ row }: { row: Row }) => {
         <h2 className="min-w-0 text-base font-semibold break-words">{shown.subject}</h2>
         <CopyButton key={shown.id} text={shown.subject} label="Copy subject" />
       </div>
-      <ThreadLines messages={messages.slice(0, shownAt)} />
+      <ThreadLines messages={messages.slice(0, shownAt)} routes={routes} />
       <dl
         key={shown.id}
         className={cn(
@@ -354,7 +366,11 @@ const Reader = ({ row }: { row: Row }) => {
           <>
             <dt className="text-muted-foreground">Application</dt>
             <dd className="py-0.5">
-              <Link to="/" search={{ app: shown.applicationId }} className="underline">
+              <Link
+                to="/"
+                search={{ app: applications.text(shown.applicationId) }}
+                className="underline"
+              >
                 {shown.company}
               </Link>
             </dd>
@@ -388,10 +404,10 @@ const Reader = ({ row }: { row: Row }) => {
           </p>
         </ScrollArea>
       )}
-      <ThreadLines messages={messages.slice(shownAt + 1)} />
+      <ThreadLines messages={messages.slice(shownAt + 1)} routes={routes} />
       {mail && other && row.box !== "trash" && (
         <div className="max-h-[70%] shrink-0 overflow-y-auto border-t">
-          {reply === row.id ? (
+          {reply === routes.text(row.id) ? (
             <ComposeForm
               key={shown.id}
               inline
@@ -409,7 +425,9 @@ const Reader = ({ row }: { row: Row }) => {
               <Button
                 size="sm"
                 variant="outline"
-                render={<Link from="/email" search={(s) => ({ ...s, reply: row.id })} />}
+                render={
+                  <Link from="/email" search={(s) => ({ ...s, reply: routes.text(row.id) })} />
+                }
               >
                 Reply
               </Button>
@@ -421,13 +439,13 @@ const Reader = ({ row }: { row: Row }) => {
   )
 }
 
-const MailRow = ({ row, open }: { row: Row; open: boolean }) => {
+const MailRow = ({ row, open, text }: { row: Row; open: boolean; text: string }) => {
   const markRead = useMutation(api.mailbox.markRead)
   return (
     <li>
       <Link
         from="/email"
-        search={({ message: _message, ...s }) => ({ ...s, open: row.id })}
+        search={({ message: _message, ...s }) => ({ ...s, open: text })}
         onClick={() => {
           if (!row.read) void markRead({ eventId: row.id })
         }}
@@ -487,7 +505,8 @@ const MailList = ({ box, label, open }: { box: Box; label?: string; open?: strin
     label ? { label } : { box },
     { initialNumItems: pageSize }
   )
-  const opened = results.find((r) => r.id === open)
+  const routes = mailRoutes(results)
+  const opened = results.find((r) => r.id === routes.id(open ?? ""))
   return (
     <>
       <div
@@ -506,7 +525,12 @@ const MailList = ({ box, label, open }: { box: Box; label?: string; open?: strin
           {status !== "LoadingFirstPage" && results.length === 0 && <Empty>Nothing here.</Empty>}
           <ul>
             {results.map((row) => (
-              <MailRow key={row.id} row={row} open={row.id === open} />
+              <MailRow
+                key={row.id}
+                row={row}
+                open={row.id === opened?.id}
+                text={routes.text(row.id)}
+              />
             ))}
           </ul>
           {status === "CanLoadMore" && (
@@ -529,6 +553,14 @@ const MailList = ({ box, label, open }: { box: Box; label?: string; open?: strin
   )
 }
 
+// Never its subject, for the same reason as an email.
+const draftRoutes = (drafts: { id: Id<"mailDrafts">; createdAt: number }[]) =>
+  routeIds(
+    drafts,
+    (d) => d.id,
+    (d) => `draft ${dateText(d.createdAt)}`
+  )
+
 const DraftList = () => {
   const { results, status, loadMore } = usePaginatedQuery(
     api.mailbox.drafts,
@@ -536,6 +568,7 @@ const DraftList = () => {
     { initialNumItems: pageSize }
   )
   const remove = useMutation(api.mailbox.deleteDraft)
+  const routes = draftRoutes(results)
   return (
     <ScrollArea className="min-h-0 flex-1">
       {status !== "LoadingFirstPage" && results.length === 0 && <Empty>No drafts.</Empty>}
@@ -544,7 +577,7 @@ const DraftList = () => {
           <li key={d.id} className="flex items-center gap-2 border-b px-3 py-2 text-[13px]">
             <Link
               from="/email"
-              search={(s) => ({ ...s, compose: d.id })}
+              search={(s) => ({ ...s, compose: routes.text(d.id) })}
               className="flex min-w-0 flex-1 flex-col hover:underline"
             >
               <span className="truncate">{d.to ? `To ${d.to}` : "No recipient yet"}</span>
@@ -568,8 +601,16 @@ const DraftList = () => {
   )
 }
 
+const templateRoutes = (templates: { id: Id<"mailTemplates">; name: string }[]) =>
+  routeIds(
+    templates,
+    (t) => t.id,
+    (t) => t.name
+  )
+
 const TemplateList = () => {
   const templates = useQuery(api.mailbox.templates)
+  const routes = templateRoutes(templates ?? [])
   const remove = useMutation(api.mailbox.removeTemplate)
   return (
     <ScrollArea className="min-h-0 flex-1">
@@ -591,7 +632,7 @@ const TemplateList = () => {
           <li key={t.id} className="flex items-center gap-2 border-b px-3 py-2 text-[13px]">
             <Link
               from="/email"
-              search={(s) => ({ ...s, template: t.id })}
+              search={(s) => ({ ...s, template: routes.text(t.id) })}
               className="flex min-w-0 flex-1 flex-col hover:underline"
             >
               <span className="truncate font-medium">{t.name}</span>
@@ -692,7 +733,6 @@ const ComposeForm = ({
   draftId,
   start,
   onDone,
-  onSaved,
   inline = false,
 }: {
   draftId?: Id<"mailDrafts">
@@ -704,7 +744,6 @@ const ComposeForm = ({
     replyTo?: Id<"mailEvents">
   }
   onDone: () => void
-  onSaved?: (id: Id<"mailDrafts">) => void
   // Under the email it answers, rather than in a dialog.
   inline?: boolean
 }) => {
@@ -714,7 +753,7 @@ const ComposeForm = ({
   const templates = useQuery(api.mailbox.templates)
   const editor = useRef<EditorHandle>(null)
   const formRef = useRef<HTMLFormElement>(null)
-  // An inline reply stays put when saved, so later saves and sending need to know its draft.
+  // It stays open when saved, so later saves and sending need to know its draft.
   const savedDraft = useRef(draftId)
   type State = { error?: string; saved?: boolean }
   const [state, act, pending] = useActionState<State, "send" | "save">(async (_, step) => {
@@ -735,7 +774,6 @@ const ComposeForm = ({
           ...(savedDraft.current && { id: savedDraft.current }),
         })
         savedDraft.current = id
-        onSaved?.(id)
         return { saved: true }
       }
       if (editor.current?.isEmpty()) return { error: "Write something first." }
@@ -873,30 +911,19 @@ const ComposeForm = ({
   )
 }
 
-const FromDraft = (props: {
-  id: Id<"mailDrafts">
-  onDone: () => void
-  onSaved: (id: Id<"mailDrafts">) => void
-}) => {
+const FromDraft = (props: { id: Id<"mailDrafts">; onDone: () => void }) => {
   const draft = useQuery(api.mailbox.draft, { id: props.id })
   if (!draft)
     return <DialogPanel>{draft === null ? "That draft is gone." : "Opening…"}</DialogPanel>
-  return (
-    <ComposeForm
-      key={props.id}
-      draftId={props.id}
-      start={draft}
-      onDone={props.onDone}
-      onSaved={props.onSaved}
-    />
-  )
+  return <ComposeForm key={props.id} draftId={props.id} start={draft} onDone={props.onDone} />
 }
 
 const FromTemplate = ({ id, onDone }: { id: string; onDone: () => void }) => {
   const templates = useQuery(api.mailbox.templates)
   if (id === "new") return <TemplateForm onDone={onDone} />
   if (!templates) return <DialogPanel>Opening…</DialogPanel>
-  const template = templates.find((t) => t.id === id)
+  const templateId = templateRoutes(templates).id(id)
+  const template = templates.find((t) => t.id === templateId)
   return template ? (
     <TemplateForm template={template} onDone={onDone} />
   ) : (
@@ -917,8 +944,14 @@ export const Mailbox = () => {
     void navigate({
       search: ({ compose: _c, template: _t, ...rest }) => rest,
     })
-  const onSaved = (id: Id<"mailDrafts">) =>
-    void navigate({ search: (rest) => ({ ...rest, compose: id }), replace: true })
+  // Enough to find any draft you'd open. shortcut: one past the newest 100 reads as gone, make
+  // this follow Load more if that gets reached.
+  const drafts = usePaginatedQuery(
+    api.mailbox.drafts,
+    search.compose && search.compose !== "new" ? {} : "skip",
+    { initialNumItems: 100 }
+  )
+  const draftId = search.compose ? draftRoutes(drafts.results).id(search.compose) : undefined
   const navItem = (active: boolean) =>
     cn(
       "hover:bg-accent/40 shrink-0 rounded-md px-2 py-1.5 text-[13px] md:truncate",
@@ -998,13 +1031,15 @@ export const Mailbox = () => {
           {search.template ? (
             <FromTemplate id={search.template} onDone={closeDialog} />
           ) : search.compose && search.compose !== "new" ? (
-            <FromDraft
-              id={search.compose as Id<"mailDrafts">}
-              onDone={closeDialog}
-              onSaved={onSaved}
-            />
+            draftId ? (
+              <FromDraft id={draftId} onDone={closeDialog} />
+            ) : (
+              <DialogPanel>
+                {drafts.status === "LoadingFirstPage" ? "Opening…" : "That draft is gone."}
+              </DialogPanel>
+            )
           ) : (
-            <ComposeForm start={{}} onDone={closeDialog} onSaved={onSaved} />
+            <ComposeForm start={{}} onDone={closeDialog} />
           )}
         </DialogPopup>
       </Dialog>

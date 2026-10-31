@@ -71,7 +71,7 @@ const linesOf = async (
             title: found.name,
             message: said,
             link: null,
-            run: { automationId: found.automationId, runId: found._id },
+            run: { automationId: found.automationId, runId: found._id, startedAt: found.startedAt },
             company: undefined,
             status: undefined,
           }

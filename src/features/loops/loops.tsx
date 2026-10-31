@@ -1,3 +1,4 @@
+import { useLoopRoutes, useRouteId } from "@/lib/route-ids"
 import { api } from "@/lib/api"
 import type { Doc, Id } from "@convex/_generated/dataModel"
 import {
@@ -52,7 +53,7 @@ import { PageHeader } from "@/features/shell/page-header"
 import { cn } from "@/lib/utils"
 
 import { IconAction, messageOf, Status } from "./parts"
-import { JobPanel, PasteLink, Shortlist, type ShortlistView } from "./shortlist"
+import { JobPanel, PasteLink, Shortlist, type ShortlistView, useLeadRoutes } from "./shortlist"
 
 type Loop = Doc<"loops">
 type Run = Doc<"loopRuns">
@@ -69,8 +70,8 @@ export const loopsSearch = (
 ): {
   tab?: LoopsTab
   template?: string
-  edit?: Id<"loops">
-  job?: Id<"jobLeads">
+  edit?: string
+  job?: string
   list?: "saved"
 } => ({
   tab: loopsTabs.find((t) => t === search.tab),
@@ -78,10 +79,9 @@ export const loopsSearch = (
     typeof search.template === "string" && templateById(search.template)
       ? search.template
       : undefined,
-  // The loop being edited, and the job sheet's lead; the server checks both are the
-  // person's.
-  edit: typeof search.edit === "string" && search.edit ? (search.edit as Id<"loops">) : undefined,
-  job: typeof search.job === "string" && search.job ? (search.job as Id<"jobLeads">) : undefined,
+  // The loop being edited, and the job sheet's lead, as text.
+  edit: typeof search.edit === "string" && search.edit ? search.edit : undefined,
+  job: typeof search.job === "string" && search.job ? search.job : undefined,
   list: search.list === "saved" ? "saved" : undefined,
 })
 
@@ -187,6 +187,7 @@ const KeptBars = ({ runs }: { runs: Run[] }) => {
 // An icon button with its name in a tooltip and for screen readers.
 
 const LoopTile = ({ loop, runs, prefs }: { loop: Loop; runs: Run[]; prefs: Prefs | undefined }) => {
+  const routes = useLoopRoutes()
   const setActive = useMutation(api.loops.setActive)
   const runNow = useMutation(api.loops.runNow)
   const stopRun = useMutation(api.loops.stopRun)
@@ -287,7 +288,9 @@ const LoopTile = ({ loop, runs, prefs }: { loop: Loop; runs: Run[]; prefs: Prefs
         <IconAction
           label="Edit loop"
           icon={PencilEdit02Icon}
-          onClick={() => void navigate({ to: "/loops", search: { tab: "loops", edit: loop._id } })}
+          onClick={() =>
+            void navigate({ to: "/loops", search: { tab: "loops", edit: routes.text(loop._id) } })
+          }
         />
         <IconAction
           label="Use in a workflow"
@@ -296,7 +299,7 @@ const LoopTile = ({ loop, runs, prefs }: { loop: Loop; runs: Run[]; prefs: Prefs
             void navigate({
               to: "/workflows/$id",
               params: { id: "new" },
-              search: { template: "jobSearch", loop: loop._id },
+              search: { template: "jobSearch", loop: routes.text(loop._id) },
             })
           }
         />
@@ -1025,7 +1028,9 @@ export const Loops = () => {
   const closeJob = () =>
     void navigate({ from: "/loops", to: "/loops", search: (prev) => ({ ...prev, job: undefined }) })
   const loops = useQuery(api.loops.list) ?? []
-  const editing = loops.find((l) => l._id === search.edit)
+  const editId = useRouteId(useLoopRoutes(), search.edit)
+  const editing = loops.find((l) => l._id === editId)
+  const jobId = useRouteId(useLeadRoutes(search.list === "saved" ? "saved" : "today"), search.job)
   const runs = usePaginatedQuery(api.loops.runs, {}, { initialNumItems: 30 })
   const sources = useQuery(api.loops.sourceStatus, {
     month: new Date().toISOString().slice(0, 7),
@@ -1089,7 +1094,7 @@ export const Loops = () => {
                     loops={loops}
                     runs={runs.results}
                     list={search.list === "saved" ? "saved" : "today"}
-                    open={search.job}
+                    open={jobId}
                     prefs={prefs}
                   />
                 ),
@@ -1120,13 +1125,13 @@ export const Loops = () => {
           ))}
         </Tabs>
         {/* On phones the job covers the page. Esc closes it. */}
-        {search.job && (
+        {jobId && (
           <aside
             aria-label="Job"
             onKeyDown={(e) => e.key === "Escape" && closeJob()}
             className="bg-background fixed inset-0 z-20 md:static md:z-auto md:w-[28rem] md:shrink-0 md:border-s"
           >
-            <JobPanel key={search.job} leadId={search.job} onClose={closeJob} />
+            <JobPanel key={jobId} leadId={jobId} onClose={closeJob} />
           </aside>
         )}
       </div>

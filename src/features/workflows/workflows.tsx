@@ -1,3 +1,4 @@
+import { useWorkflowRoutes } from "@/lib/route-ids"
 import { api } from "@/lib/api"
 import type { Doc } from "@convex/_generated/dataModel"
 import { blocksOf } from "@convex/features/automations/validators"
@@ -43,16 +44,18 @@ const Row = ({ automation }: { automation: Doc<"automations"> }) => {
   )
   const runNow = useMutation(api.automations.runNow)
   const navigate = useNavigate()
+  const routes = useWorkflowRoutes()
   // What went wrong last, shown under the row: a rate limit, say.
   const [error, act] = useActionState(
     async (_: string | undefined, action: { run: true } | { active: boolean }) => {
       try {
         if ("run" in action) {
-          const runId = await runNow({ id: automation._id })
+          await runNow({ id: automation._id })
+          // With no run named, History opens the newest, which is this one.
           void navigate({
             to: "/workflows/$id",
-            params: { id: automation._id },
-            search: { tab: "history", run: runId },
+            params: { id: routes.text(automation._id) },
+            search: { tab: "history" },
           })
         } else await setActive({ id: automation._id, active: action.active })
         return undefined
@@ -67,7 +70,7 @@ const Row = ({ automation }: { automation: Doc<"automations"> }) => {
     <div className="flex flex-wrap items-center justify-between gap-x-6 gap-y-2 px-4 py-3">
       <Link
         to="/workflows/$id"
-        params={{ id: automation._id }}
+        params={{ id: routes.text(automation._id) }}
         className="grid min-w-48 flex-1 gap-0.5 rounded-md outline-none focus-visible:ring-2 focus-visible:ring-ring"
       >
         <span className="text-sm font-medium hover:underline">{automation.name}</span>
@@ -93,7 +96,7 @@ const Row = ({ automation }: { automation: Doc<"automations"> }) => {
         <Button
           size="sm"
           variant="ghost"
-          render={<Link to="/workflows/$id" params={{ id: automation._id }} />}
+          render={<Link to="/workflows/$id" params={{ id: routes.text(automation._id) }} />}
         >
           Edit
         </Button>

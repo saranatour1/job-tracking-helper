@@ -12,6 +12,7 @@ import { maxApplications } from "@convex/features/applications/validators"
 import { Link, useNavigate, useSearch } from "@tanstack/react-router"
 import { useRef, useState } from "react"
 
+import { applicationText, routeIds, useApplicationRoutes, useViewRoutes } from "@/lib/route-ids"
 import { Button } from "@/components/ui/button"
 import { ScrollArea } from "@/components/ui/scroll-area"
 import { Tabs, TabsList, TabsTab } from "@/components/ui/tabs"
@@ -142,7 +143,7 @@ const dragType = "application/x-tracker-id"
 const Card = ({ a, shown, peek }: { a: Application; shown: Display["shown"]; peek: Peek }) => (
   <Link
     to="/pipeline/$id"
-    params={{ id: a.id }}
+    params={{ id: applicationText(a) }}
     draggable
     onDragStart={(e) => {
       e.dataTransfer.setData(dragType, a.id)
@@ -177,7 +178,7 @@ const Card = ({ a, shown, peek }: { a: Application; shown: Display["shown"]; pee
 const Row = ({ a, shown, peek }: { a: Application; shown: Display["shown"]; peek: Peek }) => (
   <Link
     to="/pipeline/$id"
-    params={{ id: a.id }}
+    params={{ id: applicationText(a) }}
     onClick={peekOnClick(peek, a.id)}
     aria-current={peek.id === a.id || undefined}
     className="hover:bg-accent/50 aria-[current=true]:bg-accent flex transition-colors duration-150 h-9 items-center gap-2.5 border-b px-4 text-[13px]"
@@ -397,8 +398,10 @@ export const Pipeline = ({
   const panel = search.insights ?? Boolean(summary)
   const setPanel = (next: boolean) =>
     write({ insights: next === Boolean(summary) ? undefined : next })
-  const peek = search.app
-  const setPeek = (id: string | undefined) => write({ app: id })
+  const applicationRoutes = useApplicationRoutes()
+  const viewRoutes = useViewRoutes()
+  const peek = search.app && (applicationRoutes.id(search.app) ?? search.app)
+  const setPeek = (id: string | undefined) => write({ app: id && applicationRoutes.text(id) })
   const [peekWidth, setPeekWidth] = useState(440)
   const [name, setName] = useState("")
   const [description, setDescription] = useState("")
@@ -431,7 +434,17 @@ export const Pipeline = ({
       filters: filters as Record<string, string[]>,
       display: displayDiff(display, defaultDisplay),
     })
-    void navigate({ to: "/", search: { view: id } })
+    // The new view isn't in the list here yet.
+    const withNew = [
+      ...savedViews.map((v) => ({ id: v.id, name: v.name })),
+      { id, name: name.trim() },
+    ]
+    const text = routeIds(
+      withNew,
+      (v) => v.id,
+      (v) => v.name
+    ).text(id)
+    void navigate({ to: "/", search: { view: text } })
   }
 
   return (
@@ -513,7 +526,7 @@ export const Pipeline = ({
                     <TabsTab
                       value={v.id}
                       nativeButton={false}
-                      render={<Link to="/" search={{ view: v.id }} />}
+                      render={<Link to="/" search={{ view: viewRoutes.text(v.id) }} />}
                     >
                       {v.name}
                     </TabsTab>

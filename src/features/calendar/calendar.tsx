@@ -1,4 +1,5 @@
 import { Link, useNavigate, useSearch } from "@tanstack/react-router"
+import { useApplicationRoutes } from "@/lib/route-ids"
 import { useCallback, useMemo, useRef } from "react"
 
 import {
@@ -175,6 +176,7 @@ export const CalendarPage = () => {
   const remove = useRemoveEvent()
   const search = useSearch({ from: "/_app/calendar" })
   const navigate = useNavigate({ from: "/calendar" })
+  const applicationRoutes = useApplicationRoutes()
   const write = (patch: CalendarSearch) =>
     void navigate({ search: (prev) => ({ ...prev, ...patch }), replace: true })
 
@@ -236,7 +238,7 @@ export const CalendarPage = () => {
     onCommit: commit,
     onEventDoubleClick: (e: CalEvent) => {
       const id = byId.get(e.id)?.applicationId
-      if (id) void navigate({ to: "/pipeline/$id", params: { id } })
+      if (id) void navigate({ to: "/pipeline/$id", params: { id: applicationRoutes.text(id) } })
     },
     theme: "coss",
     designMode: false,

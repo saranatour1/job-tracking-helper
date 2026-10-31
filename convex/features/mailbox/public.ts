@@ -327,6 +327,7 @@ const drafts = authedQuery({
         to: v.string(),
         subject: v.string(),
         updatedAt: v.number(),
+        createdAt: v.number(),
       })
     ),
     isDone: v.boolean(),
@@ -351,6 +352,7 @@ const drafts = authedQuery({
             to: details.to,
             subject: details.subject,
             updatedAt: d.updatedAt,
+            createdAt: d._creationTime,
           }
         )
       })

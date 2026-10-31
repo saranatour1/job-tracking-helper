@@ -1,12 +1,14 @@
-import type { Id } from "@convex/_generated/dataModel"
 import { createFileRoute } from "@tanstack/react-router"
 
-import { PrefilledPage } from "@/features/prefilled/prefilled"
+import { usePrefillRoutes, useRouteId } from "@/lib/route-ids"
+import { PrefilledMissing, PrefilledPage } from "@/features/prefilled/prefilled"
 
 const Page = () => {
-  const id = Route.useParams().id as Id<"prefills">
+  const routes = usePrefillRoutes()
+  const id = useRouteId(routes, Route.useParams().id)
+  if (!routes.loaded) return null
   // A fresh page per application, so one's error doesn't show on the next.
-  return <PrefilledPage key={id} id={id} />
+  return id ? <PrefilledPage key={id} id={id} /> : <PrefilledMissing />
 }
 
 export const Route = createFileRoute("/_app/prefilled/$id")({ component: Page })

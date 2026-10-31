@@ -1,3 +1,4 @@
+import { dateText, routeIds, useWorkflowRoutes } from "@/lib/route-ids"
 import { api } from "@/lib/api"
 import {
   CheckmarkCircle02Icon,
@@ -117,12 +118,18 @@ export const Inbox = () => {
     groupBy === "status"
       ? statuses.filter((s) => shown.some((n) => groupKey(n, "status") === s))
       : [...new Set(shown.map((n) => groupKey(n, groupBy)))].sort()
-  const note = all.find((n) => n.id === search.id)
+  const routes = routeIds(
+    all,
+    (n) => n.id,
+    (n) => dateText(n.at)
+  )
+  const workflows = useWorkflowRoutes()
+  const note = all.find((n) => n.id === routes.id(search.id ?? ""))
   const toggle = (n: Line) => void setRead({ ids: [n.id], read: n.unread })
 
   // Opening a notification marks it read, like an email inbox.
   const select = (n: Line) => {
-    go({ id: n.id })
+    go({ id: routes.text(n.id) })
     if (n.unread) void setRead({ ids: [n.id], read: true })
   }
 
@@ -217,7 +224,7 @@ export const Inbox = () => {
                         <LineRow
                           key={n.id}
                           n={n}
-                          selected={search.id === n.id}
+                          selected={note?.id === n.id}
                           onSelect={() => select(n)}
                           onToggle={() => toggle(n)}
                         />
@@ -249,8 +256,8 @@ export const Inbox = () => {
                     render={
                       <Link
                         to="/workflows/$id"
-                        params={{ id: note.run.automationId }}
-                        search={{ tab: "history", run: note.run.runId }}
+                        params={{ id: workflows.text(note.run.automationId) }}
+                        search={{ tab: "history", run: dateText(note.run.startedAt) }}
                       />
                     }
                   >

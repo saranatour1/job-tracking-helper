@@ -1,3 +1,4 @@
+import { applicationText, useViewRoutes } from "@/lib/route-ids"
 import { Link, useNavigate } from "@tanstack/react-router"
 
 import {
@@ -48,7 +49,9 @@ export const ApplicationMenu = ({
       </ContextMenuTrigger>
       <ContextMenuPopup className="min-w-52">
         <ContextMenuItem onClick={onOpen}>Open</ContextMenuItem>
-        <ContextMenuLinkItem render={<Link to="/pipeline/$id" params={{ id: a.id }} />}>
+        <ContextMenuLinkItem
+          render={<Link to="/pipeline/$id" params={{ id: applicationText(a) }} />}
+        >
           Open full page
         </ContextMenuLinkItem>
         <ContextMenuSub>
@@ -94,7 +97,9 @@ export const ApplicationMenu = ({
           </ContextMenuLinkItem>
         )}
         <ContextMenuSeparator />
-        <ContextMenuItem onClick={() => copyLink({ app: a.id })}>Copy link</ContextMenuItem>
+        <ContextMenuItem onClick={() => copyLink({ app: applicationText(a) })}>
+          Copy link
+        </ContextMenuItem>
       </ContextMenuPopup>
     </ContextMenu>
   )
@@ -112,13 +117,14 @@ export const ViewMenu = ({
 }) => {
   const remove = useRemoveView()
   const navigate = useNavigate()
+  const routes = useViewRoutes()
   return (
     <ContextMenu>
       <ContextMenuTrigger className="contents" onContextMenu={(e) => e.stopPropagation()}>
         {children}
       </ContextMenuTrigger>
       <ContextMenuPopup className="min-w-48">
-        <ContextMenuLinkItem render={<Link to="/" search={{ view: view.id }} />}>
+        <ContextMenuLinkItem render={<Link to="/" search={{ view: routes.text(view.id) }} />}>
           Open
         </ContextMenuLinkItem>
         <ContextMenuLinkItem

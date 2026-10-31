@@ -2,6 +2,7 @@ import { ArrowUpRight01Icon } from "@hugeicons/core-free-icons"
 import { HugeiconsIcon } from "@hugeicons/react"
 import { Link } from "@tanstack/react-router"
 
+import { useApplicationRoutes } from "@/lib/route-ids"
 import { EVENT_COLORS } from "@/components/kloq"
 import type { CalEvent } from "@/components/kloq/lib/event-types"
 import type { Application } from "@/features/tracker/data"
@@ -19,6 +20,7 @@ const longDay = (day: string) =>
   })
 
 const Row = ({ item, onPick, showDay }: { item: Item; onPick: () => void; showDay?: boolean }) => {
+  const routes = useApplicationRoutes()
   const color = item.ev.color ?? kinds[item.e.kind].color
   return (
     <li className="group flex items-center gap-1">
@@ -46,7 +48,7 @@ const Row = ({ item, onPick, showDay }: { item: Item; onPick: () => void; showDa
       {item.e.applicationId && (
         <Link
           to="/pipeline/$id"
-          params={{ id: item.e.applicationId }}
+          params={{ id: routes.text(item.e.applicationId) }}
           aria-label="Open its application"
           className="text-muted-foreground hover:text-foreground rounded-md p-1 opacity-0 transition-opacity group-hover:opacity-100 focus-visible:opacity-100"
         >
@@ -78,6 +80,7 @@ export const EventList = ({
   group: "day" | "application"
   onPick: (day: string) => void
 }) => {
+  const routes = useApplicationRoutes()
   const items = events.flatMap((e): Item[] => {
     const ev = kloq.get(e.id)
     return ev ? [{ e, ev, ...whenOf(ev, zone, hour12) }] : []
@@ -133,7 +136,11 @@ export const EventList = ({
           <section key={id || "none"} className="flex flex-col gap-0.5">
             <h3 className="flex items-baseline gap-1.5 px-2 text-xs font-medium">
               {a ? (
-                <Link to="/pipeline/$id" params={{ id }} className="truncate hover:underline">
+                <Link
+                  to="/pipeline/$id"
+                  params={{ id: routes.text(id) }}
+                  className="truncate hover:underline"
+                >
                   {a.company} · {a.role}
                 </Link>
               ) : (

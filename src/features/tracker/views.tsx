@@ -6,6 +6,7 @@ import {
 import { HugeiconsIcon } from "@hugeicons/react"
 import { Link } from "@tanstack/react-router"
 
+import { useViewRoutes } from "@/lib/route-ids"
 import { Button } from "@/components/ui/button"
 import { PageHeader } from "@/features/shell/page-header"
 
@@ -18,6 +19,7 @@ import { useSource } from "./source"
 // Saved views. Each opens in Applications with its own filters and layout.
 export const Views = () => {
   const views = useSavedViews()
+  const routes = useViewRoutes()
   const { applications, goals, loaded } = useSource()
   return (
     <>
@@ -41,7 +43,7 @@ export const Views = () => {
             <li key={view.id} className="border-b">
               <Link
                 to="/"
-                search={{ view: view.id }}
+                search={{ view: routes.text(view.id) }}
                 className="hover:bg-accent/50 flex items-center gap-3 px-4 py-2.5 transition-colors"
               >
                 <HugeiconsIcon
