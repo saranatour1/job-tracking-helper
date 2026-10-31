@@ -5,7 +5,7 @@ A signed-in user can edit their name, email and custom username, upload or remov
 ## Sub-features
 
 - `account-edit` saves name, email and username, trimmed. An empty field means "not set".
-- `account-validate` shows `email must be an email address` and `userName must be 3 to 20 letters, numbers or underscores`.
+- `account-validate` shows `email must be an email address` and `userName must be 3 to 39 letters, numbers, hyphens or underscores`.
 - `account-username-taken` shows `That username is taken.` when another user has it.
 - `account-image` uploads an image of 5 MB or less, shows it, and removes it with `Remove`. Non-images show `Upload an image file.`
 - `account-delete` deletes the user's applications and image, clears their profile and sign-in username, and signs them out.

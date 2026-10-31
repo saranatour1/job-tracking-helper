@@ -22,7 +22,7 @@ const me = authedQuery({
       linkedin: user?.linkedin ?? "",
       github: user?.github ?? "",
       x: user?.x ?? "",
-      imageUrl: user?.imageId ? await ctx.storage.getUrl(user.imageId) : null,
+      imageUrl: user?.imageId ? await ctx.storage.getUrl(user.imageId) : (user?.avatarUrl ?? null),
       onboarded: user?.onboardedAt !== undefined,
     }
   },
@@ -76,7 +76,7 @@ const setImage = authedMutation({
     }
     const user = await ctx.db.get("users", ctx.userId)
     if (user?.imageId && user.imageId !== imageId) await ctx.storage.delete(user.imageId)
-    await ctx.db.patch("users", ctx.userId, { imageId })
+    await ctx.db.patch("users", ctx.userId, { imageId, avatarUrl: undefined })
     await logEdit(
       ctx,
       ctx.userId,

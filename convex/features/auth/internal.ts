@@ -1,7 +1,8 @@
 import { ConvexError, v } from "convex/values"
 import { env, internalMutation } from "../../_generated/server"
 import { workLog } from "../../lib/log"
-import { vCreateUserArgs } from "./validators"
+import { maxNameLength, UserName } from "../users/validators"
+import { vCreateUserArgs, vGithubSignInArgs } from "./validators"
 
 const createUser = internalMutation({
   args: vCreateUserArgs,
@@ -13,7 +14,7 @@ const createUser = internalMutation({
     }
     const userId = await ctx.db.insert(
       "users",
-      provider.name === "google" || provider.name === "github"
+      provider.name === "google"
         ? { name: provider.profile.name, email: provider.profile.email }
         : {}
     )
@@ -24,4 +25,30 @@ const createUser = internalMutation({
   },
 })
 
-export const internalApi = { createUser }
+// Runs on every GitHub sign-in, right after createUser on the first. It imports once
+// and only fills blanks, so what someone edits or clears later stays that way.
+const onGithubSignIn = internalMutation({
+  args: vGithubSignInArgs,
+  returns: v.null(),
+  handler: async (ctx, { provider: { profile }, userId }) => {
+    const user = await ctx.db.get("users", userId)
+    if (!user || user.githubImportedAt) return null
+    const { login, name, email, avatarUrl } = profile
+    const owner = await ctx.db
+      .query("users")
+      .withIndex("by_userName", (q) => q.eq("userName", login))
+      .first()
+    await ctx.db.patch("users", userId, {
+      // Profile rejects a longer name, and that would block every later profile save.
+      name: user.name || name?.slice(0, maxNameLength),
+      email: user.email || email,
+      userName: user.userName || (!owner && UserName.allows(login) ? login : undefined),
+      github: user.github || login,
+      avatarUrl,
+      githubImportedAt: Date.now(),
+    })
+    return null
+  },
+})
+
+export const internalApi = { createUser, onGithubSignIn }

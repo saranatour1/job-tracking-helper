@@ -64,6 +64,7 @@ src/
   components/ui/        shadcn and coss components, managed by the shadcn CLI
   components/kloq/      the kloq calendar as source, from its registry
   hooks/, lib/          shared hooks and helpers, like the api import, route text and SEO
+  assets/               the link preview image, built with a hash in its name
 public/                 logos, icons, robots.txt, sitemap.xml and llms.txt
 scripts/                dev and secrets scripts
 docs/
