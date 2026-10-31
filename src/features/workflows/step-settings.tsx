@@ -250,7 +250,7 @@ const ApplicationPick = ({
   )
 }
 
-const sends = { inbox: "Inbox", email: "Email", both: "Both" } as const
+const sends = { inbox: "Updates", email: "Email", both: "Both" } as const
 
 const BlockSettings = ({
   block,

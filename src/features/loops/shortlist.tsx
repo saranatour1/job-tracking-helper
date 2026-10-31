@@ -138,7 +138,7 @@ const metaOf = (lead: Lead) =>
 const tabs = { today: "For you", saved: "Saved" } as const
 
 // What a loop picked for the person this morning, best first, or what they saved: one
-// line per job, like the Inbox. A row opens the job panel; the icons decide without
+// line per job, like Updates. A row opens the job panel; the icons decide without
 // opening it.
 export const Shortlist = ({ view, open }: { view: ShortlistView; open?: Id<"jobLeads"> }) => {
   const leads = useQuery(api.loops.shortlist, { status: view === "today" ? "new" : "saved" })

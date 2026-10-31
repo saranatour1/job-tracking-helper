@@ -155,6 +155,21 @@ describe("folders", () => {
     expect(await as.query(api.email.recentMail, {})).toHaveLength(0)
   })
 
+  it("counts only the Updates lines it can show", async () => {
+    const { as, receive, box } = await setup()
+    await receive({})
+    await receive({ subject: "Second" })
+    expect(await as.query(api.inbox.unreadCount, {})).toBe(2)
+    const [got] = await box("inbox")
+    await as.mutation(api.mailbox.move, { eventId: got!.id, to: "trash" })
+    await as.mutation(api.mailbox.deleteForever, { eventId: got!.id })
+    const lines = await as.query(api.inbox.inbox, {})
+    expect(lines.filter((l) => l.unread)).toHaveLength(1)
+    expect(await as.query(api.inbox.unreadCount, {})).toBe(1)
+    await as.mutation(api.inbox.setRead, { read: true })
+    expect(await as.query(api.inbox.unreadCount, {})).toBe(0)
+  })
+
   it("says whether you sent an email, so a reply knows who to go to", async () => {
     const { as, receive, box, hooli } = await setup()
     await receive({})

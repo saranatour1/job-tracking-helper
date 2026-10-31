@@ -12,7 +12,7 @@ const vStatus = v.union(...statuses.map((s) => v.literal(s)))
 const vMailKind = v.union(...mailKinds.map((k) => v.literal(k)))
 
 const blocks = [
-  // Puts a line in the Inbox, or emails you, or both.
+  // Puts a line in Updates, or emails you, or both.
   v.object({
     kind: v.literal("notify"),
     message: v.string(),

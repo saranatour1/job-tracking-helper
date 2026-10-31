@@ -41,7 +41,7 @@ export const runsOf = (ctx: MutationCtx, automationId: Id<"automations">) =>
     .withIndex("by_automationId_and_startedAt", (q) => q.eq("automationId", automationId))
     .take(500)
 
-/** Stops a workflow's runs, then deletes them, their Inbox lines and the workflow. */
+/** Stops a workflow's runs, then deletes them, their Updates lines and the workflow. */
 export const deleteWorkflow = async (ctx: MutationCtx, automation: Doc<"automations">) => {
   for (const run of await runsOf(ctx, automation._id))
     if (run.status === "running") await cancelRun(ctx, run)

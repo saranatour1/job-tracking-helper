@@ -28,7 +28,7 @@ Workflows have their own page, [workflows.md](workflows.md).
 8. [Jobs](#jobs)
 9. [Prefilled applications and Activity](#prefilled-applications-and-activity)
 10. [Loops](#loops)
-11. [Inbox](#inbox)
+11. [Updates](#updates)
 12. [Email](#email)
 13. [Email page](#email-page)
 14. [Contacts](#contacts)
@@ -113,13 +113,13 @@ pasted links that aren't on a known board. A source without a key is skipped.
 
 **Stories**
 
-- As anyone, I want one sidebar to every page, with how many Inbox lines I haven't read.
+- As anyone, I want one sidebar to every page, with how many Updates lines I haven't read.
 - As anyone, I want the sidebar to stay as I left it when I open an application or a job.
 - As anyone, I want light, dark, or my system's theme.
 
 **Flows**
 
-1. The sidebar groups the pages by what you do with them: Inbox (with its unread
+1. The sidebar groups the pages by what you do with them: Updates (with its unread
    count), Applications and Calendar on top; **Find roles** with Jobs and Loops; **Done
    for you** with Workflows and Activity; **Tracker** with Goals and Views; **You** with
    Preferences and Resume. The pencil opens New application.
@@ -405,24 +405,26 @@ Previews are the same text as plain words.
      without email or phone, your saved answers that aren't personal facts, and the posting.
      It leaves blank anything it can't back up from those. It never drafts a personal fact
      (name, contact, work authorization, visa, location, salary, start date, pronouns), a
-     pick list or an optional question. A draft counts as needing you until you Save it. If
+     pick list or an optional question. A draft counts as needing you until you accept or change it. If
      AI fails, the question just waits for you. Under $0.001 per application.
-   - The questions and answers are saved on the row, the browser closes, and the Inbox
+   - The questions and answers are saved on the row, the browser closes, and Updates
      gets one line. About 2 Firecrawl credits (counted on `sourceUsage`) and one Jev call.
      A login wall, a CAPTCHA or no form ends as Failed, with **Try again**.
 3. **Review** at `/prefilled/$id` (`/prefilled` lists what's waiting): your answers on the
    left, and on the right what Jev judged (fit, reasons, breakdown) and the posting's opening
-   lines. The arrows in the header step back and forth through what's waiting. Every question
+   lines. The arrows in the header step back and forth through what's waiting. Questions that
+   need you come first, with the rest folded under **Everything else**, or open when nothing
+   needs you. A row you answer stays where it is until you next open the page. Every question
    shows where its answer came from: Saved, Jev picked, AI draft, You, or Needs you. Change
-   any answer for this application (`api.prefilled.setAnswer`). **Keep for future forms** also
+   any answer for this application (`api.prefilled.setAnswer`): it saves when you leave the
+   field or pick an option, and **Accept draft** takes an AI draft as it is. **Keep for future forms** also
    adds it to your Saved answers under "Your questions". **Read the form again** picks up
    answers you've saved since, and keeps what you typed and any draft. **Dismiss** sets it
    aside.
-4. **Open browser** (`api.prefilled.startLive`): a new browser opens the form, puts your
-   answers in and uploads your resume, then shows on the right of the page, for you to
-   control. It uses no AI. If AI ran out while preparing (Jev or the draft failed), the
-   application is still prepared with what matched by name, and the page shows **Open browser
-   with my answers**. You check it, solve any CAPTCHA, finish anything listed as "do these by
+4. **Open browser** (`api.prefilled.startLive`), at the top of the page: a new browser opens
+   the form, puts your answers in and uploads your resume, then shows on the right of the
+   page, for you to control. It uses no AI, so it still works if AI ran out while preparing
+   (Jev or the draft failed) and the application has only what matched by name. You check it, solve any CAPTCHA, finish anything listed as "do these by
    hand", and **press the form's own Submit**. The app never presses it. A location list that
    doesn't have your city tries your country. With each company having its own address,
    the form's email question gets that address, and the application is added as Saved when
@@ -520,7 +522,7 @@ call, `internal.ts` the row's steps, `utils.ts` starting one and preparing a loo
    each need holds: the place, pay, visa, things to avoid, interests and skills. A role
    fits when the match is good enough, no need fails, and every must-have is confirmed.
 4. **The end of a run:** fits wait, and the best go on your shortlist up to the loop's
-   size. Your Inbox gets "N new roles fit" (`loop.found`).
+   size. Updates gets "N new roles fit" (`loop.found`).
 5. **Failures:** a failed or canceled run says so on the Runs tab.
 
 **Rules:** 3 loops; checks 25, 50 or 100 roles a run and shows 3, 5 or 10; Run now 3 a
@@ -529,7 +531,7 @@ day; links 10 a day; a source moves on at 90% of its monthly credits.
 **Files:** `src/features/loops/`, `convex/features/loops/`,
 `convex/features/workflows/` (the run, Jev's judging, search sources).
 
-## Inbox
+## Updates
 
 **Stories**
 
@@ -544,6 +546,8 @@ day; links 10 a day; a source moves on at 90% of its monthly credits.
 2. Opening one marks it read (`?id=`). Each has a button to where it came from: Open
    applications, Open calendar, Open loops, or Open the run.
 3. Mark as read or unread, or Mark all as read.
+4. The sidebar's count is the page's unread count (`api.inbox.unreadCount` builds the same
+   lines), so a line whose source has been deleted doesn't count. The route stays `/inbox`.
 
 **Kinds**
 
@@ -604,8 +608,8 @@ isn't shown. Email lines are opened from their sealed note only when you look.
 7. **On an application,** its Activity shows the address to give out, like
    `you+hooli@yourdomain`, with Copy, or says why mail isn't tracked yet. **Email** and
    **Reply** send under your name from your plain address (`api.email.sendFromApplication`, 30 a day), with
-   replies aimed at that address. Sent mail joins its Activity, with no Inbox
-   line or workflow event. A workflow's Send email about an application does the same.
+   replies aimed at that address. Sent mail joins its Activity, with no line in
+   Updates or workflow event. A workflow's Send email about an application does the same.
    **Form refuses a +** makes `you.hooli@yourdomain` for that company
    (`api.email.makeAddressWithoutPlus`). Cloudflare can't match a pattern, so each needs its
    own routing rule, and takes a few minutes to start working. They stop at 150, and stopping incoming mail removes them.
@@ -617,7 +621,7 @@ isn't shown. Email lines are opened from their sealed note only when you look.
    name, is who mail is from.
 9. **Import old mail** takes .eml or .mbox files (`api.email.importMail`). It keeps only mail
    matching an application by its address, thread or company name, and skips what's already
-   here. It uses no AI, and adds no Inbox line, workflow event or suggestion.
+   here. It uses no AI, and adds no line in Updates, workflow event or suggestion.
 
 **By itself**
 
@@ -642,7 +646,7 @@ isn't shown. Email lines are opened from their sealed note only when you look.
    - It suggests a move (an interview suggests Interviewing).
    - When you let Jev move cards and Jev is at least 80% sure, it moves the card itself,
      with an Undo.
-   - Then it adds an Inbox line and fires the `mail` event for workflows.
+   - Then it adds a line in Updates and fires the `mail` event for workflows.
 
 **Rules:** each switch is checked on the server before it acts. Mail is sealed per
 person. Only the kind, the suggestion and the move are kept in the clear.
@@ -793,7 +797,7 @@ so a recruiter at two companies shows under the latest one.
 3. "You're booked." with "Add to your calendar".
 
 **By itself:** a booking becomes an interview on your calendar, linked to the page's
-application or one matched by the guest's email domain. It adds an Inbox line
+application or one matched by the guest's email domain. It adds a line in Updates
 (`booking.new`) and fires the `booking` event for workflows.
 
 **Rules:** one upcoming booking per guest email per page; 50 upcoming per page; times on
@@ -807,7 +811,7 @@ the quarter hour.
 **Stories**
 
 - As anyone, I want to change my name, username, email and picture.
-- As anyone, I want to choose which Inbox kinds I get.
+- As anyone, I want to choose which Updates kinds I get.
 - As anyone, I want to delete my account and everything in it.
 
 **Flows** (`/account`: Profile, Email, Notifications, Calendar, Booking pages,

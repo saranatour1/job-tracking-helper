@@ -144,7 +144,7 @@ These have no owner. Deleting an account leaves them.
 | `@convex-dev/rate-limiter` | per-source and per-person budgets                          | nothing                                            |
 | `@convex-dev/aggregate`    | run and answer counts for workflows                        | nothing                                            |
 | `cloudflareEmail` (local)  | sealed emails                                              | `mailEvents.emailId`                               |
-| `notifications` (local)    | each person's Inbox lines and muted kinds                  | a `ref` on each line, read back to build it        |
+| `notifications` (local)    | each person's Updates lines and muted kinds                | a `ref` on each line, read back to build it        |
 
 ## What happens when something is deleted
 
@@ -159,7 +159,7 @@ These have no owner. Deleting an account leaves them.
 | a loop                                  | a workflow's Find roles step                                                       | left; that step stops with "That loop is gone." when it runs                                                                                                           |
 | a role closes on its board              | `jobLeads.jobId`, `prefills.jobId`                                                 | **left on purpose**: both keep their own copy, and read a missing job as none                                                                                          |
 | a booking page                          | `calendarEvents.bookingPageId`                                                     | **left on purpose**: bookings already made stay on the calendar                                                                                                        |
-| a workflow                              | `automationRuns.automationId`                                                      | its runs are stopped and deleted, with their Inbox lines                                                                                                               |
+| a workflow                              | `automationRuns.automationId`                                                      | its runs are stopped and deleted, with their Updates lines                                                                                                             |
 
 ## What's copied on purpose
 

@@ -202,7 +202,7 @@ const recentMail = authedQuery({
 // One email from a file, for mail that came before incoming mail was set up. Kept only when it
 // matches an application by its address, thread or name, so importing a whole mailbox can't
 // fill Unsorted. It uses no AI, so it costs nothing however many there are, and being old news
-// it adds no Inbox line, workflow event or suggestion.
+// it adds no line in Updates, workflow event or suggestion.
 const importMail = action({
   args: { raw: v.string() },
   returns: v.union(v.literal("filed"), v.literal("known"), v.literal("unmatched")),

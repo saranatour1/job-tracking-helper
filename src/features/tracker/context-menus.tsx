@@ -169,7 +169,7 @@ export const BoardMenu = ({
       <ContextMenuLinkItem render={<Link to="/jobs" />}>Jobs</ContextMenuLinkItem>
       <ContextMenuLinkItem render={<Link to="/preferences" />}>Preferences</ContextMenuLinkItem>
       <ContextMenuLinkItem render={<Link to="/calendar" />}>Calendar</ContextMenuLinkItem>
-      <ContextMenuLinkItem render={<Link to="/inbox" />}>Inbox</ContextMenuLinkItem>
+      <ContextMenuLinkItem render={<Link to="/inbox" />}>Updates</ContextMenuLinkItem>
     </ContextMenuPopup>
   </ContextMenu>
 )

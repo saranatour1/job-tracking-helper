@@ -129,7 +129,7 @@ export const Inbox = () => {
   return (
     <div className="flex h-svh flex-col md:h-[calc(100svh-1rem)]">
       <PageHeader
-        crumbs={[{ label: "Inbox" }]}
+        crumbs={[{ label: "Updates" }]}
         actions={
           <Button
             variant="ghost"
