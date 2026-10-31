@@ -83,12 +83,12 @@ Built-in questions are a list in code (`preferences/rows.ts`), keyed so a label 
 
 These have no owner. Deleting an account leaves them.
 
-| Table         | Holds                                                                    | Why it's a table | Indexes                                                                                                                    |
-| ------------- | ------------------------------------------------------------------------ | ---------------- | -------------------------------------------------------------------------------------------------------------------------- |
-| `jobBoards`   | a company's board on Greenhouse, Lever, Ashby or Personio, and its count | 2, 3             | `by_kind_and_slug`, `by_fetchedAt`, `by_jobs`                                                                              |
-| `jobCatalog`  | one row: how many boards and roles the catalog has                       | 3                | none                                                                                                                       |
-| `jobs`        | one open role from a board's feed, with its text for search              | 1, 3, 4          | `by_urlKey`, `by_boardId_and_seenAt`, `by_boardId_and_postedAt`, `by_postedAt`, `by_remote_and_postedAt`, search on `text` |
-| `sourceUsage` | credits each search source used this month                               | 3                | `by_provider_and_month`                                                                                                    |
+| Table         | Holds                                                                | Why it's a table | Indexes                                                                                                                    |
+| ------------- | -------------------------------------------------------------------- | ---------------- | -------------------------------------------------------------------------------------------------------------------------- |
+| `jobBoards`   | one feed the catalog reads, usually a company's board, and its count | 2, 3             | `by_kind_and_slug`, `by_fetchedAt`, `by_jobs`                                                                              |
+| `jobCatalog`  | one row: how many boards and roles the catalog has                   | 3                | none                                                                                                                       |
+| `jobs`        | one open role from a board's feed, with its text for search          | 1, 3, 4          | `by_urlKey`, `by_boardId_and_seenAt`, `by_boardId_and_postedAt`, `by_postedAt`, `by_remote_and_postedAt`, search on `text` |
+| `sourceUsage` | credits each search source used this month                           | 3                | `by_provider_and_month`                                                                                                    |
 
 ### Finding roles and getting them ready
 
@@ -253,7 +253,7 @@ Each of these rewrites stored data, so each follows the three deploys above. Non
 
 A loop is a saved search that brings back jobs that fit, either by itself each morning (auto) or when the person presses Run now (manual). People set one up by going through the run's steps: they describe the job in their own words, answer yes or no, and pick from a few fixed sizes and start times, so the cost of every loop is known before it runs. The questions, templates, sizes, start times, source order and cost estimates are a catalog in code (`convex/features/loops/catalog.ts`) that the page and the backend share.
 
-Roles come from one shared catalog, not from each person's own search. Greenhouse, Lever, Ashby and Personio each publish a free feed of every open role on a company's board, with the full description, so fetching a board costs nothing. The catalog starts from about 20 boards and refreshes each one daily; paid search (Firecrawl, then context.dev) is only used to find boards the catalog doesn't have yet, Google-style: each kind of role the person wants, in each of their places, filtered with `site:` to the boards (`site:jobs.personio.de` and the like). One loop covers several cities and several kinds of role at once. Each run then picks roles from the catalog and has [Jev](https://docs.typesafe.ai/introduction) judge each one for the person, through the Convex AI gateway (`typesafe/jev-1.14`). A 100-role morning costs about half a cent.
+Roles come from one shared catalog, not from each person's own search. Greenhouse, Lever, Ashby, Personio, SmartRecruiters and Workable each publish a free feed of every open role on a company's board, with the full description, so fetching a board costs nothing. The catalog starts from about 30 boards and refreshes each one daily; paid search (Firecrawl, then context.dev) is only used to find boards the catalog doesn't have yet, Google-style: each kind of role the person wants, in each of their places, filtered with `site:` to the boards (`site:jobs.personio.de` and the like). One loop covers several cities and several kinds of role at once. Each run then picks roles from the catalog and has [Jev](https://docs.typesafe.ai/introduction) judge each one for the person, through the Convex AI gateway (`typesafe/jev-1.14`). A 100-role morning costs about half a cent.
 
 The person never sees everything a run judged. Each loop has a size (3, 5 or 10, their choice), and a run only puts on their shortlist as many fits as they have room for: the size, less what's still unread from that loop. The other fits wait (`status: "waiting"`) for the next run. Each morning they decide on each job: save it for later, favorite it ("more like this"), dismiss it ("nothing like this"), or add it to their tracker. Favorites and dismissals go into the next morning's runs, as roles Jev should rate higher or lower and as extra search words. They can also paste a link to any job; Jev checks it the same way and it opens with the same breakdown.
 
@@ -322,7 +322,7 @@ erDiagram
         string text "title line + description, searched"
     }
     jobBoards {
-        enum kind "greenhouse | lever | ashby | personio"
+        enum kind "greenhouse | lever | ashby | personio | smartrecruiters | workable | arbeitsagentur | remoteok | hackernews"
         string slug
         string company
         number fetchedAt "optional until the first fetch"

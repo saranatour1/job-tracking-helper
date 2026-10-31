@@ -3,6 +3,7 @@ import { internal } from "../_generated/api"
 import { internalMutation, internalQuery } from "../_generated/server"
 import { fitOf } from "../features/applications/utils"
 import { syncMailSummary } from "../features/email/utils"
+import { companyOf, nonTechStarters, techFeeds } from "../features/jobs/boards"
 import { countCatalog } from "../features/jobs/utils"
 import { roleKey, urlKey } from "../features/workflows/fit"
 
@@ -120,5 +121,33 @@ export const boardFieldsLeft = internalQuery({
     for await (const { applicationId, box } of ctx.db.query("mailEvents"))
       if (applicationId && box !== "trash" && !filled.has(applicationId)) left.add(applicationId)
     return left.size
+  },
+})
+
+// One-off: starter boards are only added to an empty catalog, so this gives an existing one the
+// non-tech companies and the tech feeds. Safe to run again. Run it on each deployment:
+//   npx convex run api/migrations:addNewStarters
+// Delete it once that's done everywhere.
+export const addNewStarters = internalMutation({
+  args: {},
+  returns: v.number(),
+  handler: async (ctx) => {
+    let added = 0
+    for (const b of [...nonTechStarters, ...techFeeds]) {
+      const known = await ctx.db
+        .query("jobBoards")
+        .withIndex("by_kind_and_slug", (q) => q.eq("kind", b.kind).eq("slug", b.slug))
+        .first()
+      if (known) continue
+      await ctx.db.insert("jobBoards", {
+        ...b,
+        company: companyOf(b.slug),
+        addedAt: Date.now(),
+        jobs: 0,
+      })
+      added++
+    }
+    if (added) await countCatalog(ctx, { boards: added })
+    return added
   },
 })

@@ -40,6 +40,7 @@ export const jobBoards = [
   "jobs.personio.de",
   "jobs.personio.com",
   "apply.workable.com",
+  "jobs.smartrecruiters.com",
 ]
 
 export const isPostingUrl = (url: string) => {
@@ -51,6 +52,8 @@ export const isPostingUrl = (url: string) => {
     return parts[1] === "jobs" && Boolean(parts[2])
   if (host === "jobs.lever.co" || host === "jobs.ashbyhq.com") return parts.length >= 2
   if (host === "apply.workable.com") return parts[1] === "j" && Boolean(parts[2])
+  if (host === "jobs.smartrecruiters.com")
+    return parts.length === 2 && !["ni", "oneclick-ui"].includes(parts[0]?.toLowerCase() ?? "")
   if (/\.jobs\.personio\.(de|com)$/.test(host)) return parts[0] === "job" && Boolean(parts[1])
   return false
 }
@@ -76,8 +79,26 @@ export const queriesOf = (c: Criteria, descriptions: string[] = []): string[] =>
       ...(c.stretch ? c.skills : []),
     ]),
   ].slice(0, 4)
-  return (topics.length ? topics : ["software engineer"])
+  // With no topic, a place alone still finds something, and Jev judges it.
+  return (topics.length ? topics : [""])
     .flatMap((topic) => wheres.map((where) => `${topic} ${where}`.trim()))
+    .filter(Boolean)
+    .slice(0, 8)
+}
+
+// For the Arbeitsagentur, which takes what and where apart and searches around a place. Only
+// for loops in your places, since it's German roles and a nationwide search helps nobody.
+export const localSearchesOf = (c: Criteria, descriptions: string[] = []) => {
+  if (c.listedCompanies || c.remoteOnly || !c.nearMe) return []
+  const topics = [
+    ...new Set([
+      ...descriptions,
+      ...(c.usePreferences ? c.interests : []),
+      ...(c.stretch ? c.skills : []),
+    ]),
+  ].slice(0, 4)
+  return topics
+    .flatMap((what) => c.places.slice(0, 4).map((where) => ({ what, where })))
     .slice(0, 8)
 }
 

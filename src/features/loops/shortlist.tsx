@@ -1,5 +1,7 @@
 import { useRoutes } from "@/lib/route-ids"
 import { api } from "@/lib/api"
+import { canPrepare } from "@convex/features/jobs/links"
+import { Textarea } from "@/components/ui/textarea"
 import { PrepareButton } from "@/features/prefilled/prefilled"
 import type { Doc, Id } from "@convex/_generated/dataModel"
 import {
@@ -310,7 +312,13 @@ export const JobPanel = ({ leadId, onClose }: { leadId: Id<"jobLeads">; onClose:
             </div>
           </ScrollArea>
           <footer className="flex flex-wrap items-center gap-2 border-t p-3">
-            <PrepareButton leadId={lead._id} status={prepared?.status} prefillId={prepared?._id} />
+            {canPrepare(lead.url) && (
+              <PrepareButton
+                leadId={lead._id}
+                status={prepared?.status}
+                prefillId={prepared?._id}
+              />
+            )}
             {decisions
               .filter(([action]) => !(action === "track" && lead.applicationId))
               .map(([action, label, icon]) => (
@@ -336,13 +344,19 @@ export const JobPanel = ({ leadId, onClose }: { leadId: Id<"jobLeads">; onClose:
 // with the same breakdown, ready to add to the tracker.
 export const PasteLink = () => {
   const checkLink = useAction(api.loopActions.checkLink)
+  const checkText = useAction(api.loopActions.checkText)
   const navigate = useNavigate({ from: "/loops" })
   const [status, check, checking] = useActionState(
     async (_: string | undefined, form: FormData) => {
       const url = form.get("url")
       if (typeof url !== "string" || !url.trim()) return "Paste a link first."
+      const text = form.get("text")
+      const company = form.get("company")
       try {
-        const job = await checkLink({ url })
+        const job =
+          typeof text === "string" && text.trim()
+            ? await checkText({ url, text, company: typeof company === "string" ? company : "" })
+            : await checkLink({ url })
         await navigate({ search: (prev) => ({ ...prev, job }) })
         return undefined
       } catch (error) {
@@ -366,6 +380,21 @@ export const PasteLink = () => {
           {checking ? "Checking…" : "Check it"}
         </Button>
       </div>
+      <details className="px-1 text-sm">
+        <summary className="text-muted-foreground cursor-pointer text-xs">
+          On LinkedIn, Xing, Experteer, X or Facebook? Those can't be read, so paste the text
+        </summary>
+        <div className="flex max-w-lg flex-col gap-2 pt-2">
+          <Input name="company" size="sm" aria-label="Company" placeholder="Company" />
+          <Textarea
+            name="text"
+            rows={5}
+            maxLength={20000}
+            aria-label="The posting's text"
+            placeholder="The posting or post, as you see it. Put the link in the box above."
+          />
+        </div>
+      </details>
       <Status text={status} />
     </form>
   )

@@ -1,7 +1,15 @@
 import { describe, expect, it } from "vite-plus/test"
 
 import { loopTemplates } from "../loops/catalog"
-import { criteriaOf, groupRoles, isPostingUrl, queriesOf, roleKey, urlKey } from "./fit"
+import {
+  criteriaOf,
+  groupRoles,
+  isPostingUrl,
+  localSearchesOf,
+  queriesOf,
+  roleKey,
+  urlKey,
+} from "./fit"
 
 const tags = [
   { kind: "interest" as const, value: "developer tools" },
@@ -37,8 +45,20 @@ describe("queriesOf", () => {
     expect(queriesOf(criteriaOf(template("dream-companies"), tags))).toEqual(["Linear"])
   })
 
-  it("still searches something when Preferences are empty", () => {
-    expect(queriesOf(criteriaOf(template("remote-fit"), []))).toEqual(["software engineer remote"])
+  it("assumes no line of work when Preferences are empty", () => {
+    expect(queriesOf(criteriaOf(template("remote-fit"), []))).toEqual(["remote"])
+    expect(queriesOf(criteriaOf(template("fresh-today"), []))).toEqual([])
+  })
+})
+
+describe("localSearchesOf", () => {
+  it("searches each topic in each place, only for loops in your places", () => {
+    expect(localSearchesOf(criteriaOf(template("close-to-home"), tags))[0]).toEqual({
+      what: "developer tools",
+      where: "Berlin",
+    })
+    expect(localSearchesOf(criteriaOf(template("remote-fit"), tags))).toEqual([])
+    expect(localSearchesOf(criteriaOf(template("close-to-home"), []))).toEqual([])
   })
 })
 
@@ -104,6 +124,7 @@ describe("isPostingUrl", () => {
       "https://jobs.lever.co/linear/1b2c3d4e-0000-4000-8000-000000000000",
       "https://jobs.ashbyhq.com/notion/2a3b4c5d-0000-4000-8000-000000000000",
       "https://apply.workable.com/acme/j/ABC123DEF/",
+      "https://jobs.smartrecruiters.com/BoschGroup/744000158855739-sales",
     ])
       expect(isPostingUrl(url)).toBe(true)
   })
@@ -113,6 +134,7 @@ describe("isPostingUrl", () => {
       "https://boards.greenhouse.io/acme",
       "https://jobs.lever.co/linear",
       "https://apply.workable.com/acme/",
+      "https://jobs.smartrecruiters.com/BoschGroup",
       "https://www.indeed.com/q-climate-tech-l-remote-jobs.html",
       "https://climatebase.org/",
       "not a url",

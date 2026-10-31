@@ -1086,7 +1086,7 @@ const PreferencesForm = ({
         title="What you're drawn to"
         description="Simple words: topics, problems or kinds of work."
       >
-        {tags("interests", "Interests", "e.g. developer tools, climate, design systems")}
+        {tags("interests", "Interests", "e.g. nursing, logistics, hospitality, software")}
         {tags("avoid", "Not interested in", "e.g. ad tech, on-call, crypto")}
       </Section>
     ),

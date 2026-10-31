@@ -103,6 +103,10 @@ const PrivacyPage = () => (
           <strong>context.dev.</strong> Search terms and company domains, used to find job boards.
         </li>
         <li>
+          <strong>Arbeitsagentur.</strong> For a loop in your places, the kinds of work you listed
+          and those places, used to search Germany&apos;s federal job board. Nothing that names you.
+        </li>
+        <li>
           <strong>GitHub.</strong> Handles sign-in.
         </li>
         <li>
