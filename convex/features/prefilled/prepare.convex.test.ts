@@ -1,0 +1,207 @@
+// @vitest-environment edge-runtime
+/// <reference types="vite/client" />
+import rateLimiter from "@convex-dev/rate-limiter/test"
+import workpool from "@convex-dev/workpool/test"
+import { convexTest } from "convex-test"
+import { beforeEach, describe, expect, it, vi } from "vite-plus/test"
+
+import { api, internal } from "../../_generated/api"
+
+// What AI and the browser do, set per test.
+const mocks = vi.hoisted(() => ({
+  decide: vi.fn(),
+  generateText: vi.fn(),
+  interact: vi.fn(),
+}))
+vi.mock("ai", async (actual) => ({
+  ...(await actual<typeof import("ai")>()),
+  experimental_decide: mocks.decide,
+  generateText: mocks.generateText,
+}))
+vi.mock("./firecrawl", async (actual) => ({
+  ...(await actual<typeof import("./firecrawl")>()),
+  scrape: async () => ({ scrapeId: "scrape-1", markdown: "" }),
+  interact: mocks.interact,
+  endSession: async () => undefined,
+}))
+import notificationsSchema from "../../components/notifications/schema"
+import schema from "../../schema"
+
+const modules = import.meta.glob([
+  "../../**/*.ts",
+  "!../../components/notifications/**",
+  "!../../components/cloudflareEmail/**",
+  "!../../**/*.test.ts",
+])
+
+const form = {
+  login: false,
+  captcha: false,
+  fields: [
+    { selector: "#phone", name: "phone", type: "tel", label: "Phone", required: true },
+    { selector: "#why", name: "why", type: "textarea", label: "Why us?", required: true },
+  ],
+}
+
+const setup = async () => {
+  vi.stubEnv("FIRECRAWL_API_KEY", "fc-test")
+  const t = convexTest(schema, modules)
+  rateLimiter.register(t as never)
+  workpool.register(t as never, "applyPool")
+  t.registerComponent(
+    "notifications",
+    notificationsSchema,
+    import.meta.glob("../../components/notifications/**/*.ts")
+  )
+  const { userId, jobId } = await t.run(async (ctx) => {
+    const userId = await ctx.db.insert("users", { name: "Sam Lee", email: "sam@example.com" })
+    const boardId = await ctx.db.insert("jobBoards", {
+      kind: "greenhouse",
+      slug: "hooli",
+      company: "Hooli",
+      addedAt: 0,
+      jobs: 1,
+    })
+    const jobId = await ctx.db.insert("jobs", {
+      boardId,
+      urlKey: "job-boards.greenhouse.io/hooli/jobs/1",
+      url: "https://job-boards.greenhouse.io/hooli/jobs/1",
+      title: "Frontend Engineer",
+      company: "Hooli",
+      location: "Remote",
+      remote: true,
+      postedAt: 0,
+      seenAt: 0,
+      text: "Build the web app.",
+    })
+    const resumeId = await ctx.storage.store(new Blob(["%PDF-1.4"], { type: "application/pdf" }))
+    await ctx.db.insert("preferences", {
+      userId,
+      workMode: "any",
+      resumeId,
+      resumeName: "cv.pdf",
+      resumeText: "Sam Lee. Built web apps for 5 years.",
+    })
+    await ctx.db.insert("profileEntries", {
+      userId,
+      kind: "field",
+      group: "Contact",
+      key: "field",
+      label: "Phone",
+      value: "+1 555 0100",
+      order: 2,
+    })
+    return { userId, jobId }
+  })
+  const as = t.withIdentity({ subject: userId })
+  const id = await as.mutation(api.prefilled.prepare, { jobId })
+  const row = async () => (await as.query(api.prefilled.get, { id }))!.prefill
+  return { t, as, id, row }
+}
+
+beforeEach(() => {
+  vi.clearAllMocks()
+  mocks.interact.mockResolvedValue({ value: form, liveUrl: "" })
+  mocks.decide.mockResolvedValue({ answers: {} })
+  mocks.generateText.mockResolvedValue({ text: '{"answers":["It fits."]}' })
+})
+
+describe("preparing without AI", () => {
+  it("keeps what matched by name when Jev is out of tokens, and opens without AI", async () => {
+    const { t, as, id, row } = await setup()
+    mocks.decide.mockRejectedValue(new Error("SpendingLimitExceeded"))
+    await t.action(internal.prefilled.prepareForm, { id })
+
+    const prepared = await row()
+    expect(prepared.status).toBe("needsAnswers")
+    expect(prepared.aiUnavailable).toBe(true)
+    expect(prepared.fields.map((f) => [f.question, f.answer])).toEqual([
+      ["Phone", "+1 555 0100"],
+      ["Why us?", undefined],
+    ])
+    // It doesn't try to draft once AI has said no.
+    expect(mocks.generateText).not.toHaveBeenCalled()
+
+    // The browser still opens, with the saved answer in the form.
+    vi.clearAllMocks()
+    mocks.interact.mockResolvedValueOnce({ value: form, liveUrl: "" }).mockResolvedValueOnce({
+      value: { unfilled: [], errors: [] },
+      liveUrl: "https://live.example/x",
+    })
+    await as.action(api.prefilled.startLive, { id })
+    expect(mocks.decide).not.toHaveBeenCalled()
+    expect(mocks.generateText).not.toHaveBeenCalled()
+    expect(mocks.interact.mock.calls[1]![1]).toContain("+1 555 0100")
+    expect((await row()).status).toBe("live")
+  })
+
+  it("keeps the rest when only the draft fails", async () => {
+    const { t, id, row } = await setup()
+    mocks.generateText.mockRejectedValue(new Error("402"))
+    await t.action(internal.prefilled.prepareForm, { id })
+    const prepared = await row()
+    expect(prepared.aiUnavailable).toBe(true)
+    expect(prepared.fields[0]).toMatchObject({ answer: "+1 555 0100", source: "saved" })
+  })
+
+  it("clears the note once AI is back", async () => {
+    const { t, as, id, row } = await setup()
+    mocks.decide.mockRejectedValueOnce(new Error("402"))
+    await t.action(internal.prefilled.prepareForm, { id })
+    await as.mutation(api.prefilled.prepareAgain, { id })
+    await t.action(internal.prefilled.prepareForm, { id })
+    const prepared = await row()
+    expect(prepared.aiUnavailable).toBeUndefined()
+    expect(prepared.fields[1]).toMatchObject({ answer: "It fits.", source: "ai" })
+  })
+})
+
+describe("sending an answer to the open browser", () => {
+  const openBrowser = async () => {
+    const s = await setup()
+    await s.t.action(internal.prefilled.prepareForm, { id: s.id })
+    mocks.interact.mockResolvedValueOnce({ value: form, liveUrl: "" }).mockResolvedValueOnce({
+      value: { unfilled: [], errors: [] },
+      liveUrl: "https://live.example/x",
+    })
+    await s.as.action(api.prefilled.startLive, { id: s.id })
+    mocks.interact.mockClear()
+    mocks.interact.mockResolvedValue({ value: { unfilled: [], errors: [] }, liveUrl: "" })
+    return s
+  }
+
+  it("fills that one question and points at it, and counts the credit", async () => {
+    const { as, id, row } = await openBrowser()
+    const before = (await row()).credits ?? 0
+    await as.mutation(api.prefilled.setAnswer, { id, question: "Why us?", answer: "Edited." })
+    expect(await as.action(api.prefilled.sendToForm, { id, question: "Why us?" })).toEqual({
+      filled: true,
+    })
+    const script = mocks.interact.mock.calls[0]![1] as string
+    expect(script).toContain("Edited.")
+    expect(script).toContain('"show":"#why"')
+    expect(script).not.toContain("+1 555 0100")
+    expect((await row()).credits).toBe(before + 1)
+  })
+
+  it("says so when a question isn't in the form, and refuses someone else", async () => {
+    const { t, as, id } = await openBrowser()
+    await expect(as.action(api.prefilled.sendToForm, { id, question: "Gone" })).rejects.toThrow(
+      "can't find that question"
+    )
+    const other = await t.run((ctx) => ctx.db.insert("users", { name: "Other" }))
+    await expect(
+      t
+        .withIdentity({ subject: other })
+        .action(api.prefilled.sendToForm, { id, question: "Why us?" })
+    ).rejects.toThrow("That isn't yours.")
+  })
+
+  it("won't send once the browser has closed", async () => {
+    const { as, id } = await openBrowser()
+    await as.action(api.prefilled.cancelLive, { id })
+    await expect(as.action(api.prefilled.sendToForm, { id, question: "Why us?" })).rejects.toThrow(
+      "This browser has closed."
+    )
+  })
+})

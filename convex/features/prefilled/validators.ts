@@ -30,6 +30,8 @@ export const PrefillField = type({
   "entryKey?": "string",
   // What a location list tries when it doesn't have `answer`.
   "fallback?": "string",
+  // Where it is in the open browser, so it can be sent there.
+  "selector?": "string",
 })
 export type PrefillField = typeof PrefillField.infer
 
@@ -61,6 +63,8 @@ export const Prefill = type({
   "error?": "string",
   "credits?": "number",
   "applicationId?": arkId("applications"),
+  // AI was unavailable when this was prepared, so only exact matches got answered.
+  "aiUnavailable?": "boolean",
 })
 
 // A row for the lists, without what controls its browser.
@@ -136,6 +140,7 @@ export const vSavePreparedArgs = {
   id: v.id("prefills"),
   fields: arkOutputToConvex(PrefillField.array()),
   credits: v.number(),
+  aiUnavailable: v.optional(v.boolean()),
 }
 
 // The table this feature replaced. Nothing writes to it; the schema pass removes it.
