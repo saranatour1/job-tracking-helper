@@ -1,25 +1,18 @@
 import type { WorkMode } from "../preferences/validators"
 import type { Criteria } from "./fit"
 
-// How Jev decides whether a role fits someone. Jev answers one typed question per thing
-// the person asked for, from their loop and Preferences; the rules for what counts as a
-// fit stay here in code.
-
 export const jevModel = "typesafe/jev-1.14"
 
-// Everything Jev judges a role against, already narrowed to what this loop uses.
 export type Profile = {
   prompt?: string
   interests: string[]
   skills: string[]
   stretch: boolean
-  // Where they want to work, in words, when it matters.
   place?: string
   avoid: string[]
   redFlagCompanies: string[]
   pay?: string
   visa?: string
-  // Roles they said "more like this" or "not like this" to, as "Title at Company".
   liked: string[]
   disliked: string[]
 }
@@ -34,7 +27,6 @@ export type JudgedJob = {
 
 const listed = (items: string[]) => items.slice(0, 6).join(", ")
 
-// A loop's "where" answer wins over the work mode in Preferences.
 export const placeOf = (c: Criteria, workMode: WorkMode) => {
   const near = c.places.length ? ` in or near ${listed(c.places)}` : ""
   if (c.remoteOnly || workMode === "remote") return "Remote"
@@ -68,8 +60,6 @@ export const profileOf = (
   disliked: more.disliked,
 })
 
-// The match levels Jev picks between, worst first. Its answer is a weighted position on
-// this scale, 0 to 3.
 export const matchLevels = [
   "Unrelated: a different field or kind of work than they want",
   "Same broad field, but the wrong kind of role or the wrong level for them",
@@ -77,7 +67,6 @@ export const matchLevels = [
   "A strong match: the kind of work they described, at a level they'd take",
 ] as const
 
-// The same levels as a person reads them, in the verdict's reasons.
 const matchReasons = [
   "Not the kind of work you want.",
   "The right field, but the wrong role or level for you.",
@@ -85,12 +74,8 @@ const matchReasons = [
   "A strong match for what you want.",
 ]
 
-// A role is a fit from this match upward (2 is "a reasonable match").
 export const fitFrom = 1.8
 
-// One thing the person asked for. `want`s raise a role when they hold and are left out
-// when they don't; `need`s and `avoid`s rule a role out when they fail. `must` means the
-// posting has to show it, not just leave it open.
 type Spec = { kind: "want" | "need" | "avoid"; label: string; ask: string; must?: boolean }
 
 export const specsOf = (p: Profile): Spec[] => [
@@ -168,7 +153,6 @@ export const stateOf = (p: Profile, job: JudgedJob) => ({
   },
 })
 
-// One request per role: the overall match, then one question per spec, `c0`, `c1`, …
 export const questionsOf = (p: Profile) => ({
   match: {
     type: "score" as const,
@@ -184,7 +168,6 @@ export const questionsOf = (p: Profile) => ({
   ),
 })
 
-// One line of the breakdown a person sees: fits, could fit, or doesn't fit.
 export type Check = {
   kind: "want" | "need" | "avoid"
   label: string
@@ -210,8 +193,6 @@ export const checksOf = (
         return [{ kind: s.kind, label: `No ${s.label}`, result: "fits", confidence }]
       return [{ kind: s.kind, label: `Might involve ${s.label}`, result: "maybe", confidence }]
     }
-    // A want that doesn't hold isn't held against the role: a dev tools job isn't
-    // "not climate tech", it's just about something else they like.
     if (s.kind === "want" && a.outcome === "fails") return []
     const result = a.outcome === "holds" ? "fits" : a.outcome === "fails" ? "notFit" : "maybe"
     return [{ kind: s.kind, label: s.label, result, confidence, ...must }]
@@ -228,8 +209,6 @@ export const checksOf = (
   return checks
 }
 
-// What a run saves for each judged role: a verdict, the reasons in words, the breakdown,
-// and Jev's raw match, so a person can read why and an agent can filter on the numbers.
 export type Verdict = {
   verdict: "fit" | "notFit"
   fit: number
@@ -238,8 +217,6 @@ export type Verdict = {
   judgment: { match: number; level: string; model: string }
 }
 
-// A role is a fit, and can be shown, only when it matches well, nothing they need or
-// avoid fails, and every must-have is confirmed by the posting.
 export const verdictOf = (match: number, checks: Check[], model: string): Verdict => {
   const nearest = Math.round(Math.min(Math.max(match, 0), 3))
   const reasons = [matchReasons[nearest]]

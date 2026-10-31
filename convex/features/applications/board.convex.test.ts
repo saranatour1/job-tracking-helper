@@ -153,7 +153,13 @@ describe("the fill for existing applications", () => {
     const { t, userId } = await setup()
     await t.run(async (ctx) => {
       const id = await ctx.db.insert("applications", row(userId, 1))
-      const mail = { userId, applicationId: id, note: "sealed", by: "rules" as const }
+      const mail = {
+        userId,
+        applicationId: id,
+        note: "sealed",
+        by: "rules" as const,
+        box: "inbox" as const,
+      }
       await ctx.db.insert("mailEvents", {
         ...mail,
         emailId: "a",
@@ -186,7 +192,13 @@ describe("the fill for existing applications", () => {
     const { t, userId } = await setup()
     const id = await t.run(async (ctx) => {
       const id = await ctx.db.insert("applications", row(userId, 1))
-      const mail = { userId, applicationId: id, note: "sealed", by: "rules" as const }
+      const mail = {
+        userId,
+        applicationId: id,
+        note: "sealed",
+        by: "rules" as const,
+        box: "inbox" as const,
+      }
       await ctx.db.insert("mailEvents", { ...mail, emailId: "a", kind: "other", at: 1 })
       await ctx.db.insert("mailEvents", { ...mail, emailId: "b", kind: "offer", at: 2 })
       await ctx.db.insert("mailEvents", {

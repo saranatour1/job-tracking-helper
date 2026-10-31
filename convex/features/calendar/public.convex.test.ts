@@ -66,7 +66,6 @@ describe("calendar events", () => {
     expect(saved?.title).toHaveLength(200)
     expect(saved?.description).toHaveLength(2000)
     expect(saved?.reminders).toHaveLength(10)
-    // A long-running series keeps its newest exceptions.
     expect(saved?.exdates).toHaveLength(200)
     expect(saved?.exdates?.at(-1)).toBe("d200")
   })

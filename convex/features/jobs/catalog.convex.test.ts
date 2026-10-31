@@ -39,7 +39,7 @@ describe("the job catalog's totals", () => {
     const { t, as } = await setup()
     await t.run(async (ctx) => {
       for (let n = 0; n < 1001; n++) await ctx.db.insert("jobBoards", board(n, 2))
-      await countCatalog(ctx as never, {})
+      await countCatalog(ctx, {})
     })
     expect(await as.query(api.api.jobs.stats, {})).toEqual({ boards: 1001, jobs: 2002 })
   })
@@ -48,7 +48,7 @@ describe("the job catalog's totals", () => {
     const { t, as } = await setup()
     const boardId: Id<"jobBoards"> = await t.run(async (ctx) => {
       const id = await ctx.db.insert("jobBoards", board(1, 5))
-      await countCatalog(ctx as never, {})
+      await countCatalog(ctx, {})
       return id
     })
     const fetched = { boardId, startedAt: 0 }

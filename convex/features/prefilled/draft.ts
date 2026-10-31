@@ -2,16 +2,11 @@ import { type } from "arktype"
 import { isPersonalFact } from "./match"
 import { maxAnswer, type PrefillField } from "./validators"
 
-// Drafts answers to the job-specific questions saved answers can't cover. Chosen by running
-// the cheapest models on a fictional profile with traps in it: this one, like Haiku, never
-// invented a skill or obeyed an instruction planted in the posting, and costs less. Several
-// cheaper ones did both.
 export const draftModel = "google/gemini-3.1-flash-lite"
 
 const maxResume = 6000
 const maxPosting = 4000
 
-/** Worth a draft: required, blank, free text, and not a fact only the person can state. */
 export const canDraft = (f: PrefillField) =>
   f.required &&
   !f.answer &&
@@ -19,7 +14,6 @@ export const canDraft = (f: PrefillField) =>
   (f.type === "text" || f.type === "textarea") &&
   !isPersonalFact(f.question)
 
-// Long runs of digits are phone numbers; a date range like "2021 - 2024" is too short.
 const withoutContact = (text: string) =>
   text
     .replace(/[\w.+-]+@[\w-]+\.[\w.-]+/g, "")
@@ -64,8 +58,6 @@ ${questions.map((q, i) => `${i + 1}. ${q}`).join("\n")}`
 
 const Drafts = type({ answers: "string[]" })
 
-/** The model's reply, one answer per question. Anything malformed or misaligned gives
- * nothing, since an answer under the wrong question is worse than a blank. */
 export const draftsFrom = (text: string, count: number): string[] => {
   let parsed: unknown
   try {

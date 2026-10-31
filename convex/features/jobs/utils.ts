@@ -15,7 +15,6 @@ export const rowOf = (job: Doc<"jobs">, lead: Doc<"jobLeads"> | null) => ({
   verdict: lead?.verdict ?? null,
 })
 
-// Boards are fetched about once a day; the hourly cron queues those due.
 export const refreshEvery = 20 * 60 * 60 * 1000
 
 /** Keeps the catalog's totals, after a write to `jobBoards`, in the same mutation. The first

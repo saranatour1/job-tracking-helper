@@ -3,8 +3,6 @@ import { type LoopQuestion, loopQuestions } from "../loops/catalog"
 
 export const providerIds = ["firecrawl", "contextDev"] as const
 
-// Convex validators for what passes between a run's steps.
-
 export const vProvider = v.union(...providerIds.map((p) => v.literal(p)))
 
 const answerFields = Object.fromEntries(
@@ -23,7 +21,6 @@ export const vCriteria = v.object({
 
 export const vPosting = v.object({ url: v.string(), title: v.string(), snippet: v.string() })
 
-// Everything Jev judges a role against; see Profile in judge.ts.
 export const vProfile = v.object({
   prompt: v.optional(v.string()),
   interests: v.array(v.string()),
@@ -38,7 +35,6 @@ export const vProfile = v.object({
   disliked: v.array(v.string()),
 })
 
-// One line of a role's breakdown: fits, could fit, or doesn't fit.
 export const vCheck = v.object({
   kind: v.union(v.literal("want"), v.literal("need"), v.literal("avoid")),
   label: v.string(),
@@ -47,7 +43,6 @@ export const vCheck = v.object({
   must: v.optional(v.boolean()),
 })
 
-// Jev's answers for one role, kept with the verdict so they can be checked later.
 export const vJudgment = v.object({
   match: v.number(),
   avoids: v.optional(v.number()),
@@ -58,7 +53,6 @@ export const vJudgment = v.object({
 
 export const vVerdict = v.union(v.literal("fit"), v.literal("notFit"))
 
-// A role Jev judged, ready to save for the person.
 export const vJudged = v.object({
   jobId: v.id("jobs"),
   url: v.string(),
@@ -74,15 +68,12 @@ export const vJudged = v.object({
   judgment: vJudgment,
 })
 
-// A pasted link's verdict: like a run's, but it may not be in the catalog, so it can
-// carry its own text.
 export const vPasted = v.object({
   ...vJudged.fields,
   jobId: v.optional(v.id("jobs")),
   text: v.optional(v.string()),
 })
 
-// What judging one role sends back to the run. `judged` is null when the role closed.
 export const vJudgeResult = v.object({ cost: v.number(), judged: v.union(v.null(), vJudged) })
 
 export const vSpent = v.object({ provider: vProvider, credits: v.number() })

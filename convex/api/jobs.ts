@@ -1,4 +1,3 @@
-// Registers `api.api.jobs.*` and `internal.api.jobs.*`. Definitions live in ../features/jobs.
 import { jobsApi } from "../features/jobs"
 
 export const {

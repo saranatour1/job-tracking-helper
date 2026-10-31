@@ -1,7 +1,3 @@
-// Mail written from an application. It goes out from the person's plain address, with replies
-// aimed at the company's own address when that's on, so they come back to the right place
-// however the other side's mail is set up. Cloudflare's send API returns no Message-ID, so a
-// reply is matched by that address, or by the email it answers.
 import { ConvexError, v } from "convex/values"
 import { api, components, internal } from "../../_generated/api"
 import type { Id } from "../../_generated/dataModel"
@@ -25,7 +21,6 @@ import {
 } from "./utils"
 import { Received, SendMail } from "./validators"
 
-// What sending needs: the application's number, and the email being answered, sealed.
 const sendContext = internalQuery({
   args: {
     userId: v.id("users"),
@@ -55,7 +50,6 @@ const sendContext = internalQuery({
   },
 })
 
-// A line on the application's timeline. It's your own mail, so no line in Updates or workflow.
 const recordSent = internalMutation({
   args: {
     userId: v.id("users"),
@@ -119,7 +113,6 @@ const sendOne = async (
   const sealEmail = (value: object) => seal(k, JSON.stringify(value), aad.email(userId))
   const emailId = await ctx.runMutation(components.cloudflareEmail.lib.queue, {
     owner: userId,
-    // `attachments` so the timeline reads it the same way as mail that came in.
     payload: await sealEmail({ ...email, attachments: [] }),
   })
   const { error } = await ctx.runAction(components.cloudflareEmail.lib.send, {
@@ -187,7 +180,6 @@ const makeAddressWithoutPlus = action({
     const context = await ctx.runQuery(internal.api.email.sendContext, { userId, applicationId })
     if (!context?.company) throw new ConvexError("That application isn't here anymore.")
     const address = addressWithoutPlus(details.fromAddress, context.company)
-    // Applications at one company share it.
     if (await ruleFor(details.zoneId, token, address)) return address
     if ((row.inbound.aliasRules?.length ?? 0) >= maxPlainAddresses)
       throw new ConvexError("That's as many of these as Cloudflare's rule limit leaves room for.")

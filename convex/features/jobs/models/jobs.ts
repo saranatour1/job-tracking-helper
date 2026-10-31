@@ -5,7 +5,6 @@ import { Job } from "../validators"
 export const jobsTable = defineTable(arkOutputToConvex(Job))
   .index("by_urlKey", ["urlKey"])
   .index("by_boardId_and_seenAt", ["boardId", "seenAt"])
-  // One company's roles, newest first, for the Jobs page's company filter.
   .index("by_boardId_and_postedAt", ["boardId", "postedAt"])
   .index("by_postedAt", ["postedAt"])
   .index("by_remote_and_postedAt", ["remote", "postedAt"])

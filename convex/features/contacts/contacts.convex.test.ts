@@ -31,8 +31,8 @@ afterEach(() => void vi.useRealTimers())
 
 const setup = async () => {
   const t = convexTest(schema, modules)
-  rateLimiter.register(t as never)
-  workpool.register(t as never, "applyPool")
+  rateLimiter.register(t)
+  workpool.register(t, "applyPool")
   t.registerComponent(
     "notifications",
     notificationsSchema,
@@ -68,7 +68,6 @@ const setup = async () => {
     })
     return { userId, hooli }
   })
-  // An email arriving and being sorted, then what's scheduled after it.
   const receive = async (mail: object) => {
     const emailId: string = await t.run(async (ctx) =>
       ctx.runMutation(components.cloudflareEmail.lib.receive, {

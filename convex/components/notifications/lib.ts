@@ -1,5 +1,3 @@
-// An in-app notification feed: each owner's inbox, what they've read, and which kinds
-// they muted. The app decides the kinds and builds the text.
 import { v } from "convex/values"
 import { mutation, type MutationCtx, query, type QueryCtx } from "./_generated/server"
 import schema from "./schema"
@@ -68,7 +66,6 @@ export const forget = mutation({
   },
 })
 
-// Marks the given notifications, or every unread one when `ids` is left out.
 export const setRead = mutation({
   args: { owner: v.string(), ids: v.optional(v.array(v.id("notifications"))), read: v.boolean() },
   returns: v.null(),
@@ -115,8 +112,6 @@ const removeBatch = async (ctx: MutationCtx, owner: string, limit: number) => {
   return rows.length > limit
 }
 
-// Deletes up to `limit` of an owner's notifications, and their settings with the last
-// batch. Says whether any are left.
 export const removeOwner = mutation({
   args: { owner: v.string(), limit: v.optional(v.number()) },
   returns: v.boolean(),

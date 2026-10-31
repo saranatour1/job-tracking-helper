@@ -4,9 +4,6 @@ import type { DataModel, Doc, Id } from "../../_generated/dataModel"
 import type { MutationCtx, QueryCtx } from "../../_generated/server"
 import { runStatuses, type Step, stepAt } from "./validators"
 
-// Counters for each workflow's runs, bucketed by how they ended, so "12 runs, 2 failed"
-// is a few reads however many runs there are. Every write to automationRuns that adds,
-// removes or changes a run's status goes through here, in the same mutation.
 export const runCounts = new TableAggregate<{
   Namespace: Id<"automations">
   Key: string
@@ -17,22 +14,17 @@ export const runCounts = new TableAggregate<{
   sortKey: (run) => run.status,
 })
 
-// Ask Jev's answers, bucketed per workflow by step and answer, for "Yes · 12" on the
-// canvas. One entry per run and step. A step is known by its id, or by its place if it
-// was saved before steps had one.
 export const choiceCounts = new DirectAggregate<{
   Namespace: Id<"automations">
   Key: [string, string]
   Id: string
 }>(components.automationChoices)
 
-/** What an Ask Jev step's counts are filed under. */
 export const choiceKeyOf = (steps: Step[], at: string) => {
   const step = stepAt(steps, at)
-  return (step?.kind === "decide" && step.id) || at
+  return step?.kind === "decide" ? step.id : at
 }
 
-/** Counts the answer Jev gave at a run's step. */
 export const recordChoice = (
   ctx: MutationCtx,
   run: Doc<"automationRuns">,
@@ -45,12 +37,10 @@ export const recordChoice = (
     id: `${run._id}#${at}`,
   })
 
-/** How often Jev gave each answer at each Ask Jev step of a workflow as it is now, by
- * place then answer. */
 export const choicesOf = async (ctx: QueryCtx, automationId: Id<"automations">, steps: Step[]) => {
   const pairs = steps.flatMap((step, i) =>
     step.kind === "decide"
-      ? step.paths.map((p) => ({ at: String(i), key: step.id || String(i), answer: p.label }))
+      ? step.paths.map((p) => ({ at: String(i), key: step.id, answer: p.label }))
       : []
   )
   if (!pairs.length) return {}
@@ -68,7 +58,6 @@ export const choicesOf = async (ctx: QueryCtx, automationId: Id<"automations">, 
   return out
 }
 
-/** Inserts a run and counts it. */
 export const insertRun = async (
   ctx: MutationCtx,
   run: Omit<Doc<"automationRuns">, "_id" | "_creationTime">
@@ -78,7 +67,6 @@ export const insertRun = async (
   return id
 }
 
-/** Changes a run's status, and moves it to that bucket. */
 export const patchRun = async (
   ctx: MutationCtx,
   run: Doc<"automationRuns">,
@@ -89,7 +77,6 @@ export const patchRun = async (
     await runCounts.replace(ctx, run, (await ctx.db.get("automationRuns", run._id))!)
 }
 
-/** Deletes runs, stops counting them, and takes their Updates lines with them. */
 export const deleteRuns = async (ctx: MutationCtx, runs: Doc<"automationRuns">[]) => {
   for (const run of runs) {
     await runCounts.deleteIfExists(ctx, run)
@@ -110,7 +97,6 @@ export const deleteRuns = async (ctx: MutationCtx, runs: Doc<"automationRuns">[]
     })
 }
 
-/** How many of a workflow's runs are in each state. */
 export const countsOf = async (ctx: QueryCtx, automationId: Id<"automations">) => {
   const counts = await runCounts.countBatch(
     ctx,

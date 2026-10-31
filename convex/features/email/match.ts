@@ -1,13 +1,9 @@
-// Rules that match an incoming email to an application and say what it's about. They
-// run on every email; Jev answers the same two questions instead when the person lets
-// it read their mail. Kept free of Convex imports so they're easy to test.
 import type { Status } from "../applications/validators"
 import { companyTag } from "./addresses"
 
 export const kinds = ["confirmation", "interview", "rejection", "offer", "portal", "other"] as const
 export type Kind = (typeof kinds)[number]
 
-// What each kind means, for Jev's question and the timeline.
 export const kindLabels: Record<Kind, string> = {
   confirmation: "They received the application",
   interview: "An invitation to interview, or scheduling one",
@@ -17,7 +13,6 @@ export const kindLabels: Record<Kind, string> = {
   other: "Something else",
 }
 
-// First match wins, so the most decisive news comes first.
 const kindRules: [Kind, RegExp][] = [
   ["offer", /pleased to offer|offer (letter|of employment)|extend(ing)? (you )?an offer/i],
   [
@@ -38,7 +33,6 @@ const kindRules: [Kind, RegExp][] = [
 export const kindOf = (subject: string, text: string): Kind =>
   kindRules.find(([, rule]) => rule.test(`${subject}\n${text.slice(0, 5000)}`))?.[0] ?? "other"
 
-// The status an email suggests, only when it moves the application along.
 export const suggestionOf = (kind: Kind, current: Status): Status | undefined => {
   const next: Partial<Record<Kind, Status>> = {
     confirmation: "applied",
@@ -52,14 +46,12 @@ export const suggestionOf = (kind: Kind, current: Status): Status | undefined =>
   return to
 }
 
-// Sites where companies have candidates track their application.
 const portalHosts =
   /(myworkdayjobs\.com|myworkdaysite\.com|icims\.com|taleo\.net|successfactors\.(com|eu)|smartrecruiters\.com|my\.greenhouse\.io|jobvite\.com|oraclecloud\.com|brassring\.com)$/i
 
 const urlsIn = (text: string) =>
   (text.match(/https?:\/\/[^\s"'<>)\]]+/g) ?? []).map((url) => url.replace(/[.,;:!?]+$/, ""))
 
-/** A link to a status portal: a known portal site, or for a portal email its first link. */
 export const portalOf = (kind: Kind, text: string, html = "") => {
   const urls = [...urlsIn(text), ...urlsIn(html)].filter((url) => URL.canParse(url))
   return (
@@ -76,23 +68,19 @@ export type Candidate = {
   role: string
   at: number
   status?: Status
-  // The company's name on its job board, from the posting's link.
   alias?: string
 }
 
 const companyOf = (a: Candidate) => companyTag(a.company)
 
-// Short slugs would match by accident: "app" is in far too many subjects.
 const namesOf = (a: Candidate) =>
   [companyOf(a), ...(a.alias && squash(a.alias).length >= 4 ? [squash(a.alias)] : [])].filter(
     (name) => name.length >= 3
   )
 
-// Mail is most likely about what's still going on, least about what's over.
 const stageOf = (status?: Status) =>
   status === "rejected" || status === "withdrawn" ? 2 : status === "saved" ? 1 : 0
 
-/** Among one company's applications: the role named in the subject, else the furthest along. */
 const pickAmong = (applications: Candidate[], subject: string) => {
   const said = squash(subject)
   return (
@@ -101,18 +89,12 @@ const pickAmong = (applications: Candidate[], subject: string) => {
   )
 }
 
-/** The application an email sent to a company's address is about. */
 export const tagMatch = <T extends Candidate>(tag: string, subject: string, applications: T[]) =>
   pickAmong(
     applications.filter((a) => companyTag(a.company) === tag),
     subject
   ) as T | undefined
 
-/**
- * The application an email is about when its sender or subject names exactly one
- * company. With several applications at that company, the one whose role is in the
- * subject, else the one furthest along, newest first.
- */
 export const ruleMatch = (
   mail: { from: string; fromName?: string; subject: string },
   applications: Candidate[]
@@ -124,10 +106,8 @@ export const ruleMatch = (
   return pickAmong(named, mail.subject)
 }
 
-/** Message-IDs as postal-mime reads them, from a reply's In-Reply-To or References. */
 export const messageIdsIn = (header: string | undefined) => header?.match(/<[^<>\s]+>/g) ?? []
 
-/** Readable text from an HTML-only email: no styles or scripts, tags gone, spacing kept sane. */
 export const textOfHtml = (html: string) =>
   html
     .replace(/<(style|script)[\s\S]*?<\/\1>/gi, "")
@@ -167,7 +147,6 @@ const hourOf = (hour: string | undefined, minute: string | undefined, half: stri
   return { h, m: Number(minute ?? 0) }
 }
 
-// The zones invites name most, by the abbreviation or word they use.
 const zoneNames: Record<string, string> = {
   pt: "America/Los_Angeles",
   pst: "America/Los_Angeles",
@@ -199,14 +178,9 @@ const zoneNames: Record<string, string> = {
   aedt: "Australia/Sydney",
 }
 
-/**
- * The time zone an invite gives right after a time ("10:30 AM PT", "14:00 CET",
- * "2pm (Europe/Berlin)"), as an IANA id. Undefined when it names none.
- */
 export const zoneOf = (text: string): string | undefined => {
   const after = /\d(?::\d{2})?\s*(?:am|pm)?\s*\(?\s*([A-Za-z]+(?:\/[A-Za-z_]+)+|[A-Za-z]{2,7})\b/gi
   for (const [, word] of text.matchAll(after)) {
-    // Abbreviations only in capitals, so "10:30 et merci" isn't Eastern time.
     const named = word!.length > 4 || word === word!.toUpperCase()
     const zone = word!.includes("/") ? word! : named ? zoneNames[word!.toLowerCase()] : undefined
     if (!zone) continue
@@ -220,13 +194,6 @@ export const zoneOf = (text: string): string | undefined => {
   return undefined
 }
 
-/**
- * The time an interview email proposes, as written: "Tue, Nov 4 at 10:00 AM",
- * "November 4, 2026 2pm", "2026-11-04 10:00" or "Tuesday at 10:00" (the next one
- * after it arrived). Returned as that wall-clock time in UTC milliseconds, since the
- * email rarely says its time zone; read it back with UTC getters. Undefined when the
- * email names no date.
- */
 export const slotOf = (text: string, receivedAt: number): number | undefined => {
   const received = new Date(receivedAt)
   const time = String.raw`(?:,?\s*(?:at|@|from)?\s*(\d{1,2})(?::(\d{2}))?\s*(am|pm)?)?`
@@ -245,7 +212,6 @@ export const slotOf = (text: string, receivedAt: number): number | undefined => 
     const { h, m } = hourOf(hour, minute, half)
     const mo = monthNames.indexOf(month!.toLowerCase().slice(0, 3))
     let y = year ? Number(year) : received.getUTCFullYear()
-    // No year and already past: it's next year's.
     if (!year && Date.UTC(y, mo, Number(day)) < receivedAt - 86_400_000) y++
     return Date.UTC(y, mo, Number(day), h, m)
   }

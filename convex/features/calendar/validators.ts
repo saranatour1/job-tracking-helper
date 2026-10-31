@@ -5,7 +5,6 @@ import { isTimeZone } from "../loops/schedule"
 export const eventKinds = ["interview", "followup", "reminder"] as const
 export type EventKind = (typeof eventKinds)[number]
 
-// Plenty for a job search, and few enough to send in one go.
 export const maxEvents = 500
 
 const instant = /^\d{4}-\d{2}-\d{2}(T\d{2}:\d{2}(:\d{2})?(Z|[+-]\d{2}:\d{2}))?$/
@@ -21,14 +20,9 @@ const Attendee = type({
   "optional?": "boolean",
 })
 
-// An event you add on the Calendar, or your fix to one the app worked out (an interview
-// slot from an email, a follow-up): `replaces` names that one, and `hidden` removes it.
-// `key` is the id the calendar gave it, so it keeps one id from the first draw on.
 export const EventFields = type({
   key: "string <= 100",
-  // Left empty, it's saved as "Untitled".
   title: type("string.trim").pipe(cutTo(200)).to("string"),
-  // Offset-qualified instants ("2026-11-03T10:30:00+01:00"), or dates when all-day.
   start: "string",
   end: "string",
   allDay: "boolean",
@@ -36,16 +30,13 @@ export const EventFields = type({
   "applicationId?": arkId("applications"),
   "replaces?": "string",
   "hidden?": "boolean",
-  // The rest of what kloq's event panel edits, kept as kloq has it.
   "location?": cut(200),
   "description?": cut(2000),
   "meetingUrl?": cut(500),
   "color?": "'blue' | 'violet' | 'emerald' | 'amber' | 'rose'",
   "busy?": "boolean",
-  // The zone it was set in, as an invite gives it ("America/New_York").
   "timeZone?": "string",
   "rrule?": cut(300),
-  // A long-running series keeps its newest exceptions.
   "exdates?": type("string[]")
     .pipe((dates) => dates.slice(-200))
     .to("string[]"),
@@ -57,7 +48,6 @@ export const EventFields = type({
     .to(Attendee.array()),
 })
 
-// What Save sends: the fields, with times the calendar can read, in order.
 export const SaveEvent = EventFields.narrow((event, ctx) => {
   const shape = event.allDay ? dateOnly : instant
   if (!shape.test(event.start) || !shape.test(event.end))
@@ -71,18 +61,15 @@ export const SaveEvent = EventFields.narrow((event, ctx) => {
 export const CalendarEvent = EventFields.omit("kind").and({
   userId: arkId("users"),
   kind: type.enumerated(...eventKinds),
-  // Set by the server when a guest books it on one of your booking pages.
   "bookingPageId?": arkId("bookingPages"),
 })
 
-// How someone reads their calendar. Unset fields follow the browser and kloq's defaults.
 export const CalendarSettings = type({
   "timeZone?": "string",
   "hour12?": "boolean",
   "weekStartsOn?": "0 | 1 | 6",
   "dayStartHour?": "number",
   "dayEndHour?": "number",
-  // Other zones to show beside the hours, like a company's.
   "extraTimeZones?": "string[]",
 })
 

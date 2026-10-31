@@ -18,14 +18,12 @@ describe("nextRunAt", () => {
   })
 
   it("follows the person's time zone", () => {
-    // 08:00 in Berlin is 07:00 UTC in winter time.
     expect(iso(nextRunAt(Date.parse("2026-11-10T03:00:00Z"), "08:00", "Europe/Berlin"))).toBe(
       "2026-11-10T07:00:00.000Z"
     )
   })
 
   it("keeps the wall clock across a daylight saving change", () => {
-    // Berlin leaves summer time on Oct 25, 2026: 08:00 is 06:00 UTC before, 07:00 after.
     const before = nextRunAt(Date.parse("2026-10-24T05:00:00Z"), "08:00", "Europe/Berlin")
     const after = nextRunAt(before, "08:00", "Europe/Berlin")
     expect(iso(before)).toBe("2026-10-24T06:00:00.000Z")

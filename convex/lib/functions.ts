@@ -17,12 +17,9 @@ const signedIn = customCtx(async (ctx: Parameters<typeof getAuthUserId>[0]) => {
   return { userId }
 })
 
-// Public functions that need the caller's user id as ctx.userId.
 export const authedQuery = customQuery(query, signedIn)
 export const authedMutation = customMutation(mutation, signedIn)
 
-// Convex checks the args' shape, and the arktype type then applies the rules
-// Convex can't express, such as trimming, before the handler runs.
 export const arkMutation = <
   T extends Type<object>,
   R extends Validator<unknown, "required", string>,

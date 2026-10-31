@@ -108,6 +108,7 @@ describe("goals", () => {
     const addLoop = (owner: typeof userId, name: string) =>
       t.run((ctx) =>
         ctx.db.insert("loops", {
+          show: 5,
           userId: owner,
           name,
           template: "remote",
@@ -145,6 +146,7 @@ describe("goals", () => {
     const owner = (await t.run((ctx) => ctx.db.query("users").first()))!._id
     const loopId = await t.run((ctx) =>
       ctx.db.insert("loops", {
+        show: 5,
         userId: owner,
         name: "Mornings",
         template: "custom",
@@ -205,7 +207,13 @@ describe("goals", () => {
         ],
       })
       await ctx.db.patch("applications", elsewhere, { notes: [{ text: "not on it", at: during }] })
-      const mail = { userId, kind: "other" as const, note, by: "rules" as const }
+      const mail = {
+        userId,
+        kind: "other" as const,
+        note,
+        by: "rules" as const,
+        box: "inbox" as const,
+      }
       await ctx.db.insert("mailEvents", { ...mail, emailId: "a", at: during, applicationId: on })
       await ctx.db.insert("mailEvents", { ...mail, emailId: "b", at: 1, applicationId: on })
       await ctx.db.insert("mailEvents", {

@@ -9,10 +9,8 @@ import { rowOf } from "../preferences/utils"
 import { applyPool, limits } from "../workflows/manager"
 import { apiKeyOf, monthlyCredits, monthOf } from "../workflows/sources"
 
-// Jev's pick counts only when it's sure; a weak pick is treated as none.
 export const sureEnough = 0.6
 
-// An open browser left alone closes by itself after this, so its credits don't run on.
 export const liveMs = 15 * 60 * 1000
 
 type Posting = {
@@ -30,7 +28,6 @@ export const prefillOf = (ctx: MutationCtx, userId: Id<"users">, urlKey: string)
     .withIndex("by_userId_and_urlKey", (q) => q.eq("userId", userId).eq("urlKey", urlKey))
     .first()
 
-/** Why this person can't prepare applications right now, if anything. */
 export const blockedBy = async (ctx: MutationCtx, userId: Id<"users">) => {
   const me = await ctx.db.get("users", userId)
   if (!me?.email) return "Add your email under Account first."
@@ -38,7 +35,6 @@ export const blockedBy = async (ctx: MutationCtx, userId: Id<"users">) => {
   if (!(await rowOf(ctx, userId))?.resumeId) return "Upload a resume on the Resume page first."
 }
 
-// Hands a row to the pool. `retry: false`: a prepare that dies waits for you to try again.
 export const enqueue = async (ctx: MutationCtx, id: Id<"prefills">) => {
   await applyPool.enqueueAction(
     ctx,
@@ -48,7 +44,6 @@ export const enqueue = async (ctx: MutationCtx, id: Id<"prefills">) => {
   )
 }
 
-/** Starts preparing a posting, once per person. Answers you typed are kept on a second go. */
 export const startPrefill = async (ctx: MutationCtx, userId: Id<"users">, posting: Posting) => {
   const known = await prefillOf(ctx, userId, posting.urlKey)
   if (known && known.status !== "failed" && known.status !== "dismissed") return known._id
@@ -60,9 +55,6 @@ export const startPrefill = async (ctx: MutationCtx, userId: Id<"users">, postin
   return id
 }
 
-/** A loop's run put these on the shortlist: prepare the ones whose forms we can read, up to
- * the day's budget. Anything skipped keeps its Prepare button. Never throws: a loop's run
- * shouldn't fail because of this. */
 export const prepareFits = async (
   ctx: MutationCtx,
   userId: Id<"users">,
@@ -93,4 +85,3 @@ export const ownPrefill = async (ctx: MutationCtx, userId: Id<"users">, id: Id<"
   if (row?.userId !== userId) throw new ConvexError("That isn't yours.")
   return row
 }
-

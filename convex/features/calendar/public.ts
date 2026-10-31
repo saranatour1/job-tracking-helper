@@ -39,7 +39,6 @@ const list = authedQuery({
   },
 })
 
-/** Adds an event, or changes the one with this key. */
 const save = arkMutation({
   args: SaveEvent,
   returns: v.null(),
@@ -51,8 +50,6 @@ const save = arkMutation({
       const application = await ctx.db.get("applications", applicationId)
       if (application?.userId !== ctx.userId) throw new ConvexError("That application isn't yours.")
     } else if (!event.replaces && existing?.title !== title) {
-      // Like mail, an event whose new title names one company goes under that application.
-      // The newest 1000: an event is about a recent application.
       const applications = await ctx.db
         .query("applications")
         .withIndex("by_userId_and_trashedAt", (q) =>
@@ -92,7 +89,6 @@ const save = arkMutation({
   },
 })
 
-/** Deletes your event. A fix to one the app worked out stays, hiding that one. */
 const remove = authedMutation({
   args: { key: v.string() },
   returns: v.null(),
@@ -120,7 +116,6 @@ const settings = authedQuery({
   },
 })
 
-/** Replaces your calendar settings; a field left out goes back to its default. */
 const saveSettings = arkMutation({
   args: SaveSettings,
   returns: v.null(),

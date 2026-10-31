@@ -1,4 +1,3 @@
-// Registers `api.api.email.*` and `internal.api.email.*`. Definitions live in ../features/email.
 import { emailApi } from "../features/email"
 
 export const {

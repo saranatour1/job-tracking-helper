@@ -233,7 +233,7 @@ const LoopTile = ({ loop, runs, prefs }: { loop: Loop; runs: Run[]; prefs: Prefs
       <Rows>
         <Row label="Runs">
           {loop.active ? `Each morning at ${loop.at}` : "When you press Run now"} · checks{" "}
-          {loop.daily}, shows up to {loop.show ?? defaultShow}
+          {loop.daily}, shows up to {loop.show}
         </Row>
         {loop.prompt && (
           <Row label="Wants">
@@ -478,7 +478,7 @@ const Setup = ({
           prompt: loop.prompt ?? "",
           answers: loop.answers,
           daily: loop.daily as DailySize,
-          show: (loop.show ?? defaultShow) as ShowSize,
+          show: loop.show as ShowSize,
           at: loop.at as RunTime,
           auto: loop.active,
         }

@@ -38,7 +38,6 @@ import {
 } from "./validators"
 import { logEdit, logEditFromAction } from "../activity/utils"
 
-// One screen of mail. Only these rows get opened, so a big mailbox costs no more than a small one.
 const rowsOf = async (ctx: QueryCtx, userId: Id<"users">, events: Doc<"mailEvents">[]) => {
   const k = await keys().catch(() => null)
   if (!k) return []
@@ -49,7 +48,7 @@ const rowsOf = async (ctx: QueryCtx, userId: Id<"users">, events: Doc<"mailEvent
       const application = e.applicationId && (await ctx.db.get("applications", e.applicationId))
       return {
         id: e._id,
-        box: e.box ?? (e.by === "sent" ? ("sent" as const) : ("inbox" as const)),
+        box: e.box,
         kind: e.kind,
         from: note.from,
         ...(note.to && { to: note.to }),
@@ -109,7 +108,6 @@ const page = authedQuery({
   },
 })
 
-// One email to read, opened only when you open it. The HTML goes to a locked-down frame.
 const content = authedQuery({
   args: { eventId: v.id("mailEvents") },
   returns: vMailContent,
@@ -133,8 +131,6 @@ const content = authedQuery({
   },
 })
 
-// The conversation an email is part of, oldest first, across folders. Subjects are sealed and
-// Cloudflare's send API returns no Message-ID, so this matches when you read rather than on save.
 // shortcut: looks at the newest 200 of an application's mail, or 100 around an email with none.
 // Store a thread key on each email if conversations outgrow that.
 const thread = authedQuery({
@@ -172,7 +168,6 @@ const thread = authedQuery({
   },
 })
 
-// Stops counting at the limit, which the page shows as "99+". Nothing gets decrypted for this.
 const unreadCount = authedQuery({
   args: {},
   returns: v.number(),
@@ -187,7 +182,6 @@ const unreadCount = authedQuery({
   },
 })
 
-// Mail you sent has no read state.
 const markUnread = authedMutation({
   args: { eventId: v.id("mailEvents") },
   returns: v.null(),
@@ -209,7 +203,6 @@ const markRead = authedMutation({
   },
 })
 
-// Archive, trash, or put back where it came from.
 const move = authedMutation({
   args: {
     eventId: v.id("mailEvents"),
@@ -256,7 +249,6 @@ const removeLabelRows = async (
   }
 }
 
-// Only from the Trash, so it always takes two steps.
 const deleteForever = authedMutation({
   args: { eventId: v.id("mailEvents") },
   returns: v.null(),
@@ -327,7 +319,6 @@ const labels = authedQuery({
     ).map((l) => l.name),
 })
 
-// Who it's to and its subject, for the list. The body waits until you open one.
 const drafts = authedQuery({
   args: { paginationOpts: paginationOptsValidator },
   returns: v.object({

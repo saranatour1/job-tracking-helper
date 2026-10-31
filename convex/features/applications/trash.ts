@@ -17,7 +17,6 @@ import {
 } from "./utils"
 import { logEdit } from "../activity/utils"
 
-/** What's in the Trash, newest first. */
 const trashed = authedQuery({
   args: { paginationOpts: paginationOptsValidator },
   returns: paginationResultValidator(schema.doc("applications")),
@@ -63,7 +62,6 @@ const trash = authedMutation({
   },
 })
 
-/** Back on the board, out of the Archive too. */
 const restore = authedMutation({
   args: { id: v.id("applications") },
   returns: v.null(),
@@ -81,7 +79,6 @@ const restore = authedMutation({
   },
 })
 
-/** Deletes one application from the Trash now. */
 const deleteForever = authedMutation({
   args: { id: v.id("applications") },
   returns: v.null(),
@@ -95,7 +92,6 @@ const deleteForever = authedMutation({
   },
 })
 
-/** Deletes everything in the Trash for good, in batches. */
 const emptyTrash = authedMutation({
   args: {},
   returns: v.null(),
@@ -106,7 +102,6 @@ const emptyTrash = authedMutation({
   },
 })
 
-/** How long the Trash keeps things; what's already in it moves to the new date. */
 const setTrashDays = authedMutation({
   args: { days: v.number() },
   returns: v.null(),
@@ -114,7 +109,6 @@ const setTrashDays = authedMutation({
     if (!(trashDayChoices as readonly number[]).includes(days))
       throw new ConvexError("Pick one of the choices.")
     await ctx.db.patch("users", ctx.userId, { trashDays: days })
-    // Bounded by the Trash itself, which is at most everything on the board.
     for await (const application of ctx.db
       .query("applications")
       .withIndex("by_userId_and_trashedAt", (q) => q.eq("userId", ctx.userId).gt("trashedAt", 0)))
@@ -135,15 +129,11 @@ const trashSettings = authedQuery({
   }),
 })
 
-/** The daily sweep: archived applications past `archiveDays` move to the Trash, a batch at a
- * time, running again at once while a batch came back full. Trashed ones past their `purgeAt`
- * go to the batch worker. Returns how many it moved, and whether any were due. */
 const sweep = internalMutation({
   args: {},
   returns: v.object({ trashed: v.number(), due: v.boolean() }),
   handler: async (ctx) => {
     const now = Date.now()
-    // Trashing clears archivedAt, so everything in this range still needs moving.
     const stale = await ctx.db
       .query("applications")
       .withIndex("by_archivedAt", (q) =>

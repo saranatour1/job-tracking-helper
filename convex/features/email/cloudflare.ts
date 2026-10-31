@@ -1,5 +1,3 @@
-// The Cloudflare API calls that check a pasted token and set up incoming mail.
-// Sending lives in the cloudflareEmail component.
 const base = "https://api.cloudflare.com/client/v4"
 
 type Answer = { success?: boolean; result?: unknown; errors?: { message: string }[] }
@@ -17,14 +15,12 @@ const call = async (path: string, token: string) => {
   return ok ? (body?.result ?? null) : undefined
 }
 
-// Throws Cloudflare's own reason, which never includes the token.
 const must = async (path: string, token: string, init: RequestInit) => {
   const { ok, body } = await request(path, token, init)
   if (!ok) throw new Error(body?.errors?.map((e) => e.message).join("; ") || "Cloudflare said no.")
   return body?.result
 }
 
-/** "active", "disabled", "expired", or "invalid" when Cloudflare doesn't know the token. */
 export const tokenStatus = async (accountId: string, token: string) => {
   // Account-owned tokens verify under the account, user tokens under /user.
   for (const path of [`/accounts/${accountId}/tokens/verify`, "/user/tokens/verify"]) {
@@ -34,7 +30,6 @@ export const tokenStatus = async (accountId: string, token: string) => {
   return "invalid"
 }
 
-/** mail.example.com → ["mail.example.com", "example.com"]: the zone is one of these. */
 export const zoneNamesOf = (domain: string) => {
   const parts = domain.toLowerCase().split(".")
   return parts.slice(0, -1).map((_, i) => parts.slice(i).join("."))
@@ -49,8 +44,6 @@ const findZone = async (domain: string, token: string) => {
   }
 }
 
-// What the token may do beyond sending, so incoming mail can be set up with it later:
-// deploy the Worker that receives mail, and add the routing rule that feeds it.
 export const accessOf = async (accountId: string, token: string, domain: string) => {
   const zoneId = await findZone(domain, token)
   const [workers, routing, subdomains] = await Promise.all([
@@ -70,19 +63,15 @@ export const accessOf = async (accountId: string, token: string, domain: string)
         : undefined,
       workers: workers !== undefined,
       routing: routing !== undefined,
-      // Everything about the domain depends on this, so it's the first thing to fix.
       zone: zoneId !== undefined,
     },
   }
 }
 
-/** Whether Email Routing is on for the zone, or undefined when the token can't tell. */
 export const routingEnabled = async (zoneId: string, token: string) =>
   ((await call(`/zones/${zoneId}/email/routing`, token)) as { enabled?: boolean } | undefined)
     ?.enabled
 
-// The Worker that receives mail: it hands each raw message to Convex, and forwards a copy
-// when the person gave an address. A failed forward never loses the app's copy.
 // A 403 means the person turned receiving off, so the sender hears it was turned away unless
 // there's somewhere to forward it. Anything else throws, which Cloudflare treats as a
 // temporary failure.
@@ -140,7 +129,6 @@ export const uploadWorker = (
   })
 }
 
-/** The routing rule already handling exactly this address, and who it forwards to. */
 export const ruleFor = async (zoneId: string, token: string, address: string) => {
   const rules = (await call(`/zones/${zoneId}/email/routing/rules?per_page=50`, token)) as
     | {
@@ -162,7 +150,6 @@ export const ruleFor = async (zoneId: string, token: string, address: string) =>
   return { id: found.id, forwardsTo: forward?.value?.[0] }
 }
 
-/** Sends mail for `address` to the Worker and returns the rule's id. */
 export const createRule = async (zoneId: string, token: string, address: string, worker: string) =>
   (
     (await must(`/zones/${zoneId}/email/routing/rules`, token, {
@@ -177,7 +164,6 @@ export const createRule = async (zoneId: string, token: string, address: string,
     })) as { id: string }
   ).id
 
-// Teardown is best effort: a rule or Worker someone already deleted is fine.
 export const removeInbound = async (
   accountId: string,
   zoneId: string,

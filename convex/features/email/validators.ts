@@ -6,7 +6,6 @@ import { v } from "convex/values"
 
 const trimmed = type("string.trim")
 
-// What someone pastes to connect their Cloudflare account. Safe to import from the frontend.
 // An empty token keeps the saved one, so the account or address can change without
 // pasting it again. Each rule has a fixed message: arktype's default repeats the
 // value, and a token must never end up on screen or in a server error log.
@@ -25,19 +24,15 @@ export const Connect = type({
 })
 export type Connect = typeof Connect.infer
 
-// What `details` holds once opened. Shown to its owner, never to anyone else.
 export const Details = type({
   accountId: "string",
   fromAddress: "string",
   "zoneId?": "string",
-  // Where the Worker also forwards each email, so mail still reaches an everyday inbox.
   "forwardTo?": "string",
 })
 
 export type Details = typeof Details.infer
 
-// An email as the app seals it into the component: what was sent, and Cloudflare's
-// Message-ID once it went out, for threading replies.
 export const Sent = type({
   from: "string",
   to: "string[]",
@@ -46,7 +41,6 @@ export const Sent = type({
   "messageId?": "string",
 })
 
-// An email as it arrives, parsed and sealed into the component.
 export const Received = type({
   from: "string",
   "fromName?": "string",
@@ -61,31 +55,21 @@ export const Received = type({
   attachments: "string[]",
 })
 
-// Incoming mail, once the app has set it up: the Worker it deployed, the routing rule
-// that feeds it, and a hash of the secret the Worker sends, so checking each email
-// needs no decryption.
 export const Inbound = type({
   secretHash: "string",
   worker: "string",
   ruleId: "string",
   at: "number",
-  // Rules beyond the main one: the address without a tag, and addresses for forms that
-  // refuse a plus. Teardown removes them too.
   "aliasRules?": "string[]",
 })
 
-// What the token was allowed to do when it was added. Sending is unknown when the
-// token can't list the domain's sending settings; a test send tells for sure.
 export const Access = type({
   "sending?": "boolean",
   workers: "boolean",
   routing: "boolean",
-  // Whether the token can see the domain. Unknown on connections from before this was checked.
   "zone?": "boolean",
 })
 
-// What the person lets the app do for them: send mail, change their Cloudflare setup,
-// keep mail sent to them, and let Jev read it. All off until they turn one on.
 export const allowKeys = ["send", "setup", "receive", "read", "move", "tag"] as const
 
 // `move` and `tag` came later, so connections from before them lack them; missing reads as
@@ -115,7 +99,6 @@ export const SetUpInbound = type({
   ),
 })
 
-// An email written from an application. `replyTo` is the email it answers.
 export const SendMail = type({
   "applicationId?": arkId("applications"),
   to: trimmed.to(type("string.email").configure({ message: "Send to a full email address." })),
@@ -126,70 +109,46 @@ export const SendMail = type({
     type("0 < string <= 20000").configure({ message: "Write up to 20,000 characters." })
   ),
   "replyTo?": arkId("mailEvents"),
-  // Written in the editor. `text` is then its plain version.
   "html?": "string <= 200000",
-  // The draft this was, which goes once it's sent.
   "draftId?": arkId("mailDrafts"),
 })
 
-// One Cloudflare account per person, for sending from their own domain. Everything
-// they typed is sealed with lib/secrets; only the dates and permissions are plain.
 export const EmailConnection = type({
   userId: arkId("users"),
   details: "string",
-  // Opened only inside the action that sends, and never sent to the browser.
   token: "string",
   tokenAddedAt: "number",
   access: Access,
-  // Checked on the server before the app does any of these.
   allow: Allow,
-  // Random and public: it names this person's inbound URL, nothing else.
   "inboundId?": "string",
   "inbound?": Inbound,
-  // A small copy of your photo for your signature. Set means it goes on mail you write.
   "signaturePhoto?": arkId("_storage"),
 })
 
-// What a mail event's sealed `note` holds: enough for one timeline line.
 export const MailNote = type({
   from: "string",
   subject: "string",
   "portalUrl?": "string",
-  // An interview's proposed time, as written, in UTC milliseconds (see slotOf).
   "slot?": "number",
-  // The zone the email gave with that time, when it gave one (see zoneOf).
   "slotZone?": "string",
-  // Who it went to, on mail sent from an application.
   "to?": "string",
 })
 
-// Where Jev moved an application from and to, so the move can be undone.
 export const Moved = type({ from: type.enumerated(...statuses), to: type.enumerated(...statuses) })
 
-// One email, sorted: the application it's about, if any, and what it says. `by` says how
-// it was filed; "sent" is mail written from the application itself.
-// The kind and suggested status are plain, like the application's own status; who
-// wrote, the subject and any portal link are sealed in `note`.
 export const MailEvent = type({
   userId: arkId("users"),
-  // The email in the cloudflareEmail component.
   emailId: "string",
   "applicationId?": arkId("applications"),
   kind: type.enumerated(...kinds),
   note: "string",
   at: "number",
-  // A status the email suggests, until the person accepts or dismisses it.
   "suggest?": type.enumerated(...statuses),
-  // Set when Jev moved the application itself, so the person can undo it.
   "moved?": Moved,
-  // A one-way hash of the email's Message-ID, bound to its owner, so a reply can find
-  // the thread it belongs to without the ID being stored. See threadKeyOf.
   "messageKey?": "string",
   by: "'rules' | 'jev' | 'you' | 'thread' | 'tag' | 'sent'",
-  // Which folder it's in. Optional only for mail from before folders; see convex/migrations.ts.
-  "box?": "'inbox' | 'sent' | 'archived' | 'trash'",
+  box: "'inbox' | 'sent' | 'archived' | 'trash'",
   "readAt?": "number",
-  // Your labels, kept here to show with the row. `mailEventLabels` is what finds them.
   "labels?": "string[]",
 })
 
@@ -221,7 +180,6 @@ export const vSealedConnection = v.union(
     allow: arkOutputToConvex(Allow),
     inbound: v.optional(arkOutputToConvex(Inbound)),
     userEmail: v.optional(v.string()),
-    // Who mail is from, and what its signature says.
     signature: v.object({
       name: v.string(),
       email: v.string(),
@@ -268,7 +226,6 @@ export const vConnectionView = v.union(
     allow: arkOutputToConvex(Allow),
     receivingSince: v.union(v.number(), v.null()),
     forwardTo: v.optional(v.string()),
-    // Each application has its own address to give out.
     tracking: v.boolean(),
     signaturePhotoUrl: v.optional(v.string()),
     signature: v.object({
@@ -301,13 +258,11 @@ export const vSortContext = v.union(
 )
 
 export const vRecordArgs = {
-  event: arkOutputToConvex(MailEvent.omit("moved")),
+  event: arkOutputToConvex(MailEvent.omit("moved", "box")),
   move: v.boolean(),
-  // Old mail being imported: no line in Updates or workflow event.
   quiet: v.optional(v.boolean()),
 }
 
-// More than this on the board reads "100+": it's only a nudge to go and sort them.
 export const maxUnsortedCount = 100
 
 export const vMailLine = v.object({

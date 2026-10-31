@@ -15,7 +15,6 @@ import { convexGateway } from "@convex-dev/ai-sdk-provider"
 
 export const sleep = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms))
 
-// Waits for room under the source's shared call limit.
 export const turn = async (
   ctx: Parameters<typeof limits.limit>[0],
   provider: "firecrawl" | "contextDev"
@@ -24,8 +23,6 @@ export const turn = async (
   if (retryAfter) await sleep(retryAfter)
 }
 
-// Asks Jev about one role through the Convex AI gateway: the overall match and one
-// question per thing the person asked for, all in one request.
 export const judge = async (profile: Profile, job: JudgedJob) => {
   const result = await decide({
     model: convexGateway.evaluationModel(jevModel),

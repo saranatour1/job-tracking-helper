@@ -3,7 +3,6 @@ import { priorities } from "../applications/validators"
 import { arkId } from "../../lib/ark"
 import { type Infer, v } from "convex/values"
 
-// Dates are YYYY-MM-DD, as a date input gives them, so they compare as text.
 export const day = type(/^\d{4}-\d{2}-\d{2}$/)
 
 export const Milestone = type({
@@ -12,7 +11,6 @@ export const Milestone = type({
   "target?": day,
 })
 
-// What someone sets on a goal. Shared with the tracker's goal form.
 export const GoalFields = type({
   name: type("string.trim").to("0 < string <= 80"),
   summary: type("string.trim").to("string <= 300"),
@@ -22,16 +20,12 @@ export const GoalFields = type({
   milestones: Milestone.array().atMostLength(20),
 })
 
-// Few enough to read at once, and plenty for one person's search.
 export const maxGoals = 50
 
-// Applications Jev looks at in one re-evaluation, newest first.
 export const maxEvaluated = 30
 
-// A goal's activity looks at its newest this many applications.
 export const maxGoalApplications = 200
 
-// A loop to take roles from. null clears it; leaving it out keeps it.
 export const loopField = { "loopId?": arkId("loops").or("null") }
 
 export const vVerdicts = v.object({

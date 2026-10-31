@@ -1,4 +1,3 @@
-// Registers `api.api.mailbox.*` and `internal.api.mailbox.*`. Definitions live in ../features/mailbox.
 import { mailboxApi } from "../features/mailbox/public"
 
 export const {

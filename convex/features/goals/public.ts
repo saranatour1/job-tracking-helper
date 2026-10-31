@@ -26,9 +26,8 @@ const list = authedQuery({
       .take(maxGoals),
 })
 
-// What the goal's activity can't get from the board's rows: its applications' notes and
-// mail in its period. The page shows the newest 50 of everything, so that's enough of each,
-// and only those are decrypted. Mail is looked for among the newest 1,000 in the period.
+// The page shows the newest 50 of everything, so that's enough of each, and only those are
+// decrypted. Mail is looked for among the newest 1,000 in the period.
 const activity = authedQuery({
   args: { id: v.id("goals") },
   returns: v.object({
@@ -100,7 +99,6 @@ const update = arkMutation({
   },
 })
 
-// The goal's applications stay; they just leave it.
 const remove = authedMutation({
   args: { id: v.id("goals") },
   returns: v.null(),
@@ -116,8 +114,6 @@ const remove = authedMutation({
   },
 })
 
-// A fresh go at a missed goal: the same goal again, starting today for the same length,
-// with its milestones unticked and their dates moved along. The old one stays as it was.
 const retry = authedMutation({
   args: { id: v.id("goals") },
   returns: v.id("goals"),
@@ -144,8 +140,6 @@ const retry = authedMutation({
   },
 })
 
-// What Jev reads when re-evaluating a goal: the goal, and the person's applications
-// with whether each is on it already.
 const toEvaluate = internalQuery({
   args: { userId: v.id("users"), id: v.id("goals") },
   returns: vToEvaluate,

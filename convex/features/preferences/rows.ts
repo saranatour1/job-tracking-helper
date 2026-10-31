@@ -6,19 +6,12 @@ import {
   entryKinds,
 } from "./validators"
 
-// Turns the Preferences form into rows for `preferenceTags` and `profileEntries`, and
-// back. The page and the server share these, so both read the rows the same way.
-
 type Form = typeof Preferences.infer
 type Sections = typeof PrefilledSections.infer
 export type TagKind = (typeof tagKinds)[number]
 
-// The most rows one person can have of each kind, from the caps the validators enforce:
-// 40 tags per list, 10 built-in answers plus 20 of their own, 20 sections of 50 fields.
-// One page of this size holds everything, so the page loads in a single request.
 export const rowLimits = { tags: 6 * 40, answer: 10 + 20, field: 20 * 50 } as const
 
-// Which form list each tag kind fills.
 export const tagLists = {
   interest: "interests",
   avoid: "avoid",
@@ -28,8 +21,6 @@ export const tagLists = {
   redFlagCompany: "redFlagCompanies",
 } as const satisfies Record<TagKind, keyof Form>
 
-// Built-in questions by a key that never changes, so a label can be reworded without
-// touching stored answers. `group` is the Preferences step that asks it.
 export const builtInAnswers = {
   growthGoal: { group: "grow", label: "Where do you want to be, and what's in the way?" },
   companyTraits: { group: "companies", label: "What draws you to a company?" },
@@ -66,7 +57,6 @@ export const tagRowsOf = (form: Form): TagRow[] =>
     [...new Set(form[tagLists[kind]])].map((value, order) => ({ kind, value, order }))
   )
 
-// Unanswered built-in questions get no row; your own questions keep their order.
 export const answerRowsOf = (form: Form): EntryRow[] => [
   ...(Object.keys(builtInAnswers) as AnswerKey[])
     .filter((key) => valueOf(form, key))
@@ -78,7 +68,7 @@ export const answerRowsOf = (form: Form): EntryRow[] => [
       value: valueOf(form, key),
       order: 0,
     })),
-  ...(form.custom ?? []).map((c, order) => ({
+  ...form.custom.map((c, order) => ({
     kind: "answer" as const,
     group: "own",
     key: "custom",
@@ -88,8 +78,12 @@ export const answerRowsOf = (form: Form): EntryRow[] => [
   })),
 ]
 
-// `order` is the section's position times 100 plus the field's, since a section holds
-// at most 50 fields. ponytail: a section with no fields has no rows, so it isn't kept.
+// A field's `order` is its section's position times 100 plus its own, since a section
+// holds at most 50 fields.
+export const fieldOrder = (section: number, field: number) => section * 100 + field
+export const sectionOfOrder = (order: number) => Math.floor(order / 100)
+
+// ponytail: a section with no fields has no rows, so it isn't kept.
 export const fieldRowsOf = (sections: Sections): EntryRow[] =>
   sections.flatMap((section, s) =>
     section.fields.map((field, f) => ({
@@ -98,7 +92,7 @@ export const fieldRowsOf = (sections: Sections): EntryRow[] =>
       key: "field",
       label: field.label,
       value: field.value,
-      order: s * 100 + f,
+      order: fieldOrder(s, f),
     }))
   )
 
@@ -109,7 +103,7 @@ export const formOf = (workMode: Form["workMode"], tags: TagRow[], answers: Entr
   const form = Preferences.assert(emptyPreferences)
   form.workMode = workMode
   for (const tag of byOrder(tags)) form[tagLists[tag.kind]].push(tag.value)
-  const custom: NonNullable<Form["custom"]> = []
+  const custom: Form["custom"] = []
   for (const row of byOrder(answers)) {
     if (row.key === "custom") custom.push({ question: row.label, answer: row.value })
     // hasOwn, not `in`: `in` also matches inherited names such as "constructor".
@@ -126,7 +120,7 @@ export const formOf = (workMode: Form["workMode"], tags: TagRow[], answers: Entr
 export const sectionsOf = (fields: EntryRow[]): Sections => {
   const sections: Sections = []
   for (const row of byOrder(fields)) {
-    const s = Math.floor(row.order / 100)
+    const s = sectionOfOrder(row.order)
     sections[s] ??= { title: row.group, fields: [] }
     sections[s].fields.push({ label: row.label, value: row.value })
   }

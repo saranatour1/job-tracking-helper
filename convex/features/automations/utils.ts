@@ -33,19 +33,15 @@ export const own = async (ctx: MutationCtx, userId: Id<"users">, id: Id<"automat
 export const nextRunOf = (trigger: Trigger, active: boolean) =>
   active && trigger.kind === "schedule" ? nextScheduledAt(Date.now(), trigger) : undefined
 
-// A workflow's runs. Old ones are pruned as new ones start (see startRun), so there are
-// only a few dozen, plus any still waiting.
 export const runsOf = (ctx: MutationCtx, automationId: Id<"automations">) =>
   ctx.db
     .query("automationRuns")
     .withIndex("by_automationId_and_startedAt", (q) => q.eq("automationId", automationId))
     .take(500)
 
-/** Stops a workflow's runs, then deletes them, their Updates lines and the workflow. */
 export const deleteWorkflow = async (ctx: MutationCtx, automation: Doc<"automations">) => {
   for (const run of await runsOf(ctx, automation._id))
     if (run.status === "running") await cancelRun(ctx, run)
-  // Read again: stopping moved them to another count, and deleting goes by what's stored.
   await deleteRuns(ctx, await runsOf(ctx, automation._id))
   await ctx.db.delete("automations", automation._id)
 }
@@ -86,10 +82,8 @@ export const runBlock = async (
   return "next"
 }
 
-// How many runs each workflow keeps in its history.
 export const keptRuns = 50
 
-/** Starts a run of `automation` now, with its steps as they are. */
 export const startRun = async (
   ctx: MutationCtx,
   automation: Doc<"automations">,
@@ -114,7 +108,6 @@ export const startRun = async (
     { onComplete: internal.api.automations.ended, context: { runId } }
   )
   await ctx.db.patch("automationRuns", runId, { workflowId })
-  // Keep the newest runs: the oldest finished ones go, a few at a time.
   const older = await ctx.db
     .query("automationRuns")
     .withIndex("by_automationId_and_startedAt", (q) => q.eq("automationId", automation._id))
@@ -127,8 +120,6 @@ export const startRun = async (
   return runId
 }
 
-// Reads the run again before writing, so paths running side by side never drop each
-// other's entries.
 export const setLog = async (
   ctx: MutationCtx,
   runId: Doc<"automationRuns">["_id"],
@@ -141,16 +132,12 @@ export const setLog = async (
   })
 }
 
-// What a step's text can name, from the run and the event that started it. Only these,
-// filled in as plain text. An email's words are opened here, when a step needs them, so
-// they never sit unsealed in a run.
 export const factsOf = async (ctx: QueryCtx, found: Doc<"automationRuns">) => {
   const settings = await ctx.db
     .query("calendarSettings")
     .withIndex("by_userId", (q) => q.eq("userId", found.userId))
     .unique()
   const zone = settings?.timeZone
-  // In the Calendar's zone; without one, the zone a fact came with, or else UTC.
   const date = (ms: number, time = false, where = zone) =>
     new Intl.DateTimeFormat("en-US", {
       timeZone: where,
@@ -216,7 +203,6 @@ export const factsOf = async (ctx: QueryCtx, found: Doc<"automationRuns">) => {
   }
 }
 
-// The application a step acts on: the one it names, or else the one the event is about.
 export const applicationFor = async (
   ctx: MutationCtx,
   found: Doc<"automationRuns">,
@@ -230,8 +216,6 @@ export const applicationFor = async (
   return application
 }
 
-/** Does one block. Returns what it said or did, how long to wait after it, and whether
- * an email still has to go out. */
 export const doBlock = async (
   ctx: MutationCtx,
   found: Doc<"automationRuns">,
@@ -276,7 +260,6 @@ export const doBlock = async (
     }
     case "move": {
       const application = await applicationFor(ctx, found, block.applicationId)
-      // Quietly: a workflow's own move never starts workflows, so none can set off another.
       await changeStatus(ctx, application, block.to, `Moved by the workflow “${found.name}”`, {
         quiet: true,
       })
@@ -289,7 +272,6 @@ export const doBlock = async (
       const application = await applicationFor(ctx, found, block.applicationId)
       const goal = await ctx.db.get("goals", block.goalId)
       if (goal?.userId !== found.userId) throw new ConvexError("That goal is gone.")
-      // Quietly, like Move application: no workflow sets off another.
       await ctx.db.patch("applications", application._id, { goalId: goal._id })
       return {
         output: `Put ${application.role} at ${application.company} on ${goal.name}`,
@@ -325,7 +307,6 @@ export const doBlock = async (
       const last = await lastRunOf(ctx, loop._id)
       if (last && (last.status === "queued" || last.status === "running"))
         throw new ConvexError(`“${loop.name}” is already running.`)
-      // Each search spends credits and Jev's time, so a few a day.
       const { ok } = await rates.limit(ctx, "automationFind", { key: found.userId })
       if (!ok) throw new ConvexError("Workflows found roles 5 times today. Try again tomorrow.")
       const loopRunId = await insertLoopRun(ctx, loop)
@@ -371,10 +352,8 @@ export const matches = (trigger: Trigger, event: typeof vAutomationEvent.type) =
     event.kind === "goal" &&
     (!trigger.goals.length || trigger.goals.includes(event.goalId)))
 
-/** Stops a run that's still going. */
 export const cancelRun = async (ctx: MutationCtx, found: Doc<"automationRuns">) => {
   if (found.status !== "running") return
-  // A loop run it started stops too, with its pending judgments.
   const loopRun =
     found.context?.loopRunId && (await ctx.db.get("loopRuns", found.context.loopRunId))
   if (loopRun && (loopRun.status === "queued" || loopRun.status === "running"))

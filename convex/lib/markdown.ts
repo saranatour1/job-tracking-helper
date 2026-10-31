@@ -91,7 +91,6 @@ const write = (node: Node, depth: number): string => {
   }
 }
 
-/** Safe Markdown from untrusted HTML. */
 export const markdownOf = (html: string) =>
   write(clean.runSync(clean.parse(html)) as unknown as Node, 0)
     .replace(/[ \t]+\n/g, "\n")
@@ -99,7 +98,6 @@ export const markdownOf = (html: string) =>
     .replace(/\n{3,}/g, "\n\n")
     .trim()
 
-/** Markdown as plain words, for a one-line preview. */
 export const unmark = (markdown: string) =>
   markdown
     .replace(/!?\[([^\]]*)\]\([^)]*\)/g, "$1")

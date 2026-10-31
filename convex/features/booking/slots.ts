@@ -1,11 +1,7 @@
-// When a booking page is open, worked out in the host's zone. Pure, so the public page
-// hatches exactly the time the server would refuse. Safe to import from the frontend.
-
 export type Hours = {
   minutes: number
   startHour: number
   endHour: number
-  /** Weekdays it's open, 0 = Sunday. */
   days: number[]
   noticeHours: number
   horizonDays: number
@@ -17,7 +13,6 @@ const minute = 60_000
 const hour = 60 * minute
 const day = 24 * hour
 
-/** Minutes east of UTC in `zone` at `ms`. */
 export const offsetOf = (ms: number, zone: string) => {
   const parts = new Intl.DateTimeFormat("en-US", {
     timeZone: zone,
@@ -41,13 +36,11 @@ export const offsetOf = (ms: number, zone: string) => {
   return Math.round((asUtc - Math.floor(ms / 1000) * 1000) / minute)
 }
 
-/** The moment a wall-clock time happens in `zone`; the wall clock is given as UTC fields. */
 export const fromWall = (wall: number, zone: string) => {
   const guess = wall - offsetOf(wall, zone) * minute
   return wall - offsetOf(guess, zone) * minute
 }
 
-/** `ms` as `zone`'s wall clock: its date, weekday and minutes since midnight. */
 export const wallOf = (ms: number, zone: string) => {
   const d = new Date(ms + offsetOf(ms, zone) * minute)
   return {
@@ -57,7 +50,6 @@ export const wallOf = (ms: number, zone: string) => {
   }
 }
 
-/** Whether all of [start, end) is open: the host's days and hours, notice, horizon, not busy. */
 export const isOpen = (hours: Hours, start: number, end: number, busy: Window[], now: number) => {
   if (start < now + hours.noticeHours * hour || end > now + hours.horizonDays * day) return false
   const a = wallOf(start, hours.timeZone)
@@ -71,7 +63,6 @@ export const isOpen = (hours: Hours, start: number, end: number, busy: Window[],
   )
 }
 
-/** Why a booking at `start` can't happen, or undefined when it can. */
 export const slotProblem = (hours: Hours, start: number, busy: Window[], now: number) => {
   if (start % (15 * minute) !== 0) return "Pick a time on the quarter hour."
   return isOpen(hours, start, start + hours.minutes * minute, busy, now)
@@ -79,5 +70,4 @@ export const slotProblem = (hours: Hours, start: number, busy: Window[], now: nu
     : "That time isn't open any more. Pick another."
 }
 
-/** An instant kloq and the calendar table both read: UTC, to the second. */
 export const instantOf = (ms: number) => new Date(ms).toISOString().replace(/\.\d{3}Z$/, "Z")

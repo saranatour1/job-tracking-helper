@@ -1,6 +1,3 @@
-// Sorting incoming mail: each email becomes a timeline event on the application it's
-// about, with what it says and any status it suggests. Rules decide by default; Jev
-// decides when the person lets it read their mail.
 import { paginationOptsValidator, paginationResultValidator } from "convex/server"
 import type { PaginationOptions } from "convex/server"
 import { ConvexError, v } from "convex/values"
@@ -55,7 +52,6 @@ import {
 } from "./validators"
 import { keepLog, keepLogFromAction, logEdit, reasonOf } from "../activity/utils"
 
-// The application an earlier email in the same thread was filed under, newest first.
 const threadOf = internalQuery({
   args: { userId: v.id("users"), keys: v.array(v.string()) },
   returns: v.union(v.id("applications"), v.null()),
@@ -97,7 +93,6 @@ const knownMessage = internalQuery({
     ),
 })
 
-// Where an imported email belongs: its address, its thread, or a company it names.
 const importTarget = internalQuery({
   args: {
     userId: v.id("users"),
@@ -133,7 +128,6 @@ const importTarget = internalQuery({
   },
 })
 
-// What sorting one email needs, or null when it's gone or already sorted.
 const sortContext = internalQuery({
   args: { userId: v.id("users"), emailId: v.string() },
   returns: vSortContext,
@@ -148,7 +142,6 @@ const sortContext = internalQuery({
       .query("emailConnections")
       .withIndex("by_userId", (q) => q.eq("userId", userId))
       .unique()
-    // The newest 200: mail is about a recent application, and Jev reads each one.
     const applications = await ctx.db
       .query("applications")
       .withIndex("by_userId_and_trashedAt", (q) =>
@@ -165,9 +158,6 @@ const sortContext = internalQuery({
   },
 })
 
-// Saves the event and tells the inbox, unless this email was already sorted.
-// With `move`, Jev moves the application to the status the email points to, and the
-// event remembers where it was so the person can undo it.
 const record = internalMutation({
   args: vRecordArgs,
   returns: v.null(),
@@ -181,14 +171,12 @@ const record = internalMutation({
       move && event.suggest && event.applicationId
         ? await ctx.db.get("applications", event.applicationId)
         : null
-    // One moved to the Trash while Jev was reading isn't moved again.
     const application = found?.trashedAt === undefined ? found : null
     if (application && event.suggest)
       await changeStatus(ctx, application, event.suggest, "Moved by Jev from an email")
     const id = await ctx.db.insert("mailEvents", {
       ...event,
       box: "inbox",
-      // Old mail you're importing isn't new to you.
       ...(quiet && { readAt: event.at }),
       ...(application &&
         event.suggest && {
@@ -199,7 +187,6 @@ const record = internalMutation({
     await syncMailSummary(ctx, event.applicationId)
     if (event.applicationId)
       await ctx.scheduler.runAfter(0, internal.api.contacts.learn, { eventId: id })
-    // Old mail you're importing isn't news here either, and there can be hundreds.
     if (quiet) return null
     const filedUnder =
       event.applicationId && (await ctx.db.get("applications", event.applicationId))
@@ -239,10 +226,8 @@ const sortOne = async (
   const mail = await openJson(k, context.payload, aad.email(userId), Received)
   if (!mail) throw new Error("It couldn't be opened with the current key.")
   const text = mail.text ?? ""
-  // Sent to a company's address: nothing else needs to guess.
   const tag = tagIn(mail.to)
   const tagged = tag ? tagMatch(tag, mail.subject, context.applications) : undefined
-  // A reply goes where the email it answers went: the thread decides next.
   const parents = await Promise.all(
     [...messageIdsIn(mail.references), ...messageIdsIn(mail.inReplyTo)].map((id) =>
       threadKeyOf(userId, id)
@@ -259,12 +244,9 @@ const sortOne = async (
   let by = "rules" as "rules" | "jev"
   let sureOfKind = 0
   if (context.read && context.applications.length)
-    // If Jev can't be reached, the rules' answer stands.
     await askJev(mail, context.applications).then(
       (answer) => {
         ;({ kind, sureOfKind } = answer)
-        // The tag or thread already knows the application; Jev only says what it means.
-        // Unsure isn't a no: Jev can change a match the rules found, but not erase one.
         if (!known) application = answer.application ?? application
         by = "jev"
       },
@@ -296,7 +278,6 @@ const sortOne = async (
       ...(mail.messageId && { messageKey: await threadKeyOf(userId, mail.messageId) }),
       by: by === "rules" ? (tagged ? "tag" : inThread ? "thread" : by) : by,
     },
-    // Only Jev moves cards, only when allowed, and only when it's clearly sure.
     move: context.move && by === "jev" && sureOfKind >= 0.8,
   })
 }
@@ -317,10 +298,8 @@ const sortMail = internalAction({
   },
 })
 
-// Sorted mail, opened for its owner, newest first: the newest 300 between two times, or
-// overall without them. Each one is decrypted, so older mail drops off. An interview's slot
-// is sealed and can be weeks after its email, so between two times the newest interview
-// mail is opened too, for slots in that range.
+// An interview's slot is sealed and can be weeks after its email, so between two times the
+// newest interview mail is opened too, for slots in that range.
 const timeline = authedQuery({
   args: { from: v.optional(v.number()), to: v.optional(v.number()) },
   returns: vTimeline,
@@ -348,7 +327,6 @@ const timeline = authedQuery({
       : []
     const shown = new Set(recent.map((e) => e._id))
     const lines = await linesOf(k, ctx.userId, [
-      // Mail you've put in the Trash is out of everything else, like a trashed application.
       ...recent.filter((e) => e.box !== "trash"),
       ...interviews.filter((e) => e.box !== "trash" && !shown.has(e._id)),
     ])
@@ -358,7 +336,6 @@ const timeline = authedQuery({
   },
 })
 
-// One application's mail or, with none, what's Unsorted: a page at a time, newest first.
 const pageOfMail = async (
   ctx: CustomCtx<typeof authedQuery>,
   applicationId: Id<"applications"> | undefined,
@@ -389,7 +366,6 @@ const unsorted = authedQuery({
   handler: (ctx, { paginationOpts }) => pageOfMail(ctx, undefined, paginationOpts),
 })
 
-// How much is Unsorted, for the button on the board. Past `maxUnsortedCount` it says "+".
 const unsortedCount = authedQuery({
   args: {},
   returns: v.number(),
@@ -405,7 +381,6 @@ const unsortedCount = authedQuery({
     ).length,
 })
 
-// Accepting sets the application's status; either way the suggestion goes.
 const resolveSuggestion = authedMutation({
   args: { eventId: v.id("mailEvents"), accept: v.boolean() },
   returns: v.null(),
@@ -421,8 +396,6 @@ const resolveSuggestion = authedMutation({
   },
 })
 
-// One email's body, as postal-mime parsed it when it arrived, opened for its owner only.
-// Plain text when the sender included it, else the HTML as text.
 const mailBody = authedQuery({
   args: { eventId: v.id("mailEvents") },
   returns: vMailBody,
@@ -443,7 +416,6 @@ const mailBody = authedQuery({
   },
 })
 
-// Puts an application back where it was before Jev moved it.
 const undoMove = authedMutation({
   args: { eventId: v.id("mailEvents") },
   returns: v.null(),
@@ -458,7 +430,6 @@ const undoMove = authedMutation({
   },
 })
 
-// Moves an email to another application, or back to Unsorted.
 const assign = authedMutation({
   args: { eventId: v.id("mailEvents"), applicationId: v.optional(v.id("applications")) },
   returns: v.null(),
@@ -474,7 +445,6 @@ const assign = authedMutation({
     })
     await syncMailSummary(ctx, event.applicationId)
     if (applicationId !== event.applicationId) await syncMailSummary(ctx, applicationId)
-    // Filed by hand, so nothing has learned from it yet.
     if (application && !event.applicationId)
       await ctx.scheduler.runAfter(0, internal.api.contacts.learn, { eventId })
     await logEdit(

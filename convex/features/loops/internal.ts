@@ -16,8 +16,6 @@ import { nextRunAt } from "./schedule"
 import { startRun, usageOf, profileFor, addUsage, fillShortlist } from "./utils"
 import { vRunPlan, vSavePastedArgs, vFinishRunArgs, vRunEndedArgs } from "./validators"
 
-// The cron's job, every 15 minutes: start loops that are due, a batch at a time, and
-// move each one's next run to tomorrow morning.
 const startDue = internalMutation({
   args: {},
   returns: v.number(),
@@ -42,10 +40,7 @@ export const profileForLink = internalQuery({
     (await profileFor(ctx, userId, blankTemplate.answers)).profile,
 })
 
-// Plans a run from its loop and the person's Preferences, and picks the sources that
-// still have credits this month, in order, for finding new boards.
 const beginRun = internalMutation({
-  // The run's own workflow, which Jev's judgments wake when they're done.
   args: { runId: v.id("loopRuns"), workflowId: v.string() },
   returns: vRunPlan,
   handler: async (ctx, { runId, workflowId }) => {
@@ -64,8 +59,6 @@ const beginRun = internalMutation({
     return {
       userId: loop.userId,
       profile,
-      // Each kind of role they described, in each of their places, and the roles they
-      // asked for more of.
       queries: [
         ...queriesOf(criteria, descriptionsOf(loop.prompt)),
         ...profile.liked.slice(0, 2).map((l) => l.split(" at ")[0]),
@@ -73,10 +66,7 @@ const beginRun = internalMutation({
       perQuery: 5,
       daily: loop.daily,
       postedToday: loop.answers.postedToday,
-      // "Posted since yesterday", with some room for boards that post late.
       ...(loop.answers.postedToday && { since: Date.now() - 36 * 60 * 60 * 1000 }),
-      // Remote in Preferences narrows the pick too, so Jev isn't asked about roles that
-      // can't pass.
       remoteOnly: criteria.remoteOnly || profile.place === "Remote",
       companies: criteria.listedCompanies ? criteria.companies : [],
       sources,
@@ -84,7 +74,6 @@ const beginRun = internalMutation({
   },
 })
 
-// A lead the person already has for this posting, so checking a link twice opens it.
 const leadByUrlKey = internalQuery({
   args: { userId: v.id("users"), urlKey: v.string() },
   returns: v.union(v.null(), v.id("jobLeads")),
@@ -97,9 +86,6 @@ const leadByUrlKey = internalQuery({
     )?._id ?? null,
 })
 
-// Saves a pasted link's verdict on the shortlist, fit or not: they asked about it.
-// A pasted link opens on the shortlist. One checked for an application goes straight to
-// it instead: already in the tracker, with the application filled in from the job.
 const savePasted = internalMutation({
   args: vSavePastedArgs,
   returns: v.id("jobLeads"),
@@ -116,7 +102,6 @@ const savePasted = internalMutation({
   },
 })
 
-// Links a job someone already checked to the application they just added for it.
 const attachLead = internalMutation({
   args: { leadId: v.id("jobLeads"), applicationId: v.id("applications") },
   returns: v.null(),
@@ -129,8 +114,6 @@ const attachLead = internalMutation({
   },
 })
 
-// Hands a run's roles to the batch worker as one batch for Jev to judge. Each
-// judgment reports to judged.
 const queueJudging = internalMutation({
   args: { runId: v.id("loopRuns"), jobIds: v.array(v.id("jobs")), profile: vProfile },
   returns: v.null(),
@@ -152,7 +135,6 @@ const queueJudging = internalMutation({
   },
 })
 
-// Adds one judgment to its run's tally, and wakes the run after the last one.
 const judged = internalMutation({
   args: vOnCompleteArgs(v.object({ runId: v.id("loopRuns") }), vJudgeResult),
   returns: v.null(),
@@ -177,8 +159,6 @@ const judged = internalMutation({
   },
 })
 
-// Saves every role Jev judged with its verdict, records each source's
-// credits, and logs the run as one wide event.
 const finishRun = internalMutation({
   args: vFinishRunArgs,
   returns: v.null(),
@@ -262,8 +242,6 @@ const finishRun = internalMutation({
   },
 })
 
-// Called when a run's workflow ends. A run that finished normally already saved its
-// results; this records the ones that failed or were canceled.
 const runEnded = internalMutation({
   args: vRunEndedArgs,
   returns: v.null(),

@@ -11,12 +11,9 @@ import { workerName } from "./utils"
 
 const batchSize = 200
 const activityBatch = 500
-// A workflow takes its runs and their counts with it.
 const workflowBatch = 5
 const stuckAfterMs = 15 * 60 * 1000
 
-// Everything in an account, by an index that starts with userId. The account's own row, its
-// files, mail connection, stored emails and notifications go separately (users/public.ts).
 const accountTables: { table: TableNames; index: string; size?: number }[] = [
   { table: "automations", index: "by_userId", size: workflowBatch },
   { table: "applications", index: "by_userId" },
@@ -50,7 +47,6 @@ const { vQueryArgs, vQueryReturns, vMutationArgs, vMutationReturns } = defineBat
   },
 })
 
-// The list of tables is data, so the table and index can't be checked per row here.
 const rowsOf = (
   ctx: QueryCtx,
   job: Doc<"deleteJobs">,
@@ -126,7 +122,6 @@ const deleteBatch = internalMutation({
         if (table === "automations") await deleteWorkflow(ctx, row as unknown as Doc<"automations">)
         else if (table === "applications" && job.kind !== "account") {
           const application = row as unknown as Doc<"applications">
-          // Restored or given longer since the query read it.
           if (
             job.kind === "trash"
               ? application.trashedAt !== undefined
@@ -136,11 +131,9 @@ const deleteBatch = internalMutation({
         } else await ctx.db.delete(table as "goals", row._id)
       }
     } catch (cause) {
-      // One bad row would otherwise stop every delete behind it. Logged to look at by hand.
       log.set({ outcome: "failed", table, summary: "A big delete stopped partway" })
       log.error(cause as Error)
       await ctx.db.delete("deleteJobs", jobId)
-      // An account's Activity is what's being deleted.
       if (job.kind === "account") log.emit()
       else await keepLog(ctx, log)
       return

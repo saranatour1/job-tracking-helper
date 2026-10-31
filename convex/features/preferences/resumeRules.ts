@@ -1,14 +1,7 @@
 import type { Review } from "./validators"
 
-// What a review of a resume finds, from rules on its text and Jev's answers. Rules here
-// are the ATS side: what a parser needs to read a resume. Jev answers fixed questions
-// about the writing, and `suggestionsFrom` turns its "no"s into advice. Jev never writes
-// the advice itself. Kept free of convex/server imports so the frontend can share it.
-
-// Review at most this much text; a resume is one or two pages.
 export const maxResumeChars = 20_000
 
-// The headings an ATS looks for, with the words a resume might use for each.
 const headings: [string, RegExp][] = [
   ["Summary", /^(professional\s+)?(summary|profile|about( me)?|objective)\b/i],
   [
@@ -33,7 +26,6 @@ const lines = (text: string) =>
     .map((l) => l.trim())
     .filter(Boolean)
 
-/** The headings found, in the order they appear. */
 export const sectionsOf = (text: string) => {
   const found: string[] = []
   for (const line of lines(text)) {
@@ -44,7 +36,6 @@ export const sectionsOf = (text: string) => {
   return found
 }
 
-/** Contact details, from the top of the resume. The name is the first short line. */
 export const contactOf = (text: string): Review["contact"] => {
   const top = lines(text).slice(0, 12)
   const name = top.find(
@@ -62,12 +53,10 @@ export const contactOf = (text: string): Review["contact"] => {
 
 export const wordsOf = (text: string) => text.split(/\s+/).filter(Boolean).length
 
-/** The ATS checks: can a parser read this resume? Each failure says what to change. */
 export const checksOf = (text: string): Review["checks"] => {
   const contact = contactOf(text)
   const sections = sectionsOf(text)
   const all = lines(text)
-  // Columns and tables come out as runs of spaces or tabs in the middle of lines.
   const columns = all.filter((l) => /\S(\t|\s{4,})\S/.test(l)).length
   const monthDates = (text.match(monthYear) ?? []).length
   const numericDates = (text.match(numericDate) ?? []).length
@@ -112,7 +101,6 @@ export const checksOf = (text: string): Review["checks"] => {
   ]
 }
 
-// The questions Jev answers about the writing, in the order the advice is given.
 export const writingQuestions = {
   summaryStatesRole:
     "Does the resume's summary or first lines say what role the person is looking for?",
@@ -135,7 +123,6 @@ const writingAdvice: Record<keyof typeof writingQuestions, string> = {
   noFiller: "Cut phrases like 'hard-working team player'; show it with a result instead.",
 }
 
-/** Advice from Jev's "no"s, then one line per tag the resume doesn't show. */
 export const suggestionsFrom = (answers: WritingAnswers, shows: Review["shows"]): string[] => [
   ...(Object.keys(writingQuestions) as (keyof typeof writingQuestions)[])
     .filter((q) => answers[q] === false)
@@ -148,8 +135,6 @@ export const suggestionsFrom = (answers: WritingAnswers, shows: Review["shows"])
     ),
 ]
 
-// Jev reads this much of the resume: the first two pages or so.
 export const maxJevChars = 8000
 
-// Tags Jev checks the resume against, from the top of each list.
 export const maxTags = 12

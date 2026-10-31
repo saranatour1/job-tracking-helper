@@ -13,10 +13,6 @@ import { limits as rates } from "../workflows/manager"
 import { type DescribeAnswers, describeQuestions, draftFrom } from "./describe"
 import { type Draft, vDraft } from "./validators"
 
-// The steps that call out: Jev for Ask Jev, and Cloudflare for Notify me by email. Each
-// records how it went before returning, so a run's history says why it stopped.
-
-/** Asks Jev the step's question about what the run knows; returns the path to take. */
 const askJev = internalAction({
   args: { runId: v.id("automationRuns"), at: v.string() },
   returns: v.object({ path: v.union(v.number(), v.null()), error: v.optional(v.string()) }),
@@ -58,11 +54,6 @@ const askJev = internalAction({
   },
 })
 
-/**
- * Sends an email step from the person's own Cloudflare connection, the way the test email
- * goes: Notify me to themselves, Send email to whoever it names. Returns why it couldn't,
- * or null.
- */
 const sendMail = internalAction({
   args: { runId: v.id("automationRuns"), at: v.string() },
   returns: v.union(v.string(), v.null()),
@@ -94,13 +85,11 @@ const sendMail = internalAction({
       const sealEmail = (value: object) => seal(k, JSON.stringify(value), aad.email(mail.userId))
       const emailId = await ctx.runMutation(components.cloudflareEmail.lib.queue, {
         owner: mail.userId,
-        // `attachments` so an application's activity can open it.
         payload: await sealEmail({ ...email, attachments: [] }),
       })
       const { messageId, error } = await ctx.runAction(components.cloudflareEmail.lib.send, {
         accountId: details.accountId,
         apiToken,
-        // Notify me goes to you, so it needs no signature.
         email: await outgoing(ctx, row, email, { sign: mail.to !== undefined }),
       })
       await ctx.runMutation(components.cloudflareEmail.lib.markResult, {
@@ -110,7 +99,6 @@ const sendMail = internalAction({
         error: error && (await seal(k, error, aad.email(mail.userId))),
       })
       if (error) throw new ConvexError("Cloudflare didn't send the email.")
-      // Notify me is a note to yourself, not mail you sent anyone.
       if (mail.to)
         await ctx.runMutation(internal.api.email.recordSent, {
           userId: mail.userId,
@@ -133,8 +121,6 @@ const sendMail = internalAction({
   },
 })
 
-/** Drafts a workflow from one sentence: Jev answers fixed questions about it, and the
- * draft is built from the answers. Nothing is saved; the builder opens the draft. */
 const describe = action({
   args: { request: v.string(), zone: v.string() },
   returns: vDraft,

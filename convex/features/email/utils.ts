@@ -15,8 +15,6 @@ import { experimental_decide as decide } from "ai"
 import { convexGateway } from "@convex-dev/ai-sdk-provider"
 import { jevModel } from "../workflows/judge"
 
-// Each sealed value is bound to its owner and what it is, so it can't be opened from
-// another person's row or passed off as a different field.
 export const aad = {
   token: (userId: string) => `email-token:${userId}`,
   details: (userId: string) => `email-details:${userId}`,
@@ -25,7 +23,6 @@ export const aad = {
 
 export const keys = () => parseKeys(env.SECRETS_KEYS)
 
-/** One email as the tracker shows it, or null when it can't be opened. */
 export const lineOf = async (k: Keys, userId: Id<"users">, e: Doc<"mailEvents">) => {
   const note = await openJson(k, e.note, aad.email(userId), MailNote)
   return (
@@ -47,7 +44,6 @@ export const lineOf = async (k: Keys, userId: Id<"users">, e: Doc<"mailEvents">)
   )
 }
 
-/** Opens these, keeping their order and leaving out any that can't be. */
 export const linesOf = async (k: Keys, userId: Id<"users">, events: Doc<"mailEvents">[]) =>
   (await Promise.all(events.map((e) => lineOf(k, userId, e)))).filter((e) => e !== null)
 
@@ -75,7 +71,6 @@ export const syncMailSummary = async (ctx: MutationCtx, id: Id<"applications"> |
   })
 }
 
-/** Opens a sealed JSON value and checks its shape, or null when it can't be read. */
 export const openJson = async <T extends Type>(
   k: Keys,
   sealed: string,
@@ -96,7 +91,6 @@ export const connectionOf = (ctx: QueryCtx, userId: Id<"users">) =>
     .withIndex("by_userId", (q) => q.eq("userId", userId))
     .unique()
 
-/** The address to tag for this person, or null until mail to a tagged one would reach them. */
 export const trackingAddressOf = async (ctx: QueryCtx, userId: Id<"users">) => {
   const row = await connectionOf(ctx, userId)
   if (!row?.inbound || !row.allow.receive || !row.allow.tag) return null
@@ -105,7 +99,6 @@ export const trackingAddressOf = async (ctx: QueryCtx, userId: Id<"users">) => {
   return details ? details.fromAddress : null
 }
 
-/** Your preferred name, else your saved full name, else your account's. */
 export const signatureInfoOf = async (
   ctx: QueryCtx,
   userId: Id<"users">
@@ -128,7 +121,6 @@ export const signatureInfoOf = async (
 export const reseal = async (k: Keys, sealedText: string, aadText: string) =>
   seal(k, await open(k, sealedText, aadText), aadText)
 
-// For account deletion: the connection now, so mail stops, and the stored emails in batches.
 export const deleteEmail = async (ctx: MutationCtx, userId: Id<"users">) => {
   const connection = await connectionOf(ctx, userId)
   if (connection?.signaturePhoto) await ctx.storage.delete(connection.signaturePhoto)
@@ -140,11 +132,9 @@ export const limits = new RateLimiter(components.rateLimiter, {
   connectEmail: { kind: "fixed window", rate: 10, period: HOUR },
   testEmail: { kind: "fixed window", rate: 5, period: HOUR },
   setUpInbound: { kind: "fixed window", rate: 5, period: HOUR },
-  // Mail written by hand from an application, well above a real day of it.
   sendMail: { kind: "fixed window", rate: 30, period: 24 * HOUR },
   importMail: { kind: "token bucket", rate: 2000, period: HOUR, capacity: 500 },
   plainAddress: { kind: "fixed window", rate: 20, period: HOUR },
-  // Enough for a busy job search, low enough that a flood can't fill the table.
   inboundEmail: { kind: "token bucket", rate: 200, period: HOUR, capacity: 50 },
 })
 
@@ -159,7 +149,6 @@ export const secretKeys = () =>
     throw new ConvexError("Email isn't set up on this server yet: SECRETS_KEYS is missing.")
   })
 
-/** The connection with its details and token opened in memory, for an action to use. */
 export const openConnection = async (ctx: ActionCtx, userId: Id<"users">) => {
   const row = await ctx.runQuery(internal.api.email.sealed, { userId })
   if (!row) throw new ConvexError("Connect Cloudflare first.")
@@ -171,13 +160,11 @@ export const openConnection = async (ctx: ActionCtx, userId: Id<"users">) => {
   return { row, k, details, token }
 }
 
-/** Who mail is from, with the person's name when there is one. */
 export const senderOf = (address: string, name?: string) => {
   const clean = name?.replace(/[\r\n]+/g, " ").trim()
   return clean ? { address, name: clean } : address
 }
 
-/** What to hand to Cloudflare: under your name, and signed if there's a signature to add. */
 export const outgoing = async <T extends { from: string; text: string; html?: string }>(
   ctx: ActionCtx,
   row: { signature: SignatureInfo; signaturePhoto?: Id<"_storage"> | undefined },
@@ -222,7 +209,6 @@ export const tearDown = async (ctx: ActionCtx, userId: Id<"users">) => {
 
 export const cap = (text: string | undefined, max: number) => text?.slice(0, max)
 
-/** A Message-ID hashed with its owner, so threads match without storing the ID. */
 export const threadKeyOf = async (userId: string, messageId: string) =>
   Array.from(
     new Uint8Array(
@@ -232,8 +218,6 @@ export const threadKeyOf = async (userId: string, messageId: string) =>
     .map((b) => b.toString(16).padStart(2, "0"))
     .join("")
 
-// Two questions in one request: which application, and what the email says. An answer
-// Jev isn't at least even on counts as none.
 export const askJev = async (
   mail: typeof Received.infer,
   applications: Candidate[]

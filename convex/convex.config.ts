@@ -23,14 +23,10 @@ const app = defineApp({
     AUTH_GOOGLE_CLIENT_SECRET: v.string(),
     AUTH_GITHUB_CLIENT_ID: v.string(),
     AUTH_GITHUB_CLIENT_SECRET: v.string(),
-    // Loops' job sources. A source without a key is skipped; the credits are each
-    // plan's monthly allowance, defaulting to the free plans.
     FIRECRAWL_API_KEY: v.optional(v.string()),
     CONTEXT_DEV_API_KEY: v.optional(v.string()),
     FIRECRAWL_MONTHLY_CREDITS: v.optional(v.string()),
     CONTEXT_DEV_MONTHLY_CREDITS: v.optional(v.string()),
-    // Encrypts the API tokens people paste in (see lib/secrets): "v1:<base64 32 bytes>",
-    // with newer keys appended for rotation.
     SECRETS_KEYS: v.optional(v.string()),
   },
 })
@@ -60,28 +56,17 @@ app.use(authGithub, {
   },
 })
 
-// Loops: the workflow component runs each morning's search step by step, `readPool`
-// (the batch worker) fetches job boards and runs Jev's judgments under one shared
-// limit, and the rate limiter keeps calls to each source under its per-minute limit.
-// Jev is called through the Convex AI gateway, so it needs no key here.
 app.use(workflow)
 app.use(workpool, { name: "readPool" })
-// Auto-apply runs: a few at a time, and never retried, so a form is never submitted twice.
 app.use(workpool, { name: "applyPool" })
 app.use(rateLimiter)
-// Big deletes, in batches, by one loop (features/deletes).
 app.use(batchWorker)
 
-// Counters: each workflow's runs bucketed by how they ended (see automations/counts).
 app.use(aggregate, { name: "automationRunCounts" })
-// Buckets for Ask Jev's answers: how often each was given, per step.
 app.use(aggregate, { name: "automationChoices" })
 
-// Email: each person sends from their own Cloudflare account, with their token
-// sealed in emailConnections. The component keeps the emails themselves.
 app.use(cloudflareEmail)
 
-// The inbox: a notification feed per person, and the kinds they muted.
 app.use(notifications)
 
 export default app

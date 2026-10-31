@@ -1,11 +1,5 @@
-// Loops: a search that runs once each morning and brings back jobs that fit. People
-// set one up by answering yes or no, describing the job in their own words and picking
-// from a few sizes, so every loop stays cheap to run and its cost is known up front.
-
 export const maxLoops = 3
 
-// The yes/no answers a loop keeps. The setup screen asks them step by step, next to
-// what each one makes the run do; these labels are the short form for summaries.
 export const loopQuestions = {
   usePreferences: { label: "Searches what you're drawn to" },
   stretch: { label: "Also looks one level up" },
@@ -18,25 +12,18 @@ export const loopQuestions = {
 export type LoopQuestion = keyof typeof loopQuestions
 export type LoopAnswers = Record<LoopQuestion, boolean>
 
-// How many catalog roles Jev checks each morning, and when the run starts in the
-// person's time zone. Only the fits among them reach New jobs.
 export const dailySizes = [25, 50, 100] as const
 
-// How many fits a loop puts on the shortlist at a time, so it never piles up. A run
-// only adds as many as the person has room for; the rest wait for later.
 export const showSizes = [3, 5, 10] as const
 export const defaultShow = 5
 export const runTimes = ["07:00", "08:00", "09:00"] as const
 
-// The search sources that find new job boards, in the order a run tries them.
 export const providers = {
   firecrawl: { name: "Firecrawl" },
   contextDev: { name: "context.dev" },
 } as const
 export type Provider = keyof typeof providers
 
-// A run moves to the next source once this share of its monthly credits is used, so a
-// source never runs dry mid-run.
 export const switchAt = 0.9
 
 const allNo = Object.fromEntries(Object.keys(loopQuestions).map((q) => [q, false])) as LoopAnswers
@@ -98,7 +85,6 @@ export const loopTemplates: LoopTemplate[] = [
   },
 ]
 
-// A blank loop starts from the safe defaults: judge with Preferences, skip red flags.
 export const blankTemplate: LoopTemplate = {
   id: "custom",
   name: "My loop",
@@ -111,7 +97,6 @@ export const blankTemplate: LoopTemplate = {
 export const templateById = (id: string | undefined) =>
   id === blankTemplate.id ? blankTemplate : loopTemplates.find((t) => t.id === id)
 
-// A run's searches for new boards cost about this many credits, whatever its size.
 export const creditsPerRun = 8
 
 // Jev reads about 1,200 tokens a role, at $0.042 per million. ponytail: an estimate for

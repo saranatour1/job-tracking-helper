@@ -79,6 +79,7 @@ describe("paths", () => {
     const manual = { kind: "manual" as const }
     const decide = (question: string, ...labels: string[]) => ({
       kind: "decide" as const,
+      id: "ask",
       question,
       paths: labels.map((label, i) => ({ label, steps: i === 0 ? [notify("a")] : [] })),
     })
@@ -140,10 +141,8 @@ describe("the trigger's application", () => {
 })
 
 describe("nextScheduledAt", () => {
-  // Thursday, October 29 2026, 08:00 UTC.
   const now = Date.UTC(2026, 9, 29, 8)
   it("finds the next chosen weekday at the time, in the zone", () => {
-    // Weekdays at 09:00 in Berlin (UTC+1 in winter): Thursday has passed, so Friday.
     expect(
       nextScheduledAt(now, {
         kind: "schedule",
@@ -152,7 +151,6 @@ describe("nextScheduledAt", () => {
         timeZone: "Europe/Berlin",
       })
     ).toBe(Date.UTC(2026, 9, 30, 8))
-    // Mondays at 09:00 in New York, after DST ends (UTC-5).
     expect(
       nextScheduledAt(now, {
         kind: "schedule",

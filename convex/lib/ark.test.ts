@@ -85,7 +85,6 @@ describe("applications table", () => {
     )
     const status = fields.status as unknown as { members: { value: string }[] }
     expect(status.members.map((m) => m.value).sort()).toEqual([...statuses].sort())
-    // Applications from before these existed must still read.
     for (const name of ["priority", "labels", "notes", "tasks"])
       expect(fields[name]?.isOptional).toBe("optional")
     expectTypeOf<Doc<"applications">["userId"]>().toEqualTypeOf<Id<"users">>()

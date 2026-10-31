@@ -1,14 +1,3 @@
-// Encrypts secrets people paste in, such as API tokens, before they're stored.
-//
-// AES-256-GCM with a fresh random 96-bit nonce per secret, so the same token sealed
-// twice looks different, and any change to the stored text makes opening it fail.
-// `aad` binds a sealed value to its owner and purpose (say "email-token:<userId>"):
-// copied to another user's row, it won't open.
-//
-// Keys come from the SECRETS_KEYS env var as "v1:<base64>,v2:<base64>", each 32 random
-// bytes (`openssl rand -base64 32`). The last key seals; every listed key opens, and a
-// sealed value names its key, so a new key can be added and old values resealed.
-
 export type Keys = { current: string; byVersion: Map<string, CryptoKey> }
 
 const toBase64 = (bytes: Uint8Array) => btoa(String.fromCharCode(...bytes))
@@ -37,7 +26,6 @@ export const parseKeys = async (raw: string | undefined): Promise<Keys> => {
   return { current, byVersion }
 }
 
-/** Returns "<key version>.<nonce>.<ciphertext and tag>", all base64. */
 export const seal = async (keys: Keys, plaintext: string, aad: string) => {
   const iv = crypto.getRandomValues(new Uint8Array(12))
   const sealed = await crypto.subtle.encrypt(
@@ -60,5 +48,4 @@ export const open = async (keys: Keys, sealed: string, aad: string) => {
   return new TextDecoder().decode(plain)
 }
 
-/** Whether a sealed value uses an older key and should be resealed. */
 export const isStale = (keys: Keys, sealed: string) => !sealed.startsWith(`${keys.current}.`)

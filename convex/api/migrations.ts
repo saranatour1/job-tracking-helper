@@ -5,42 +5,6 @@ import { fitOf } from "../features/applications/utils"
 import { syncMailSummary } from "../features/email/utils"
 import { countCatalog } from "../features/jobs/utils"
 
-// One-off: puts existing mail in its folder, and marks it read since it isn't new. Safe to run
-// again. Run it on each deployment:
-//   npx convex run api/migrations:fillBoxes
-//   npx convex run api/migrations:boxesLeft
-// Delete this file, and make `mailEvents.box` required, once that's done everywhere.
-export const fillBoxes = internalMutation({
-  args: { cursor: v.optional(v.union(v.string(), v.null())) },
-  returns: v.null(),
-  handler: async (ctx, { cursor }) => {
-    const page = await ctx.db
-      .query("mailEvents")
-      .paginate({ cursor: cursor ?? null, numItems: 100 })
-    for (const event of page.page)
-      if (event.box === undefined)
-        await ctx.db.patch("mailEvents", event._id, {
-          box: event.by === "sent" ? "sent" : "inbox",
-          readAt: event.readAt ?? event.at,
-        })
-    if (!page.isDone)
-      await ctx.scheduler.runAfter(0, internal.api.migrations.fillBoxes, {
-        cursor: page.continueCursor,
-      })
-    return null
-  },
-})
-
-export const boxesLeft = internalQuery({
-  args: {},
-  returns: v.number(),
-  handler: async (ctx) => {
-    let left = 0
-    for await (const event of ctx.db.query("mailEvents")) if (event.box === undefined) left++
-    return left
-  },
-})
-
 // One-off: gives existing applications the mail summary and fit the board now reads off them,
 // and counts the job catalog. Until it's run, cards show no mail or fit badge and Jobs no
 // totals. Safe to run again. Run it on each deployment:

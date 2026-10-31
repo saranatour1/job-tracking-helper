@@ -2,7 +2,6 @@ import { describe, expect, it } from "vite-plus/test"
 
 import { confirmScript, fillScript, readFormScript } from "./firecrawl"
 
-// The scripts are text until Firecrawl runs them, so a bad escape would only show up there.
 const AsyncFunction = (async () => {}).constructor as new (...args: string[]) => unknown
 const compiles = (code: string) => () => new AsyncFunction("page", code)
 

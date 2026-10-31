@@ -54,7 +54,6 @@ describe("the mail timeline", () => {
         number: 1,
         history: [],
       })
-      // Unfiled mail sorts first on the old index, so the newest filed mail used to fall off.
       for (let at = 0; at < 301; at++)
         await ctx.db.insert("mailEvents", {
           userId,
@@ -63,6 +62,7 @@ describe("the mail timeline", () => {
           note,
           at,
           by: "rules",
+          box: "inbox",
         })
       await ctx.db.insert("mailEvents", {
         userId,
@@ -72,6 +72,7 @@ describe("the mail timeline", () => {
         note,
         at: 1000,
         by: "rules",
+        box: "inbox",
       })
     })
     const events = await t.withIdentity({ subject: userId }).query(api.api.email.timeline, {})
@@ -82,7 +83,7 @@ describe("the mail timeline", () => {
   it("between two times, takes what's in them and interview slots from older mail", async () => {
     const { t, userId, note, as } = await setup()
     const day = 24 * 60 * 60 * 1000
-    const mail = { userId, by: "rules" as const, kind: "other" as const }
+    const mail = { userId, by: "rules" as const, box: "inbox" as const, kind: "other" as const }
     await t.run(async (ctx) => {
       await ctx.db.insert("mailEvents", { ...mail, emailId: "old", note: await note(), at: 1 })
       await ctx.db.insert("mailEvents", {
@@ -141,8 +142,9 @@ describe("an application's mail", () => {
           note: sealed,
           at,
           by: "rules",
+          box: "inbox",
         })
-      await syncMailSummary(ctx as never, applicationId)
+      await syncMailSummary(ctx, applicationId)
       return applicationId
     })
     const seen: number[] = []
@@ -180,6 +182,7 @@ describe("an application's mail", () => {
         note: sealed,
         at: 1,
         by: "rules",
+        box: "inbox",
       })
       return applicationId
     })
@@ -200,7 +203,13 @@ describe("unsorted mail", () => {
     const sealed = await note()
     await t.run(async (ctx) => {
       const applicationId = await ctx.db.insert("applications", applicationOf(userId))
-      const mail = { userId, kind: "other" as const, note: sealed, by: "rules" as const }
+      const mail = {
+        userId,
+        kind: "other" as const,
+        note: sealed,
+        by: "rules" as const,
+        box: "inbox" as const,
+      }
       for (let at = 1; at <= maxUnsortedCount + 1; at++)
         await ctx.db.insert("mailEvents", { ...mail, emailId: `e${at}`, at })
       await ctx.db.insert("mailEvents", { ...mail, emailId: "filed", at: 999, applicationId })

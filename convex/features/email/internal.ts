@@ -15,8 +15,6 @@ import {
 } from "./validators"
 import { aad, keys, connectionOf, reseal, signatureInfoOf } from "./utils"
 
-// Adding a token, or replacing it, writes one row: the old token is gone once this
-// commits. A replaced token keeps the switches and incoming mail already set up.
 const save = internalMutation({
   args: arkOutputToConvex(EmailConnection.omit("allow", "inboundId", "inbound")),
   returns: v.null(),
@@ -35,7 +33,6 @@ const save = internalMutation({
   },
 })
 
-// The sealed connection and the person's own address, for an action to open.
 const sealed = internalQuery({
   args: { userId: v.id("users") },
   returns: vSealedConnection,
@@ -57,7 +54,6 @@ const sealed = internalQuery({
   },
 })
 
-// Records incoming mail as set up, or clears it when both are left out.
 const setInbound = internalMutation({
   args: vSetInboundArgs,
   returns: v.null(),
@@ -73,7 +69,6 @@ const setInbound = internalMutation({
   },
 })
 
-// Who an inbound URL belongs to, for the HTTP endpoint to check the Worker's secret.
 const inboundTarget = internalQuery({
   args: { inboundId: v.string() },
   returns: vInboundTarget,
@@ -138,7 +133,6 @@ const resealConnection = internalMutation({
   returns: v.null(),
   handler: async (ctx, { userId, from, details, token }) => {
     const connection = await connectionOf(ctx, userId)
-    // Skip a token that was replaced while this ran.
     if (connection?.token === from)
       await ctx.db.patch("emailConnections", connection._id, { details, token })
     return null
@@ -167,14 +161,11 @@ const resealNote = internalMutation({
   returns: v.null(),
   handler: async (ctx, { id, from, note }) => {
     const event = await ctx.db.get("mailEvents", id)
-    // Skip one that changed while this ran.
     if (event?.note === from) await ctx.db.patch("mailEvents", id, { note })
     return null
   },
 })
 
-// After adding a key to the end of SECRETS_KEYS, run `npx convex run email:resealAll`
-// to move every connection and email to it. Then the old key can be removed.
 const resealAll = internalAction({
   args: {},
   returns: v.object({

@@ -1,8 +1,7 @@
 import type { Doc, Id } from "../../_generated/dataModel"
 import type { QueryCtx, MutationCtx } from "../../_generated/server"
-import { rowLimits, tagRowsOf, answerRowsOf, fieldRowsOf } from "./rows"
+import { rowLimits, sectionOfOrder, tagRowsOf, answerRowsOf, fieldRowsOf } from "./rows"
 import { entryKinds, Preferences, PrefilledSections } from "./validators"
-import type { WithoutSystemFields } from "convex/server"
 
 export type Settings = Partial<
   Pick<
@@ -17,7 +16,6 @@ export const rowOf = (ctx: QueryCtx, userId: Id<"users">) =>
     .withIndex("by_userId", (q) => q.eq("userId", userId))
     .unique()
 
-// Updates the user's settings row, creating it the first time.
 export const upsert = async (ctx: MutationCtx, userId: Id<"users">, patch: Settings) => {
   const row = await rowOf(ctx, userId)
   if (row) await ctx.db.patch("preferences", row._id, patch)
@@ -48,15 +46,13 @@ export const sameRow = (a: object, b: object) => {
   return JSON.stringify(entries(a)) === JSON.stringify(entries(b))
 }
 
-// Rewrites only the slices that changed, so saving one answer touches its own rows
-// and leaves the rest alone. A slice is one tag list, one question, or one section.
 export const sync = async <T extends Table>(
   ctx: MutationCtx,
   table: T,
-  userId: Id<"users">,
   current: Doc<T>[],
   next: Row<T>[],
-  sliceOf: (row: Row<T>) => string
+  sliceOf: (row: Row<T>) => string,
+  insert: (row: Row<T>) => Promise<unknown>
 ) => {
   for (const slice of new Set([...current, ...next].map(sliceOf))) {
     const before = current.filter((row) => sliceOf(row) === slice)
@@ -64,9 +60,7 @@ export const sync = async <T extends Table>(
     if (before.length === after.length && before.every((row, i) => sameRow(row, after[i]!)))
       continue
     for (const row of before) await ctx.db.delete(table, row._id)
-    for (const row of after)
-      // The row came from this table minus its ids, so adding userId makes it whole again.
-      await ctx.db.insert(table, { ...row, userId } as unknown as WithoutSystemFields<Doc<T>>)
+    for (const row of after) await insert(row)
   }
 }
 
@@ -79,18 +73,18 @@ export const writeAnswers = async (
   await sync(
     ctx,
     "preferenceTags",
-    userId,
     await tagsOf(ctx, userId),
     tagRowsOf(form),
-    (r) => r.kind
+    (r) => r.kind,
+    (row) => ctx.db.insert("preferenceTags", { ...row, userId })
   )
   await sync(
     ctx,
     "profileEntries",
-    userId,
     await entriesOf(ctx, userId, "answer"),
     answerRowsOf(form),
-    (r) => r.key
+    (r) => r.key,
+    (row) => ctx.db.insert("profileEntries", { ...row, userId })
   )
 }
 
@@ -103,21 +97,19 @@ export const writeFields = async (
   await sync(
     ctx,
     "profileEntries",
-    userId,
     await entriesOf(ctx, userId, "field"),
     fieldRowsOf(sections),
-    (r) => `${Math.floor(r.order / 100)}:${r.group}`
+    (r) => `${sectionOfOrder(r.order)}:${r.group}`,
+    (row) => ctx.db.insert("profileEntries", { ...row, userId })
   )
 }
 
-// Marks the user as past first run, so `/` stops sending them to Preferences.
 export const markOnboarded = async (ctx: MutationCtx, userId: Id<"users">) => {
   const user = await ctx.db.get("users", userId)
   if (user && user.onboardedAt === undefined)
     await ctx.db.patch("users", userId, { onboardedAt: Date.now() })
 }
 
-// For deleting an account: the file goes now, and its rows in batches.
 export const deleteResumeFile = async (ctx: MutationCtx, userId: Id<"users">) => {
   const row = await rowOf(ctx, userId)
   if (row?.resumeId) await ctx.storage.delete(row.resumeId)

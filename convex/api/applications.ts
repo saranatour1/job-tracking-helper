@@ -1,4 +1,3 @@
-// Registers `api.api.applications.*`. Definitions live in ../features/applications.
 import { applicationsApi } from "../features/applications"
 
 export const {

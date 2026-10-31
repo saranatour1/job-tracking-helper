@@ -19,10 +19,9 @@
     "module": "ESNext",
     "isolatedModules": true,
     "noEmit": true,
-    "types": ["node"]
+    "types": ["node"],
+    "allowImportingTsExtensions": true
   },
   "include": ["./**/*"],
-  // Tests on convex-test are left to Vitest: the components' test helpers ship
-  // TypeScript source typed against another copy of convex.
-  "exclude": ["./_generated", "./**/*.convex.test.ts"]
+  "exclude": ["./_generated"]
 }

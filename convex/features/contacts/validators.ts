@@ -10,7 +10,6 @@ const upTo = (max: number, what: string) =>
     })
   )
 
-// Safe to import from the frontend. An address is checked only when there is one.
 export const SaveContact = type({
   "id?": arkId("contacts"),
   company: upTo(200, "A company"),
@@ -23,7 +22,6 @@ export const SaveContact = type({
   notes: upTo(2000, "Notes"),
 })
 
-// What `details` holds once opened. Sealed like the mail it came from.
 export const ContactDetails = type({
   company: "string",
   name: "string",
@@ -34,19 +32,14 @@ export const ContactDetails = type({
 })
 export type ContactDetails = typeof ContactDetails.infer
 
-// Someone you've dealt with at a company. Mail teaches the app about them, and your edits win.
 export const Contact = type({
   userId: arkId("users"),
-  // A hash of the address, so a second email finds the row without the address being stored.
   key: "string",
   details: "string",
-  // How many emails went between you. 0 for one you added yourself.
   count: "number",
   lastAt: "number",
   "applicationId?": arkId("applications"),
-  // You changed it, so later mail only updates the count.
   "edited?": "boolean",
-  // You removed it, so later mail from them doesn't bring it back.
   "hidden?": "boolean",
 })
 

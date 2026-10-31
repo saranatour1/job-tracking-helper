@@ -2,7 +2,6 @@ import type { EventKind } from "./validators"
 import type { MutationCtx } from "../../_generated/server"
 import type { Id } from "../../_generated/dataModel"
 
-/** The kind a title suggests, for events added without one. */
 export const kindOf = (title: string): EventKind =>
   /interview|screen|call|onsite|round/i.test(title)
     ? "interview"
@@ -15,4 +14,3 @@ export const byKey = (ctx: MutationCtx, userId: Id<"users">, key: string) =>
     .query("calendarEvents")
     .withIndex("by_userId_and_key", (q) => q.eq("userId", userId).eq("key", key))
     .unique()
-

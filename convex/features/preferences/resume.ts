@@ -24,8 +24,6 @@ import {
 } from "./resumeRules"
 import { Review } from "./validators"
 
-/** Parses the resume (unpdf for PDFs), runs the ATS rules and asks Jev about the
- * writing and the person's tags, then keeps the result on their preferences. */
 const review = action({
   args: {},
   returns: arkOutputToConvex(Review),
@@ -67,7 +65,6 @@ const review = action({
         ])
       ),
     }
-    // The rules still stand when Jev is down; the review says so.
     const result = await decide({
       model: convexGateway.evaluationModel(jevModel),
       state: { resume: text.slice(0, maxJevChars) },
@@ -76,7 +73,6 @@ const review = action({
       console.error("preferences:review", cause instanceof Error ? cause.message : cause)
       return null
     })
-    // Only a sure answer counts: a sure no becomes advice, an unsure one becomes nothing.
     const answers = (result?.answers ?? {}) as Record<string, NoulAnswer>
     const writing: WritingAnswers = result
       ? Object.fromEntries(
@@ -100,7 +96,11 @@ const review = action({
         note: "Jev couldn't read it just now, so this is the ATS check alone. Review again later for suggestions.",
       }),
     }
-    await ctx.runMutation(internal.api.preferences.setResumeReview, { userId, text, review: reviewed })
+    await ctx.runMutation(internal.api.preferences.setResumeReview, {
+      userId,
+      text,
+      review: reviewed,
+    })
     return reviewed
   },
 })

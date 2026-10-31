@@ -41,8 +41,8 @@ afterEach(() => void vi.unstubAllGlobals())
 
 const setup = async (allow: { tag: boolean } = { tag: true }) => {
   const t = convexTest(schema, modules)
-  rateLimiter.register(t as never)
-  workpool.register(t as never, "applyPool")
+  rateLimiter.register(t)
+  workpool.register(t, "applyPool")
   t.registerComponent(
     "notifications",
     notificationsSchema,
@@ -158,7 +158,6 @@ describe("with Jev reading mail", () => {
   })
 
   it("lets Jev change the rules' match", async () => {
-    // Newest first, so a0 is Acme.
     const { receive, acme } = await withJev({ application: sure("a0"), kind: sure("other") })
     expect(await receive({ from: "jobs@hooli.com", subject: "An update" })).toMatchObject({
       applicationId: acme,
@@ -195,9 +194,9 @@ describe("importing old mail", () => {
 
   it("keeps nothing that matches no application", async () => {
     const { as, t } = await setup()
-    expect(await as.action(api.api.email.importMail, { raw: raw("x@shop.com", "Sale", "two") })).toBe(
-      "unmatched"
-    )
+    expect(
+      await as.action(api.api.email.importMail, { raw: raw("x@shop.com", "Sale", "two") })
+    ).toBe("unmatched")
     expect(await t.run((ctx) => ctx.db.query("mailEvents").collect())).toHaveLength(0)
     expect(await as.query(api.api.email.recentMail, {})).toHaveLength(0)
   })
@@ -208,9 +207,9 @@ describe("importing old mail", () => {
       const row = await ctx.db.query("emailConnections").first()
       await ctx.db.patch("emailConnections", row!._id, { allow: { ...row!.allow, receive: false } })
     })
-    await expect(as.action(api.api.email.importMail, { raw: raw("a@b.c", "x", "y") })).rejects.toThrow(
-      "Keep incoming mail"
-    )
+    await expect(
+      as.action(api.api.email.importMail, { raw: raw("a@b.c", "x", "y") })
+    ).rejects.toThrow("Keep incoming mail")
   })
 })
 
@@ -229,8 +228,12 @@ describe("an address without a plus", () => {
       return new Response(JSON.stringify({ success: true, result: rules }), { status: 200 })
     })
     const args = { applicationId: hooli }
-    expect(await as.action(api.api.email.makeAddressWithoutPlus, args)).toBe("reach.hooli@example.com")
-    expect(await as.action(api.api.email.makeAddressWithoutPlus, args)).toBe("reach.hooli@example.com")
+    expect(await as.action(api.api.email.makeAddressWithoutPlus, args)).toBe(
+      "reach.hooli@example.com"
+    )
+    expect(await as.action(api.api.email.makeAddressWithoutPlus, args)).toBe(
+      "reach.hooli@example.com"
+    )
     expect(rules).toHaveLength(1)
     expect(rules[0]?.matchers[0]?.value).toBe("reach.hooli@example.com")
     expect((await as.query(api.api.email.connection, {}))?.tracking).toBe(true)
@@ -276,7 +279,6 @@ describe("setting up incoming mail", () => {
       )
     })
     await expect(as.action(api.api.email.setUpInbound, {})).rejects.toThrow("me@gmail.com")
-    // Nothing was deployed: it only read.
     expect(fetchMock.mock.calls.every(([, init]) => (init?.method ?? "GET") === "GET")).toBe(true)
   })
 })
@@ -304,7 +306,6 @@ describe("sending from an application", () => {
     const [line] = await as.query(api.api.email.timeline, {})
     expect(line).toMatchObject({ applicationId: hooli, sent: true, to: "pat@hooli.com" })
     expect((await as.query(api.api.email.mailBody, { eventId: line!.id }))?.text).toBe("Hi Pat")
-    // Your own mail isn't news.
     expect(await as.query(api.api.inbox.inbox)).toHaveLength(0)
     await t.finishInProgressScheduledFunctions()
   })
@@ -351,7 +352,9 @@ describe("sending from an application", () => {
       },
     ])
     const [line] = await as.query(api.api.email.timeline, {})
-    expect((await as.query(api.api.email.mailBody, { eventId: line!.id }))?.text).toBe("Hi <Pat> & co")
+    expect((await as.query(api.api.email.mailBody, { eventId: line!.id }))?.text).toBe(
+      "Hi <Pat> & co"
+    )
   })
 
   it("sends under your preferred name, and signs with your links", async () => {
@@ -388,7 +391,9 @@ describe("sending from an application", () => {
     const pdf = await t.run((ctx) =>
       ctx.storage.store(new Blob(["x"], { type: "application/pdf" }))
     )
-    await expect(as.mutation(api.api.email.setSignaturePhoto, { photo: pdf })).rejects.toThrow("JPEG")
+    await expect(as.mutation(api.api.email.setSignaturePhoto, { photo: pdf })).rejects.toThrow(
+      "JPEG"
+    )
   })
 
   it("leaves Reply-To alone until mail to that address would arrive", async () => {

@@ -4,8 +4,6 @@ import { v } from "convex/values"
 
 const trimmed = type("string.trim")
 
-// Preferences: what someone wants from their next job, in their own words.
-// Lists are short tags; free text stays short enough to read at a glance.
 const tag = trimmed.to(type("0 < string <= 60").describe("1 to 60 characters"))
 const tags = tag.array().atMostLength(40)
 const text = trimmed.to(type("string <= 2000").describe("at most 2000 characters"))
@@ -22,26 +20,22 @@ export const Answers = type({
   start: text,
 })
 
-// A question someone thinks matters, with their answer: "Do you have a portfolio?" "Yes, at ..."
 export const CustomAnswer = type({
   question: trimmed.to(type("0 < string <= 200").describe("1 to 200 characters")),
   answer: text,
 })
 
-// The first name used twice in a list, ignoring case and spaces.
 const repeatOf = (names: string[]) => {
   const keys = names.map((n) => n.trim().toLowerCase())
   return names.find((_, i) => keys.indexOf(keys[i]!) !== i)?.trim()
 }
 
-// A form field and what to put in it, such as "LinkedIn" and a profile link.
 export const PrefilledField = type({
   label: trimmed.to(type("0 < string <= 80").describe("1 to 80 characters")),
   value: text,
 })
 
 // Repeat checks run before trimming, so the stored shapes keep their JSON Schema.
-// Labels are used once per section, so a form field never has two answers.
 export const PrefilledFields = type({ label: "string", value: "string" })
   .array()
   .narrow((fields, ctx) => {
@@ -50,7 +44,6 @@ export const PrefilledFields = type({ label: "string", value: "string" })
   })
   .pipe(PrefilledField.array().atMostLength(50))
 
-// A titled group of fields, such as "Contact" or "References".
 export const PrefilledSection = type({
   title: trimmed.to(type("0 < string <= 60").describe("1 to 60 characters")),
   fields: PrefilledFields,
@@ -77,12 +70,10 @@ export const Preferences = type({
   redFlags: text,
   identity: text,
   answers: Answers,
-  // Optional so rows saved before this field existed stay valid.
-  "custom?": CustomAnswer.array().atMostLength(20),
+  custom: CustomAnswer.array().atMostLength(20),
 })
 export type Preferences = typeof Preferences.infer
 
-// What an AI assistant's reply may contain: any subset of the fields, unknown keys dropped.
 // With every answer optional, an array would pass as an empty object, so refuse one.
 const AnswersDraft = Answers.partial().narrow(
   (answers, ctx) => !Array.isArray(answers) || ctx.mustBe("an object")
@@ -109,7 +100,6 @@ export const emptyPreferences: typeof Preferences.inferIn = {
   custom: [],
 }
 
-// A resume is kept only to attach where a form asks for one; nothing reads it.
 export const maxResumeBytes = 10 * 1024 * 1024
 export const resumeTypes = [
   "application/pdf",
@@ -132,7 +122,6 @@ export const entryKinds = ["answer", "field"] as const
 export const Check = type({
   name: "string",
   ok: "boolean",
-  // What to change when it isn't ok.
   fix: "string",
 })
 
@@ -144,23 +133,16 @@ export const Review = type({
     "phone?": "string",
     links: "string[]",
   }),
-  // Standard headings found, in order.
   sections: "string[]",
   checks: Check.array(),
   suggestions: "string[]",
-  // Each skill and interest from Preferences, and whether the resume shows it. Unsure
-  // means Jev couldn't tell, which is neither advice nor a pass.
   shows: type({ tag: "string", shown: "'yes' | 'no' | 'unsure'" }).array(),
   words: "number",
-  // Set when Jev couldn't answer, so the review is the rules alone.
   "note?": "string",
 })
 
 export type Review = typeof Review.infer
 
-// A label and a value: an answer to a question (`answer`), or a form field from the
-// Prefilled tab (`field`). `group` is the Preferences step or the Prefilled section,
-// and `key` names a built-in question so its label can change without a migration.
 export const ProfileEntry = type({
   userId: arkId("users"),
   kind: type.enumerated(...entryKinds),
@@ -169,28 +151,20 @@ export const ProfileEntry = type({
   label: "string",
   value: "string",
   order: "number",
-  // For `field` rows: when auto-apply last put this answer in a form, and how often.
   "lastUsedAt?": "number",
   "useCount?": "number",
 })
 
-// One small row per user: settings that have a single value. Lists and answers live
-// in `preferenceTags` and `profileEntries`, one row each, so this row never grows.
 export const PreferenceSettings = type({
   userId: arkId("users"),
   workMode: type.enumerated(...workModes),
   "resumeId?": arkId("_storage"),
   "resumeName?": "string",
-  // The resume's text and its last review, set by Review on the Resume tab and
-  // cleared when the file changes.
   "resumeText?": "string",
   "resumeReview?": Review,
-  // Set the first time the Prefilled tab is saved; until then the page suggests fields.
   "prefilledAt?": "number",
 })
 
-// One short word or phrase per row: an interest, a skill, a place, a company. `kind`
-// says which list it belongs to, and `order` keeps the order it was added in.
 export const PreferenceTag = type({
   userId: arkId("users"),
   kind: type.enumerated(...tagKinds),
@@ -207,7 +181,6 @@ export const vPreferencesView = v.object({
     v.null()
   ),
   resume: v.union(v.object({ name: v.string(), url: v.union(v.string(), v.null()) }), v.null()),
-  // The last review of the resume, until the file changes.
   review: v.union(arkOutputToConvex(Review), v.null()),
 })
 

@@ -1,9 +1,3 @@
-// Cloudflare Email Service for Convex, adapted from @sarant/cloudflare-email so each
-// person sends with their own Cloudflare account and the app can encrypt every message.
-//
-// send:    app action → queue(payload) → send(email, token) → markResult(error)
-// receive: Email Routing → Worker → app HTTP action → receive(payload)
-//
 // The component stores only opaque payloads, and the message and token reach send()
 // as arguments from an action. Scheduled functions keep their arguments, so nothing
 // here schedules with a token or a message.
@@ -29,7 +23,6 @@ export const queue = mutation({
       direction: "outbound",
       status: "queued",
     })
-    // If the action sending it dies, nothing else would ever close this row.
     await ctx.scheduler.runAfter(stuckAfterMs, internal.lib.expire, { emailId })
     return emailId
   },
@@ -47,7 +40,7 @@ export const expire = internalMutation({
 
 // shortcut: retries only ride out a few seconds; schedule an app action with just the
 // emailId, which reopens the sealed connection, if throttling lasts longer than that.
-/** Sends through Cloudflare and returns its Message-ID, or why it failed. Stores nothing. */
+/** Sends through Cloudflare and returns its Message-ID if it gives one, or why it failed. Stores nothing. */
 export const send = action({
   args: { accountId: v.string(), apiToken: v.string(), email: vEmail },
   returns: v.object({ messageId: v.optional(v.string()), error: v.optional(v.string()) }),
@@ -61,7 +54,6 @@ export const send = action({
           {
             method: "POST",
             headers: { Authorization: `Bearer ${apiToken}`, "Content-Type": "application/json" },
-            // The REST API names it reply_to.
             body: JSON.stringify({ ...email, reply_to: replyTo }),
           }
         )
@@ -140,7 +132,6 @@ export const list = query({
       .take(Math.min(limit ?? 50, 500)),
 })
 
-// Every email, a page at a time, so the app can re-encrypt them under a new key.
 export const page = query({
   args: { cursor: v.union(v.string(), v.null()) },
   returns: v.object({
@@ -176,13 +167,11 @@ export const reseal = mutation({
   returns: v.null(),
   handler: async (ctx, { emailId, from, payload, error }) => {
     const email = await ctx.db.get("emails", emailId)
-    // Skip an email that changed while the app re-encrypted it.
     if (email?.payload === from) await ctx.db.patch("emails", emailId, { payload, error })
     return null
   },
 })
 
-// One email, deleted for good. Only its owner's.
 export const remove = mutation({
   args: { emailId: v.id("emails"), owner: v.string() },
   returns: v.null(),
@@ -193,7 +182,6 @@ export const remove = mutation({
   },
 })
 
-// Deletes up to `limit` of an owner's emails and says whether any are left.
 export const removeOwner = mutation({
   args: { owner: v.string(), limit: v.optional(v.number()) },
   returns: v.boolean(),

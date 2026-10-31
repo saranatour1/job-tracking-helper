@@ -10,10 +10,6 @@ import { jevModel } from "../workflows/judge"
 import { limits as rates } from "../workflows/manager"
 import { type Verdicts, vVerdicts } from "./validators"
 
-// Asks Jev, in one request, whether each of the person's applications counts toward
-// the goal: the goal and every application are the state, and one yes-or-no question
-// names each application by its place. Only a sure answer suggests a change, and the
-// person confirms each one; nothing is written here.
 const evaluate = action({
   args: { id: v.id("goals") },
   returns: vVerdicts,

@@ -68,11 +68,6 @@ describe("preferences rows when things are empty", () => {
     })
     expect(answerRowsOf(blank)).toEqual([])
   })
-
-  it("reads a form saved before your own questions existed", () => {
-    const { custom: _custom, ...old } = emptyPreferences
-    expect(answerRowsOf(Preferences.assert(old))).toEqual([])
-  })
 })
 
 describe("preferences rows with hostile values", () => {

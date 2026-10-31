@@ -1,12 +1,10 @@
 import { type } from "arktype"
 import { arkId, cutTo } from "../../lib/ark"
 
-// Few enough to read at once, and plenty for tabs along the top of Applications.
 export const maxViews = 50
 
 const trimmed = type("string.trim")
 
-// Caps what's stored, since anyone can call this with anything.
 const Filters = type({ "[string]": "string[]" })
   .pipe((filters) =>
     Object.fromEntries(
@@ -20,7 +18,6 @@ const Filters = type({ "[string]": "string[]" })
   )
   .to({ "[string]": "string[]" })
 
-// What a saved view shows: filters by field, and the display options it changes.
 export const ViewFields = type({
   name: trimmed
     .pipe(cutTo(60))
