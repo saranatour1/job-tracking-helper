@@ -1,3 +1,4 @@
+import { useApplicationRoutes } from "@/lib/route-ids"
 import { api } from "@/lib/api"
 import { Link } from "@tanstack/react-router"
 import { useAction, useMutation } from "convex/react"
@@ -156,6 +157,7 @@ export const CopyButton = ({ text, label }: { text: string; label: string }) => 
 }
 
 const Row = ({ contact, main }: { contact: Contact; main: boolean }) => {
+  const routes = useApplicationRoutes()
   const remove = useMutation(api.contacts.remove)
   return (
     <TableRow>
@@ -163,7 +165,7 @@ const Row = ({ contact, main }: { contact: Contact; main: boolean }) => {
         {contact.applicationId ? (
           <Link
             to="/"
-            search={{ app: contact.applicationId }}
+            search={{ app: routes.text(contact.applicationId) }}
             className="hover:underline underline-offset-2"
           >
             {contact.company}

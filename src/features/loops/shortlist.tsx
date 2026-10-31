@@ -1,3 +1,4 @@
+import { useRoutes } from "@/lib/route-ids"
 import { api } from "@/lib/api"
 import { PrepareButton } from "@/features/prefilled/prefilled"
 import type { Doc, Id } from "@convex/_generated/dataModel"
@@ -140,8 +141,17 @@ const tabs = { today: "For you", saved: "Saved" } as const
 // What a loop picked for the person this morning, best first, or what they saved: one
 // line per job, like Updates. A row opens the job panel; the icons decide without
 // opening it.
+/** A role's text in the URL, from the list that's showing. */
+export const useLeadRoutes = (view: ShortlistView) =>
+  useRoutes(
+    useQuery(api.loops.shortlist, { status: view === "today" ? "new" : "saved" }),
+    (lead) => lead._id,
+    (lead) => `${lead.title} ${lead.company}`
+  )
+
 export const Shortlist = ({ view, open }: { view: ShortlistView; open?: Id<"jobLeads"> }) => {
   const leads = useQuery(api.loops.shortlist, { status: view === "today" ? "new" : "saved" })
+  const routes = useLeadRoutes(view)
   const [status, act] = useDecide()
   const navigate = useNavigate({ from: "/loops" })
   return (
@@ -184,7 +194,7 @@ export const Shortlist = ({ view, open }: { view: ShortlistView; open?: Id<"jobL
             <Link
               from="/loops"
               to="/loops"
-              search={(prev) => ({ ...prev, job: lead._id })}
+              search={(prev) => ({ ...prev, job: routes.text(lead._id) })}
               aria-current={open === lead._id || undefined}
               className="hover:bg-accent/50 aria-[current=true]:bg-accent flex items-center gap-3 px-3 py-2 transition-colors duration-150"
             >

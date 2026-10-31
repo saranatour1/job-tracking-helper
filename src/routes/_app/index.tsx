@@ -1,5 +1,6 @@
 import { createFileRoute } from "@tanstack/react-router"
 
+import { useRouteId, useViewRoutes } from "@/lib/route-ids"
 import { Pipeline } from "@/features/tracker/pipeline"
 import { useSavedViews } from "@/features/tracker/saved-views"
 import { pipelineSearch } from "@/features/tracker/search"
@@ -8,7 +9,8 @@ import { ConvexSource } from "@/features/tracker/source"
 // Applications: every application as a board or list, with its mail in each side panel.
 // A saved view opens here too, as ?view=.
 const ApplicationsPage = () => {
-  const { view: viewId } = Route.useSearch()
+  const { view: viewText } = Route.useSearch()
+  const viewId = useRouteId(useViewRoutes(), viewText)
   const view = useSavedViews().find((v) => v.id === viewId)
   return (
     <ConvexSource>

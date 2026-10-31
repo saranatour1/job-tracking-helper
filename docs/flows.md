@@ -40,6 +40,19 @@ Workflows have their own page, [workflows.md](workflows.md).
 
 ## Across the app
 
+### What's in a URL
+
+Routes and search params carry regular text, never a table id (`src/lib/route-ids.ts`):
+
+| What                                     | Text                                                | Example                                   |
+| ---------------------------------------- | --------------------------------------------------- | ----------------------------------------- |
+| Application                              | its short code, which editing it doesn't change     | `/pipeline/app-4`, `/?app=app-4`          |
+| Prefilled application, shortlisted role  | title and company                                   | `/prefilled/engineer-figma`               |
+| Goal, workflow, view, loop, template     | its name                                            | `/goals/three-offers`, `/?view=hot-roles` |
+| Email, draft, workflow run, Updates line | its date, so a private subject stays out of the URL | `/email?open=oct-31-3-10-pm`              |
+
+A repeat gets a number (`-2`), and a real id still finds its row, so old links work. Text is looked up in the list the page already reads, so it's only as good as that list: rename something and its old link stops finding it after you leave the page, and an email past what's loaded won't open from a link. `?filters=` and a workflow's `?draft=` can still hold ids, because they're saved filters and drafts rather than addresses.
+
 ### Who acts
 
 | Actor                         | What it does                                                                                                                                | Where                                                                           |

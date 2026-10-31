@@ -1,3 +1,4 @@
+import { useGoalRoutes } from "@/lib/route-ids"
 import { api } from "@/lib/api"
 import type { Id } from "@convex/_generated/dataModel"
 import {
@@ -244,11 +245,12 @@ const GoalRow = ({ goal, on }: { goal: Goal; on: string }) => {
   const remove = useMutation(api.goals.remove)
   const retry = useMutation(api.goals.retry)
   const { items } = stats(goal, applications)
+  const routes = useGoalRoutes()
   return (
     <div className="flex flex-wrap items-center justify-between gap-x-6 gap-y-2 px-4 py-3">
       <Link
         to="/goals/$id"
-        params={{ id: goal.id }}
+        params={{ id: routes.text(goal.id) }}
         className="grid min-w-48 flex-1 gap-0.5 rounded-md outline-none focus-visible:ring-2 focus-visible:ring-ring"
       >
         <span className="text-sm font-medium hover:underline">{goal.name}</span>

@@ -18,6 +18,7 @@ import { HugeiconsIcon } from "@hugeicons/react"
 import { Link } from "@tanstack/react-router"
 import { useState } from "react"
 
+import { applicationText } from "@/lib/route-ids"
 import { Button } from "@/components/ui/button"
 import {
   Menu,
@@ -467,7 +468,7 @@ export const ApplicationPeek = ({ id, onClose }: { id: string; onClose: () => vo
           variant="ghost"
           size="xs"
           className={source.real ? undefined : "ms-auto"}
-          render={<Link to="/pipeline/$id" params={{ id: a.id }} />}
+          render={<Link to="/pipeline/$id" params={{ id: applicationText(a) }} />}
         >
           <HugeiconsIcon icon={ArrowExpand01Icon} /> Open
         </Button>

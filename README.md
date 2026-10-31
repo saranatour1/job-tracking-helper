@@ -86,6 +86,7 @@ src/
   components/ui/          shadcn and coss components, managed by the shadcn CLI
   components/kloq/        the kloq calendar as source, from its registry
   lib/api.ts              `api`, the functions in convex/api. Import it instead of the generated one
+  lib/route-ids.ts        regular text for routes, instead of table ids
 scripts/                  dev and secrets scripts
 docs/
   database-design.md      the tables, what deleting does, and how to change what's stored
@@ -97,6 +98,8 @@ docs/
 ## Code rules
 
 `vp check` enforces arrow functions only and no `useEffect`. It skips `src/components/kloq` and files the shadcn CLI manages. Frontend imports use `@/` for `src/` and `@convex/` for `convex/`.
+
+Routes use regular text, not table ids: `/pipeline/app-4`, `/prefilled/engineer-figma`, `/email?open=oct-31-3-10-pm`. `src/lib/route-ids.ts` turns ids into text and back. Email, drafts, runs and Updates use their date, so a private subject never reaches a URL.
 
 Tests that run Convex functions are named `*.convex.test.ts` and use `convex-test`. The typecheck leaves them out, because the component test helpers are typed against another copy of `convex`.
 

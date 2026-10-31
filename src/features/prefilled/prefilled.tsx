@@ -1,3 +1,4 @@
+import { useApplicationRoutes, usePrefillRoutes } from "@/lib/route-ids"
 import { api } from "@/lib/api"
 import type { Doc, Id } from "@convex/_generated/dataModel"
 import { isEmailQuestion } from "@convex/features/prefilled/match"
@@ -79,6 +80,7 @@ export const PrepareButton = ({
   prefillId?: Id<"prefills">
 }) => {
   const prepare = useMutation(api.prefilled.prepare)
+  const routes = usePrefillRoutes()
   const [error, add] = useActionState(
     () =>
       prepare({ ...(jobId && { jobId }), ...(leadId && { leadId }) }).then(
@@ -92,7 +94,7 @@ export const PrepareButton = ({
       <Badge
         variant={statusVariant[status]}
         className="font-normal"
-        render={<Link to="/prefilled/$id" params={{ id: prefillId }} />}
+        render={<Link to="/prefilled/$id" params={{ id: routes.text(prefillId) }} />}
       >
         {statusLabels[status]}
       </Badge>
@@ -115,6 +117,7 @@ export const PrepareButton = ({
 export const PrefilledList = () => {
   const rows = useQuery(api.prefilled.list)
   const open = openOf(rows)
+  const routes = usePrefillRoutes()
   return (
     <div className="soft-theme bg-background text-foreground flex h-svh flex-col rounded-[inherit] md:h-[calc(100svh-1rem)]">
       <PageHeader crumbs={[{ label: "Prefilled applications" }]} />
@@ -137,7 +140,7 @@ export const PrefilledList = () => {
                 title={
                   <Link
                     to="/prefilled/$id"
-                    params={{ id: row._id }}
+                    params={{ id: routes.text(row._id) }}
                     className="me-auto min-w-0 truncate text-[13px] font-medium hover:underline"
                   >
                     {row.title} · {row.company}
@@ -522,6 +525,7 @@ const LiveBrowser = ({ prefill }: { prefill: Prefill }) => {
 // Back and forth through what's waiting. An application you've finished isn't in the list,
 // so it has no neighbours.
 const Neighbors = ({ id }: { id: Id<"prefills"> }) => {
+  const routes = usePrefillRoutes()
   const open = openOf(useQuery(api.prefilled.list))
   const at = open.findIndex((r) => r._id === id)
   if (at < 0 || open.length < 2) return null
@@ -535,7 +539,7 @@ const Neighbors = ({ id }: { id: Id<"prefills"> }) => {
         size="icon-sm"
         variant="ghost"
         aria-label={`${label}: ${to.title} at ${to.company}`}
-        render={<Link to="/prefilled/$id" params={{ id: to._id }} />}
+        render={<Link to="/prefilled/$id" params={{ id: routes.text(to._id) }} />}
       >
         <HugeiconsIcon icon={icon} />
       </Button>
@@ -556,7 +560,15 @@ const Neighbors = ({ id }: { id: Id<"prefills"> }) => {
 }
 
 // One application: your answers on the left, the real form or what it's for on the right.
+export const PrefilledMissing = () => (
+  <div className="soft-theme bg-background text-foreground flex h-svh flex-col rounded-[inherit] md:h-[calc(100svh-1rem)]">
+    <PageHeader crumbs={[{ label: "Prefilled applications", to: "/prefilled" }]} />
+    <p className="text-muted-foreground p-6 text-[13px]">That application isn't here.</p>
+  </div>
+)
+
 export const PrefilledPage = ({ id }: { id: Id<"prefills"> }) => {
+  const applications = useApplicationRoutes()
   const data = useQuery(api.prefilled.get, { id })
   const startLive = useAction(api.prefilled.startLive)
   const dismiss = useMutation(api.prefilled.dismiss)
@@ -634,7 +646,9 @@ export const PrefilledPage = ({ id }: { id: Id<"prefills"> }) => {
                     <Button
                       size="sm"
                       variant="ghost"
-                      render={<Link to="/" search={{ app: prefill.applicationId }} />}
+                      render={
+                        <Link to="/" search={{ app: applications.text(prefill.applicationId) }} />
+                      }
                     >
                       Open the application
                     </Button>
