@@ -157,30 +157,20 @@ const LabelsMenu = ({ row }: { row: Row }) => {
   )
 }
 
-const ReplyButton = ({ id, className }: { id: Row["id"]; className?: string }) => (
-  <Button
-    size="xs"
-    variant="outline"
-    className={className}
-    render={<Link from="/email" search={(s) => ({ ...s, reply: id })} />}
-  >
-    Reply
-  </Button>
-)
-
 const Reader = ({ row }: { row: Row }) => {
   const mail = useQuery(api.mailbox.content, { eventId: row.id })
   const move = useMutation(api.mailbox.move)
   const remove = useMutation(api.mailbox.deleteForever)
+  const { reply } = route.useSearch()
   const navigate = useNavigate({ from: "/email" })
-  const close = () => void navigate({ search: ({ open: _open, ...rest }) => rest })
+  const close = () => void navigate({ search: ({ open: _open, reply: _reply, ...rest }) => rest })
+  const closeReply = () => void navigate({ search: ({ reply: _reply, ...rest }) => rest })
   return (
     <section aria-label="Email" className="flex min-h-0 min-w-0 flex-1 flex-col">
       <div className="flex flex-wrap items-center gap-1 border-b px-3 py-2">
         <Button size="xs" variant="ghost" className="md:hidden" onClick={close}>
           Back
         </Button>
-        {row.box !== "trash" && <ReplyButton id={row.id} />}
         {row.box === "trash" || row.box === "archived" ? (
           <Button
             size="xs"
@@ -264,6 +254,33 @@ const Reader = ({ row }: { row: Row }) => {
           </p>
         </ScrollArea>
       )}
+      {mail && row.box !== "trash" && (
+        <div className="max-h-[70%] shrink-0 overflow-y-auto border-t">
+          {reply === row.id ? (
+            <ComposeForm
+              inline
+              start={{
+                // Your own sent mail gets answered to whoever you sent it to.
+                to: mail.sent ? mail.to : mail.from,
+                subject: /^re:/i.test(mail.subject) ? mail.subject : `Re: ${mail.subject}`,
+                replyTo: row.id,
+                ...(row.applicationId && { applicationId: row.applicationId }),
+              }}
+              onDone={closeReply}
+            />
+          ) : (
+            <div className="p-3">
+              <Button
+                size="sm"
+                variant="outline"
+                render={<Link from="/email" search={(s) => ({ ...s, reply: row.id })} />}
+              >
+                Reply
+              </Button>
+            </div>
+          )}
+        </div>
+      )}
     </section>
   )
 }
@@ -271,7 +288,7 @@ const Reader = ({ row }: { row: Row }) => {
 const MailRow = ({ row, open }: { row: Row; open: boolean }) => {
   const markRead = useMutation(api.mailbox.markRead)
   return (
-    <li className="relative">
+    <li>
       <Link
         from="/email"
         search={(s) => ({ ...s, open: row.id })}
@@ -290,7 +307,7 @@ const MailRow = ({ row, open }: { row: Row; open: boolean }) => {
           </span>
           <span className="text-muted-foreground shrink-0 text-xs">{shortDate(row.at)}</span>
         </span>
-        <span className={cn("truncate pe-14", !row.read ? "font-medium" : "text-muted-foreground")}>
+        <span className={cn("truncate", !row.read ? "font-medium" : "text-muted-foreground")}>
           {row.subject}
         </span>
         {(row.company || row.labels.length > 0) && (
@@ -308,7 +325,6 @@ const MailRow = ({ row, open }: { row: Row; open: boolean }) => {
           </span>
         )}
       </Link>
-      {row.box !== "trash" && <ReplyButton id={row.id} className="absolute end-2 bottom-2" />}
     </li>
   )
 }
@@ -529,6 +545,7 @@ const ComposeForm = ({
   start,
   onDone,
   onSaved,
+  inline = false,
 }: {
   draftId?: Id<"mailDrafts">
   start: {
@@ -539,7 +556,9 @@ const ComposeForm = ({
     replyTo?: Id<"mailEvents">
   }
   onDone: () => void
-  onSaved: (id: Id<"mailDrafts">) => void
+  onSaved?: (id: Id<"mailDrafts">) => void
+  // Under the email it answers, rather than in a dialog.
+  inline?: boolean
 }) => {
   const send = useAction(api.email.sendFromApplication)
   const saveDraft = useAction(api.mailbox.saveDraft)
@@ -547,6 +566,8 @@ const ComposeForm = ({
   const templates = useQuery(api.mailbox.templates)
   const editor = useRef<EditorHandle>(null)
   const formRef = useRef<HTMLFormElement>(null)
+  // An inline reply stays put when saved, so later saves and sending need to know its draft.
+  const savedDraft = useRef(draftId)
   type State = { error?: string; saved?: boolean }
   const [state, act, pending] = useActionState<State, "send" | "save">(async (_, step) => {
     const form = new FormData(formRef.current!)
@@ -561,12 +582,16 @@ const ComposeForm = ({
     }
     try {
       if (step === "save") {
-        const id = await saveDraft({ ...body, ...(draftId && { id: draftId }) })
-        onSaved(id)
+        const id = await saveDraft({
+          ...body,
+          ...(savedDraft.current && { id: savedDraft.current }),
+        })
+        savedDraft.current = id
+        onSaved?.(id)
         return { saved: true }
       }
       if (editor.current?.isEmpty()) return { error: "Write something first." }
-      await send({ ...body, ...(draftId && { draftId }) })
+      await send({ ...body, ...(savedDraft.current && { draftId: savedDraft.current }) })
       onDone()
       return {}
     } catch (cause) {
@@ -579,10 +604,24 @@ const ComposeForm = ({
     if (!template || !formRef.current) return
     const chosen = new FormData(formRef.current).get("application")
     const application = applications?.find((a) => a._id === chosen)
-    const subject = formRef.current.elements.namedItem("subject") as HTMLInputElement
-    subject.value = fillIn(template.subject, application)
+    // A reply keeps the subject of the email it answers.
+    if (!inline) {
+      const subject = formRef.current.elements.namedItem("subject") as HTMLInputElement
+      subject.value = fillIn(template.subject, application)
+    }
     editor.current?.setHtml(fillIn(template.html, application))
   }
+  const Fields = inline ? "div" : DialogPanel
+  const actions = (
+    <>
+      <Button type="button" variant="outline" disabled={pending} onClick={() => run("save")}>
+        Save draft
+      </Button>
+      <Button type="submit" disabled={pending}>
+        {pending ? "Working…" : "Send"}
+      </Button>
+    </>
+  )
   return (
     <form
       ref={formRef}
@@ -592,58 +631,68 @@ const ComposeForm = ({
         run("send")
       }}
     >
-      <DialogHeader>
-        <DialogTitle>{start.replyTo ? "Reply" : draftId ? "Draft" : "New email"}</DialogTitle>
-        {draftId && <DialogDescription>Saved in your Drafts.</DialogDescription>}
-      </DialogHeader>
-      <DialogPanel className="grid gap-3">
+      {!inline && (
+        <DialogHeader>
+          <DialogTitle>{draftId ? "Draft" : "New email"}</DialogTitle>
+          {draftId && <DialogDescription>Saved in your Drafts.</DialogDescription>}
+        </DialogHeader>
+      )}
+      <Fields className={cn("grid gap-3", inline && "p-3")}>
         <div className="grid gap-1.5">
           <Label htmlFor="mail-to">To</Label>
           <Input id="mail-to" name="to" type="email" defaultValue={start.to} required />
         </div>
+        {inline ? (
+          <>
+            {/* A reply keeps its subject and application, so neither needs asking. */}
+            <input type="hidden" name="subject" value={start.subject} />
+            <input type="hidden" name="application" value={start.applicationId ?? ""} />
+          </>
+        ) : (
+          <>
+            <div className="grid gap-1.5">
+              <Label htmlFor="mail-subject">Subject</Label>
+              <Input
+                id="mail-subject"
+                name="subject"
+                defaultValue={start.subject}
+                maxLength={500}
+                required
+              />
+            </div>
+            <div className="grid gap-1.5">
+              <Label htmlFor="mail-application">Application</Label>
+              <select
+                id="mail-application"
+                name="application"
+                defaultValue={start.applicationId ?? ""}
+                className="border-input bg-background h-8 min-w-0 rounded-md border px-2 text-[13px]"
+              >
+                <option value="">None</option>
+                {applications?.map((a) => (
+                  <option key={a._id} value={a._id}>
+                    {a.company}: {a.role}
+                  </option>
+                ))}
+              </select>
+            </div>
+          </>
+        )}
         <div className="grid gap-1.5">
-          <Label htmlFor="mail-subject">Subject</Label>
-          <Input
-            id="mail-subject"
-            name="subject"
-            defaultValue={start.subject}
-            maxLength={500}
-            required
-          />
-        </div>
-        <div className="grid gap-3 sm:grid-cols-2">
-          <div className="grid gap-1.5">
-            <Label htmlFor="mail-application">Application</Label>
-            <select
-              id="mail-application"
-              name="application"
-              defaultValue={start.applicationId ?? ""}
-              className="border-input bg-background h-8 min-w-0 rounded-md border px-2 text-[13px]"
-            >
-              <option value="">None</option>
-              {applications?.map((a) => (
-                <option key={a._id} value={a._id}>
-                  {a.company}: {a.role}
-                </option>
-              ))}
-            </select>
-          </div>
-          <div className="grid gap-1.5">
-            <Label htmlFor="mail-template">Template</Label>
-            <select
-              id="mail-template"
-              defaultValue=""
-              onChange={(e) => applyTemplate(e.target.value)}
-              className="border-input bg-background h-8 min-w-0 rounded-md border px-2 text-[13px]"
-            >
-              <option value="">None</option>
-              {templates?.map((t) => (
-                <option key={t.id} value={t.id}>
-                  {t.name}
-                </option>
-              ))}
-            </select>
-          </div>
+          <Label htmlFor="mail-template">Template</Label>
+          <select
+            id="mail-template"
+            defaultValue=""
+            onChange={(e) => applyTemplate(e.target.value)}
+            className="border-input bg-background h-8 min-w-0 rounded-md border px-2 text-[13px]"
+          >
+            <option value="">None</option>
+            {templates?.map((t) => (
+              <option key={t.id} value={t.id}>
+                {t.name}
+              </option>
+            ))}
+          </select>
         </div>
         <Editor
           handle={editor}
@@ -655,16 +704,23 @@ const ComposeForm = ({
             {state.error}
           </p>
         )}
-      </DialogPanel>
-      <DialogFooter>
-        <DialogClose render={<Button variant="ghost" />}>Close</DialogClose>
-        <Button type="button" variant="outline" disabled={pending} onClick={() => run("save")}>
-          Save draft
-        </Button>
-        <Button type="submit" disabled={pending}>
-          {pending ? "Working…" : "Send"}
-        </Button>
-      </DialogFooter>
+        {inline && state.saved && (
+          <p className="text-muted-foreground text-xs">Saved in your Drafts.</p>
+        )}
+      </Fields>
+      {inline ? (
+        <div className="flex justify-end gap-2 px-3 pb-3">
+          <Button type="button" variant="ghost" onClick={onDone}>
+            Cancel
+          </Button>
+          {actions}
+        </div>
+      ) : (
+        <DialogFooter>
+          <DialogClose render={<Button variant="ghost" />}>Close</DialogClose>
+          {actions}
+        </DialogFooter>
+      )}
     </form>
   )
 }
@@ -682,27 +738,6 @@ const FromDraft = (props: {
       key={props.id}
       draftId={props.id}
       start={draft}
-      onDone={props.onDone}
-      onSaved={props.onSaved}
-    />
-  )
-}
-
-const FromReply = (props: {
-  id: Id<"mailEvents">
-  onDone: () => void
-  onSaved: (id: Id<"mailDrafts">) => void
-}) => {
-  const mail = useQuery(api.mailbox.content, { eventId: props.id })
-  if (!mail) return <DialogPanel>{mail === null ? "That email is gone." : "Opening…"}</DialogPanel>
-  return (
-    <ComposeForm
-      start={{
-        // Your own sent mail gets answered to whoever you sent it to.
-        to: mail.sent ? mail.to : mail.from,
-        subject: /^re:/i.test(mail.subject) ? mail.subject : `Re: ${mail.subject}`,
-        replyTo: props.id,
-      }}
       onDone={props.onDone}
       onSaved={props.onSaved}
     />
@@ -728,13 +763,13 @@ export const Mailbox = () => {
   const navigate = useNavigate({ from: "/email" })
   const labels = useQuery(api.mailbox.labels)
   const view = search.view ?? "inbox"
-  const dialog = search.compose ?? search.reply ?? search.template
+  const dialog = search.compose ?? search.template
   const closeDialog = () =>
     void navigate({
-      search: ({ compose: _c, reply: _r, template: _t, ...rest }) => rest,
+      search: ({ compose: _c, template: _t, ...rest }) => rest,
     })
   const onSaved = (id: Id<"mailDrafts">) =>
-    void navigate({ search: ({ reply: _r, ...rest }) => ({ ...rest, compose: id }), replace: true })
+    void navigate({ search: (rest) => ({ ...rest, compose: id }), replace: true })
   const navItem = (active: boolean) =>
     cn(
       "hover:bg-accent/40 shrink-0 rounded-md px-2 py-1.5 text-[13px] md:truncate",
@@ -804,12 +839,6 @@ export const Mailbox = () => {
         <DialogPopup className="sm:max-w-2xl">
           {search.template ? (
             <FromTemplate id={search.template} onDone={closeDialog} />
-          ) : search.reply ? (
-            <FromReply
-              id={search.reply as Id<"mailEvents">}
-              onDone={closeDialog}
-              onSaved={onSaved}
-            />
           ) : search.compose && search.compose !== "new" ? (
             <FromDraft
               id={search.compose as Id<"mailDrafts">}
