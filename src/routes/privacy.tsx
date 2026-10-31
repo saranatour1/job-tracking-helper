@@ -43,7 +43,10 @@ const PrivacyPage = () => (
         </li>
         <li>
           <strong>Analytics.</strong> Page views, page speed, clicks on links that leave the site
-          and session replays.
+          and session replays. Separately, our server tells Databuddy when an AI crawler or AI agent
+          requests a page, except booking pages: the path, host, user agent, accept header, referrer
+          and the format asked for. An AI browser acting for you can be counted this way, and
+          browser privacy signals don't stop it, because it doesn't run in your browser.
         </li>
       </ul>
       <p>

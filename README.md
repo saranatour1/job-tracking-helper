@@ -20,7 +20,7 @@ Your resume file only gets attached to applications until you press Review on th
 
 Demographic questions are skipped by their wording, and job-site passwords are never stored. Pasted tokens, connection details, mail, contacts and drafts are encrypted with AES-256-GCM, under a key only the server holds. Resumes, saved answers and applications don't get that extra layer.
 
-The site sends page views, web vitals, outgoing link clicks and session replays to Databuddy, except on booking pages. Replays mask text. [/privacy](src/routes/privacy.tsx) lists all of this, and it has to stay true when any of it changes.
+The site sends page views, web vitals, outgoing link clicks and session replays to Databuddy, except on booking pages. Replays mask text. [src/server.ts](src/server.ts) also reports AI crawler and agent requests to Databuddy from the server. [/privacy](src/routes/privacy.tsx) lists all of this, and it has to stay true when any of it changes.
 
 ## How to run
 
@@ -58,6 +58,7 @@ convex/
   lib/                  arktype to Convex, signed-in function builders, secrets, logging
 src/
   routes/               pages. /, /privacy, /terms and /book/$slug are public
+  server.ts             the Worker's entry, which reports AI crawlers to Databuddy
   features/<feature>/   a feature's components. Applications, Views and Goals are in tracker/
   components/ui/        shadcn and coss components, managed by the shadcn CLI
   components/kloq/      the kloq calendar as source, from its registry

@@ -122,9 +122,13 @@ preparing applications needs it.
 3. **Crawlers.** `public/robots.txt` lists every private route, and `public/llms.txt` and
    `public/sitemap.xml` list the public ones. All pages render on the server, so crawlers don't
    need JavaScript.
+4. **AI crawler tracking.** Crawlers don't run the Databuddy script, so the Worker
+   (`src/server.ts`) reports each request from an AI agent to Databuddy in the background.
+   `wrangler.jsonc` runs the Worker first for `.txt` files, so reads of `llms.txt` count too.
 
 **Rules:** every route is `noindex` unless it uses `publicHead` (`src/lib/seo.ts`). A test
-fails if a new route isn't public and isn't in `robots.txt`. Booking pages load no analytics.
+fails if a new route isn't public and isn't in `robots.txt`. Booking pages load no analytics
+and are left out of AI crawler tracking.
 When a data flow changes, `/privacy` changes with it.
 
 ## Signing in
