@@ -11,6 +11,7 @@ const mocks = vi.hoisted(() => ({
   decide: vi.fn(),
   generateText: vi.fn(),
   interact: vi.fn(),
+  scrape: vi.fn(),
 }))
 vi.mock("ai", async (actual) => ({
   ...(await actual<typeof import("ai")>()),
@@ -19,7 +20,7 @@ vi.mock("ai", async (actual) => ({
 }))
 vi.mock("./firecrawl", async (actual) => ({
   ...(await actual<typeof import("./firecrawl")>()),
-  scrape: async () => ({ scrapeId: "scrape-1", markdown: "" }),
+  scrape: mocks.scrape,
   interact: mocks.interact,
   endSession: async () => undefined,
 }))
@@ -102,6 +103,7 @@ const setup = async () => {
 
 beforeEach(() => {
   vi.clearAllMocks()
+  mocks.scrape.mockResolvedValue({ scrapeId: "scrape-1", markdown: "" })
   mocks.interact.mockResolvedValue({ value: form, liveUrl: "" })
   mocks.decide.mockResolvedValue({ answers: {} })
   mocks.generateText.mockResolvedValue({ text: '{"answers":["It fits."]}' })
@@ -369,5 +371,25 @@ describe("sending an answer to the open browser", () => {
     await expect(
       as.action(api.api.prefilledActions.sendToForm, { id, question: "Why us?" })
     ).rejects.toThrow("This browser has closed.")
+  })
+})
+
+describe("a Greenhouse role listed on the company's own site", () => {
+  it("reads Greenhouse's form, and keeps the company's link on the row", async () => {
+    const { t, as } = await setup()
+    const url = "https://www.hooli.com/careers/positions/8333273?gh_jid=8333273"
+    const embed = "https://job-boards.greenhouse.io/embed/job_app?for=hooli&token=8333273"
+    const jobId = await t.run(async (ctx) => {
+      const job = await ctx.db.query("jobs").first()
+      const { _id, _creationTime, ...rest } = job!
+      return ctx.db.insert("jobs", { ...rest, url, urlKey: url })
+    })
+    const id = await as.mutation(api.api.prefilled.prepare, { jobId })
+    await t.action(internal.api.prefilledActions.prepareForm, { id })
+    expect(mocks.scrape).toHaveBeenCalledWith(embed)
+    expect(mocks.scrape).not.toHaveBeenCalledWith(url)
+    // The live browser opens whatever the plan says, too.
+    expect(await t.query(internal.api.prefilled.plan, { id })).toMatchObject({ url: embed })
+    expect(await t.run((ctx) => ctx.db.get("prefills", id))).toMatchObject({ url })
   })
 })

@@ -52,6 +52,7 @@ export const JobLead = type({
   "runId?": arkId("loopRuns"),
   url: "string",
   urlKey: "string",
+  "roleKey?": "string",
   title: "string",
   company: "string",
   "location?": "string",

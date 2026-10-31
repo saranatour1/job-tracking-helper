@@ -1,8 +1,8 @@
 import { ConvexError } from "convex/values"
 import type { Doc, Id } from "../../_generated/dataModel"
 import { internal } from "../../_generated/api"
-import type { MutationCtx } from "../../_generated/server"
-import { canPrepare } from "../jobs/links"
+import type { MutationCtx, QueryCtx } from "../../_generated/server"
+import { formUrlOf } from "../jobs/links"
 import { switchAt } from "../loops/catalog"
 import { usageOf } from "../loops/usage"
 import { rowOf } from "../preferences/utils"
@@ -20,6 +20,11 @@ type Posting = {
   title: string
   jobId?: Id<"jobs">
   leadId?: Id<"jobLeads">
+}
+
+export const formOf = async (ctx: QueryCtx, url: string, jobId?: Id<"jobs">) => {
+  const job = jobId && (await ctx.db.get("jobs", jobId))
+  return formUrlOf(url, job && (await ctx.db.get("jobBoards", job.boardId)))
 }
 
 export const prefillOf = (ctx: MutationCtx, userId: Id<"users">, urlKey: string) =>
@@ -75,7 +80,7 @@ export const preparePosting = async (
   const fromJob = job && (await ctx.db.get("jobs", job))
   const posting = fromJob ?? lead
   if (!posting) throw new ConvexError("That role is gone from the catalog.")
-  if (!canPrepare(posting.url)) throw new ConvexError(unsupported)
+  if (!(await formOf(ctx, posting.url, job))) throw new ConvexError(unsupported)
   // Asking again for one already prepared costs nothing from the day's 10.
   const known = await prefillOf(ctx, userId, posting.urlKey)
   if (known && known.status !== "failed" && known.status !== "dismissed") return known._id
@@ -101,7 +106,8 @@ export const prepareFits = async (
   const usage = await usageOf(ctx, "firecrawl", monthOf(Date.now()))
   if (usage?.exhaustedAt || (usage?.used ?? 0) >= monthlyCredits("firecrawl") * switchAt) return
   for (const lead of leads) {
-    if (!canPrepare(lead.url) || (await prefillOf(ctx, userId, lead.urlKey))) continue
+    if (!(await formOf(ctx, lead.url, lead.jobId)) || (await prefillOf(ctx, userId, lead.urlKey)))
+      continue
     const { ok } = await limits.limit(ctx, "prepare", { key: userId })
     if (!ok) return
     await startPrefill(ctx, userId, {

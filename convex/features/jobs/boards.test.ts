@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vite-plus/test"
 
 import { detailUrls, feedUrl, parseFeed, plainText, searchSlug } from "./boards"
-import { boardOf, canPrepare, isClosedSite, previewOf } from "./links"
+import { boardOf, canPrepare, formUrlOf, isClosedSite, previewOf } from "./links"
 
 const now = Date.parse("2026-10-28T08:00:00Z")
 
@@ -63,6 +63,37 @@ describe("canPrepare", () => {
     expect(canPrepare("https://jobs.smartrecruiters.com/BoschGroup/1-sales")).toBe(false)
     expect(canPrepare("https://apply.workable.com/acme/j/ABC/")).toBe(false)
     expect(canPrepare("https://www.arbeitsagentur.de/jobsuche/jobdetail/1-S")).toBe(false)
+    expect(canPrepare("https://www.coinbase.com/careers/positions/1?gh_jid=1")).toBe(true)
+    expect(canPrepare("https://www.coinbase.com/careers/positions/1")).toBe(false)
+  })
+})
+
+describe("formUrlOf", () => {
+  const greenhouse = { kind: "greenhouse" as const, slug: "coinbase" }
+  const ownSite = "https://www.coinbase.com/careers/positions/8333273?gh_jid=8333273"
+
+  it("keeps a link already on a board", () => {
+    const url = "https://job-boards.greenhouse.io/hook/jobs/1"
+    expect(formUrlOf(url, null)).toBe(url)
+  })
+
+  it("sends a Greenhouse role on the company's site to Greenhouse's embedded form", () => {
+    expect(formUrlOf(ownSite, greenhouse)).toBe(
+      "https://job-boards.greenhouse.io/embed/job_app?for=coinbase&token=8333273"
+    )
+  })
+
+  it("finds no form on a board whose forms the app can't read", () => {
+    expect(formUrlOf("https://jobs.smartrecruiters.com/BoschGroup/1-sales", null)).toBeNull()
+    expect(formUrlOf("https://apply.workable.com/acme/j/ABC/", null)).toBeNull()
+  })
+
+  it("finds no form without the board, its id, or a Greenhouse board", () => {
+    expect(formUrlOf(ownSite, null)).toBeNull()
+    expect(formUrlOf(ownSite, { kind: "lever", slug: "coinbase" })).toBeNull()
+    expect(formUrlOf("https://www.coinbase.com/careers/1", greenhouse)).toBeNull()
+    expect(formUrlOf("https://www.coinbase.com/careers?gh_jid=1%26for=x", greenhouse)).toBeNull()
+    expect(formUrlOf("not a url", greenhouse)).toBeNull()
   })
 })
 

@@ -450,6 +450,12 @@ most 3,500 characters with its title line (`convex/lib/markdown.ts`, and `maxTex
 which never draws raw HTML and sanitizes the tree again (`src/components/markdown.tsx`).
 Previews are the same text as plain words.
 
+**Duplicates:** a posting is saved once, however its link is written: tracking parameters,
+`www`, an apply page, or a Greenhouse number on the board or the company's own site
+(`urlKey`). Postings with the same company, title and place are one role (`roleKey`): the
+list shows them as one row with "N openings", with Jev's verdict if one of them has it. Each
+posting stays in the catalog, since each has its own link.
+
 **Rules:** the catalog is shared by everyone; what Jev thought of a role is yours alone.
 
 **Files:** `src/features/jobs/`, `convex/features/jobs/`.
@@ -471,7 +477,9 @@ Previews are the same text as plain words.
    prepared, until Firecrawl has used 90% of this month's credits. With it off, press
    **Prepare** on a role in Jobs or on your shortlist (`api.prefilled.prepare`). Both share a
    limit of 10 a day. It needs your email, a resume, a Firecrawl key on the server, and a
-   posting on Greenhouse, Lever, Ashby or Personio. One per person and posting.
+   posting on Greenhouse, Lever, Ashby or Personio. A catalog role from a Greenhouse board
+   that links to the company's own site counts: the row keeps that link, and the form is read
+   and opened from Greenhouse's embed page. One per person and posting.
 2. **Prepare** runs with no one there (`internal.api.prefilledActions.prepareForm`, on `applyPool`,
    never retried by itself), and nothing is typed into the form:
    - **Open the form:** one Firecrawl scrape of the posting, then `interact` with
@@ -610,7 +618,8 @@ call, `internal.ts` the row's steps, `utils.ts` starting one and preparing a loo
       fetches them. A loop in your places also saves an Arbeitsagentur search for each topic
       and place, for German roles. It needs no key or credits, and a place it doesn't know
       finds nothing. German job titles find far more than English ones.
-   3. Picks catalog roles you haven't been shown that pass your hard rules.
+   3. Picks catalog roles you haven't been shown that pass your hard rules, one posting
+      per role, so another opening or a repost of a role you've seen isn't judged again.
    4. Hands them all to the batch worker for Jev, and waits for every verdict.
 3. **Jev's judgment per role:** how well it matches (unrelated to strong), then whether
    each need holds: the place, pay, visa, things to avoid, interests and skills. A role

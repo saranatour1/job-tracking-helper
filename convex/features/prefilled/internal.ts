@@ -13,7 +13,7 @@ import { addUsage } from "../loops/usage"
 import { rowLimits } from "../preferences/rows"
 import { rowOf } from "../preferences/utils"
 import { isEmailQuestion, statusFrom } from "./match"
-import { liveMs } from "./utils"
+import { formOf, liveMs } from "./utils"
 import { PrefillField, vRunPlan, vSavePreparedArgs } from "./validators"
 
 const plan = internalQuery({
@@ -41,7 +41,8 @@ const plan = internalQuery({
     const lead = row.leadId && (await ctx.db.get("jobLeads", row.leadId))
     return {
       userId: row.userId,
-      url: row.url,
+      // The row keeps the posting's own link: it's what pages match on and open.
+      url: (await formOf(ctx, row.url, row.jobId)) ?? row.url,
       status: row.status,
       fields: row.fields,
       answers,

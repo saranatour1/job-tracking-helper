@@ -4,8 +4,9 @@ import { internalMutation, internalQuery } from "../../_generated/server"
 import { workLog } from "../../lib/log"
 import { keepLog } from "../activity/utils"
 import { fillFromJob } from "../applications/utils"
+import { leadOf } from "../jobs/leads"
 import { prepareFits } from "../prefilled/utils"
-import { descriptionsOf, localSearchesOf, queriesOf } from "../workflows/fit"
+import { descriptionsOf, localSearchesOf, queriesOf, roleKey } from "../workflows/fit"
 import { readPool } from "../workflows/manager"
 import { apiKeyOf, monthlyCredits, monthOf } from "../workflows/sources"
 import { vProfile, providerIds } from "../workflows/validators"
@@ -93,6 +94,7 @@ const savePasted = internalMutation({
     if (credits) await addUsage(ctx, "firecrawl", credits, false)
     const leadId = await ctx.db.insert("jobLeads", {
       ...lead,
+      roleKey: roleKey(lead),
       userId,
       status: applicationId ? "applied" : "new",
       ...(applicationId && { applicationId }),
@@ -144,16 +146,11 @@ const finishRun = internalMutation({
     const { provider, spent, exhausted } = args
     let fits = 0
     for (const lead of run.candidates ?? []) {
-      const seen = await ctx.db
-        .query("jobLeads")
-        .withIndex("by_userId_and_urlKey", (q) =>
-          q.eq("userId", run.userId).eq("urlKey", lead.urlKey)
-        )
-        .first()
-      if (seen) continue
+      if (await leadOf(ctx, run.userId, lead)) continue
       const fit = lead.verdict === "fit"
       await ctx.db.insert("jobLeads", {
         ...lead,
+        roleKey: roleKey(lead),
         userId: run.userId,
         loopId: run.loopId,
         runId: run._id,

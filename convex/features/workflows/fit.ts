@@ -117,7 +117,34 @@ export const urlKey = (url: string) => {
     .toLowerCase()
     .replace(/^www\./, "")
     .replace(/^boards\.greenhouse\.io$/, "job-boards.greenhouse.io")
+    .replace(/\.jobs\.personio\.com$/, ".jobs.personio.de")
+  // A Greenhouse feed can link to the company's own site, while people paste the board's link.
+  // The posting's number is what they share, and it's unique across all of Greenhouse.
+  const greenhouse =
+    u.searchParams.get("gh_jid") ??
+    (host === "job-boards.greenhouse.io"
+      ? (u.searchParams.get("token") ?? /\/jobs\/(\d+)/.exec(u.pathname)?.[1])
+      : null)
+  if (greenhouse && /^\d+$/.test(greenhouse)) return `greenhouse/${greenhouse}`
   const path = u.pathname.replace(/\/+$/, "").replace(/\/(apply|application)$/, "")
   const query = u.searchParams.toString()
   return `${host}${path}${query ? `?${query}` : ""}`
+}
+
+type Role = { company: string; title: string; location?: string }
+
+// Companies open the same role many times over, each with its own posting and link. To a job
+// seeker they're one role.
+export const roleKey = ({ company, title, location }: Role) =>
+  [company, title, location ?? ""]
+    .map((part) => part.toLowerCase().replace(/\s+/g, " ").trim())
+    .join("|")
+
+export const groupRoles = <T extends Role>(jobs: T[]) => {
+  const roles = new Map<string, T[]>()
+  for (const job of jobs) {
+    const key = roleKey(job)
+    roles.set(key, [...(roles.get(key) ?? []), job])
+  }
+  return [...roles.values()]
 }

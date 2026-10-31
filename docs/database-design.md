@@ -96,7 +96,7 @@ These have no owner. Deleting an account leaves them.
 | ---------- | ---------------------------------------------------------------------------------------------------------------------- | ---------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------ |
 | `loops`    | a saved search: its answers, size, time and next run                                                                   | 4                | `by_userId`, `by_active_and_nextRunAt`                                                                                                                       |
 | `loopRuns` | one run's counts and cost, and while it runs, Jev's verdicts so far                                                    | 1                | `by_loopId_and_startedAt`, `by_userId_and_startedAt`                                                                                                         |
-| `jobLeads` | a role judged for one person: verdict, fit, reasons, checks, where it stands                                           | 1, 4             | `by_userId_and_urlKey`, `by_userId_and_status`, `by_userId_and_feedback`, `by_userId_and_verdict_and_fit`, `by_applicationId`, `by_userId_and_applicationId` |
+| `jobLeads` | a role judged for one person: verdict, fit, reasons, checks, where it stands                                           | 1, 4             | `by_userId_and_urlKey`, `by_userId_and_roleKey`, `by_userId_and_status`, `by_userId_and_feedback`, `by_userId_and_verdict_and_fit`, `by_applicationId`, `by_userId_and_applicationId` |
 | `prefills` | an application made ready: every question on the form with its answer and source, and the live browser while it's open | 2, 4             | `by_userId`, `by_userId_and_status`, `by_userId_and_urlKey`, `by_userId_and_applicationId`                                                                   |
 
 `prefills.fields` is an array, capped at 80, not a table: a form is bounded and only read with its application.
@@ -300,7 +300,8 @@ erDiagram
         id runId "also loopId; both unset for a pasted link"
         id jobId "the catalog role"
         string url
-        string urlKey "normalized, for dedupe"
+        string urlKey "the same posting however it's linked"
+        string roleKey "company, title and place; the same role across postings"
         string title "also company, snippet"
         enum verdict "fit | notFit"
         number fit "0 to 100"
@@ -407,7 +408,7 @@ convex/features/workflows/      what runs a loop
   findJobs.ts                        the run, step by step
   actions.ts, utils.ts               search (one batch) and judgeOne (one role, on readPool); judge, turn
   judge.ts                           the profile, Jev's questions, the breakdown and the verdict rules
-  fit.ts                             search words, URL dedupe
+  fit.ts                             search words, posting and role keys
   sources/                           firecrawl.ts, contextDev.ts, index.ts (keys and credits)
 convex/crons.ts                      start due loops and workflows, refresh boards, sweeps, restart stuck workers
 convex/convex.config.ts              the components: workflow, readPool, applyPool, rate limiter, batch worker, aggregates

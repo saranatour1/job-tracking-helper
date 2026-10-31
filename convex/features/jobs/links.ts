@@ -22,12 +22,20 @@ export const boardOf = (url: string): { kind: BoardKind; slug: string } | null =
 
 const formKinds: BoardKind[] = ["greenhouse", "lever", "ashby", "personio"]
 
-// Whether the app can read this posting's application form. Other roles can still be
-// shortlisted and tracked, and you apply on their own page.
-export const canPrepare = (url: string) => {
+// A Greenhouse board can list its roles on the company's own site, with the role's id in gh_jid.
+// Greenhouse's page for the role redirects back there, so its embed page is what shows the form.
+export const formUrlOf = (url: string, board?: { kind: BoardKind; slug: string } | null) => {
   const kind = boardOf(url)?.kind
-  return kind !== undefined && formKinds.includes(kind)
+  if (kind) return formKinds.includes(kind) ? url : null
+  const id = URL.canParse(url) ? new URL(url).searchParams.get("gh_jid") : null
+  if (board?.kind !== "greenhouse" || !id || !/^\d+$/.test(id)) return null
+  return `https://job-boards.greenhouse.io/embed/job_app?for=${encodeURIComponent(board.slug)}&token=${id}`
 }
+
+// Whether to offer Prepare, for a list of roles that doesn't have each one's board. Other roles
+// can still be shortlisted and tracked, and you apply on their own page. A gh_jid is taken at its
+// word here, and preparing checks the board.
+export const canPrepare = (url: string) => formUrlOf(url, { kind: "greenhouse", slug: "" }) !== null
 
 // These don't allow apps to read their pages, and block it anyway, so the app never tries.
 // People paste what they see there instead.
