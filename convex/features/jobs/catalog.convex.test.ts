@@ -1,7 +1,7 @@
 // @vitest-environment edge-runtime
 /// <reference types="vite/client" />
 import { convexTest } from "convex-test"
-import { describe, expect, it } from "vite-plus/test"
+import { afterEach, describe, expect, it, vi } from "vite-plus/test"
 
 import { api, internal } from "../../_generated/api"
 import type { Id } from "../../_generated/dataModel"
@@ -67,6 +67,80 @@ describe("the job catalog's totals", () => {
     const boardId = await t.run((ctx) => ctx.db.insert("jobBoards", board(1, 5)))
     await t.mutation(internal.api.jobs.boardFetched, { boardId, startedAt: 0, jobs: 9 })
     expect(await as.query(api.api.jobs.stats, {})).toEqual({ boards: 1, jobs: 9 })
+  })
+})
+
+describe("Arbeitsagentur searches", () => {
+  afterEach(() => vi.unstubAllGlobals())
+
+  it("fetches a search's roles with their text, under the search's own name", async () => {
+    const { t, as } = await setup()
+    const calls: Request[] = []
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(async (input: string, init?: RequestInit) => {
+        calls.push(new Request(input, init))
+        const body = input.includes("/jobdetails/")
+          ? { stellenangebotsBeschreibung: "Pflege im **Krankenhaus**." }
+          : {
+              woOutput: { bereinigterOrt: "Berlin" },
+              ergebnisliste: [
+                {
+                  referenznummer: "10001-1-S",
+                  stellenangebotsTitel: "Pflegefachkraft",
+                  firma: "Permacon GmbH",
+                  datumErsteVeroeffentlichung: "2026-10-30",
+                  stellenlokationen: [{ adresse: { ort: "Berlin" } }],
+                },
+              ],
+            }
+        return new Response(JSON.stringify(body))
+      })
+    )
+    const [boardId] = await t.mutation(internal.api.jobs.addSearches, {
+      searches: [{ what: "Pflegefachkraft", where: "Berlin" }],
+    })
+    await t.action(internal.api.jobs.fetchBoard, { boardId: boardId! })
+    expect(calls).toHaveLength(2)
+    for (const call of calls) expect(call.headers.get("X-API-Key")).toBe("jobboerse-jobsuche")
+    expect(calls[1]?.url).toContain(`/jobdetails/${encodeURIComponent(btoa("10001-1-S"))}`)
+    const jobs = await t.run((ctx) => ctx.db.query("jobs").collect())
+    expect(jobs).toHaveLength(1)
+    expect(jobs[0]).toMatchObject({
+      boardId,
+      company: "Permacon GmbH",
+      url: "https://www.arbeitsagentur.de/jobsuche/jobdetail/10001-1-S",
+    })
+    expect(jobs[0]?.text).toContain("Pflege im **Krankenhaus**.")
+    expect(await as.query(api.api.jobs.companies, {})).toEqual([
+      { boardId, company: "Arbeitsagentur: Pflegefachkraft, Berlin", jobs: 1 },
+    ])
+  })
+
+  it("adds each search once, and forgets one with no roles", async () => {
+    const { t, as } = await setup()
+    const searches = [{ what: "Lagerist", where: "München" }]
+    const [boardId] = await t.mutation(internal.api.jobs.addSearches, { searches })
+    expect(await t.mutation(internal.api.jobs.addSearches, { searches })).toEqual([])
+    const b = await t.run((ctx) => ctx.db.get("jobBoards", boardId!))
+    expect(b).toMatchObject({
+      kind: "arbeitsagentur",
+      slug: "lagerist|münchen",
+      company: "Arbeitsagentur: Lagerist, München",
+    })
+    await t.mutation(internal.api.jobs.boardFetched, { boardId: boardId!, startedAt: 0, jobs: 3 })
+    expect(await as.query(api.api.jobs.stats, {})).toEqual({ boards: 1, jobs: 3 })
+    // A failed fetch doesn't count as none.
+    await t.mutation(internal.api.jobs.boardFetched, {
+      boardId: boardId!,
+      startedAt: 0,
+      jobs: 0,
+      error: "Down",
+    })
+    expect(await t.run((ctx) => ctx.db.get("jobBoards", boardId!))).not.toBeNull()
+    await t.mutation(internal.api.jobs.boardFetched, { boardId: boardId!, startedAt: 0, jobs: 0 })
+    expect(await t.run((ctx) => ctx.db.get("jobBoards", boardId!))).toBeNull()
+    expect(await as.query(api.api.jobs.stats, {})).toEqual({ boards: 0, jobs: 0 })
   })
 })
 

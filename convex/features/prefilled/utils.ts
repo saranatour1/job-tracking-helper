@@ -2,7 +2,7 @@ import { ConvexError } from "convex/values"
 import type { Doc, Id } from "../../_generated/dataModel"
 import { internal } from "../../_generated/api"
 import type { MutationCtx } from "../../_generated/server"
-import { boardOf } from "../jobs/links"
+import { canPrepare } from "../jobs/links"
 import { switchAt } from "../loops/catalog"
 import { usageOf } from "../loops/usage"
 import { rowOf } from "../preferences/utils"
@@ -75,7 +75,7 @@ export const preparePosting = async (
   const fromJob = job && (await ctx.db.get("jobs", job))
   const posting = fromJob ?? lead
   if (!posting) throw new ConvexError("That role is gone from the catalog.")
-  if (!boardOf(posting.url)) throw new ConvexError(unsupported)
+  if (!canPrepare(posting.url)) throw new ConvexError(unsupported)
   // Asking again for one already prepared costs nothing from the day's 10.
   const known = await prefillOf(ctx, userId, posting.urlKey)
   if (known && known.status !== "failed" && known.status !== "dismissed") return known._id
@@ -101,7 +101,7 @@ export const prepareFits = async (
   const usage = await usageOf(ctx, "firecrawl", monthOf(Date.now()))
   if (usage?.exhaustedAt || (usage?.used ?? 0) >= monthlyCredits("firecrawl") * switchAt) return
   for (const lead of leads) {
-    if (!boardOf(lead.url) || (await prefillOf(ctx, userId, lead.urlKey))) continue
+    if (!canPrepare(lead.url) || (await prefillOf(ctx, userId, lead.urlKey))) continue
     const { ok } = await limits.limit(ctx, "prepare", { key: userId })
     if (!ok) return
     await startPrefill(ctx, userId, {

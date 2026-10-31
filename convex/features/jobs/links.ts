@@ -14,8 +14,28 @@ export const boardOf = (url: string): { kind: BoardKind; slug: string } | null =
     return { kind: "greenhouse", slug }
   if (host === "jobs.lever.co") return { kind: "lever", slug }
   if (host === "jobs.ashbyhq.com") return { kind: "ashby", slug }
+  if (host === "apply.workable.com" && slug !== "j") return { kind: "workable", slug }
+  if (host === "jobs.smartrecruiters.com" && !["ni", "oneclick-ui"].includes(slug))
+    return { kind: "smartrecruiters", slug }
   return null
 }
+
+const formKinds: BoardKind[] = ["greenhouse", "lever", "ashby", "personio"]
+
+// Whether the app can read this posting's application form. Other roles can still be
+// shortlisted and tracked, and you apply on their own page.
+export const canPrepare = (url: string) => {
+  const kind = boardOf(url)?.kind
+  return kind !== undefined && formKinds.includes(kind)
+}
+
+// These don't allow apps to read their pages, and block it anyway, so the app never tries.
+// People paste what they see there instead.
+const closedSites =
+  /(^|\.)(linkedin\.com|xing\.com|experteer\.[a-z.]+|x\.com|twitter\.com|facebook\.com|instagram\.com)$/
+
+export const isClosedSite = (url: string) =>
+  URL.canParse(url) && closedSites.test(new URL(url).hostname.toLowerCase())
 
 export const previewOf = (text: string, length = 240) =>
   unmark(text.split("\n\n").slice(1).join(" ") || text)

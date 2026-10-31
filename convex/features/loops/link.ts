@@ -6,7 +6,7 @@ import { action, type ActionCtx, internalAction } from "../../_generated/server"
 import { boardOf } from "../jobs/links"
 import { urlKey } from "../workflows/fit"
 import { limits } from "../workflows/manager"
-import { isLink, readAndJudge } from "./read"
+import { isLink, judgePasted, pastedPosting, readAndJudge } from "./read"
 
 const check = async (ctx: ActionCtx, userId: Id<"users">, url: string): Promise<Id<"jobLeads">> => {
   const link = url.trim()
@@ -32,6 +32,27 @@ const checkLink = action({
   },
 })
 
+const checkText = action({
+  args: { url: v.string(), text: v.string(), company: v.optional(v.string()) },
+  returns: v.id("jobLeads"),
+  handler: async (ctx, { url, text, company }): Promise<Id<"jobLeads">> => {
+    const userId = await getAuthUserId(ctx)
+    if (!userId) throw new Error("Not signed in")
+    const link = url.trim()
+    if (!isLink(link)) throw new ConvexError("That isn't a link to a job posting.")
+    const page = pastedPosting(link, text, company ?? "")
+    const key = urlKey(link)
+    const known = await ctx.runQuery(internal.api.loops.leadByUrlKey, { userId, urlKey: key })
+    if (known) return known
+    const { ok } = await limits.limit(ctx, "checkLink", { key: userId })
+    if (!ok) throw new ConvexError("You've checked 10 links today. Try again tomorrow.")
+    return ctx.runMutation(internal.api.loops.savePasted, {
+      userId,
+      ...(await judgePasted(ctx, userId, link, key, page)),
+    })
+  },
+})
+
 const checkLinkFor = internalAction({
   args: { userId: v.id("users"), url: v.string() },
   returns: v.id("jobLeads"),
@@ -42,7 +63,7 @@ const checkLinkFor = internalAction({
     const board = boardOf(url.trim())
     if (!board || !(await ctx.runQuery(internal.api.jobs.hasBoard, board)))
       throw new ConvexError(
-        "Agents can only check Greenhouse, Lever, Ashby and Personio links from companies in the catalog. The person can paste other links in the app."
+        "Agents can only check Greenhouse, Lever, Ashby, Personio, SmartRecruiters and Workable links from companies in the catalog. The person can paste other links in the app."
       )
     const link = new URL(url.trim())
     link.search = ""
@@ -74,4 +95,4 @@ const enrichApplication = internalAction({
   },
 })
 
-export const linkApi = { checkLink, checkLinkFor, enrichApplication }
+export const linkApi = { checkLink, checkText, checkLinkFor, enrichApplication }
