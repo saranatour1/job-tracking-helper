@@ -19,10 +19,4 @@ export const {
   finish,
   session,
   sent,
-  prepareForm,
-  startLive,
-  sendToForm,
-  confirmSent,
-  cancelLive,
-  closeLive,
 } = prefilledApi

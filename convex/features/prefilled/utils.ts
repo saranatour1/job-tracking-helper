@@ -2,9 +2,9 @@ import { ConvexError } from "convex/values"
 import type { Doc, Id } from "../../_generated/dataModel"
 import { internal } from "../../_generated/api"
 import type { MutationCtx } from "../../_generated/server"
-import { boardOf } from "../jobs/boards"
+import { boardOf } from "../jobs/links"
 import { switchAt } from "../loops/catalog"
-import { usageOf } from "../loops/utils"
+import { usageOf } from "../loops/usage"
 import { rowOf } from "../preferences/utils"
 import { applyPool, limits } from "../workflows/manager"
 import { apiKeyOf, monthlyCredits, monthOf } from "../workflows/sources"
@@ -38,7 +38,7 @@ export const blockedBy = async (ctx: MutationCtx, userId: Id<"users">) => {
 export const enqueue = async (ctx: MutationCtx, id: Id<"prefills">) => {
   await applyPool.enqueueAction(
     ctx,
-    internal.api.prefilled.prepareForm,
+    internal.api.prefilledActions.prepareForm,
     { id },
     { retry: false, onComplete: internal.api.prefilled.ended, context: { id } }
   )

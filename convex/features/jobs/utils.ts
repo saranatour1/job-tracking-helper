@@ -1,6 +1,6 @@
 import type { Doc } from "../../_generated/dataModel"
 import type { MutationCtx } from "../../_generated/server"
-import { previewOf } from "./boards"
+import { previewOf } from "./links"
 
 export const rowOf = (job: Doc<"jobs">, lead: Doc<"jobLeads"> | null) => ({
   _id: job._id,

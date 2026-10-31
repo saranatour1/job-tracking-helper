@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vite-plus/test"
 
-import { boardOf, parseFeed, plainText, previewOf } from "./boards"
+import { parseFeed, plainText } from "./boards"
+import { boardOf, previewOf } from "./links"
 
 const now = Date.parse("2026-10-28T08:00:00Z")
 
