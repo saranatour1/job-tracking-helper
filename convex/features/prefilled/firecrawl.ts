@@ -145,6 +145,8 @@ export type FillPlan = {
   fills: (Fill & { type: string; label: string })[]
   consent: string[]
   resume?: { url: string; name: string; mimeType: string; selector: string }
+  // A question to scroll to and point out once the rest is done.
+  show?: string
 }
 
 /** Uploads the resume, fills every planned field, ticks consent boxes, and reads back
@@ -196,6 +198,14 @@ for (const f of plan.fills) {
 }
 for (const c of plan.consent) { try { await frame.locator(c).first().check(); } catch (e) { unfilled.push({ label: c, reason: String(e).slice(0, 120) }); } }
 await page.keyboard.press('Tab');
+// The live view shrinks a wide desktop to fit its pane, so the form is enlarged to stay readable.
+for (const root of [page, frame]) await root.locator('html').evaluate((h) => { h.style.zoom = '2'; }, undefined, { timeout: 3000 }).catch(() => {});
+if (plan.show) {
+  const el = frame.locator(plan.show).first();
+  await el.scrollIntoViewIfNeeded({ timeout: 3000 }).catch(() => {});
+  await el.focus({ timeout: 3000 }).catch(() => {});
+  await el.evaluate((n) => { n.style.outline = '3px solid #7c5cff'; n.style.outlineOffset = '2px'; setTimeout(() => { n.style.outline = ''; n.style.outlineOffset = ''; }, 3000); }, undefined, { timeout: 3000 }).catch(() => {});
+}
 const errors = await frame.locator('[aria-invalid=true], .field-error, .error-message, [role=alert]').filter({ visible: true }).allInnerTexts().catch(() => []);
 console.log(JSON.stringify({ unfilled, errors: errors.map((e) => e.trim()).filter(Boolean).slice(0, 20) }));
 `

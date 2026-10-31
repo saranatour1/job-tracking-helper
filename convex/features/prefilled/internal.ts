@@ -2,6 +2,7 @@ import { vOnCompleteArgs } from "@convex-dev/workpool"
 import { ConvexError, v } from "convex/values"
 import { components, internal } from "../../_generated/api"
 import { internalMutation, internalQuery } from "../../_generated/server"
+import { arkOutputToConvex } from "../../lib/ark"
 import { workLog } from "../../lib/log"
 import { changeStatus, nextNumber } from "../applications/utils"
 import { addUsage } from "../loops/utils"
@@ -9,7 +10,7 @@ import { rowLimits } from "../preferences/rows"
 import { rowOf } from "../preferences/utils"
 import { statusFrom } from "./match"
 import { liveMs } from "./utils"
-import { vRunPlan, vSavePreparedArgs } from "./validators"
+import { PrefillField, vRunPlan, vSavePreparedArgs } from "./validators"
 
 // Everything a run needs, read at once: the posting, what's prepared, the saved answers
 // (keyed by the row they came from, so usage can be stamped), and the resume file.
@@ -25,12 +26,13 @@ const plan = internalQuery({
       .query("profileEntries")
       .withIndex("by_userId_and_kind_and_order", (q) => q.eq("userId", row.userId))
       .take(rowLimits.answer + rowLimits.field)
+    // Saved answers first: the first match wins, and yours beats the account's short name.
     const answers = [
-      ...(me?.name ? [{ key: "user.name", label: "Full name", value: me.name }] : []),
-      ...(me?.email ? [{ key: "user.email", label: "Email", value: me.email }] : []),
       ...entries
         .filter((e) => e.value.trim())
         .map((e) => ({ key: e._id as string, label: e.label, value: e.value })),
+      ...(me?.name ? [{ key: "user.name", label: "Full name", value: me.name }] : []),
+      ...(me?.email ? [{ key: "user.email", label: "Email", value: me.email }] : []),
     ]
     const file = prefs?.resumeId && (await ctx.db.system.get("_storage", prefs.resumeId))
     const job = row.jobId && (await ctx.db.get("jobs", row.jobId))
@@ -61,7 +63,7 @@ const plan = internalQuery({
 const savePrepared = internalMutation({
   args: vSavePreparedArgs,
   returns: v.null(),
-  handler: async (ctx, { id, fields, credits }) => {
+  handler: async (ctx, { id, fields, credits, aiUnavailable }) => {
     const row = await ctx.db.get("prefills", id)
     if (row?.status !== "preparing") return null
     if (credits) await addUsage(ctx, "firecrawl", credits, false)
@@ -82,6 +84,7 @@ const savePrepared = internalMutation({
       preparedAt: Date.now(),
       credits: (row.credits ?? 0) + credits,
       error: undefined,
+      aiUnavailable,
     })
     // Once: reading the form again isn't news.
     if (!row.preparedAt)
@@ -127,7 +130,7 @@ const ended = internalMutation({
   },
 })
 
-// You pressed Apply now: claims the row, so a second press can't open a second browser.
+// You pressed Open browser: claims the row, so a second press can't open a second browser.
 const beginLive = internalMutation({
   args: { userId: v.id("users"), id: v.id("prefills") },
   returns: v.null(),
@@ -150,14 +153,20 @@ const goLive = internalMutation({
     scrapeId: v.string(),
     liveUrl: v.string(),
     unfilled: v.array(v.string()),
+    spots: v.array(v.object({ question: v.string(), selector: v.string() })),
     credits: v.number(),
   },
   returns: v.null(),
-  handler: async (ctx, { id, scrapeId, liveUrl, unfilled, credits }) => {
+  handler: async (ctx, { id, scrapeId, liveUrl, unfilled, spots, credits }) => {
     const row = await ctx.db.get("prefills", id)
     if (row?.status !== "live") return null
     if (credits) await addUsage(ctx, "firecrawl", credits, false)
+    const where = new Map(spots.map((s) => [s.question, s.selector]))
     await ctx.db.patch("prefills", id, {
+      fields: row.fields.map(({ selector: _old, ...f }) => {
+        const selector = where.get(f.question)
+        return selector ? { ...f, selector } : f
+      }),
       scrapeId,
       liveUrl,
       unfilled,
@@ -168,7 +177,7 @@ const goLive = internalMutation({
   },
 })
 
-// Back to where it was before Apply now. With `scrapeId`, only if that's still the session.
+// Back to where it was before Open browser. With `scrapeId`, only if that's still the session.
 const endLive = internalMutation({
   args: {
     id: v.id("prefills"),
@@ -260,11 +269,31 @@ const session = internalQuery({
   args: { id: v.id("prefills") },
   returns: v.union(
     v.null(),
-    v.object({ userId: v.id("users"), status: v.string(), scrapeId: v.optional(v.string()) })
+    v.object({
+      userId: v.id("users"),
+      status: v.string(),
+      scrapeId: v.optional(v.string()),
+      fields: arkOutputToConvex(PrefillField.array()),
+    })
   ),
   handler: async (ctx, { id }) => {
     const row = await ctx.db.get("prefills", id)
-    return row && { userId: row.userId, status: row.status, scrapeId: row.scrapeId }
+    return (
+      row && { userId: row.userId, status: row.status, scrapeId: row.scrapeId, fields: row.fields }
+    )
+  },
+})
+
+// Firecrawl charged for one question sent to the open browser.
+const spent = internalMutation({
+  args: { id: v.id("prefills"), credits: v.number() },
+  returns: v.null(),
+  handler: async (ctx, { id, credits }) => {
+    const row = await ctx.db.get("prefills", id)
+    if (!row) return null
+    await addUsage(ctx, "firecrawl", credits, false)
+    await ctx.db.patch("prefills", id, { credits: (row.credits ?? 0) + credits })
+    return null
   },
 })
 
@@ -278,4 +307,5 @@ export const internalApi = {
   endLive,
   finish,
   session,
+  spent,
 }

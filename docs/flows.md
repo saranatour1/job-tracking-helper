@@ -404,21 +404,27 @@ Previews are the same text as plain words.
      It leaves blank anything it can't back up from those. It never drafts a personal fact
      (name, contact, work authorization, visa, location, salary, start date, pronouns), a
      pick list or an optional question. A draft counts as needing you until you Save it. If
-     the model fails, the question just waits for you. Under $0.001 per application.
+     AI fails, the question just waits for you. Under $0.001 per application.
    - The questions and answers are saved on the row, the browser closes, and the Inbox
      gets one line. About 2 Firecrawl credits (counted on `sourceUsage`) and one Jev call.
      A login wall, a CAPTCHA or no form ends as Failed, with **Try again**.
-3. **Review** at `/prefilled/$id` (`/prefilled` lists what's waiting): what Jev judged
-   (fit, reasons, breakdown), the posting's opening lines, and every question with where
-   its answer came from: Saved, Jev picked, AI draft, You, or Needs you. Change any answer for this
-   application (`api.prefilled.setAnswer`). **Keep for future forms** also adds it to your
-   Saved answers under "Your questions". **Read the form again** picks up answers you've
-   saved since, and keeps what you typed and any draft. **Dismiss** sets it aside.
-4. **Apply now** (`api.prefilled.startLive`): a new browser opens the form, puts your
-   answers in and uploads your resume, then shows inside the page, for you to control. You
-   check it, solve any CAPTCHA, finish anything listed as "do these by hand", and **press
-   the form's own Submit**. The app never presses it. A location list that doesn't have
-   your city tries your country. A browser left alone closes after 15 minutes
+3. **Review** at `/prefilled/$id` (`/prefilled` lists what's waiting): your answers on the
+   left, and on the right what Jev judged (fit, reasons, breakdown) and the posting's opening
+   lines. The arrows in the header step back and forth through what's waiting. Every question
+   shows where its answer came from: Saved, Jev picked, AI draft, You, or Needs you. Change
+   any answer for this application (`api.prefilled.setAnswer`). **Keep for future forms** also
+   adds it to your Saved answers under "Your questions". **Read the form again** picks up
+   answers you've saved since, and keeps what you typed and any draft. **Dismiss** sets it
+   aside.
+4. **Open browser** (`api.prefilled.startLive`): a new browser opens the form, puts your
+   answers in and uploads your resume, then shows on the right of the page, for you to
+   control. It uses no AI. If AI ran out while preparing (Jev or the draft failed), the
+   application is still prepared with what matched by name, and a note offers **Open browser
+   with my answers**. You check it, solve any CAPTCHA, finish anything listed as "do these by
+   hand", and **press the form's own Submit**. The app never presses it. A location list that
+   doesn't have your city tries your country. **Send to form** on an answer
+   (`api.prefilled.sendToForm`) saves it, puts it in the browser and points the form at it,
+   for about 1 Firecrawl credit. A browser left alone closes after 15 minutes
    (`internal.prefilled.closeLive`), and **Close without sending** does it sooner.
 5. **I sent it** (`api.prefilled.confirmSent`) reads the page for a thank-you. If it finds
    one, or you press **Mark as sent** when it can't, the posting becomes an application at

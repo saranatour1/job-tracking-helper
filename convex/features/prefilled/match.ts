@@ -204,32 +204,35 @@ export const statusFrom = (fields: Fields) =>
     : ("ready" as const)
 
 /** Lines a prepared application's answers up with the form as it reads right now. A
- * question the form no longer asks, or doesn't find, goes on the list to do by hand. */
+ * question the form no longer asks, or doesn't find, goes on the list to do by hand.
+ * `spots` says where each question is, so one can be sent to the open browser later. */
 export const liveFillsFrom = (fields: FormField[], saved: Fields) => {
   const left = [...fields]
   const fills: (Fill & { type: string; label: string })[] = []
   const unfilled: string[] = []
+  const spots: { question: string; selector: string }[] = []
   for (const s of saved) {
+    const at = left.findIndex((f) => (f.label || f.name) === s.question)
+    const [f] = at < 0 ? [] : left.splice(at, 1)
+    if (f) spots.push({ question: s.question, selector: f.selector })
     if (!s.answer) {
       if (s.required) unfilled.push(s.question)
       continue
     }
-    const at = left.findIndex((f) => (f.label || f.name) === s.question)
-    if (at < 0) {
+    if (!f) {
       unfilled.push(s.question)
       continue
     }
-    const [f] = left.splice(at, 1)
     fills.push({
-      selector: f!.selector,
+      selector: f.selector,
       value: s.answer,
       key: s.entryKey ?? "you",
-      type: f!.type,
+      type: f.type,
       label: s.question,
       ...(s.fallback && { fallback: s.fallback }),
     })
   }
-  return { fills, unfilled }
+  return { fills, unfilled, spots }
 }
 
 /** Turns Jev's picks into fills, and lists what stays unanswered. */

@@ -88,15 +88,15 @@ const dismiss = authedMutation({
   },
 })
 
-// Answers one question for this application. A picked option must be one the form offers.
+// Answers one question for this application, even with its browser open, since the answer
+// can be sent there. A picked option must be one the form offers.
 // `keep` also adds it to your saved answers, for forms to come.
 const setAnswer = arkMutation({
   args: SetAnswer,
   returns: v.null(),
   handler: async (ctx, { id, question, answer, keep }) => {
     const row = await ownPrefill(ctx, ctx.userId, id)
-    if (row.status === "applied" || row.status === "live")
-      throw new ConvexError("This one can't be changed now.")
+    if (row.status === "applied") throw new ConvexError("This one can't be changed now.")
     const field = row.fields.find((f) => f.question === question)
     if (!field) throw new ConvexError("The form doesn't ask that.")
     if (answer && field.options && !field.options.includes(answer))

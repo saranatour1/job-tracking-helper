@@ -283,6 +283,7 @@ describe("applying with you there", () => {
       scrapeId: "s1",
       liveUrl: "https://liveview.example/s1",
       unfilled: [],
+      spots: [],
       credits: 3,
     })
   }
@@ -308,9 +309,16 @@ describe("applying with you there", () => {
     await expect(
       s.t.mutation(internal.prefilled.beginLive, { userId: s.userId, id })
     ).rejects.toThrow("already open")
-    await expect(
-      s.as.mutation(api.prefilled.setAnswer, { id, question: "Why?", answer: "x" })
-    ).rejects.toThrow("can't be changed")
+  })
+
+  it("lets you change an answer while the browser is open", async () => {
+    const s = await setup()
+    const id = await s.prepared(["Why?"])
+    await live(s, id)
+    await s.as.mutation(api.prefilled.setAnswer, { id, question: "Why?", answer: "Because." })
+    const row = (await s.as.query(api.prefilled.get, { id }))!.prefill
+    expect(row.fields[0]).toMatchObject({ answer: "Because.", source: "you" })
+    expect(row.status).toBe("live")
   })
 
   it("makes one application however many times it's confirmed, and stamps saved answers", async () => {

@@ -5,6 +5,9 @@ import { useAction, useMutation } from "convex/react"
 import { useQuery } from "convex-helpers/react/cache/hooks"
 import { startTransition, useActionState } from "react"
 
+import { ArrowLeft01Icon, ArrowRight01Icon } from "@hugeicons/core-free-icons"
+import { HugeiconsIcon } from "@hugeicons/react"
+
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -13,6 +16,7 @@ import { Select, SelectItem, SelectPopup, SelectTrigger, SelectValue } from "@/c
 import { Textarea } from "@/components/ui/textarea"
 import { messageOf } from "@/features/account/settings"
 import { Breakdown } from "@/features/loops/shortlist"
+import { cn } from "@/lib/utils"
 import { PageIntro, pageBody, Tile, tileGrid } from "@/features/shell/page-body"
 import { PageHeader } from "@/features/shell/page-header"
 
@@ -40,6 +44,12 @@ export const statusVariant: Record<Status, "secondary" | "info" | "warning" | "s
     dismissed: "secondary",
     failed: "error",
   }
+
+// What's waiting on you, in the order the list shows it.
+const openOf = <T extends { status: Status }>(rows: T[] | undefined) =>
+  (rows ?? []).filter(
+    (r) => r.status !== "applied" && r.status !== "dismissed" && r.status !== "failed"
+  )
 
 const leftToAnswer = (fields: Field[]) =>
   fields.filter((f) => f.required && (!f.answer || f.source === "ai")).length
@@ -103,9 +113,7 @@ export const PrepareButton = ({
 // The applications waiting on you, newest first. Finished ones move to Activity.
 export const PrefilledList = () => {
   const rows = useQuery(api.prefilled.list)
-  const open = (rows ?? []).filter(
-    (r) => r.status !== "applied" && r.status !== "dismissed" && r.status !== "failed"
-  )
+  const open = openOf(rows)
   return (
     <div className="soft-theme bg-background text-foreground flex h-svh flex-col rounded-[inherit] md:h-[calc(100svh-1rem)]">
       <PageHeader crumbs={[{ label: "Prefilled applications" }]} />
@@ -169,12 +177,15 @@ const AnswerRow = ({
   id,
   field,
   locked,
+  live,
 }: {
   id: Id<"prefills">
   field: Field
   locked: boolean
+  live: boolean
 }) => {
   const setAnswer = useMutation(api.prefilled.setAnswer)
+  const sendToForm = useAction(api.prefilled.sendToForm)
   const [error, save, pending] = useActionState(async (_: string | undefined, form: FormData) => {
     const answer = form.get("answer")
     try {
@@ -184,6 +195,10 @@ const AnswerRow = ({
         answer: typeof answer === "string" ? answer : "",
         keep: form.get("keep") === "on",
       })
+      if (live) {
+        const { filled } = await sendToForm({ id, question: field.question })
+        if (answer && !filled) return "It wouldn't go in. Type it in the form."
+      }
       return undefined
     } catch (cause) {
       return messageOf(cause)
@@ -235,7 +250,8 @@ const AnswerRow = ({
       )}
       {draft && (
         <p className="text-muted-foreground text-xs">
-          Drafted by AI from your resume. Make sure it's true and sounds like you, then Save.
+          Drafted by AI from your resume. Make sure it's true and sounds like you, then{" "}
+          {live ? "send it" : "Save"}.
         </p>
       )}
       {!locked && (
@@ -247,7 +263,8 @@ const AnswerRow = ({
             </label>
           )}
           <Button type="submit" size="xs" variant="outline" className="ms-auto" disabled={pending}>
-            Save
+            {live ? (pending ? "Sending…" : "Send to form") : "Save"}
+            {live && <HugeiconsIcon icon={ArrowRight01Icon} className="size-3.5" />}
           </Button>
         </div>
       )}
@@ -291,7 +308,7 @@ const LiveBrowser = ({ prefill }: { prefill: Prefill }) => {
     )
   const run = (step: "check" | "anyway" | "close") => startTransition(() => act(step))
   return (
-    <Tile title="Check it, then press Submit in the form" className="md:col-span-2">
+    <Tile title="Check it, then press Submit in the form" className="lg:h-[calc(100svh-5.5rem)]">
       {prefill.unfilled && prefill.unfilled.length > 0 && (
         <div className="px-1 text-[13px]">
           <span className="text-muted-foreground">Do these by hand in the form: </span>
@@ -301,7 +318,7 @@ const LiveBrowser = ({ prefill }: { prefill: Prefill }) => {
       <iframe
         src={prefill.liveUrl}
         title={`Application form for ${prefill.title} at ${prefill.company}`}
-        className="h-[70svh] w-full rounded-lg border bg-white"
+        className="h-[70svh] w-full rounded-lg border bg-white lg:h-auto lg:min-h-0 lg:flex-1"
       />
       <div className="flex flex-wrap items-center gap-2 px-1">
         <Button size="sm" disabled={pending} onClick={() => run("check")}>
@@ -336,7 +353,43 @@ const LiveBrowser = ({ prefill }: { prefill: Prefill }) => {
   )
 }
 
-// One application: why it fits, your answers, and Apply now.
+// Back and forth through what's waiting. An application you've finished isn't in the list,
+// so it has no neighbours.
+const Neighbors = ({ id }: { id: Id<"prefills"> }) => {
+  const open = openOf(useQuery(api.prefilled.list))
+  const at = open.findIndex((r) => r._id === id)
+  if (at < 0 || open.length < 2) return null
+  const step = (
+    to: (typeof open)[number] | undefined,
+    label: string,
+    icon: typeof ArrowLeft01Icon
+  ) =>
+    to ? (
+      <Button
+        size="icon-sm"
+        variant="ghost"
+        aria-label={`${label}: ${to.title} at ${to.company}`}
+        render={<Link to="/prefilled/$id" params={{ id: to._id }} />}
+      >
+        <HugeiconsIcon icon={icon} />
+      </Button>
+    ) : (
+      <Button size="icon-sm" variant="ghost" aria-label={label} disabled>
+        <HugeiconsIcon icon={icon} />
+      </Button>
+    )
+  return (
+    <nav aria-label="Applications" className="flex items-center gap-1">
+      {step(open[at - 1], "Previous application", ArrowLeft01Icon)}
+      <span className="text-muted-foreground text-xs tabular-nums">
+        {at + 1} of {open.length}
+      </span>
+      {step(open[at + 1], "Next application", ArrowRight01Icon)}
+    </nav>
+  )
+}
+
+// One application: your answers on the left, the real form or what it's for on the right.
 export const PrefilledPage = ({ id }: { id: Id<"prefills"> }) => {
   const data = useQuery(api.prefilled.get, { id })
   const startLive = useAction(api.prefilled.startLive)
@@ -358,6 +411,11 @@ export const PrefilledPage = ({ id }: { id: Id<"prefills"> }) => {
   const run = (step: "apply" | "dismiss" | "again") => startTransition(() => act(step))
   const prefill = data?.prefill
   const canApply = prefill?.status === "ready" || prefill?.status === "needsAnswers"
+  const open = prefill?.status === "live"
+  // A form can list a question twice (a pick list and its hidden twin). One answer covers both.
+  const questions = prefill?.fields.filter(
+    (f, i, all) => all.findIndex((o) => o.question === f.question) === i
+  )
   return (
     <div className="soft-theme bg-background text-foreground flex h-svh flex-col rounded-[inherit] md:h-[calc(100svh-1rem)]">
       <PageHeader
@@ -365,9 +423,10 @@ export const PrefilledPage = ({ id }: { id: Id<"prefills"> }) => {
           { label: "Prefilled applications", to: "/prefilled" },
           { label: prefill ? prefill.company : "" },
         ]}
+        actions={<Neighbors id={id} />}
       />
       <ScrollArea className="min-h-0 flex-1">
-        <main className={pageBody}>
+        <main className="flex w-full flex-col gap-6 px-6 py-6">
           {data === null && (
             <p className="text-muted-foreground text-[13px]">That application isn't here.</p>
           )}
@@ -378,11 +437,6 @@ export const PrefilledPage = ({ id }: { id: Id<"prefills"> }) => {
                   <Badge variant={statusVariant[prefill.status]} className="font-normal">
                     {statusLabels[prefill.status]}
                   </Badge>
-                  {canApply && (
-                    <Button size="sm" disabled={pending} onClick={() => run("apply")}>
-                      {pending ? "Opening…" : "Apply now"}
-                    </Button>
-                  )}
                   {(canApply || prefill.status === "failed" || prefill.status === "dismissed") && (
                     <Button
                       size="sm"
@@ -434,34 +488,27 @@ export const PrefilledPage = ({ id }: { id: Id<"prefills"> }) => {
               {prefill.confirmation && (
                 <p className="text-muted-foreground text-[13px]">{prefill.confirmation}</p>
               )}
-              <div className={tileGrid}>
-                {prefill.status === "live" && <LiveBrowser prefill={prefill} />}
-                <Tile title="The role">
-                  <div className="flex flex-col gap-3 px-1">
-                    <p className="text-muted-foreground text-[13px]">
-                      {[prefill.company, data.lead?.location].filter(Boolean).join(" · ")}
-                    </p>
-                    {data.lead && (
-                      <>
-                        <Badge
-                          variant={data.lead.verdict === "notFit" ? "outline" : "success"}
-                          className="w-fit font-normal"
-                        >
-                          {data.lead.fit}% ·{" "}
-                          {data.lead.verdict === "notFit" ? "Not a fit" : "A fit for you"}
-                        </Badge>
-                        <p className="text-[13px] leading-relaxed">{data.lead.reasons.join(" ")}</p>
-                        {data.lead.checks?.length ? <Breakdown checks={data.lead.checks} /> : null}
-                      </>
-                    )}
-                    {data.preview && (
-                      <p className="text-muted-foreground text-[13px] leading-relaxed">
-                        {data.preview}…
-                      </p>
-                    )}
-                  </div>
-                </Tile>
-                <Tile title={`Your answers · ${prefill.fields.length}`}>
+              {prefill.aiUnavailable && canApply && (
+                <div className="bg-muted/50 flex flex-wrap items-center gap-3 rounded-xl border p-3 text-[13px]">
+                  <p className="min-w-56 flex-1">
+                    AI isn't available right now, so nothing was picked or drafted. Your saved
+                    answers are ready: open the browser and they'll already be in the form, then
+                    type the rest there.
+                  </p>
+                  <Button size="sm" disabled={pending} onClick={() => run("apply")}>
+                    {pending ? "Opening…" : "Open browser with my answers"}
+                  </Button>
+                </div>
+              )}
+              <div
+                className={cn(
+                  "grid items-start gap-3",
+                  open
+                    ? "lg:grid-cols-[minmax(0,1fr)_minmax(0,2fr)]"
+                    : "lg:grid-cols-[minmax(0,2fr)_minmax(0,3fr)]"
+                )}
+              >
+                <Tile title={`Your answers · ${questions?.length ?? 0}`}>
                   <div className="flex flex-col gap-3 px-1">
                     {prefill.fields.length === 0 && (
                       <p className="text-muted-foreground text-[13px]">
@@ -479,16 +526,76 @@ export const PrefilledPage = ({ id }: { id: Id<"prefills"> }) => {
                         and read the form again, and AI can draft these for you to check.
                       </p>
                     )}
-                    {prefill.fields.map((field) => (
+                    {open && prefill.liveUrl && (
+                      <p className="text-muted-foreground text-xs">
+                        Send to form puts an answer in the browser and shows you where it went.
+                        About 1 Firecrawl credit each.
+                      </p>
+                    )}
+                    {questions?.map((field) => (
                       <AnswerRow
-                        key={`${field.question}:${field.answer ?? ""}`}
+                        // Keeps its place while sending, so a problem can show beside it.
+                        key={open ? field.question : `${field.question}:${field.answer ?? ""}`}
                         id={id}
                         field={field}
-                        locked={!canApply}
+                        locked={!canApply && !open}
+                        live={Boolean(open && prefill.liveUrl)}
                       />
                     ))}
                   </div>
                 </Tile>
+                <div
+                  className={cn(
+                    "flex flex-col gap-3 lg:sticky lg:top-4",
+                    open && "order-first lg:order-none"
+                  )}
+                >
+                  {open && <LiveBrowser prefill={prefill} />}
+                  {canApply && (
+                    <Tile title="The real form">
+                      <div className="flex flex-col items-start gap-3 px-1">
+                        <p className="text-muted-foreground text-[13px]">
+                          Opens here with your answers already in. You check it and press its
+                          Submit. About 3 Firecrawl credits.
+                        </p>
+                        <Button size="sm" disabled={pending} onClick={() => run("apply")}>
+                          {pending ? "Opening…" : "Open browser"}
+                        </Button>
+                      </div>
+                    </Tile>
+                  )}
+                  {!open && (
+                    <Tile title="The role">
+                      <div className="flex flex-col gap-3 px-1">
+                        <p className="text-muted-foreground text-[13px]">
+                          {[prefill.company, data.lead?.location].filter(Boolean).join(" · ")}
+                        </p>
+                        {data.lead && (
+                          <>
+                            <Badge
+                              variant={data.lead.verdict === "notFit" ? "outline" : "success"}
+                              className="w-fit font-normal"
+                            >
+                              {data.lead.fit}% ·{" "}
+                              {data.lead.verdict === "notFit" ? "Not a fit" : "A fit for you"}
+                            </Badge>
+                            <p className="text-[13px] leading-relaxed">
+                              {data.lead.reasons.join(" ")}
+                            </p>
+                            {data.lead.checks?.length ? (
+                              <Breakdown checks={data.lead.checks} />
+                            ) : null}
+                          </>
+                        )}
+                        {data.preview && (
+                          <p className="text-muted-foreground text-[13px] leading-relaxed">
+                            {data.preview}…
+                          </p>
+                        )}
+                      </div>
+                    </Tile>
+                  )}
+                </div>
               </div>
             </>
           )}
