@@ -36,6 +36,8 @@ const connection = authedQuery({
       access: row.access,
       allow: row.allow,
       receivingSince: row.inbound?.at ?? null,
+      ...(details.forwardTo && { forwardTo: details.forwardTo }),
+      tracking: Boolean(row.inbound && row.allow.receive && row.allow.tag),
       lastTest:
         last && sent
           ? {
@@ -64,9 +66,9 @@ const connect = action({
     if (!ok) throw new ConvexError("Too many tries. Wait an hour and try again.")
     const k = await secretKeys()
     const saved = await ctx.runQuery(internal.email.sealed, { userId })
+    const before = saved && (await openJson(k, saved.details, aad.details(userId), Details))
     // The routing rule points at the old address, so it has to go first.
     if (saved?.inbound) {
-      const before = await openJson(k, saved.details, aad.details(userId), Details)
       if (before?.fromAddress !== input.fromAddress || before.accountId !== input.accountId)
         throw new ConvexError("Stop incoming mail before changing the account or address.")
     }
@@ -89,6 +91,7 @@ const connect = action({
       accountId: input.accountId,
       fromAddress: input.fromAddress,
       zoneId,
+      ...(before?.forwardTo && { forwardTo: before.forwardTo }),
     }
     await ctx.runMutation(internal.email.save, {
       userId,

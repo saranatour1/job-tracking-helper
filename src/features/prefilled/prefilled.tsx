@@ -506,16 +506,14 @@ export const PrefilledPage = ({ id }: { id: Id<"prefills"> }) => {
                 <p className="text-muted-foreground text-[13px]">{prefill.confirmation}</p>
               )}
               {prefill.aiUnavailable && canApply && (
-                <div className="bg-muted/50 flex flex-wrap items-center gap-3 rounded-xl border p-3 text-[13px]">
-                  <p className="min-w-56 flex-1">
-                    AI isn't available right now, so nothing was picked or drafted. Your saved
-                    answers are ready: open the browser and they'll already be in the form, then
-                    type the rest there.
-                  </p>
-                  <Button size="sm" disabled={pending} onClick={() => run("apply")}>
-                    {pending ? "Opening…" : "Open browser with my answers"}
-                  </Button>
-                </div>
+                <Button
+                  size="sm"
+                  className="self-start"
+                  disabled={pending}
+                  onClick={() => run("apply")}
+                >
+                  {pending ? "Opening…" : "Open browser with my answers"}
+                </Button>
               )}
               <div
                 className={cn(

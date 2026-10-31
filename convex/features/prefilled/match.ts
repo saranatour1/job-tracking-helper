@@ -37,12 +37,16 @@ const consent = /\b(agree|consent|privacy|terms|certify|acknowledge|confirm that
 const resumeField = /\b(resume|résumé|cv|curriculum)\b/i
 const coverLetter = /cover letter/i
 
+const emailQuestion = /\be-?mail\b/i
+
+export const isEmailQuestion = (label: string) => emailQuestion.test(label)
+
 // Each group: the words a form or a saved answer might use for the same thing.
 const groups: RegExp[] = [
   /\b(full name|your name|^name$|legal name)\b/i,
   /\bfirst name\b|\bgiven name\b/i,
   /\blast name\b|\bsurname\b|\bfamily name\b/i,
-  /\be-?mail\b/i,
+  emailQuestion,
   /\b(phone|mobile|telephone)\b/i,
   /\blinkedin\b/i,
   /\bgithub\b/i,

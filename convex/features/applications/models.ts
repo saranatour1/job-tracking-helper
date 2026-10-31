@@ -26,6 +26,8 @@ export const applicationsTable = defineTable(
   // eslint-disable-next-line @convex-dev/no-duplicate-indexes
   .index("by_userId", ["userId"])
   .index("by_userId_and_goalId", ["userId", "goalId"])
+  // Which application an email to its own address is for.
+  .index("by_userId_and_number", ["userId", "number"])
   // `trashedAt: undefined` is everything not in the Trash, newest last.
   .index("by_userId_and_trashedAt", ["userId", "trashedAt"])
   .index("by_archivedAt", ["archivedAt"])

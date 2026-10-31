@@ -1,14 +1,17 @@
 import { vOnCompleteArgs } from "@convex-dev/workpool"
 import { ConvexError, v } from "convex/values"
 import { components, internal } from "../../_generated/api"
-import { internalMutation, internalQuery } from "../../_generated/server"
+import type { Doc } from "../../_generated/dataModel"
+import { internalMutation, internalQuery, type MutationCtx } from "../../_generated/server"
 import { arkOutputToConvex } from "../../lib/ark"
 import { workLog } from "../../lib/log"
 import { changeStatus, nextNumber } from "../applications/utils"
+import { taggedAddress } from "../email/addresses"
+import { trackingAddressOf } from "../email/utils"
 import { addUsage } from "../loops/utils"
 import { rowLimits } from "../preferences/rows"
 import { rowOf } from "../preferences/utils"
-import { statusFrom } from "./match"
+import { isEmailQuestion, statusFrom } from "./match"
 import { liveMs } from "./utils"
 import { PrefillField, vRunPlan, vSavePreparedArgs } from "./validators"
 
@@ -130,7 +133,42 @@ const ended = internalMutation({
   },
 })
 
+// The application this posting is already on, and the shortlist row it came from.
+const linkedTo = async (ctx: MutationCtx, row: Doc<"prefills">) => {
+  const lead = await ctx.db
+    .query("jobLeads")
+    .withIndex("by_userId_and_urlKey", (q) => q.eq("userId", row.userId).eq("urlKey", row.urlKey))
+    .first()
+  const id = row.applicationId ?? lead?.applicationId
+  const found = id && (await ctx.db.get("applications", id))
+  const application = found && found.trashedAt === undefined ? found : null
+  return { application, lead }
+}
+
+const newApplication = async (
+  ctx: MutationCtx,
+  row: Doc<"prefills">,
+  status: "saved" | "applied",
+  note?: string
+) => {
+  const job = row.jobId && (await ctx.db.get("jobs", row.jobId))
+  return ctx.db.insert("applications", {
+    userId: row.userId,
+    company: row.company,
+    role: row.title,
+    status,
+    url: row.url,
+    number: await nextNumber(ctx, row.userId),
+    method: "Company site",
+    ...(job?.location && { location: job.location }),
+    labels: job?.remote ? ["Remote"] : [],
+    history: [{ status, at: Date.now(), ...(note && { note }) }],
+  })
+}
+
 // You pressed Open browser: claims the row, so a second press can't open a second browser.
+// With tagged addresses on, the application has to exist now: a form's thank-you email can
+// arrive before you've come back to say you sent it, and it needs somewhere to land.
 const beginLive = internalMutation({
   args: { userId: v.id("users"), id: v.id("prefills") },
   returns: v.null(),
@@ -141,7 +179,27 @@ const beginLive = internalMutation({
       throw new ConvexError(
         row.status === "live" ? "This one is already open." : "This one isn't ready to open."
       )
-    await ctx.db.patch("prefills", id, { status: "live", error: undefined, unfilled: undefined })
+    const tracking = await trackingAddressOf(ctx, userId)
+    let tagged
+    if (tracking) {
+      const { application, lead } = await linkedTo(ctx, row)
+      const applicationId = application?._id ?? (await newApplication(ctx, row, "saved"))
+      if (lead) await ctx.db.patch("jobLeads", lead._id, { applicationId })
+      const number = (application ?? (await ctx.db.get("applications", applicationId)))!.number
+      tagged = { applicationId, address: taggedAddress(tracking, number) }
+    }
+    await ctx.db.patch("prefills", id, {
+      status: "live",
+      error: undefined,
+      unfilled: undefined,
+      ...(tagged && {
+        applicationId: tagged.applicationId,
+        // Only your own saved address: one you typed for this form is your call.
+        fields: row.fields.map((f) =>
+          f.source === "saved" && isEmailQuestion(f.question) ? { ...f, answer: tagged.address } : f
+        ),
+      }),
+    })
     return null
   },
 })
@@ -223,31 +281,15 @@ const finish = internalMutation({
     if (row?.userId !== userId) throw new ConvexError("That isn't yours.")
     if (row.status !== "live") return null
     if (credits) await addUsage(ctx, "firecrawl", credits, false)
-    const lead = await ctx.db
-      .query("jobLeads")
-      .withIndex("by_userId_and_urlKey", (q) => q.eq("userId", userId).eq("urlKey", row.urlKey))
-      .first()
-    const linked = lead?.applicationId && (await ctx.db.get("applications", lead.applicationId))
+    const { application, lead } = await linkedTo(ctx, row)
     let applicationId
-    if (linked && linked.trashedAt === undefined) {
-      await changeStatus(ctx, linked, "applied", "Sent from Prefilled applications")
-      applicationId = linked._id
+    if (application) {
+      await changeStatus(ctx, application, "applied", "Sent from Prefilled applications")
+      applicationId = application._id
     } else {
-      const job = row.jobId && (await ctx.db.get("jobs", row.jobId))
-      applicationId = await ctx.db.insert("applications", {
-        userId,
-        company: row.company,
-        role: row.title,
-        status: "applied",
-        url: row.url,
-        number: await nextNumber(ctx, userId),
-        method: "Company site",
-        ...(job?.location && { location: job.location }),
-        labels: job?.remote ? ["Remote"] : [],
-        history: [{ status: "applied", at: Date.now(), note: "Sent from Prefilled applications" }],
-      })
-      if (lead) await ctx.db.patch("jobLeads", lead._id, { status: "applied", applicationId })
+      applicationId = await newApplication(ctx, row, "applied", "Sent from Prefilled applications")
     }
+    if (lead) await ctx.db.patch("jobLeads", lead._id, { status: "applied", applicationId })
     for (const { entryKey } of row.fields) {
       const entryId = entryKey && ctx.db.normalizeId("profileEntries", entryKey)
       const entry = entryId && (await ctx.db.get("profileEntries", entryId))

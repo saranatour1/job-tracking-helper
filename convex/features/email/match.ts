@@ -69,12 +69,34 @@ export const portalOf = (kind: Kind, text: string, html = "") => {
 
 const squash = (text: string) => text.toLowerCase().replace(/[^a-z0-9]/g, "")
 
-export type Candidate = { id: string; company: string; role: string; at: number }
+export type Candidate = {
+  id: string
+  company: string
+  role: string
+  at: number
+  status?: Status
+  // The company's name on its job board, from the posting's link.
+  alias?: string
+}
+
+const legalSuffix = /[,\s]+(inc|llc|ltd|limited|gmbh|ag|corp|corporation|co|plc|bv|srl)\.?$/i
+
+const companyOf = (a: Candidate) => squash(a.company.replace(legalSuffix, ""))
+
+// Short slugs would match by accident: "app" is in far too many subjects.
+const namesOf = (a: Candidate) =>
+  [companyOf(a), ...(a.alias && squash(a.alias).length >= 4 ? [squash(a.alias)] : [])].filter(
+    (name) => name.length >= 3
+  )
+
+// Mail is most likely about what's still going on, least about what's over.
+const stageOf = (status?: Status) =>
+  status === "rejected" || status === "withdrawn" ? 2 : status === "saved" ? 1 : 0
 
 /**
  * The application an email is about when its sender or subject names exactly one
  * company. With several applications at that company, the one whose role is in the
- * subject, else the newest.
+ * subject, else the one furthest along, newest first.
  */
 export const ruleMatch = (
   mail: { from: string; fromName?: string; subject: string },
@@ -82,14 +104,12 @@ export const ruleMatch = (
 ) => {
   const domain = mail.from.split("@")[1] ?? ""
   const said = squash(`${mail.fromName ?? ""} ${domain} ${mail.subject}`)
-  const named = applications.filter(
-    (a) => squash(a.company).length >= 3 && said.includes(squash(a.company))
-  )
-  if (new Set(named.map((a) => squash(a.company))).size !== 1) return undefined
+  const named = applications.filter((a) => namesOf(a).some((name) => said.includes(name)))
+  if (new Set(named.map(companyOf)).size !== 1) return undefined
   const subject = squash(mail.subject)
   return (
     named.find((a) => squash(a.role).length >= 3 && subject.includes(squash(a.role))) ??
-    [...named].sort((a, b) => b.at - a.at)[0]
+    [...named].sort((a, b) => stageOf(a.status) - stageOf(b.status) || b.at - a.at)[0]
   )
 }
 

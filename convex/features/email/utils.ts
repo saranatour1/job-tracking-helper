@@ -44,6 +44,15 @@ export const connectionOf = (ctx: QueryCtx, userId: Id<"users">) =>
     .withIndex("by_userId", (q) => q.eq("userId", userId))
     .unique()
 
+/** The address to tag for this person, or null until mail to a tagged one would reach them. */
+export const trackingAddressOf = async (ctx: QueryCtx, userId: Id<"users">) => {
+  const row = await connectionOf(ctx, userId)
+  if (!row?.inbound || !row.allow.receive || !row.allow.tag) return null
+  const k = await keys().catch(() => null)
+  const details = k && (await openJson(k, row.details, aad.details(userId), Details))
+  return details ? details.fromAddress : null
+}
+
 export const reseal = async (k: Keys, sealedText: string, aadText: string) =>
   seal(k, await open(k, sealedText, aadText), aadText)
 
@@ -62,6 +71,8 @@ export const limits = new RateLimiter(components.rateLimiter, {
   connectEmail: { kind: "fixed window", rate: 10, period: HOUR },
   testEmail: { kind: "fixed window", rate: 5, period: HOUR },
   setUpInbound: { kind: "fixed window", rate: 5, period: HOUR },
+  // Mail written by hand from an application, well above a real day of it.
+  sendMail: { kind: "fixed window", rate: 30, period: 24 * HOUR },
   // Enough for a busy job search, low enough that a flood can't fill the table.
   inboundEmail: { kind: "token bucket", rate: 200, period: HOUR, capacity: 50 },
 })

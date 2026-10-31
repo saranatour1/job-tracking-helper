@@ -51,9 +51,14 @@ const sealed = internalQuery({
 const setInbound = internalMutation({
   args: vSetInboundArgs,
   returns: v.null(),
-  handler: async (ctx, { userId, inboundId, inbound }) => {
+  handler: async (ctx, { userId, inboundId, inbound, details }) => {
     const connection = await connectionOf(ctx, userId)
-    if (connection) await ctx.db.patch("emailConnections", connection._id, { inboundId, inbound })
+    if (connection)
+      await ctx.db.patch("emailConnections", connection._id, {
+        inboundId,
+        inbound,
+        ...(details && { details }),
+      })
     return null
   },
 })

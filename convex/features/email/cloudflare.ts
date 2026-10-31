@@ -79,9 +79,11 @@ export const routingEnabled = async (zoneId: string, token: string) =>
   ((await call(`/zones/${zoneId}/email/routing`, token)) as { enabled?: boolean } | undefined)
     ?.enabled
 
-// The Worker that receives mail: it hands each raw message to Convex and nothing else.
-// A 403 means the person turned receiving off, so the sender hears it was turned away;
-// anything else throws, so Cloudflare treats it as a temporary failure.
+// The Worker that receives mail: it hands each raw message to Convex, and forwards a copy
+// when the person gave an address. A failed forward never loses the app's copy.
+// A 403 means the person turned receiving off, so the sender hears it was turned away unless
+// there's somewhere to forward it. Anything else throws, which Cloudflare treats as a
+// temporary failure.
 export const inboundWorker = `export default {
   async email(message, env) {
     const res = await fetch(env.INBOUND_URL, {
@@ -94,8 +96,12 @@ export const inboundWorker = `export default {
       },
       body: await new Response(message.raw).arrayBuffer(),
     })
-    if (res.status === 403) return message.setReject("This address isn't accepting mail right now.")
-    if (!res.ok) throw new Error("Job Tracking Helper didn't take the message: " + res.status)
+    if (res.status === 403 && !env.FORWARD_TO)
+      return message.setReject("This address isn't accepting mail right now.")
+    if (!res.ok && res.status !== 403)
+      throw new Error("Job Tracking Helper didn't take the message: " + res.status)
+    if (env.FORWARD_TO)
+      await message.forward(env.FORWARD_TO).catch((e) => console.error("Forward failed: " + e))
   },
 }
 `
@@ -104,7 +110,7 @@ export const uploadWorker = (
   accountId: string,
   token: string,
   name: string,
-  vars: { inboundUrl: string; secret: string }
+  vars: { inboundUrl: string; secret: string; forwardTo?: string | undefined }
 ) => {
   const form = new FormData()
   form.append(
@@ -115,6 +121,9 @@ export const uploadWorker = (
       bindings: [
         { type: "plain_text", name: "INBOUND_URL", text: vars.inboundUrl },
         { type: "secret_text", name: "SECRET", text: vars.secret },
+        ...(vars.forwardTo
+          ? [{ type: "plain_text", name: "FORWARD_TO", text: vars.forwardTo }]
+          : []),
       ],
     })
   )

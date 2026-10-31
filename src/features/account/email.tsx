@@ -259,8 +259,13 @@ const Connected = ({ connection }: { connection: Connection }) => {
   const stop = useAction(api.email.stopInbound)
   const [error, test] = useActionState(() => sendTest().then(() => undefined, messageOf), undefined)
   const [inboundError, inbound] = useActionState(
-    (_: string | undefined, start: boolean) =>
-      (start ? setUp() : stop()).then(() => undefined, messageOf),
+    (_: string | undefined, start: FormData | false) => {
+      const forwardTo = start && (start.get("forwardTo") as string).trim()
+      return (start ? setUp(forwardTo ? { forwardTo } : {}) : stop()).then(
+        () => undefined,
+        messageOf
+      )
+    },
     undefined
   )
   const canSetUp = connection.allow.setup && connection.allow.receive
@@ -292,9 +297,9 @@ const Connected = ({ connection }: { connection: Connection }) => {
           inboundError ? (
             <span className="text-destructive">{inboundError}</span>
           ) : connection.receivingSince ? (
-            `Receiving at ${connection.fromAddress} since ${dateOf(connection.receivingSince)}.`
+            `Receiving at ${connection.fromAddress} since ${dateOf(connection.receivingSince)}.${connection.forwardTo ? ` A copy goes to ${connection.forwardTo}.` : ""}`
           ) : canSetUp ? (
-            `Adds a Worker and a routing rule for ${connection.fromAddress}. Email Routing must already be on for the domain.`
+            `Adds a Worker and a routing rule for ${connection.fromAddress}. Email Routing must already be on for the domain. That mail then comes here instead of any inbox it reaches today, so give an address to keep a copy going there. Cloudflare has to have verified it first.`
           ) : (
             "Turn on “Set up Cloudflare for you” and “Keep incoming mail” below first."
           )
@@ -305,14 +310,19 @@ const Connected = ({ connection }: { connection: Connection }) => {
             Stop
           </Button>
         ) : (
-          <Button
-            size="sm"
-            variant="outline"
-            disabled={!canSetUp}
-            onClick={() => startTransition(() => inbound(true))}
-          >
-            Set up
-          </Button>
+          <form action={inbound} className="flex items-center gap-2">
+            <Input
+              name="forwardTo"
+              type="email"
+              aria-label="Also forward to"
+              placeholder="Also forward to (optional)"
+              disabled={!canSetUp}
+              className="w-56"
+            />
+            <Button type="submit" size="sm" variant="outline" disabled={!canSetUp}>
+              Set up
+            </Button>
+          </form>
         )}
       </Row>
       <Row
@@ -338,13 +348,13 @@ const switches: {
   key: (typeof allowKeys)[number]
   label: string
   description: string
-  // What has to be on first: the token's setup permissions, or Jev reading mail.
-  needs?: "setup" | "read"
+  // What has to be on first: the token's setup permissions, Jev reading mail, or incoming mail.
+  needs?: "setup" | "read" | "receiving"
 }[] = [
   {
     key: "send",
     label: "Send email",
-    description: "Test emails now, and replies you write later. Always from your address.",
+    description: "Test emails, and mail you write from an application. Always from your address.",
   },
   {
     key: "setup",
@@ -358,6 +368,13 @@ const switches: {
     label: "Keep incoming mail",
     description:
       "Store mail sent to your address, encrypted. Off, mail to your address is turned away.",
+  },
+  {
+    key: "tag",
+    label: "Give each application its own address",
+    description:
+      "Like you+app-12@yourdomain, so mail lands on the right application. Turn on Subaddressing under Email Routing, then Settings, in Cloudflare first: without it, mail to these addresses bounces.",
+    needs: "receiving",
   },
   {
     key: "read",
@@ -385,9 +402,9 @@ const OnYourBehalf = ({ connection }: { connection: Connection }) => {
           needs === "setup"
             ? !canSetUp &&
               "Your token can't do this yet: it needs Workers Scripts and Email Routing Rules."
-            : needs === "read" &&
-              !connection.allow.read &&
-              "Turn on “Let Jev read your mail” first."
+            : needs === "read"
+              ? !connection.allow.read && "Turn on “Let Jev read your mail” first."
+              : needs === "receiving" && !connection.receivingSince && "Set up incoming mail first."
         return (
           <Row
             key={key}

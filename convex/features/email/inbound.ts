@@ -5,6 +5,7 @@ import { ConvexError, v } from "convex/values"
 import PostalMime from "postal-mime"
 import { components, internal } from "../../_generated/api"
 import { action, env, httpAction } from "../../_generated/server"
+import { arkToConvex, checked } from "../../lib/ark"
 import { authedQuery } from "../../lib/functions"
 import { seal } from "../../lib/secrets"
 import { createRule, removeInbound, routingEnabled, uploadWorker } from "./cloudflare"
@@ -21,17 +22,18 @@ import {
   tearDown,
   cap,
 } from "./utils"
-import { Received, vRecentMail } from "./validators"
+import { Received, SetUpInbound, vRecentMail } from "./validators"
 
 // Deploys the Worker and adds the routing rule for the sending address. Routing must
 // already be on: turning it on replaces the domain's MX records, which would cut off
 // any other mailbox on the domain, so that stays the person's call.
 const setUpInbound = action({
-  args: {},
+  args: arkToConvex(SetUpInbound),
   returns: v.null(),
-  handler: async (ctx) => {
+  handler: async (ctx, args) => {
     const userId = await userIdOf(ctx)
-    const { row, details, token } = await openConnection(ctx, userId)
+    const { forwardTo } = checked(SetUpInbound, args)
+    const { row, k, details, token } = await openConnection(ctx, userId)
     if (!row.allow.setup || !row.allow.receive)
       throw new ConvexError("Turn on “Set up Cloudflare for you” and “Keep incoming mail” first.")
     const { ok } = await limits.limit(ctx, "setUpInbound", { key: userId })
@@ -53,6 +55,7 @@ const setUpInbound = action({
       await uploadWorker(details.accountId, token, worker, {
         inboundUrl: `${env.CONVEX_SITE_URL}/email/inbound/${inboundId}`,
         secret,
+        forwardTo,
       })
       ruleId = await createRule(details.zoneId, token, details.fromAddress, worker)
     } catch (cause) {
@@ -72,6 +75,7 @@ const setUpInbound = action({
       userId,
       inboundId,
       inbound: { secretHash: await sha256(secret), worker, ruleId, at: Date.now() },
+      details: await seal(k, JSON.stringify({ ...details, forwardTo }), aad.details(userId)),
     })
     return null
   },

@@ -40,8 +40,10 @@ export type Event = { status: Status; at: string; note?: string }
 
 export type Application = {
   id: string
-  // A short code to show, like APP-21. Real applications don't have one yet.
+  // A short code to show, like APP-21.
   code?: string
+  // Its number, which names its own email address. Sample applications have none.
+  number?: number
   // The posting, when there is one.
   url?: string
   role: string

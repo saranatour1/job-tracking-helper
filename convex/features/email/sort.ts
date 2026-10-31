@@ -6,9 +6,12 @@ import { components, internal } from "../../_generated/api"
 import { internalAction, internalMutation, internalQuery } from "../../_generated/server"
 import { authedMutation, authedQuery } from "../../lib/functions"
 import { seal } from "../../lib/secrets"
+import type { Doc } from "../../_generated/dataModel"
 import { changeStatus } from "../applications/utils"
+import { boardOf } from "../jobs/boards"
 import { fireEvent } from "../automations/fire"
 import { mailNotificationKind } from "../notifications/kinds"
+import { numberIn } from "./addresses"
 import { secretKeys, aad, keys, openJson, threadKeyOf, askJev, ownEvent } from "./utils"
 import {
   type Candidate,
@@ -21,7 +24,15 @@ import {
   ruleMatch,
   suggestionOf,
 } from "./match"
-import { MailNote, Received, vSortContext, vRecordArgs, vTimeline, vMailBody } from "./validators"
+import {
+  MailNote,
+  Received,
+  vCandidate,
+  vSortContext,
+  vRecordArgs,
+  vTimeline,
+  vMailBody,
+} from "./validators"
 
 // The application an earlier email in the same thread was filed under, newest first.
 const threadOf = internalQuery({
@@ -36,6 +47,31 @@ const threadOf = internalQuery({
       if (earlier?.applicationId) return earlier.applicationId
     }
     return null
+  },
+})
+
+const candidateOf = (a: Doc<"applications">) => {
+  const alias = a.url && boardOf(a.url)?.slug
+  return {
+    id: a._id,
+    company: a.company,
+    role: a.role,
+    status: a.status,
+    at: a._creationTime,
+    ...(alias && { alias }),
+  }
+}
+
+// The application whose own address this email was sent to.
+const taggedApplication = internalQuery({
+  args: { userId: v.id("users"), number: v.number() },
+  returns: v.union(vCandidate, v.null()),
+  handler: async (ctx, { userId, number }) => {
+    const found = await ctx.db
+      .query("applications")
+      .withIndex("by_userId_and_number", (q) => q.eq("userId", userId).eq("number", number))
+      .first()
+    return found && found.trashedAt === undefined ? candidateOf(found) : null
   },
 })
 
@@ -66,13 +102,7 @@ const sortContext = internalQuery({
       payload: email.payload,
       read: connection?.allow.read ?? false,
       move: connection?.allow.move ?? false,
-      applications: applications.map((a) => ({
-        id: a._id,
-        company: a.company,
-        role: a.role,
-        status: a.status,
-        at: a._creationTime,
-      })),
+      applications: applications.map(candidateOf),
     }
   },
 })
@@ -131,7 +161,13 @@ const sortMail = internalAction({
     const mail = await openJson(k, context.payload, aad.email(userId), Received)
     if (!mail) return null
     const text = mail.text ?? ""
-    // A reply goes where the email it answers went: the thread decides first.
+    // Sent to an application's own address: nothing else needs to guess.
+    const number = numberIn(mail.to)
+    const tagged =
+      number === undefined
+        ? null
+        : await ctx.runQuery(internal.email.taggedApplication, { userId, number })
+    // A reply goes where the email it answers went: the thread decides next.
     const parents = await Promise.all(
       [...messageIdsIn(mail.references), ...messageIdsIn(mail.inReplyTo)].map((id) =>
         threadKeyOf(userId, id)
@@ -141,7 +177,8 @@ const sortMail = internalAction({
       ? await ctx.runQuery(internal.email.threadOf, { userId, keys: parents })
       : null
     const inThread = context.applications.find((a) => a.id === threadApp)
-    let application: Candidate | undefined = inThread ?? ruleMatch(mail, context.applications)
+    const known = tagged ?? inThread
+    let application: Candidate | undefined = known ?? ruleMatch(mail, context.applications)
     let kind = kindOf(mail.subject, text)
     // Typed this way so TypeScript doesn't narrow it to "rules": Jev sets it in a callback.
     let by = "rules" as "rules" | "jev"
@@ -151,13 +188,13 @@ const sortMail = internalAction({
       await askJev(mail, context.applications).then(
         (answer) => {
           ;({ kind, sureOfKind } = answer)
-          // The thread already knows the application; Jev only says what the email means.
-          if (!inThread) application = answer.application
+          // The tag or thread already knows the application; Jev only says what it means.
+          if (!known) application = answer.application
           by = "jev"
         },
         () => null
       )
-    const chosen = context.applications.find((a) => a.id === application?.id)
+    const chosen = tagged ?? context.applications.find((a) => a.id === application?.id)
     const portalUrl = portalOf(kind, text, mail.html)
     await ctx.runMutation(internal.email.record, {
       event: {
@@ -181,7 +218,7 @@ const sortMail = internalAction({
         ),
         suggest: chosen && suggestionOf(kind, chosen.status),
         ...(mail.messageId && { messageKey: await threadKeyOf(userId, mail.messageId) }),
-        by: inThread && by === "rules" ? "thread" : by,
+        by: by === "rules" ? (tagged ? "tag" : inThread ? "thread" : by) : by,
       },
       // Only Jev moves cards, only when allowed, and only when it's clearly sure.
       move: context.move && by === "jev" && sureOfKind >= 0.8,
@@ -218,6 +255,8 @@ const timeline = authedQuery({
             slot: note.slot,
             slotZone: note.slotZone,
             at: e.at,
+            sent: e.by === "sent",
+            to: note.to,
             suggest: e.suggest,
             moved: e.moved,
           }
@@ -258,7 +297,9 @@ const mailBody = authedQuery({
     if (!mail) return null
     return {
       text: (mail.text?.trim() || textOfHtml(mail.html ?? "")).slice(0, 20_000),
+      from: mail.from,
       to: mail.to.join(", "),
+      subject: mail.subject,
       attachments: mail.attachments,
     }
   },
@@ -299,6 +340,7 @@ const assign = authedMutation({
 
 export const sortApi = {
   mailBody,
+  taggedApplication,
   sortContext,
   threadOf,
   record,

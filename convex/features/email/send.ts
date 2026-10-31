@@ -1,0 +1,116 @@
+// Mail written from an application. It goes out from the person's plain address, with replies
+// aimed at the application's own address when that's on, so they come back to the right place
+// however the other side's mail is set up. Cloudflare's send API returns no Message-ID, so a
+// reply is matched by that address, or by the email it answers.
+import { ConvexError, v } from "convex/values"
+import { components, internal } from "../../_generated/api"
+import { action, internalMutation, internalQuery } from "../../_generated/server"
+import { arkToConvex, checked } from "../../lib/ark"
+import { seal } from "../../lib/secrets"
+import { taggedAddress } from "./addresses"
+import { messageIdsIn } from "./match"
+import { aad, limits, openConnection, openJson, userIdOf } from "./utils"
+import { Received, SendMail } from "./validators"
+
+// What sending needs: the application's number, and the email being answered, sealed.
+const sendContext = internalQuery({
+  args: {
+    userId: v.id("users"),
+    applicationId: v.id("applications"),
+    replyTo: v.optional(v.id("mailEvents")),
+  },
+  returns: v.union(v.null(), v.object({ number: v.number(), parent: v.optional(v.string()) })),
+  handler: async (ctx, { userId, applicationId, replyTo }) => {
+    const application = await ctx.db.get("applications", applicationId)
+    if (application?.userId !== userId || application.trashedAt !== undefined) return null
+    const event = replyTo && (await ctx.db.get("mailEvents", replyTo))
+    const email =
+      event && event.userId === userId
+        ? await ctx.runQuery(components.cloudflareEmail.lib.get, { emailId: event.emailId })
+        : null
+    return { number: application.number, ...(email && { parent: email.payload }) }
+  },
+})
+
+// A line on the application's timeline. It's your own mail, so no Inbox line or workflow.
+const recordSent = internalMutation({
+  args: {
+    userId: v.id("users"),
+    applicationId: v.id("applications"),
+    emailId: v.string(),
+    note: v.string(),
+  },
+  returns: v.null(),
+  handler: async (ctx, event) => {
+    await ctx.db.insert("mailEvents", { ...event, kind: "other", at: Date.now(), by: "sent" })
+    return null
+  },
+})
+
+const sendFromApplication = action({
+  args: arkToConvex(SendMail),
+  returns: v.null(),
+  handler: async (ctx, args) => {
+    const userId = await userIdOf(ctx)
+    const { applicationId, to, subject, text, replyTo } = checked(SendMail, args)
+    const { row, k, details, token } = await openConnection(ctx, userId)
+    if (!row.allow.send) throw new ConvexError("Turn on “Send email” under Account first.")
+    const context = await ctx.runQuery(internal.email.sendContext, {
+      userId,
+      applicationId,
+      ...(replyTo && { replyTo }),
+    })
+    if (!context) throw new ConvexError("That application isn't here anymore.")
+    const { ok } = await limits.limit(ctx, "sendMail", { key: userId })
+    if (!ok) throw new ConvexError("That's 30 emails today. Try again tomorrow.")
+    const parent =
+      context.parent && (await openJson(k, context.parent, aad.email(userId), Received))
+    const parentId = parent && messageIdsIn(parent.messageId)[0]
+    const email = {
+      from: details.fromAddress,
+      to: [to],
+      subject,
+      text,
+      ...(row.inbound &&
+        row.allow.receive &&
+        row.allow.tag && { replyTo: taggedAddress(details.fromAddress, context.number) }),
+      ...(parentId && {
+        headers: {
+          "In-Reply-To": parentId,
+          // The newest few: the header has a size limit, and threading only needs those.
+          References: [...messageIdsIn(parent.references).slice(-10), parentId].join(" "),
+        },
+      }),
+    }
+    const sealEmail = (value: object) => seal(k, JSON.stringify(value), aad.email(userId))
+    const emailId = await ctx.runMutation(components.cloudflareEmail.lib.queue, {
+      owner: userId,
+      // `attachments` so the timeline reads it the same way as mail that came in.
+      payload: await sealEmail({ ...email, attachments: [] }),
+    })
+    const { error } = await ctx.runAction(components.cloudflareEmail.lib.send, {
+      accountId: details.accountId,
+      apiToken: token,
+      email,
+    })
+    await ctx.runMutation(components.cloudflareEmail.lib.markResult, {
+      emailId,
+      failed: error !== undefined,
+      error: error && (await seal(k, error, aad.email(userId))),
+    })
+    if (error) throw new ConvexError(`Cloudflare didn't send it: ${error}`)
+    await ctx.runMutation(internal.email.recordSent, {
+      userId,
+      applicationId,
+      emailId,
+      note: await seal(
+        k,
+        JSON.stringify({ from: details.fromAddress, to, subject }),
+        aad.email(userId)
+      ),
+    })
+    return null
+  },
+})
+
+export const sendApi = { sendContext, recordSent, sendFromApplication }

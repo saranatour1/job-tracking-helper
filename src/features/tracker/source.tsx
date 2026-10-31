@@ -90,6 +90,7 @@ const isoOf = (at: number) => new Date(at).toISOString()
 export const fromDoc = (d: Doc<"applications">): Application => ({
   id: d._id,
   code: `APP-${d.number}`,
+  number: d.number,
   role: d.role,
   company: d.company,
   status: d.status,
