@@ -18,4 +18,6 @@ if grep -qs '^CONVEX_DEPLOYMENT=' .env.local; then
   fi
 fi
 
-exec pnpm exec convex dev --start 'vp dev --port 3000'
+# strictPort: a second server would rewrite routeTree.gen.ts against the first, and every
+# write reloads the page. Fail here instead of quietly moving to the next port.
+exec pnpm exec convex dev --start 'vp dev --port 3000 --strictPort'

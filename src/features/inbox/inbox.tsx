@@ -134,7 +134,7 @@ export const Inbox = () => {
   }
 
   return (
-    <div className="flex h-svh flex-col md:h-[calc(100svh-1rem)]">
+    <div className="flex min-h-0 flex-1 flex-col">
       <PageHeader
         crumbs={[{ label: "Updates" }]}
         actions={

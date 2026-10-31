@@ -149,29 +149,6 @@
   --warning-foreground: var(--color-amber-400);
 }
 
-/* Preferences in dark mode: cool, soft greys after Linear's settings pages, with a
-   slightly raised content area and cards, off-white text and a muted indigo. Scoped
-   to that page with `soft-theme`; the rest of the app keeps the colors above. */
-.dark .soft-theme {
-  --background: oklch(0.195 0.003 286);
-  --foreground: oklch(0.94 0.003 286);
-  --card: oklch(0.225 0.004 286);
-  --card-foreground: oklch(0.94 0.003 286);
-  --popover: oklch(0.225 0.004 286);
-  --popover-foreground: oklch(0.94 0.003 286);
-  --primary: oklch(0.57 0.14 277);
-  --primary-foreground: oklch(0.985 0 0);
-  --secondary: oklch(0.27 0.005 286);
-  --secondary-foreground: oklch(0.94 0.003 286);
-  --muted: oklch(0.255 0.004 286);
-  --muted-foreground: oklch(0.68 0.01 286);
-  --accent: oklch(0.27 0.005 286);
-  --accent-foreground: oklch(0.94 0.003 286);
-  --border: oklch(1 0 0 / 8%);
-  --input: oklch(1 0 0 / 12%);
-  --ring: oklch(0.57 0.12 277);
-}
-
 @layer base {
   * {
     @apply border-border outline-ring/50;

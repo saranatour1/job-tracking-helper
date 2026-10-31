@@ -308,7 +308,7 @@ export const Goals = () => {
   const open = sorted.filter((g) => !isPast(g))
   const done = sorted.filter(isPast)
   return (
-    <div className="flex h-svh flex-col md:h-[calc(100svh-1rem)]">
+    <div className="flex min-h-0 flex-1 flex-col">
       <PageHeader
         crumbs={[{ label: "Tracker" }, { label: "Goals" }]}
         actions={

@@ -262,7 +262,7 @@ export const CalendarPage = () => {
   } as const
 
   return (
-    <div ref={registerApplications} className="flex h-svh flex-col md:h-[calc(100svh-1rem)]">
+    <div ref={registerApplications} className="flex min-h-0 flex-1 flex-col">
       <PageHeader crumbs={[{ label: "Calendar" }]} />
       <div className="flex min-h-0 flex-1">
         <div className="min-w-0 flex-1">

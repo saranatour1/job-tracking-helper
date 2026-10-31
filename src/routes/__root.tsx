@@ -21,6 +21,7 @@ if (!convexUrl) {
 }
 const convex = new ConvexReactClient(convexUrl)
 const authApi = { refreshSession: api.auth.refreshSession, signOut: api.auth.signOut }
+const queryCacheMs = 60 * 60 * 1000
 
 const RootDocument = ({ children }: { children: React.ReactNode }) => {
   const path = useRouterState({ select: (s) => s.location.pathname })
@@ -33,9 +34,9 @@ const RootDocument = ({ children }: { children: React.ReactNode }) => {
       </head>
       <body>
         <ConvexAuthProvider client={convex} api={authApi}>
-          {/* Keeps each query's data for a few minutes after its page closes, so going back
-            to a page shows it right away instead of loading again. */}
-          <ConvexQueryCacheProvider>{children}</ConvexQueryCacheProvider>
+          {/* Keeps each query live for an hour after its page closes, so going back to a page
+            shows current data right away instead of loading again. */}
+          <ConvexQueryCacheProvider expiration={queryCacheMs}>{children}</ConvexQueryCacheProvider>
         </ConvexAuthProvider>
         {/* Booking guests never agreed to analytics, so their pages stay out of it. */}
         {!path.startsWith("/book/") && (

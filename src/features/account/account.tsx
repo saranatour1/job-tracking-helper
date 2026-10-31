@@ -344,7 +344,7 @@ export const Account = () => {
   const me = useQuery(api.users.me)
   return (
     // As tall as the inset, so the page scrolls inside it instead of moving the whole window.
-    <div className="flex h-svh flex-col md:h-[calc(100svh-1rem)]">
+    <div className="flex min-h-0 flex-1 flex-col">
       <PageHeader crumbs={[{ label: "Account" }]} />
       <ScrollArea className="min-h-0 flex-1">
         <main className={cn(pageBody, "max-w-2xl gap-10")}>

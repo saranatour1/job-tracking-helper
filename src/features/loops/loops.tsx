@@ -1043,7 +1043,7 @@ export const Loops = () => {
       ? formOf(settings.settings?.workMode ?? "any", tags.results, [])
       : undefined
   return (
-    <div className="soft-theme bg-background text-foreground flex h-svh flex-col rounded-[inherit] md:h-[calc(100svh-1rem)]">
+    <div className="flex min-h-0 flex-1 flex-col">
       <PageHeader
         crumbs={[{ label: "Loops" }]}
         actions={
@@ -1112,14 +1112,7 @@ export const Loops = () => {
           ).map(([value, content]) => (
             <TabsPanel key={value} value={value} className="flex min-h-0">
               <ScrollArea className="min-h-0 flex-1">
-                <div
-                  className={cn(
-                    pageBody,
-                    "animate-in fade-in duration-300 motion-reduce:animate-none"
-                  )}
-                >
-                  {content}
-                </div>
+                <div className={pageBody}>{content}</div>
               </ScrollArea>
             </TabsPanel>
           ))}

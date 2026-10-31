@@ -268,7 +268,7 @@ const tabs: { label: string; show?: Show }[] = [
 export const Activity = () => {
   const { show } = route.useSearch()
   return (
-    <div className="soft-theme bg-background text-foreground flex h-svh flex-col rounded-[inherit] md:h-[calc(100svh-1rem)]">
+    <div className="flex min-h-0 flex-1 flex-col">
       <PageHeader crumbs={[{ label: "Activity" }]} />
       <ScrollArea className="min-h-0 flex-1">
         <main className={pageBody}>

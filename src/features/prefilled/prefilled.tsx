@@ -119,7 +119,7 @@ export const PrefilledList = () => {
   const open = openOf(rows)
   const routes = usePrefillRoutes()
   return (
-    <div className="soft-theme bg-background text-foreground flex h-svh flex-col rounded-[inherit] md:h-[calc(100svh-1rem)]">
+    <div className="flex min-h-0 flex-1 flex-col">
       <PageHeader crumbs={[{ label: "Prefilled applications" }]} />
       <ScrollArea className="min-h-0 flex-1">
         <main className={pageBody}>
@@ -561,7 +561,7 @@ const Neighbors = ({ id }: { id: Id<"prefills"> }) => {
 
 // One application: your answers on the left, the real form or what it's for on the right.
 export const PrefilledMissing = () => (
-  <div className="soft-theme bg-background text-foreground flex h-svh flex-col rounded-[inherit] md:h-[calc(100svh-1rem)]">
+  <div className="flex min-h-0 flex-1 flex-col">
     <PageHeader crumbs={[{ label: "Prefilled applications", to: "/prefilled" }]} />
     <p className="text-muted-foreground p-6 text-[13px]">That application isn't here.</p>
   </div>
@@ -595,7 +595,7 @@ export const PrefilledPage = ({ id }: { id: Id<"prefills"> }) => {
     (f, i, all) => all.findIndex((o) => o.question === f.question) === i
   )
   return (
-    <div className="soft-theme bg-background text-foreground flex h-svh flex-col rounded-[inherit] md:h-[calc(100svh-1rem)]">
+    <div className="flex min-h-0 flex-1 flex-col">
       <PageHeader
         crumbs={[
           { label: "Prefilled applications", to: "/prefilled" },

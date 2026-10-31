@@ -520,7 +520,7 @@ const Prefilled = ({
   return (
     <div className="flex min-w-0 flex-1 flex-col">
       <ScrollArea className="min-h-0 flex-1">
-        <div className={cn(pageBody, "animate-in fade-in duration-300 motion-reduce:animate-none")}>
+        <div className={pageBody}>
           <PageIntro
             title="Saved answers"
             description={
@@ -866,7 +866,7 @@ const Overview = ({
   onEdit: (step: StepId) => void
 }) => (
   <ScrollArea className="min-h-0 flex-1">
-    <div className={cn(pageBody, "animate-in fade-in duration-300 motion-reduce:animate-none")}>
+    <div className={pageBody}>
       <PageIntro
         title="Overview"
         description="Everything you've told us. Click a row to change it."
@@ -934,7 +934,8 @@ const PreferencesForm = ({
   // The tab and step live in the URL, so a reload or the back button keeps your place.
   const search = useSearch({ from: "/_app/preferences" })
   // Which way the last move went, so the next section slides in from that side.
-  const forward = useLocation({ select: (l) => l.state.forward ?? true })
+  // Only set by moving between steps, so opening the page doesn't animate.
+  const forward = useLocation({ select: (l) => l.state.forward })
   // First run walks through the steps; after that, the overview is the quicker way in.
   // Decided once, so a first save doesn't jump away from the step you're on.
   const firstTab = useRef<PreferencesTab>(onboarded ? "overview" : "edit").current
@@ -1310,8 +1311,10 @@ const PreferencesForm = ({
               <div
                 className={cn(
                   pageBody,
-                  "animate-in fade-in max-w-2xl gap-2 duration-300 motion-reduce:animate-none",
-                  forward ? "slide-in-from-bottom-4" : "slide-in-from-top-4"
+                  "max-w-2xl gap-2",
+                  forward !== undefined &&
+                    "animate-in fade-in duration-300 motion-reduce:animate-none",
+                  forward ? "slide-in-from-bottom-4" : forward === false && "slide-in-from-top-4"
                 )}
               >
                 <span className="text-muted-foreground text-xs">
@@ -1441,7 +1444,7 @@ export const Preferences = () => {
   )
   const ready = data && me && tags && answers && fields
   return (
-    <div className="soft-theme bg-background text-foreground flex h-svh flex-col rounded-[inherit] md:h-[calc(100svh-1rem)]">
+    <div className="flex min-h-0 flex-1 flex-col">
       <PageHeader crumbs={[{ label: "Preferences" }]} />
       {ready && (
         <PreferencesForm

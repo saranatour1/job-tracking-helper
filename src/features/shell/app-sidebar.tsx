@@ -90,7 +90,8 @@ const NavItems = ({ items }: { items: readonly Item[] }) => {
       {items.map((item) => (
         <SidebarMenuItem key={item.to}>
           <SidebarMenuButton
-            render={<Link to={item.to} />}
+            // Loads each page's code up front, so the first click doesn't wait for it.
+            render={<Link to={item.to} preload="viewport" />}
             isActive={path.startsWith(item.to)}
             tooltip={item.title}
             onClick={() => setOpenMobile(false)}
