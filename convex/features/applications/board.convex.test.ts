@@ -227,7 +227,6 @@ describe("the fill for existing applications", () => {
     })
     expect(await t.run((ctx) => ctx.db.query("jobCatalog").first())).toMatchObject({
       boards: 1,
-      jobs: 4,
     })
   })
 })

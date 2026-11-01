@@ -29,24 +29,3 @@ export const groupDomains = <
   }
   return [...domains.values()]
 }
-
-/** The catalog by proof and by domain ending, from each board with roles and its site. */
-export const summarize = (boards: { jobs: number; domain?: string; link?: string }[]) => {
-  const summary = { domains: 0, own: 0, name: 0, unverified: 0 }
-  const domains = new Set<string>()
-  const endings = new Map<string, number>()
-  for (const { jobs, domain, link } of boards) {
-    summary[proofOf(domain, link)] += jobs
-    if (!domain) continue
-    domains.add(domain)
-    const ending = endingOf(domain)
-    endings.set(ending, (endings.get(ending) ?? 0) + jobs)
-  }
-  return {
-    ...summary,
-    domains: domains.size,
-    endings: [...endings]
-      .map(([ending, jobs]) => ({ ending, jobs }))
-      .sort((a, b) => b.jobs - a.jobs || a.ending.localeCompare(b.ending)),
-  }
-}

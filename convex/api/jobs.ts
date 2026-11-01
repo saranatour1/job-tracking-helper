@@ -19,7 +19,6 @@ export const {
   researchDue,
   researchInputs,
   saveResearch,
-  summarizeCatalog,
   candidates,
   byUrlKey,
   get,

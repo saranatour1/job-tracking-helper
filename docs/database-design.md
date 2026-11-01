@@ -84,13 +84,13 @@ Built-in questions are a list in code (`preferences/rows.ts`), keyed so a label 
 
 These have no owner. Deleting an account leaves them.
 
-| Table         | Holds                                                                  | Why it's a table | Indexes                                                                                           |
-| ------------- | ---------------------------------------------------------------------- | ---------------- | ------------------------------------------------------------------------------------------------- |
-| `companies`   | one per website domain: its registration date and YC details           | 1, 3             | `by_domain`                                                                                       |
-| `jobBoards`   | one feed the catalog reads, usually a company's board, and its count   | 2, 3             | `by_kind_and_slug`, `by_fetchedAt`, `by_jobs`, `by_researchedAt`, `by_companyId`                  |
-| `jobCatalog`  | one row: how many boards the catalog has, and if the counts are filled | 3                | none                                                                                              |
-| `jobs`        | one open role from a board's feed, with its text for search            | 1, 3, 4          | `by_urlKey`, `by_boardId_and_postedAt`, `by_postedAt`, `by_remote_and_postedAt`, search on `text` |
-| `sourceUsage` | credits each search source used this month                             | 3                | `by_provider_and_month`                                                                           |
+| Table         | Holds                                                                | Why it's a table | Indexes                                                                                           |
+| ------------- | -------------------------------------------------------------------- | ---------------- | ------------------------------------------------------------------------------------------------- |
+| `companies`   | one per website domain: its registration date and YC details         | 1, 3             | `by_domain`                                                                                       |
+| `jobBoards`   | one feed the catalog reads, usually a company's board, and its count | 2, 3             | `by_kind_and_slug`, `by_fetchedAt`, `by_jobs`, `by_researchedAt`, `by_companyId`                  |
+| `jobCatalog`  | one row: how many boards the catalog has                             | 3                | none                                                                                              |
+| `jobs`        | one open role from a board's feed, with its text for search          | 1, 3, 4          | `by_urlKey`, `by_boardId_and_postedAt`, `by_postedAt`, `by_remote_and_postedAt`, search on `text` |
+| `sourceUsage` | credits each search source used this month                           | 3                | `by_provider_and_month`                                                                           |
 
 A company row holds what's true of a domain. How a board reached that domain is on the board (`companyLink`): `postings` when its postings live on that site, `name` when only a domain matching its name turned up. Anyone can open a board under a copied name, so a copycat of a known company shares the real row but keeps `name`, and never reads as posting on that site. A board with no site found has a row of its own, since a name alone can't say two boards are one company.
 
@@ -220,7 +220,7 @@ No query reads a table without a limit. Convex refuses a function that reads too
 | Company filter (`jobs.companies`)            | the 200 boards with the most roles                                                  | Smaller boards aren't offered. Catalog totals are a stored count, with no limit                                                                                                                                                                                                  |
 | Researching companies                        | 25 boards a batch, 20 postings from each                                            | A full batch starts the next. A board's site is read from its 20 newest postings                                                                                                                                                                                                 |
 | Proof or ending filter on Jobs               | 500 roles read a page                                                               | A rare one can come back short, and Show more carries on. On a search, only the page's matches are kept                                                                                                                                                                          |
-| Catalog counts (`jobs.stats`)                | 4 sharded counters and one sum per domain ending, no roles or boards                | Exact, whatever the catalog's size. `jobs.summarizeCatalog` read every board each hour, and stops once `api/migrations:fillJobCounts` has run                                                                                                                                    |
+| Catalog counts (`jobs.stats`)                | 4 sharded counters and one sum per domain ending, no roles or boards                | Exact, whatever the catalog's size                                                                                                                                                                                                                                               |
 
 Everything else stops at a limit a write already enforces (goals, views, loops, booking pages, workflows), or is a batch that picks up the rest on its next run (due loops, due boards, closed roles, the Trash sweep, pruning a workflow's old runs).
 

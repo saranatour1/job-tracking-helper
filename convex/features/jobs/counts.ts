@@ -74,11 +74,10 @@ const rollUp = async (ctx: MutationCtx, boardId: Id<"jobBoards">, was: Place, no
 }
 
 /** After a write to `jobs`, or to where a board's roles are counted, in the same mutation: brings
- * the board's count and all that's rolled up from it to what its roles now say. A board the fill
- * hasn't reached waits for it. */
+ * the board's count and all that's rolled up from it to what its roles now say. */
 export const recount = async (ctx: MutationCtx, boardId: Id<"jobBoards">, placed?: Place) => {
   const board = await ctx.db.get("jobBoards", boardId)
-  if (!board?.counted) return
+  if (!board) return
   const jobs = await roleCounts.count(ctx, { namespace: boardId })
   const was = placed ?? (await placeOf(ctx, board))
   const now = { ...(await placeOf(ctx, board)), jobs }
@@ -92,28 +91,12 @@ export const insertJob = async (
   job: Omit<Doc<"jobs">, "_id" | "_creationTime">
 ) => {
   const id = await ctx.db.insert("jobs", job)
-  // If-does-not-exist so the fill and a write can reach a new role in either order.
-  await roleCounts.insertIfDoesNotExist(ctx, (await ctx.db.get("jobs", id))!)
+  await roleCounts.insert(ctx, (await ctx.db.get("jobs", id))!)
 }
 
 export const deleteJob = async (ctx: MutationCtx, job: Doc<"jobs">) => {
   await ctx.db.delete("jobs", job._id)
   await roleCounts.deleteIfExists(ctx, job)
-}
-
-/** The fill's last step for a board, once every role is in `roleCounts`. */
-export const fillBoard = async (ctx: MutationCtx, boardId: Id<"jobBoards">) => {
-  const board = await ctx.db.get("jobBoards", boardId)
-  if (!board || board.counted) return
-  const jobs = await roleCounts.count(ctx, { namespace: boardId })
-  const place = await placeOf(ctx, board)
-  await ctx.db.patch("jobBoards", boardId, { jobs, counted: true })
-  await rollUp(ctx, boardId, { ...place, domain: null, jobs: 0 }, { ...place, jobs })
-}
-
-export const markCounted = async (ctx: MutationCtx) => {
-  const row = await ctx.db.query("jobCatalog").first()
-  if (row) await ctx.db.patch("jobCatalog", row._id, { countsReady: true })
 }
 
 export const catalogCounts = async (ctx: QueryCtx) => {

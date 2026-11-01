@@ -14,8 +14,8 @@ export const companiesTable = defineTable(arkOutputToConvex(Company)).index("by_
 
 export const jobCatalogTable = defineTable({
   boards: v.number(),
-  jobs: v.number(),
+  // No longer written or read: `api/migrations:clearOldCounts` takes them off older rows.
+  jobs: v.optional(v.number()),
   summary: v.optional(vCatalogSummary),
-  // Set once the fill has counted every role. Until then, Jobs reads the stored numbers above.
   countsReady: v.optional(v.boolean()),
 })

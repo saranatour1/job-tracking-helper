@@ -256,7 +256,7 @@ const Domain = ({
 }) => {
   const first = jobs[0]!
   const { boardId, domain, yc, registeredAt, open, pooled } = first.evidence
-  const count = Math.max(open ?? 0, jobs.length)
+  const count = open ?? jobs.length
   // A link to a board of many companies would show the rest of them too.
   const more = canNarrow && boardId && !pooled ? count - jobs.length : 0
   return (
@@ -682,7 +682,7 @@ export const Jobs = () => {
             title="Jobs"
             description={
               stats
-                ? `${stats.jobs.toLocaleString("en")} open roles ${stats.summary ? `across ${stats.summary.domains} company domains` : `from ${stats.boards} job boards`}, refreshed daily${signedIn ? " and shared by everyone. Your loops pick from these, and Jev judges which fit you." : "."}`
+                ? `${stats.jobs.toLocaleString("en")} open roles across ${stats.summary.domains} company domains, refreshed daily${signedIn ? " and shared by everyone. Your loops pick from these, and Jev judges which fit you." : "."}`
                 : "Open roles from job boards, refreshed daily."
             }
           />
@@ -821,7 +821,7 @@ export const Jobs = () => {
             </div>
           </div>
 
-          {stats?.summary && (
+          {stats && (
             <Overview
               summary={stats.summary}
               signedIn={signedIn}

@@ -1,7 +1,6 @@
 // @vitest-environment edge-runtime
 /// <reference types="vite/client" />
 import aggregate from "@convex-dev/aggregate/test"
-import batchWorker from "@convex-dev/batch-worker/test"
 import shardedCounter from "@convex-dev/sharded-counter/test"
 import { convexTest } from "convex-test"
 import { describe, expect, it } from "vite-plus/test"
@@ -22,7 +21,6 @@ const setup = () => {
   aggregate.register(t, "jobRoleCounts")
   aggregate.register(t, "jobDomainCounts")
   shardedCounter.register(t)
-  batchWorker.register(t)
   return t
 }
 
@@ -39,12 +37,9 @@ const feedJob = (n: number, company = "Stripe") => ({
 })
 
 const addBoard = (t: T, slug: string, kind: "greenhouse" | "remoteok" = "greenhouse") =>
-  t.run((ctx) =>
-    ctx.db.insert("jobBoards", { kind, slug, company: slug, addedAt: 0, jobs: 0, counted: true })
-  )
+  t.run((ctx) => ctx.db.insert("jobBoards", { kind, slug, company: slug, addedAt: 0, jobs: 0 }))
 
-const ready = (t: T) =>
-  t.run((ctx) => ctx.db.insert("jobCatalog", { boards: 0, jobs: 0, countsReady: true }))
+const ready = (t: T) => t.run((ctx) => ctx.db.insert("jobCatalog", { boards: 0 }))
 
 const save = (t: T, boardId: Id<"jobBoards">, from: number, to: number, company?: string) =>
   t.mutation(internal.api.jobs.saveJobs, {
@@ -176,7 +171,7 @@ describe("the catalog's counts", () => {
 
   it("forgets a search board left with no roles", async () => {
     const t = setup()
-    await t.run((ctx) => ctx.db.insert("jobCatalog", { boards: 1, jobs: 0, countsReady: true }))
+    await t.run((ctx) => ctx.db.insert("jobCatalog", { boards: 1 }))
     const boardId = await t.run((ctx) =>
       ctx.db.insert("jobBoards", {
         kind: "arbeitsagentur",
@@ -184,7 +179,6 @@ describe("the catalog's counts", () => {
         company: "Search",
         addedAt: 0,
         jobs: 0,
-        counted: true,
       })
     )
     await save(t, boardId, 0, 2, "Wren")
@@ -205,63 +199,32 @@ describe("the catalog's counts", () => {
   })
 })
 
-describe("filling the counts", () => {
-  const fill = async (t: T) => {
-    await t.mutation(internal.api.migrations.fillJobCounts, {})
-    await t.finishAllScheduledFunctions(() => {})
-  }
-
-  it("keeps the old numbers until it's done, then switches to exact ones", async () => {
+describe("clearing the old counts", () => {
+  it("takes the old fields off stored rows, and leaves the counts alone", async () => {
     const t = setup()
-    const { stripe, hooli } = await t.run(async (ctx) => {
-      const companyId = await ctx.db.insert("companies", { name: "Stripe", domain: "stripe.com" })
-      const board = { kind: "greenhouse" as const, company: "", addedAt: 0 }
-      // Says 300 for a feed that lists 3 roles over and over, as boards do today.
-      const stripe = await ctx.db.insert("jobBoards", {
-        ...board,
+    const { boardId } = await t.run(async (ctx) => {
+      await ctx.db.insert("jobCatalog", { boards: 1, jobs: 300, countsReady: true })
+      const boardId = await ctx.db.insert("jobBoards", {
+        kind: "greenhouse",
         slug: "stripe",
-        jobs: 300,
-        companyId,
-        companyLink: "postings",
+        company: "Stripe",
+        addedAt: 0,
+        jobs: 0,
+        counted: true,
       })
-      const hooli = await ctx.db.insert("jobBoards", { ...board, slug: "hooli", jobs: 2 })
-      await ctx.db.insert("jobCatalog", { boards: 2, jobs: 302 })
-      for (const [i, boardId] of [stripe, stripe, stripe, hooli, hooli].entries())
-        await ctx.db.insert("jobs", { ...feedJob(i), boardId, urlKey: `key${i}` })
-      return { stripe, hooli }
+      return { boardId }
     })
-    expect(await t.query(api.api.jobs.stats, {})).toEqual({ boards: 2, jobs: 302 })
-
-    // A refresh before the fill reaches these boards is counted too, and no role twice.
-    await save(t, hooli, 10, 11)
-    const closing = (await jobIdsOf(t, stripe))[0]!
-    await t.mutation(internal.api.jobs.closeJobs, { jobIds: [closing] })
-
-    await fill(t)
-    expect(await t.query(internal.api.migrations.jobCountsLeft, {})).toEqual({
-      boards: 0,
-      ready: true,
-    })
-    expect(await summary(t)).toEqual({
-      jobs: 5,
-      domains: 1,
-      own: 2,
-      name: 0,
-      unverified: 3,
-      endings: [{ ending: ".com", jobs: 2 }],
-    })
-
-    // And it changes nothing run again.
-    await fill(t)
-    await save(t, stripe, 20, 21)
-    expect(await summary(t)).toMatchObject({ jobs: 6, own: 3, unverified: 3 })
-  })
-
-  it("stops writing the old summary once it's done", async () => {
-    const t = setup()
-    await ready(t)
-    await t.mutation(internal.api.jobs.summarizeCatalog, {})
-    const row = await t.run((ctx) => ctx.db.query("jobCatalog").first())
-    expect(row?.summary).toBeUndefined()
+    await save(t, boardId, 0, 2)
+    await t.mutation(internal.api.migrations.clearOldCounts, {})
+    await t.mutation(internal.api.migrations.clearOldCounts, {})
+    const { board, row } = await t.run(async (ctx) => ({
+      board: await ctx.db.get("jobBoards", boardId),
+      row: await ctx.db.query("jobCatalog").first(),
+    }))
+    expect(board).not.toHaveProperty("counted")
+    expect(row).not.toHaveProperty("jobs")
+    expect(row).not.toHaveProperty("summary")
+    expect(row).not.toHaveProperty("countsReady")
+    expect(await summary(t)).toMatchObject({ jobs: 2, unverified: 2 })
   })
 })

@@ -113,13 +113,12 @@ const companies = authedQuery({
 const stats = query({
   args: {},
   returns: v.union(
-    v.object({ boards: v.number(), jobs: v.number(), summary: v.optional(vCatalogSummary) }),
+    v.object({ boards: v.number(), jobs: v.number(), summary: vCatalogSummary }),
     v.null()
   ),
   handler: async (ctx) => {
     const row = await ctx.db.query("jobCatalog").first()
-    if (row?.countsReady) return { boards: row.boards, ...(await catalogCounts(ctx)) }
-    return row && { boards: row.boards, jobs: row.jobs, summary: row.summary }
+    return row && { boards: row.boards, ...(await catalogCounts(ctx)) }
   },
 })
 

@@ -9,8 +9,7 @@ import { readPool } from "../workflows/manager"
 import { apiKeyOf, monthlyCredits, monthOf } from "../workflows/sources"
 import { boardKinds, companyOf, isCompanyBoard, searchSlug, starterBoards } from "./boards"
 import { researchBatch, researchEvery } from "./companies"
-import { deleteJob, insertJob, markCounted, placeOf, recount, roleCounts } from "./counts"
-import { summarize } from "./domains"
+import { deleteJob, insertJob, placeOf, recount, roleCounts } from "./counts"
 import { leadOf } from "./leads"
 import { boardOf } from "./links"
 import { vFeedJob, vBoardFetchedArgs, vCandidatesArgs, vSaveResearchArgs } from "./validators"
@@ -28,10 +27,8 @@ const refreshDue = internalMutation({
           company: companyOf(b.slug),
           addedAt: now,
           jobs: 0,
-          counted: true,
         })
       await countCatalog(ctx, { boards: starterBoards.length })
-      await markCounted(ctx)
     }
     const due = await ctx.db
       .query("jobBoards")
@@ -74,7 +71,6 @@ const addBoards = internalMutation({
             company: companyOf(b.slug),
             addedAt: Date.now(),
             jobs: 0,
-            counted: true,
           })
         )
     }
@@ -104,7 +100,6 @@ const addSearches = internalMutation({
           company: `Arbeitsagentur: ${what.trim().slice(0, 80)}, ${where.trim().slice(0, 80)}`,
           addedAt: Date.now(),
           jobs: 0,
-          counted: true,
         })
       )
     }
@@ -180,22 +175,19 @@ const boardFetched = internalMutation({
     const b = await ctx.db.get("jobBoards", boardId)
     // A search with no roles, often a place outside Germany, isn't worth refreshing. The next
     // run asks again.
-    if (b?.kind === "arbeitsagentur" && !error && !jobs && !(b.counted && b.jobs)) {
+    if (b?.kind === "arbeitsagentur" && !error && !jobs && !b.jobs) {
       await ctx.db.delete("jobBoards", boardId)
-      await countCatalog(ctx, { boards: -1, jobs: b.counted ? 0 : -b.jobs })
+      await countCatalog(ctx, { boards: -1 })
       return null
     }
-    // A counted board's `jobs` follows its rows. A feed can list one role twice, or one saved
-    // from another board, so the feed's length isn't how many roles it has here.
+    // A board's `jobs` follows its rows. A feed can list one role twice, or one saved from another
+    // board, so the feed's length isn't how many roles it has here.
     if (b)
       await ctx.db.patch("jobBoards", boardId, {
         fetchedAt: Date.now(),
-        ...(!b.counted && { jobs: error ? b.jobs : jobs }),
         error,
         ...(company?.trim() && { company: company.trim().slice(0, 120) }),
       })
-    if (b && !b.counted && !error && jobs !== b.jobs)
-      await countCatalog(ctx, { jobs: jobs - b.jobs })
     return null
   },
 })
@@ -285,7 +277,6 @@ const ensureBoard = internalMutation({
       company: companyOf(b.slug),
       addedAt: Date.now(),
       jobs: 0,
-      counted: true,
     })
     await countCatalog(ctx, { boards: 1 })
     return id
@@ -395,26 +386,6 @@ const saveResearch = internalMutation({
   },
 })
 
-// For Jobs until the counts are filled (`api/migrations:fillJobCounts`). Delete it after that.
-const summarizeCatalog = internalMutation({
-  args: {},
-  returns: v.null(),
-  handler: async (ctx) => {
-    if ((await ctx.db.query("jobCatalog").first())?.countsReady) return null
-    const boards = []
-    for await (const b of ctx.db.query("jobBoards").withIndex("by_jobs", (q) => q.gt("jobs", 0))) {
-      const company = b.companyId ? await ctx.db.get("companies", b.companyId) : null
-      boards.push({ jobs: b.jobs, domain: company?.domain, link: b.companyLink })
-    }
-    const summary = summarize(boards)
-    const row = await ctx.db.query("jobCatalog").first()
-    // An unchanged write would rerun every open Jobs page.
-    if (row && JSON.stringify(row.summary) !== JSON.stringify(summary))
-      await ctx.db.patch("jobCatalog", row._id, { summary })
-    return null
-  },
-})
-
 const get = internalQuery({
   args: { jobId: v.id("jobs") },
   handler: (ctx, { jobId }) => ctx.db.get("jobs", jobId),
@@ -434,7 +405,6 @@ export const internalApi = {
   researchDue,
   researchInputs,
   saveResearch,
-  summarizeCatalog,
   candidates,
   byUrlKey,
   get,
