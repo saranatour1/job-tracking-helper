@@ -25,6 +25,8 @@ Keep these in `./job-search/`, unless the person picks another folder:
 - `applications.csv`: `date,company,role,url,status,notes`. Status is `shortlisted`, `drafted`, `applied`, `interview`, `offer`, `rejected` or `passed`.
 - `drafts/<company>-<role>.md`: one per application.
 
+The `job-goals-no-account` skill keeps goals and company decisions in this folder too, and writes the same `profile.md`. If `companies/<company>.md` says they chose to skip a company, leave it out.
+
 ## 1. Find out what they want
 
 Read `profile.md` if it exists. If not, ask for these, then save them:

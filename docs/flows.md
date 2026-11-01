@@ -1069,6 +1069,13 @@ Prefilled applications, Interface and theme, Account)
    applications in local files. It reaches nothing of the app's, so none of this section's scopes or
    limits apply, and it follows the same rules: it never submits and it skips demographic questions.
    When a feed or its rules change in `convex/features/jobs/boards.ts`, change the skill too.
+9. **Goals and company decisions with no account.** `skills/job-goals-no-account/SKILL.md`, served
+   the same way, works in any AI chat, with no shell. The agent interviews the person, then keeps
+   preferences, goals, a short brief to paste into other chats and, if they want it, a decision and
+   report per company. It keeps these in the same folder as the search skill, or in one document the
+   person saves and pastes back. The agent judges companies itself, so it calls neither Jev nor any
+   other model API. When the questions in `src/features/preferences/prompt.ts` change, change the
+   skill too.
 
 **Limits:** `prepare_application` and `run_job_search` share the day's limits with the app (10 and
 3), as does `check_job_link` (10). `notify_user` is 20 a day and `add_contact` 100. Every other change counts toward 500 a day, and
@@ -1076,7 +1083,8 @@ reads toward 120 a minute. A new loop starts paused, and you can keep 3.
 
 **Files:** `convex/mcp.ts`, `convex/features/agents/`, `src/features/account/agents.tsx`,
 `src/features/account/connect.tsx`, `src/lib/discovery.ts`, `src/lib/web-mcp.ts`,
-`convex/lib/webBotAuth.ts`, `skills/job-search-no-account/SKILL.md`.
+`convex/lib/webBotAuth.ts`, `skills/job-search-no-account/SKILL.md`,
+`skills/job-goals-no-account/SKILL.md`.
 
 ## Workflows
 
