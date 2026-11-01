@@ -9,6 +9,7 @@ import { readPool } from "../workflows/manager"
 import { apiKeyOf, monthlyCredits, monthOf } from "../workflows/sources"
 import { boardKinds, companyOf, isCompanyBoard, searchSlug, starterBoards } from "./boards"
 import { researchBatch, researchEvery } from "./companies"
+import { deleteJob, insertJob, markCounted, placeOf, recount, roleCounts } from "./counts"
 import { summarize } from "./domains"
 import { leadOf } from "./leads"
 import { boardOf } from "./links"
@@ -27,8 +28,10 @@ const refreshDue = internalMutation({
           company: companyOf(b.slug),
           addedAt: now,
           jobs: 0,
+          counted: true,
         })
       await countCatalog(ctx, { boards: starterBoards.length })
+      await markCounted(ctx)
     }
     const due = await ctx.db
       .query("jobBoards")
@@ -71,6 +74,7 @@ const addBoards = internalMutation({
             company: companyOf(b.slug),
             addedAt: Date.now(),
             jobs: 0,
+            counted: true,
           })
         )
     }
@@ -100,6 +104,7 @@ const addSearches = internalMutation({
           company: `Arbeitsagentur: ${what.trim().slice(0, 80)}, ${where.trim().slice(0, 80)}`,
           addedAt: Date.now(),
           jobs: 0,
+          counted: true,
         })
       )
     }
@@ -112,18 +117,26 @@ const saveJobs = internalMutation({
   args: { boardId: v.id("jobBoards"), jobs: v.array(vFeedJob) },
   returns: v.null(),
   handler: async (ctx, { boardId, jobs }) => {
+    let added = false
     for (const job of jobs) {
       const key = urlKey(job.url)
       const known = await ctx.db
         .query("jobs")
         .withIndex("by_urlKey", (q) => q.eq("urlKey", key))
         .first()
-      if (!known) await ctx.db.insert("jobs", { ...job, boardId, urlKey: key })
+      if (!known) {
+        await insertJob(ctx, { ...job, boardId, urlKey: key })
+        added = true
+      }
       // A write reindexes the role's text and reruns every open search that read it, so a
       // role the feed didn't change stays as it is.
-      else if ((Object.keys(job) as (keyof typeof job)[]).some((k) => job[k] !== known[k]))
+      else if ((Object.keys(job) as (keyof typeof job)[]).some((k) => job[k] !== known[k])) {
         await ctx.db.patch("jobs", known._id, job)
+        if (job.company !== known.company)
+          await roleCounts.replaceOrInsert(ctx, known, { ...known, ...job })
+      }
     }
+    if (added) await recount(ctx, boardId)
     return null
   },
 })
@@ -148,8 +161,14 @@ const closeJobs = internalMutation({
   args: { jobIds: v.array(v.id("jobs")) },
   returns: v.null(),
   handler: async (ctx, { jobIds }) => {
-    for (const jobId of jobIds)
-      if (await ctx.db.get("jobs", jobId)) await ctx.db.delete("jobs", jobId)
+    const boards = new Set<Id<"jobBoards">>()
+    for (const jobId of jobIds) {
+      const job = await ctx.db.get("jobs", jobId)
+      if (!job) continue
+      await deleteJob(ctx, job)
+      boards.add(job.boardId)
+    }
+    for (const boardId of boards) await recount(ctx, boardId)
     return null
   },
 })
@@ -161,19 +180,22 @@ const boardFetched = internalMutation({
     const b = await ctx.db.get("jobBoards", boardId)
     // A search with no roles, often a place outside Germany, isn't worth refreshing. The next
     // run asks again.
-    if (b?.kind === "arbeitsagentur" && !error && !jobs) {
+    if (b?.kind === "arbeitsagentur" && !error && !jobs && !(b.counted && b.jobs)) {
       await ctx.db.delete("jobBoards", boardId)
-      await countCatalog(ctx, { boards: -1, jobs: -b.jobs })
+      await countCatalog(ctx, { boards: -1, jobs: b.counted ? 0 : -b.jobs })
       return null
     }
+    // A counted board's `jobs` follows its rows. A feed can list one role twice, or one saved
+    // from another board, so the feed's length isn't how many roles it has here.
     if (b)
       await ctx.db.patch("jobBoards", boardId, {
         fetchedAt: Date.now(),
-        jobs: error ? b.jobs : jobs,
+        ...(!b.counted && { jobs: error ? b.jobs : jobs }),
         error,
         ...(company?.trim() && { company: company.trim().slice(0, 120) }),
       })
-    if (b && !error && jobs !== b.jobs) await countCatalog(ctx, { jobs: jobs - b.jobs })
+    if (b && !b.counted && !error && jobs !== b.jobs)
+      await countCatalog(ctx, { jobs: jobs - b.jobs })
     return null
   },
 })
@@ -263,6 +285,7 @@ const ensureBoard = internalMutation({
       company: companyOf(b.slug),
       addedAt: Date.now(),
       jobs: 0,
+      counted: true,
     })
     await countCatalog(ctx, { boards: 1 })
     return id
@@ -332,6 +355,7 @@ const saveResearch = internalMutation({
     if (credits || exhausted) await addUsage(ctx, "firecrawl", credits, exhausted)
     const board = await ctx.db.get("jobBoards", boardId)
     if (!board) return null
+    const was = await placeOf(ctx, board)
     const before = board.companyId ? await ctx.db.get("companies", board.companyId) : null
     const known = domain
       ? await ctx.db
@@ -359,6 +383,7 @@ const saveResearch = internalMutation({
       companyLink: link,
       researchedAt: Date.now(),
     })
+    await recount(ctx, boardId, was)
     if (before && before._id !== companyId) {
       const shared = await ctx.db
         .query("jobBoards")
@@ -370,13 +395,12 @@ const saveResearch = internalMutation({
   },
 })
 
-// ponytail: reads every board with roles and its company each hour. Fine for hundreds of boards;
-// keep these counts up in each write, or use @convex-dev/aggregate, if saved searches reach the
-// thousands.
+// For Jobs until the counts are filled (`api/migrations:fillJobCounts`). Delete it after that.
 const summarizeCatalog = internalMutation({
   args: {},
   returns: v.null(),
   handler: async (ctx) => {
+    if ((await ctx.db.query("jobCatalog").first())?.countsReady) return null
     const boards = []
     for await (const b of ctx.db.query("jobBoards").withIndex("by_jobs", (q) => q.gt("jobs", 0))) {
       const company = b.companyId ? await ctx.db.get("companies", b.companyId) : null

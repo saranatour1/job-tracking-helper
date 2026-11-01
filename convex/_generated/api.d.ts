@@ -108,6 +108,7 @@ import type * as features_goals_validators from "../features/goals/validators.js
 import type * as features_jobs_actions from "../features/jobs/actions.js";
 import type * as features_jobs_boards from "../features/jobs/boards.js";
 import type * as features_jobs_companies from "../features/jobs/companies.js";
+import type * as features_jobs_counts from "../features/jobs/counts.js";
 import type * as features_jobs_domains from "../features/jobs/domains.js";
 import type * as features_jobs_index from "../features/jobs/index.js";
 import type * as features_jobs_internal from "../features/jobs/internal.js";
@@ -304,6 +305,7 @@ declare const fullApi: ApiFromModules<{
   "features/jobs/actions": typeof features_jobs_actions;
   "features/jobs/boards": typeof features_jobs_boards;
   "features/jobs/companies": typeof features_jobs_companies;
+  "features/jobs/counts": typeof features_jobs_counts;
   "features/jobs/domains": typeof features_jobs_domains;
   "features/jobs/index": typeof features_jobs_index;
   "features/jobs/internal": typeof features_jobs_internal;
@@ -434,6 +436,9 @@ export declare const components: {
   batchWorker: import("@convex-dev/batch-worker/_generated/component.js").ComponentApi<"batchWorker">;
   automationRunCounts: import("@convex-dev/aggregate/_generated/component.js").ComponentApi<"automationRunCounts">;
   automationChoices: import("@convex-dev/aggregate/_generated/component.js").ComponentApi<"automationChoices">;
+  jobRoleCounts: import("@convex-dev/aggregate/_generated/component.js").ComponentApi<"jobRoleCounts">;
+  jobDomainCounts: import("@convex-dev/aggregate/_generated/component.js").ComponentApi<"jobDomainCounts">;
+  shardedCounter: import("@convex-dev/sharded-counter/_generated/component.js").ComponentApi<"shardedCounter">;
   cloudflareEmail: import("../components/cloudflareEmail/_generated/component.js").ComponentApi<"cloudflareEmail">;
   notifications: import("../components/notifications/_generated/component.js").ComponentApi<"notifications">;
   mcp: import("@convex-dev/mcp/_generated/component.js").ComponentApi<"mcp">;

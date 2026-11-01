@@ -9,6 +9,7 @@ import type { vJobSearchArgs } from "./validators"
 
 export const rowOf = (job: Doc<"jobs">, lead: Doc<"jobLeads"> | null) => ({
   _id: job._id,
+  boardId: job.boardId,
   url: job.url,
   title: job.title,
   company: job.company,

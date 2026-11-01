@@ -28,7 +28,10 @@ describe("a domain and its company's name", () => {
 })
 
 describe("grouping roles by domain", () => {
-  const job = (company: string, domain: string | null) => ({ company, evidence: { domain } })
+  const job = (company: string, domain: string | null, boardId: string | null = null) => ({
+    company,
+    evidence: { domain, boardId },
+  })
 
   it("keeps the order they came in, and joins boards reaching one site", () => {
     const groups = groupDomains([
@@ -45,6 +48,11 @@ describe("grouping roles by domain", () => {
   it("files a role with no site under its company's name", () => {
     const groups = groupDomains([job("Wren", null), job("Marlow", null), job("Wren", null)])
     expect(groups.map((g) => g.length)).toEqual([2, 1])
+  })
+
+  it("keeps one name on two boards apart, since each has its own count", () => {
+    const groups = groupDomains([job("Wren", null, "a"), job("Wren", null, "b")])
+    expect(groups.map((g) => g.length)).toEqual([1, 1])
   })
 })
 

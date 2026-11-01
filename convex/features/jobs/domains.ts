@@ -16,13 +16,15 @@ export const domainSaysName = (domain: string, company: string) =>
   domain.split(".")[0] === company.toLowerCase().replace(/[^a-z0-9]/g, "")
 
 /** Roles under their company's site, in the order they came. A role with no site found goes under
- * its company's name, since a name alone can't say two boards are one company. */
-export const groupDomains = <T extends { company: string; evidence: { domain: string | null } }>(
+ * its company's name on its board, since a name alone can't say two boards are one company. */
+export const groupDomains = <
+  T extends { company: string; evidence: { domain: string | null; boardId: string | null } },
+>(
   jobs: T[]
 ) => {
   const domains = new Map<string, T[]>()
   for (const job of jobs) {
-    const key = job.evidence.domain ?? job.company
+    const key = job.evidence.domain ?? `${job.evidence.boardId}/${job.company}`
     domains.set(key, [...(domains.get(key) ?? []), job])
   }
   return [...domains.values()]

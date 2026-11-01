@@ -31,8 +31,10 @@ export const vEvidence = v.object({
   link: v.union(vCompanyLink, v.null()),
   yc: v.union(vYc, v.null()),
   registeredAt: v.union(v.number(), v.null()),
-  // Roles open at this company. Null for a board of many companies.
+  // Roles open at this company. Null for a board of many companies, until the counts are filled.
   open: v.union(v.number(), v.null()),
+  // A board of many companies, so all of its roles aren't this company's.
+  pooled: v.boolean(),
 })
 
 export const vProof = v.union(...proofs.map((p) => v.literal(p)))
@@ -71,6 +73,8 @@ export const JobBoard = type({
   // How this board reached its company's site: its postings live there, or only its name matches.
   "companyLink?": "'postings' | 'name'",
   "researchedAt?": "number",
+  // Its roles are in the catalog's counts, which from then on keep `jobs` exact.
+  "counted?": "boolean",
 })
 
 export const Company = type({

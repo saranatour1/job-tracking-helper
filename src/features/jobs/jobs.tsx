@@ -86,6 +86,7 @@ export type Row = {
     yc: { batch: string; status: string; url: string; teamSize?: number } | null
     registeredAt: number | null
     open: number | null
+    pooled: boolean
   }
 }
 
@@ -254,9 +255,10 @@ const Domain = ({
   children: React.ReactNode
 }) => {
   const first = jobs[0]!
-  const { boardId, domain, yc, registeredAt, open } = first.evidence
+  const { boardId, domain, yc, registeredAt, open, pooled } = first.evidence
   const count = Math.max(open ?? 0, jobs.length)
-  const more = canNarrow && boardId ? count - jobs.length : 0
+  // A link to a board of many companies would show the rest of them too.
+  const more = canNarrow && boardId && !pooled ? count - jobs.length : 0
   return (
     <details open={!collapsed && count <= closedFrom} className="group/domain border-t py-1.5">
       <summary
@@ -348,8 +350,7 @@ const Domain = ({
   )
 }
 
-// The whole catalog at a glance, and filters for anyone signed in. A stored summary, so a few hours
-// behind a board's latest fetch at most.
+// The whole catalog at a glance, and filters for anyone signed in.
 const Overview = ({
   summary,
   signedIn,
@@ -882,7 +883,7 @@ export const Jobs = () => {
                    feed refresh. */
                 groupDomains(jobs.results).map((domain) => (
                   <Domain
-                    key={`${domain[0]!.evidence.domain ?? domain[0]!.company}${collapsed}`}
+                    key={`${domain[0]!.evidence.domain ?? `${domain[0]!.evidence.boardId}/${domain[0]!.company}`}${collapsed}`}
                     jobs={domain}
                     now={now}
                     collapsed={Boolean(collapsed)}

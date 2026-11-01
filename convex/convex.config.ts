@@ -9,6 +9,7 @@ import authAnonymous from "@convex-dev/auth/components/anonymous/convex.config.j
 import rateLimiter from "@convex-dev/rate-limiter/convex.config.js"
 import workflow from "@convex-dev/workflow/convex.config.js"
 import aggregate from "@convex-dev/aggregate/convex.config.js"
+import shardedCounter from "@convex-dev/sharded-counter/convex.config.js"
 import workpool from "@convex-dev/workpool/convex.config.js"
 import batchWorker from "@convex-dev/batch-worker/convex.config.js"
 import mcp from "@convex-dev/mcp/convex.config.js"
@@ -66,6 +67,9 @@ app.use(batchWorker)
 
 app.use(aggregate, { name: "automationRunCounts" })
 app.use(aggregate, { name: "automationChoices" })
+app.use(aggregate, { name: "jobRoleCounts" })
+app.use(aggregate, { name: "jobDomainCounts" })
+app.use(shardedCounter)
 
 app.use(cloudflareEmail)
 

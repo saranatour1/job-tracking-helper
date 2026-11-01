@@ -21,6 +21,7 @@
     "@convex-dev/batch-worker": "^0.3.6",
     "@convex-dev/mcp": "0.1.0-alpha.7",
     "@convex-dev/rate-limiter": "^0.4.2",
+    "@convex-dev/sharded-counter": "0.2.3",
     "@convex-dev/workflow": "^0.4.10",
     "@convex-dev/workpool": "^0.4.14",
     "@databuddy/sdk": "^3.4.2",

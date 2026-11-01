@@ -422,11 +422,12 @@ and loops can be picked, edited or deleted.
 
 **Flows**
 
-1. `/jobs` says how many roles are in the shared catalog, across how many company domains, from a
-   stored count (`api.jobs.stats`). Two tiles sum up the catalog: how roles tie to a company (Own
-   site, Name only, Unverified) and each domain's ending (`.com`, `.ai`). Every hour
-   `internal.api.jobs.summarizeCatalog` counts these from the boards, so they can be an hour behind.
-   Signed in, each one is a filter (`?proof=`, `?ending=`).
+1. `/jobs` says how many roles are in the shared catalog, across how many company domains
+   (`api.jobs.stats`). Two tiles sum up the catalog: how roles tie to a company (Own site, Name
+   only, Unverified) and each domain's ending (`.com`, `.ai`). Unverified roles have no domain, so
+   the endings add up to Own site and Name only. These are exact and current: every write to a role
+   updates them in the same mutation (`features/jobs/counts.ts`), and nothing reads the roles to
+   show them. Signed in, each one is a filter (`?proof=`, `?ending=`).
 2. Search by words (`?q=`), or pick a "Try" chip from your Preferences (interests,
    places, companies). Narrow it down with Remote only, Fits me (only roles Jev said fit
    you, best first), Posted (past day, week or month) and a domain (`api.jobs.companies`,
@@ -434,7 +435,7 @@ and loops can be picked, edited or deleted.
    same list; Clear filters resets them (`api.jobs.search`, 25 at a time). A proof or ending
    filter on a search only keeps matches from the page it read, so Show more may find more.
 3. Roles group under their company's domain, in the order of their first role. A company with no
-   site found goes under its name. A domain's row has lanes for how it ties to the company, when
+   site found goes under its name, per board. A domain's row has lanes for how it ties to the company, when
    it was registered, its YC batch, how many roles it has open and its newest role, in blue while
    that's under two days old. Over 250 open roles, it starts closed and lists the titles on one
    line. Collapse all (`?collapsed=true`) closes every domain, and Show N more opens all of a
