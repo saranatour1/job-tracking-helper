@@ -7,7 +7,7 @@ import { useAction, useMutation } from "convex/react"
 import { useQuery } from "convex-helpers/react/cache/hooks"
 import { startTransition, useActionState, useRef } from "react"
 
-import { ArrowLeft01Icon, ArrowRight01Icon } from "@hugeicons/core-free-icons"
+import { ArrowLeft01Icon, ArrowRight01Icon, MagicWand01Icon } from "@hugeicons/core-free-icons"
 import { HugeiconsIcon } from "@hugeicons/react"
 
 import { Badge } from "@/components/ui/badge"
@@ -102,6 +102,7 @@ export const PrepareButton = ({
   return (
     <span className="flex flex-col items-end">
       <Button size="xs" variant="ghost" onClick={() => startTransition(add)}>
+        <HugeiconsIcon icon={MagicWand01Icon} />
         Prepare
       </Button>
       {error && (

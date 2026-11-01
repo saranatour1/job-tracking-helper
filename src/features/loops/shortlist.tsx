@@ -156,6 +156,8 @@ export const Shortlist = ({ view, open }: { view: ShortlistView; open?: Id<"jobL
   const routes = useLeadRoutes(view)
   const [status, act] = useDecide()
   const navigate = useNavigate({ from: "/loops" })
+  // Roles already prepared, by posting, for their badge.
+  const prepared = new Map((useQuery(api.prefilled.list) ?? []).map((r) => [r.url, r]))
   return (
     <section aria-label="Your shortlist" className="bg-card overflow-hidden rounded-xl border">
       <header className="flex items-center gap-1 border-b px-3 py-1.5">
@@ -192,40 +194,57 @@ export const Shortlist = ({ view, open }: { view: ShortlistView; open?: Id<"jobL
       )}
       <ul>
         {leads?.map((lead) => (
-          <li key={lead._id} className="group relative border-b last:border-b-0">
-            <Link
-              from="/loops"
-              to="/loops"
-              search={(prev) => ({ ...prev, job: routes.text(lead._id) })}
-              aria-current={open === lead._id || undefined}
-              className="hover:bg-accent/50 aria-[current=true]:bg-accent flex items-center gap-3 px-3 py-2 transition-colors duration-150"
-            >
-              <span
-                className={cn("w-9 shrink-0 text-xs font-medium tabular-nums", matchTone(lead.fit))}
+          <li
+            key={lead._id}
+            className="group hover:bg-accent/50 has-[[aria-current=true]]:bg-accent flex items-center border-b transition-colors duration-150 last:border-b-0"
+          >
+            <div className="relative min-w-0 flex-1">
+              <Link
+                from="/loops"
+                to="/loops"
+                search={(prev) => ({ ...prev, job: routes.text(lead._id) })}
+                aria-current={open === lead._id || undefined}
+                className="flex items-center gap-3 px-3 py-2"
               >
-                {lead.fit}%
-              </span>
-              <span className="flex min-w-0 flex-1 flex-col">
-                <span className="truncate text-[13px] font-medium">{lead.title}</span>
-                <span className="text-muted-foreground truncate text-xs">{metaOf(lead)}</span>
-              </span>
-              <span className="hidden group-focus-within:invisible group-hover:invisible sm:flex">
-                <CheckCounts checks={lead.checks ?? []} />
-              </span>
-            </Link>
-            <div className="absolute end-2 top-1/2 flex -translate-y-1/2 items-center opacity-0 transition-opacity group-focus-within:opacity-100 group-hover:opacity-100">
-              {decisions
-                .filter(([action]) => !(action === "track" && lead.applicationId))
-                .filter(([action]) => !(view === "saved" && action === "save"))
-                .map(([action, label, icon]) => (
-                  <IconAction
-                    key={action}
-                    label={label}
-                    icon={icon}
-                    onClick={() => startTransition(() => act({ leadId: lead._id, action }))}
-                  />
-                ))}
+                <span
+                  className={cn(
+                    "w-9 shrink-0 text-xs font-medium tabular-nums",
+                    matchTone(lead.fit)
+                  )}
+                >
+                  {lead.fit}%
+                </span>
+                <span className="flex min-w-0 flex-1 flex-col">
+                  <span className="truncate text-[13px] font-medium">{lead.title}</span>
+                  <span className="text-muted-foreground truncate text-xs">{metaOf(lead)}</span>
+                </span>
+                <span className="hidden group-focus-within:invisible group-hover:invisible sm:flex">
+                  <CheckCounts checks={lead.checks ?? []} />
+                </span>
+              </Link>
+              <div className="absolute end-2 top-1/2 flex -translate-y-1/2 items-center opacity-0 transition-opacity group-focus-within:opacity-100 group-hover:opacity-100">
+                {decisions
+                  .filter(([action]) => !(action === "track" && lead.applicationId))
+                  .filter(([action]) => !(view === "saved" && action === "save"))
+                  .map(([action, label, icon]) => (
+                    <IconAction
+                      key={action}
+                      label={label}
+                      icon={icon}
+                      onClick={() => startTransition(() => act({ leadId: lead._id, action }))}
+                    />
+                  ))}
+              </div>
             </div>
+            {canPrepare(lead.url) && (
+              <span className="shrink-0 pe-2">
+                <PrepareButton
+                  leadId={lead._id}
+                  status={prepared.get(lead.url)?.status}
+                  prefillId={prepared.get(lead.url)?._id}
+                />
+              </span>
+            )}
           </li>
         ))}
       </ul>
