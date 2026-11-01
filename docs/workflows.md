@@ -72,7 +72,7 @@ and the rules both go by. For the rest of the app, see [flows.md](flows.md).
    `?step=2.1.0` on a path), so a reload or a shared link opens the same step.
 4. Click the trigger card to change what starts the workflow:
    - **Run now:** only when you press Run now.
-   - **On a schedule:** a time, some weekdays, and a time zone.
+   - **On a schedule:** a time in 15-minute steps, some weekdays, and a time zone.
    - **An email comes in:** when the sorter files an email of some kinds (none picked
      means any kind).
    - **An application moves:** to some statuses (none picked means any).
