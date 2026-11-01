@@ -73,8 +73,6 @@ export const JobBoard = type({
   // How this board reached its company's site: its postings live there, or only its name matches.
   "companyLink?": "'postings' | 'name'",
   "researchedAt?": "number",
-  // No longer written or read: `api/migrations:clearOldCounts` takes it off older rows.
-  "counted?": "boolean",
 })
 
 export const Company = type({
