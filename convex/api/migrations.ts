@@ -186,24 +186,3 @@ export const addNewStarters = internalMutation({
     return added
   },
 })
-
-// One-off: takes what Jobs no longer reads off stored rows, so a later deploy can drop those fields
-// from the schema. Safe to run again. Run it on each deployment, then delete it with the fields:
-//   npx convex run api/migrations:clearOldCounts
-export const clearOldCounts = internalMutation({
-  args: {},
-  returns: v.null(),
-  handler: async (ctx) => {
-    for await (const board of ctx.db.query("jobBoards"))
-      if (board.counted !== undefined)
-        await ctx.db.patch("jobBoards", board._id, { counted: undefined })
-    const row = await ctx.db.query("jobCatalog").first()
-    if (row)
-      await ctx.db.patch("jobCatalog", row._id, {
-        jobs: undefined,
-        summary: undefined,
-        countsReady: undefined,
-      })
-    return null
-  },
-})

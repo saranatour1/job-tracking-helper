@@ -219,33 +219,3 @@ describe("moving postings to their new keys", () => {
     expect((await t.run((ctx) => ctx.db.get("jobBoards", boardId)))?.jobs).toBe(60)
   })
 })
-
-describe("clearing the old counts", () => {
-  it("takes the old fields off stored rows, and leaves the counts alone", async () => {
-    const t = setup()
-    const { boardId } = await t.run(async (ctx) => {
-      await ctx.db.insert("jobCatalog", { boards: 1, jobs: 300, countsReady: true })
-      const boardId = await ctx.db.insert("jobBoards", {
-        kind: "greenhouse",
-        slug: "stripe",
-        company: "Stripe",
-        addedAt: 0,
-        jobs: 0,
-        counted: true,
-      })
-      return { boardId }
-    })
-    await save(t, boardId, 0, 2)
-    await t.mutation(internal.api.migrations.clearOldCounts, {})
-    await t.mutation(internal.api.migrations.clearOldCounts, {})
-    const { board, row } = await t.run(async (ctx) => ({
-      board: await ctx.db.get("jobBoards", boardId),
-      row: await ctx.db.query("jobCatalog").first(),
-    }))
-    expect(board).not.toHaveProperty("counted")
-    expect(row).not.toHaveProperty("jobs")
-    expect(row).not.toHaveProperty("summary")
-    expect(row).not.toHaveProperty("countsReady")
-    expect(await summary(t)).toMatchObject({ jobs: 2, unverified: 2 })
-  })
-})
