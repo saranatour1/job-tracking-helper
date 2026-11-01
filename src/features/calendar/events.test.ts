@@ -4,6 +4,7 @@ import type { Application } from "@/features/tracker/data"
 import type { MailEvent } from "@/features/tracker/mail"
 
 import {
+  datesOf,
   dayKey,
   eventsOf,
   followUpAfter,
@@ -184,5 +185,38 @@ describe("withSaved and toSaved", () => {
       kind: undefined,
       applicationId: undefined,
     })
+  })
+})
+
+describe("datesOf", () => {
+  const weekly = {
+    id: "e",
+    title: "Weekly",
+    start: new Date(2026, 9, 1, 10, 45).toISOString(),
+    end: new Date(2026, 9, 1, 11, 15).toISOString(),
+    rrule: "FREQ=WEEKLY;BYDAY=TH",
+  }
+  const november = (event: typeof weekly & { exdates?: string[] }) =>
+    datesOf(event, new Date(2026, 10, 1), new Date(2026, 10, 30)).map((e) =>
+      new Date(e.start).getDate()
+    )
+
+  it("gives each date in the range of a series that began before it", () => {
+    expect(november(weekly)).toEqual([5, 12, 19, 26])
+  })
+
+  it("keeps each date's length", () => {
+    const [first] = datesOf(weekly, new Date(2026, 10, 1), new Date(2026, 10, 30))
+    expect(Date.parse(first?.end ?? "") - Date.parse(first?.start ?? "")).toBe(30 * 60_000)
+  })
+
+  it("leaves out a date you deleted", () => {
+    const deleted = datesOf(weekly, new Date(2026, 10, 12), new Date(2026, 10, 13))[0]?.start ?? ""
+    expect(november({ ...weekly, exdates: [deleted] })).toEqual([5, 19, 26])
+  })
+
+  it("leaves any other event as it is, wherever it falls", () => {
+    const { rrule: _, ...once } = weekly
+    expect(datesOf(once, new Date(2026, 10, 1), new Date(2026, 10, 30))).toEqual([once])
   })
 })

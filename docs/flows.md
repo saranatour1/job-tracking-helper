@@ -959,7 +959,8 @@ so a recruiter at two companies shows under the latest one.
    date's month and the months either side (`api.calendar.list`, `api.email.timeline`),
    or the year in the year view. Repeating events and your fixes come whatever their
    dates, since either can change what shows here. The list by application reads up to 500
-   events, for each application's next and latest dates.
+   events, for each application's next and latest dates. Both lists show each date of a
+   repeating event: by day for the next 30 days, by application within a year either way.
 2. **Your events:** add from today onward, drag or edit (`api.calendar.save`). Double-click an
    application's event to open the application. A title naming one company
    links the event to that application, and the title sets its kind (interview,

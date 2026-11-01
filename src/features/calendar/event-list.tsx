@@ -8,9 +8,12 @@ import type { CalEvent } from "@/components/kloq/lib/event-types"
 import type { ApplicationCard } from "@/features/tracker/data"
 import { cn } from "@/lib/utils"
 
-import { type CalendarEvent, dayIn, kinds, whenOf } from "./events"
+import { type CalendarEvent, datesOf, dayIn, kinds, whenOf } from "./events"
 
 type Item = { e: CalendarEvent; ev: CalEvent; at: number; day: string; time?: string }
+
+const dayMs = 86_400_000
+const yearMs = 366 * dayMs
 
 const longDay = (day: string) =>
   new Date(`${day}T12:00`).toLocaleDateString(undefined, {
@@ -90,14 +93,25 @@ export const EventList = ({
   onPick: (day: string) => void
 }) => {
   const appsById = new Map(applications.map((a) => [a.id, a]))
-  const items = events.flatMap((e): Item[] => {
-    const ev = kloq.get(e.id)
-    return ev ? [{ e, ev, ...whenOf(ev, zone, hour12) }] : []
-  })
+  const until = new Date(`${from}T12:00`)
+  until.setDate(until.getDate() + 30)
+  // A day either side, since the days below can be in another zone than the browser's.
+  // ponytail: by application looks a year each way, so a series over before that drops out.
+  const start = group === "day" ? Date.parse(`${from}T12:00`) - 2 * dayMs : Date.now() - yearMs
+  const end = group === "day" ? until.getTime() + 2 * dayMs : Date.now() + yearMs
+  const items = events
+    .flatMap((e): Item[] => {
+      const master = kloq.get(e.id)
+      if (!master) return []
+      return datesOf(master, new Date(start), new Date(end)).map((ev) => ({
+        e,
+        ev,
+        ...whenOf(ev, zone, hour12),
+      }))
+    })
+    .sort((a, b) => a.at - b.at)
 
   if (group === "day") {
-    const until = new Date(`${from}T12:00`)
-    until.setDate(until.getDate() + 30)
     const ahead = items.filter((i) => i.day >= from && i.day <= dayIn(until.getTime()))
     const days = new Map<string, Item[]>()
     for (const i of ahead) days.set(i.day, [...(days.get(i.day) ?? []), i])
@@ -115,7 +129,7 @@ export const EventList = ({
             <ul>
               {list.map((i) => (
                 <Row
-                  key={i.e.id}
+                  key={`${i.e.id}:${i.at}`}
                   item={i}
                   application={appsById.get(i.e.applicationId ?? "")}
                   onPick={() => onPick(i.day)}
@@ -163,7 +177,13 @@ export const EventList = ({
             </h3>
             <ul>
               {list.map((i) => (
-                <Row key={i.e.id} item={i} application={a} showDay onPick={() => onPick(i.day)} />
+                <Row
+                  key={`${i.e.id}:${i.at}`}
+                  item={i}
+                  application={a}
+                  showDay
+                  onPick={() => onPick(i.day)}
+                />
               ))}
             </ul>
           </section>

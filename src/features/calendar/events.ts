@@ -2,6 +2,7 @@ import type { Doc, Id } from "@convex/_generated/dataModel"
 
 import type { CalEvent, EventColor } from "@/components/kloq/lib/event-types"
 import { formatInstant, instantPlus, parseInstant } from "@/components/kloq/lib/instant"
+import { getRecurrenceEngine } from "@/components/kloq/lib/recurrence"
 import { type ApplicationCard, statusLabels } from "@/features/tracker/data"
 import type { MailEvent } from "@/features/tracker/mail"
 import type { EventKind } from "./search"
@@ -270,6 +271,16 @@ export const toSaved = (
 })
 
 /** When an event happens as the list shows it, in `zone`: its day, and its time unless all-day. */
+/** A repeating event's dates between two moments, through the engine the grid uses; any other event is just itself. */
+export const datesOf = (ev: CalEvent, start: Date, end: Date): CalEvent[] =>
+  ev.rrule
+    ? getRecurrenceEngine()(ev, { start, end }).occurrences.map((o) => ({
+        ...ev,
+        start: o.start,
+        end: o.end,
+      }))
+    : [ev]
+
 export const whenOf = (ev: CalEvent, zone?: string, hour12?: boolean) => {
   if (ev.allDay) return { at: parseInstant(ev.start), day: ev.start }
   const at = parseInstant(ev.start)

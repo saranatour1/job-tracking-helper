@@ -16,6 +16,7 @@ import { useQuery } from "convex-helpers/react/cache/hooks"
 import { ConvexError } from "convex/values"
 import { startTransition, useActionState, useRef } from "react"
 
+import { DatePicker } from "@/components/date-picker"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import {
@@ -161,21 +162,16 @@ const GoalDialog = ({ goal, trigger }: { goal?: Goal; trigger: React.ReactElemen
                 placeholder="A full-time frontend role before the end of Q1"
               />
             </div>
-            <div className="grid grid-cols-3 gap-3">
+            <div className="grid grid-cols-2 gap-3 sm:grid-cols-3">
               <div className="grid gap-1.5">
                 <Label htmlFor="goal-start">Start</Label>
-                <Input
-                  id="goal-start"
-                  name="start"
-                  type="date"
-                  defaultValue={goal?.start ?? todayIso()}
-                />
+                <DatePicker id="goal-start" name="start" defaultValue={goal?.start ?? todayIso()} />
               </div>
               <div className="grid gap-1.5">
                 <Label htmlFor="goal-target">Target</Label>
-                <Input id="goal-target" name="target" type="date" defaultValue={goal?.target} />
+                <DatePicker id="goal-target" name="target" defaultValue={goal?.target} />
               </div>
-              <div className="grid gap-1.5">
+              <div className="col-span-2 grid gap-1.5 sm:col-span-1">
                 <Label htmlFor="goal-priority">Priority</Label>
                 <select
                   id="goal-priority"
