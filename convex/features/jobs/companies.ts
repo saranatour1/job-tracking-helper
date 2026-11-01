@@ -1,6 +1,7 @@
 import type { Id } from "../../_generated/dataModel"
 import type { QueryCtx } from "../../_generated/server"
 import { record, text } from "../workflows/sources/source"
+import { isCompanyBoard } from "./boards"
 
 export const researchEvery = 30 * 24 * 60 * 60 * 1000
 export const researchBatch = 25
@@ -114,10 +115,20 @@ export const evidenceOf = async (ctx: QueryCtx, jobId: Id<"jobs">) => {
   const job = await ctx.db.get("jobs", jobId)
   const board = job && (await ctx.db.get("jobBoards", job.boardId))
   const company = board?.companyId ? await ctx.db.get("companies", board.companyId) : null
+  // Several boards can reach one site. Past 20 the count runs low, which nothing here relies on.
+  const boards = company
+    ? await ctx.db
+        .query("jobBoards")
+        .withIndex("by_companyId", (q) => q.eq("companyId", company._id))
+        .take(20)
+    : [board]
   return {
+    boardId: board?._id ?? null,
     domain: company?.domain ?? null,
     link: board?.companyLink ?? null,
     yc: company?.yc ?? null,
     registeredAt: company?.registeredAt ?? null,
+    open:
+      board && isCompanyBoard(board.kind) ? boards.reduce((n, b) => n + (b?.jobs ?? 0), 0) : null,
   }
 }

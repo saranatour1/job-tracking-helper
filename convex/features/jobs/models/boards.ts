@@ -1,7 +1,7 @@
 import { defineTable } from "convex/server"
 import { v } from "convex/values"
 import { arkOutputToConvex } from "../../../lib/ark"
-import { Company, JobBoard } from "../validators"
+import { Company, JobBoard, vCatalogSummary } from "../validators"
 
 export const jobBoardsTable = defineTable(arkOutputToConvex(JobBoard))
   .index("by_kind_and_slug", ["kind", "slug"])
@@ -12,4 +12,8 @@ export const jobBoardsTable = defineTable(arkOutputToConvex(JobBoard))
 
 export const companiesTable = defineTable(arkOutputToConvex(Company)).index("by_domain", ["domain"])
 
-export const jobCatalogTable = defineTable({ boards: v.number(), jobs: v.number() })
+export const jobCatalogTable = defineTable({
+  boards: v.number(),
+  jobs: v.number(),
+  summary: v.optional(vCatalogSummary),
+})
