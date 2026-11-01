@@ -268,6 +268,7 @@ const Reader = ({ row }: { row: Row }) => {
   const move = useMutation(api.mailbox.move)
   const remove = useMutation(api.mailbox.deleteForever)
   const markUnread = useMutation(api.mailbox.markUnread)
+  const connection = useQuery(api.email.connection)
   const navigate = useNavigate({ from: "/email" })
   const close = () =>
     void navigate({
@@ -401,7 +402,7 @@ const Reader = ({ row }: { row: Row }) => {
         </ScrollArea>
       )}
       <ThreadLines messages={messages.slice(shownAt + 1)} routes={routes} />
-      {mail && other && row.box !== "trash" && (
+      {mail && other && row.box !== "trash" && connection?.allow.send && (
         <div className="max-h-[70%] shrink-0 overflow-y-auto border-t">
           {reply === routes.text(row.id) ? (
             <ComposeForm
@@ -934,6 +935,7 @@ export const Mailbox = () => {
   const navigate = useNavigate({ from: "/email" })
   const labels = useQuery(api.mailbox.labels)
   const unread = useQuery(api.mailbox.unreadCount)
+  const connection = useQuery(api.email.connection)
   const view = search.view ?? "inbox"
   const dialog = search.compose ?? search.template
   const closeDialog = () =>
@@ -958,12 +960,14 @@ export const Mailbox = () => {
       <PageHeader
         crumbs={[{ label: "Email" }]}
         actions={
-          <Button
-            size="sm"
-            render={<Link from="/email" search={(s) => ({ ...s, compose: "new" })} />}
-          >
-            New email
-          </Button>
+          connection?.allow.send && (
+            <Button
+              size="sm"
+              render={<Link from="/email" search={(s) => ({ ...s, compose: "new" })} />}
+            >
+              New email
+            </Button>
+          )
         }
       />
       <div className="flex min-h-0 flex-1 flex-col md:flex-row">

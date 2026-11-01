@@ -23,7 +23,9 @@ const save = internalMutation({
     if (existing)
       await ctx.db.replace("emailConnections", existing._id, {
         ...connection,
-        allow: existing.allow,
+        // Receiving works without Email Sending, so a domain without it can connect, just not send.
+        allow:
+          connection.access.sending === false ? { ...existing.allow, send: false } : existing.allow,
         inboundId: existing.inboundId,
         inbound: existing.inbound,
         signaturePhoto: existing.signaturePhoto,

@@ -27,7 +27,8 @@ const dateOf = (at: number) =>
 
 const tokenHelp = (
   <>
-    Needs Email Sending, Workers Scripts and Email Routing Rules (Edit), and Zone (Read).{" "}
+    Needs Workers Scripts and Email Routing Rules (Edit), and Zone (Read). Add Email Sending (Edit)
+    to send mail too.{" "}
     <a
       href="https://dash.cloudflare.com/profile/api-tokens"
       target="_blank"
@@ -49,8 +50,8 @@ const fields = [
   },
   {
     name: "fromAddress",
-    label: "Send from",
-    hint: "An address on a domain with Email Sending turned on.",
+    label: "Your address",
+    hint: "An address on your domain in Cloudflare.",
     type: "email",
   },
 ] as const
@@ -540,13 +541,16 @@ const switches: {
   key: (typeof allowKeys)[number]
   label: string
   description: string
-  // What has to be on first: the token's setup permissions, Jev reading mail, or incoming mail.
-  needs?: "setup" | "read" | "receiving"
+  // What has to be on first: the token's setup permissions, Jev reading mail, incoming mail, or
+  // Email Sending in Cloudflare.
+  needs?: "setup" | "read" | "receiving" | "sending"
 }[] = [
   {
     key: "send",
     label: "Send email",
-    description: "Test emails, and mail you write from an application. Always from your address.",
+    description:
+      "Test emails, and mail you write here. Always from your address. Needs Email Sending in Cloudflare, on its paid Workers plan. Off, you can still read incoming mail, and Reply stays hidden.",
+    needs: "sending",
   },
   {
     key: "setup",
@@ -598,7 +602,12 @@ const OnYourBehalf = ({ connection }: { connection: Connection }) => {
                 : "Your token can't do this yet: it needs Workers Scripts and Email Routing Rules.")
             : needs === "read"
               ? !connection.allow.read && "Turn on “Let Jev read your mail” first."
-              : needs === "receiving" && !connection.receivingSince && "Set up incoming mail first."
+              : needs === "sending"
+                ? connection.access.sending === false &&
+                  `Email Sending isn't on for ${connection.fromAddress.split("@")[1]}. It needs Cloudflare's paid Workers plan. Turn it on there, then save again above. Incoming mail works without it.`
+                : needs === "receiving" &&
+                  !connection.receivingSince &&
+                  "Set up incoming mail first."
         return (
           <Row
             key={key}

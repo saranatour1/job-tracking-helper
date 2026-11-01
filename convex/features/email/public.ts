@@ -91,8 +91,6 @@ const connect = action({
       )
     const domain = input.fromAddress.split("@")[1]!
     const { zoneId, access } = await accessOf(input.accountId, apiToken, domain)
-    if (access.sending === false)
-      throw new ConvexError(`Email Sending isn't turned on for ${domain} in Cloudflare yet.`)
     const details: typeof Details.infer = {
       accountId: input.accountId,
       fromAddress: input.fromAddress,
@@ -120,6 +118,8 @@ const setAllow = authedMutation({
       .withIndex("by_userId", (q) => q.eq("userId", ctx.userId))
       .unique()
     if (!row) throw new ConvexError("Connect Cloudflare first.")
+    if (key === "send" && value && row.access.sending === false)
+      throw new ConvexError("Turn on Email Sending in Cloudflare, then save again.")
     await ctx.db.patch("emailConnections", row._id, { allow: { ...row.allow, [key]: value } })
     await logEdit(ctx, ctx.userId, "mail.settings", "Changed an email setting")
     return null

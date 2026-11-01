@@ -454,3 +454,33 @@ describe("sending from an application", () => {
     expect(fetchMock).not.toHaveBeenCalled()
   })
 })
+
+describe("connecting without Email Sending", () => {
+  it("connects for incoming mail, with sending off and staying off", async () => {
+    const { t, as } = await setup()
+    await t.run(async (ctx) => {
+      const row = await ctx.db.query("emailConnections").first()
+      await ctx.db.patch("emailConnections", row!._id, { inbound: undefined, inboundId: undefined })
+    })
+    fetchMock.mockImplementation(async (url) => {
+      const path = String(url)
+      const result = path.includes("/tokens/verify")
+        ? { status: "active" }
+        : path.includes("/zones?name=")
+          ? [{ id: "z" }]
+          : []
+      return new Response(JSON.stringify({ success: true, result }), { status: 200 })
+    })
+    await as.action(api.api.email.connect, {
+      accountId: "a".repeat(32),
+      apiToken: "t".repeat(20),
+      fromAddress: "reach@example.com",
+    })
+    const connection = await as.query(api.api.email.connection, {})
+    expect(connection?.access.sending).toBe(false)
+    expect(connection?.allow).toMatchObject({ send: false, receive: true })
+    await expect(as.mutation(api.api.email.setAllow, { key: "send", value: true })).rejects.toThrow(
+      "Email Sending"
+    )
+  })
+})
