@@ -1,4 +1,4 @@
-import { DAY, MINUTE, RateLimiter } from "@convex-dev/rate-limiter"
+import { DAY, HOUR, MINUTE, RateLimiter } from "@convex-dev/rate-limiter"
 import { WorkflowManager } from "@convex-dev/workflow"
 import { Workpool } from "@convex-dev/workpool"
 import { components } from "../../_generated/api"
@@ -18,6 +18,8 @@ export const limits = new RateLimiter(components.rateLimiter, {
   runNow: { kind: "fixed window", rate: 3, period: DAY },
   checkLink: { kind: "fixed window", rate: 10, period: DAY },
   anonymousSearch: { kind: "fixed window", rate: 10, period: DAY },
+  // Shared by everyone, since no IP reaches a Convex function. Each account brings 10 searches.
+  anonymousAccount: { kind: "token bucket", rate: 100, period: HOUR, capacity: 100 },
   automationRun: { kind: "fixed window", rate: 50, period: DAY },
   automationEvent: { kind: "fixed window", rate: 200, period: DAY },
   automationFind: { kind: "fixed window", rate: 5, period: DAY },

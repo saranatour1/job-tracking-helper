@@ -10,26 +10,28 @@ import { catalogCounts } from "./counts"
 import { vCatalogSummary, vJobRow, vJobSearchArgs } from "./validators"
 import { rowOf, searchJobs } from "./utils"
 
-// The page size the app asks for. Signed out, nobody can ask for more.
-const publicPage = 25
+// The page size the app asks for. Nobody can ask for more.
+const pageSize = 25
 
 const wordsOf = (q: string | undefined) => q?.trim().slice(0, 200)
 
 // The catalog for anyone without a real account: the newest roles, or the one search they've
 // spent a daily search on (allowSearch). It never reads anyone's verdicts.
+// ponytail: a query can't count pages, so there's only the first, and no cursor to walk the catalog
+// with. Members can still walk it: that takes a mutation per page, which loses the live list.
 const browse = async (
   ctx: QueryCtx,
   user: Doc<"users"> | null,
   { q, paginationOpts }: ObjectType<typeof vJobSearchArgs>
 ) => {
   const words = wordsOf(q)
-  const opts = { ...paginationOpts, numItems: Math.min(paginationOpts.numItems, publicPage) }
   const jobs = ctx.db.query("jobs")
-  const found =
-    words && words === user?.allowedSearch
-      ? await jobs.withSearchIndex("search_text", (s) => s.search("text", words)).paginate(opts)
-      : await jobs.withIndex("by_postedAt").order("desc").paginate(opts)
-  return { ...found, page: found.page.map((job) => rowOf(job, null)) }
+  const found = paginationOpts.cursor
+    ? []
+    : words && words === user?.allowedSearch
+      ? await jobs.withSearchIndex("search_text", (s) => s.search("text", words)).take(pageSize)
+      : await jobs.withIndex("by_postedAt").order("desc").take(pageSize)
+  return { page: found.map((job) => rowOf(job, null)), isDone: true, continueCursor: "" }
 }
 
 const search = query({
@@ -38,9 +40,13 @@ const search = query({
   handler: async (ctx, args) => {
     const userId = await getAuthUserId(ctx)
     const user = userId && (await ctx.db.get("users", userId))
+    const numItems = Math.min(args.paginationOpts.numItems, pageSize)
     const found =
       user && !user.anonymous
-        ? await searchJobs(ctx, user._id, args)
+        ? await searchJobs(ctx, user._id, {
+            ...args,
+            paginationOpts: { ...args.paginationOpts, numItems },
+          })
         : await browse(ctx, user, args)
     const evidence = await evidenceOf(ctx, found.page)
     const page = found.page.map(({ boardId: _, ...row }, i) => ({ ...row, evidence: evidence[i]! }))

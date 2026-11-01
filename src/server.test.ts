@@ -13,7 +13,8 @@ vi.mock("@tanstack/react-start/server-entry", () => ({ default: { fetch: mocks.a
 const { default: server } = await import("./server")
 
 const asset = vi.fn(() => Promise.resolve(new Response("asset")))
-const env = { ASSETS: { fetch: asset } }
+const limit = vi.fn(() => Promise.resolve({ success: true }))
+const env = { ASSETS: { fetch: asset }, ROLE_PAGES: { limit } }
 const ctx = { waitUntil: vi.fn() }
 const get = (path: string) => new Request(`https://ye.saranatour.dev${path}`)
 
@@ -32,6 +33,28 @@ describe("server entry", () => {
     const response = await server.fetch(get("/llms.txt"), env, ctx)
     expect(mocks.trackAgents).toHaveBeenCalledOnce()
     expect(await response.text()).toBe("asset")
+  })
+
+  it("counts role pages and their images by IP, and refuses past the limit", async () => {
+    const request = new Request("https://ye.saranatour.dev/jobs/abc", {
+      headers: { "cf-connecting-ip": "1.2.3.4" },
+    })
+    expect((await server.fetch(request, env, ctx)).status).toBe(200)
+    expect(limit).toHaveBeenCalledWith({ key: "1.2.3.4" })
+
+    limit.mockResolvedValueOnce({ success: false })
+    const page = await server.fetch(get("/jobs/abc"), env, ctx)
+    expect(page.status).toBe(429)
+    expect(page.headers.get("Retry-After")).toBe("60")
+
+    limit.mockResolvedValueOnce({ success: false })
+    expect((await server.fetch(get("/jobs/abc/og.png"), env, ctx)).status).toBe(429)
+  })
+
+  it("leaves other pages uncounted", async () => {
+    await server.fetch(get("/jobs"), env, ctx)
+    await server.fetch(get("/privacy"), env, ctx)
+    expect(limit).not.toHaveBeenCalled()
   })
 
   it("does nothing extra in local dev, where only the request is passed", async () => {
