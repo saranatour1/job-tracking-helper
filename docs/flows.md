@@ -1044,7 +1044,7 @@ Prefilled applications, Interface and theme, Account)
    - The homepage's `Link` header points to the API catalog, the server card, `/auth.md` and
      `/llms.txt`.
    - `/auth.md` explains both ways to connect and lists the scopes.
-   - `/.well-known/` holds the API catalog, MCP server card, agent card, agent skill, OAuth metadata
+   - `/.well-known/` holds the API catalog, MCP server card, agent card, agent skills, OAuth metadata
      and bot key directory. The MCP server and its OAuth stay on the Convex address, since tokens are
      bound to it, so these documents point there.
    - The agent card lists MCP as its only interface, because the app has no A2A endpoint.
@@ -1055,6 +1055,12 @@ Prefilled applications, Interface and theme, Account)
 7. **How the app identifies itself.** Job feed requests carry a Web Bot Auth signature once
    `WEB_BOT_AUTH_KEY` is set, so a feed can check they're from this app. Feed requests that fail to
    sign still go out unsigned. Requests through Firecrawl come from Firecrawl and aren't signed.
+8. **Searching with no account.** `skills/job-search-no-account/SKILL.md` lets someone's own agent
+   do the search with no sign-up, and the app serves it under `/.well-known/agent-skills/`. The agent
+   reads the same public feeds directly, judges roles itself, and keeps preferences, drafts and
+   applications in local files. It reaches nothing of the app's, so none of this section's scopes or
+   limits apply, and it follows the same rules: it never submits and it skips demographic questions.
+   When a feed or its rules change in `convex/features/jobs/boards.ts`, change the skill too.
 
 **Limits:** `prepare_application` and `run_job_search` share the day's limits with the app (10 and
 3), as does `check_job_link` (10). `notify_user` is 20 a day and `add_contact` 100. Every other change counts toward 500 a day, and
@@ -1062,7 +1068,7 @@ reads toward 120 a minute. A new loop starts paused, and you can keep 3.
 
 **Files:** `convex/mcp.ts`, `convex/features/agents/`, `src/features/account/agents.tsx`,
 `src/features/account/connect.tsx`, `src/lib/discovery.ts`, `src/lib/web-mcp.ts`,
-`convex/lib/webBotAuth.ts`.
+`convex/lib/webBotAuth.ts`, `skills/job-search-no-account/SKILL.md`.
 
 ## Workflows
 

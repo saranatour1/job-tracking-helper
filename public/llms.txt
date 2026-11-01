@@ -20,6 +20,7 @@ What it doesn't do:
 
 ## For agents
 
+- [Job search with no account](https://ye.saranatour.dev/.well-known/agent-skills/job-search-no-account/SKILL.md): a skill that finds roles on the public feeds, drafts answers and tracks them in local files, with no sign-up
 - [auth.md](https://ye.saranatour.dev/auth.md): how to connect to the MCP server for someone with an account
 - [API catalog](https://ye.saranatour.dev/.well-known/api-catalog): where the API and its description are
 
