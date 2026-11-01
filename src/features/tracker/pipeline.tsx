@@ -47,6 +47,7 @@ import { displayDiff, type PipelineSearch, pipelineTabs, type Tab } from "./sear
 import { TrashList } from "./trash"
 import { useSource } from "./source"
 import { NewApplicationDialog } from "./new-application"
+import { StreakPill } from "./streak-card"
 import { type Crumb, PageHeader } from "@/features/shell/page-header"
 
 // Which statuses each tab shows. Archived applications only show under Archived, and the
@@ -464,13 +465,16 @@ export const Pipeline = ({
         crumbs={crumbs}
         actions={
           !editor && (
-            <NewApplicationDialog
-              trigger={
-                <Button variant="ghost" size="sm">
-                  <HugeiconsIcon icon={PlusSignIcon} /> New application
-                </Button>
-              }
-            />
+            <>
+              <StreakPill />
+              <NewApplicationDialog
+                trigger={
+                  <Button variant="ghost" size="sm">
+                    <HugeiconsIcon icon={PlusSignIcon} /> New application
+                  </Button>
+                }
+              />
+            </>
           )
         }
       />
