@@ -2,7 +2,7 @@
   "name": "job-tracking-helper",
   "version": "0.0.0",
   "private": true,
-  "license": "Apache-2.0",
+  "license": "PolyForm-Noncommercial-1.0.0",
   "type": "module",
   "scripts": {
     "dev": "sh scripts/dev.sh",
