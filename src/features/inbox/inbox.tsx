@@ -30,21 +30,9 @@ import { statusLabels, statuses } from "@/features/tracker/data"
 import { StatusIcon } from "@/features/tracker/icons"
 import { cn } from "@/lib/utils"
 
+import { type Grouping, groupings, type Tab, tabs } from "./search"
+
 type Line = FunctionReturnType<typeof api.inbox.inbox>[number]
-
-const tabs = { unread: "Unread", read: "Read", all: "All" }
-type Tab = keyof typeof tabs
-const groupings = { none: "No grouping", status: "Application status", company: "Company" }
-type Grouping = keyof typeof groupings
-
-// The tab, grouping and open line live in the URL, so a reload keeps your place.
-export const inboxSearch = (
-  search: Record<string, unknown>
-): { tab?: Tab; group?: Grouping; id?: string } => ({
-  tab: (Object.keys(tabs) as Tab[]).find((t) => t === search.tab),
-  group: (Object.keys(groupings) as Grouping[]).find((g) => g === search.group),
-  id: typeof search.id === "string" ? search.id : undefined,
-})
 
 /** The unread count for the sidebar badge. */
 export const useUnreadCount = () => useQuery(api.inbox.unreadCount) ?? 0

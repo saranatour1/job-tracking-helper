@@ -1,3 +1,4 @@
+import { Skeleton } from "@/components/ui/skeleton"
 import { cn } from "@/lib/utils"
 
 // The style Preferences and Loops share: an intro with the tab's title and what it's
@@ -20,6 +21,18 @@ export const addChip =
 /** A whole dashed tile that adds something, like a section. */
 export const addTile =
   "text-muted-foreground hover:bg-accent/30 hover:text-foreground flex min-h-24 items-center justify-center gap-2 rounded-xl border border-dashed text-sm transition-colors disabled:opacity-50"
+
+/** Rows of a list that's still loading. */
+export const RowSkeletons = () =>
+  Array.from({ length: 5 }, (_, i) => (
+    <div key={i} className="flex gap-3 px-2.5 py-2.5">
+      <Skeleton className="size-8 rounded-md" />
+      <div className="flex flex-1 flex-col gap-1.5">
+        <Skeleton className="h-3.5 w-2/5" />
+        <Skeleton className="h-3 w-1/4" />
+      </div>
+    </div>
+  ))
 
 export const PageIntro = ({
   title,

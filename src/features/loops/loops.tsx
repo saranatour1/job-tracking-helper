@@ -53,6 +53,7 @@ import { PageHeader } from "@/features/shell/page-header"
 import { cn } from "@/lib/utils"
 
 import { IconAction, messageOf, Status } from "./parts"
+import type { LoopsTab } from "./search"
 import { JobPanel, PasteLink, Shortlist, type ShortlistView, useLeadRoutes } from "./shortlist"
 
 type Loop = Doc<"loops">
@@ -60,30 +61,6 @@ type Run = Doc<"loopRuns">
 type DailySize = (typeof dailySizes)[number]
 type ShowSize = (typeof showSizes)[number]
 type RunTime = (typeof runTimes)[number]
-
-const loopsTabs = ["loops", "runs", "sources"] as const
-export type LoopsTab = (typeof loopsTabs)[number]
-
-// Reads the route's search, dropping anything it doesn't know.
-export const loopsSearch = (
-  search: Record<string, unknown>
-): {
-  tab?: LoopsTab
-  template?: string
-  edit?: string
-  job?: string
-  list?: "saved"
-} => ({
-  tab: loopsTabs.find((t) => t === search.tab),
-  template:
-    typeof search.template === "string" && templateById(search.template)
-      ? search.template
-      : undefined,
-  // The loop being edited, and the job sheet's lead, as text.
-  edit: typeof search.edit === "string" && search.edit ? search.edit : undefined,
-  job: typeof search.job === "string" && search.job ? search.job : undefined,
-  list: search.list === "saved" ? "saved" : undefined,
-})
 
 type Prefs = ReturnType<typeof formOf>
 

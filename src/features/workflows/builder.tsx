@@ -1,10 +1,9 @@
 import { dateText, routeIds, useLoopRoutes } from "@/lib/route-ids"
 import { api } from "@/lib/api"
 import type { Doc, Id } from "@convex/_generated/dataModel"
-import { vDraft, problemOf, type Step } from "@convex/features/automations/validators"
+import { problemOf, type Step } from "@convex/features/automations/validators"
 import { HugeiconsIcon } from "@hugeicons/react"
 import { useForm, useStore } from "@tanstack/react-form"
-import { validate } from "convex-helpers/validators"
 import { useNavigate, useSearch } from "@tanstack/react-router"
 import { useMutation } from "convex/react"
 import { useQuery } from "convex-helpers/react/cache/hooks"
@@ -22,32 +21,9 @@ import { cn } from "@/lib/utils"
 import { blockKinds, blocks, branches } from "./blocks"
 import { Canvas, type InsertKind, type StepStatus } from "./canvas"
 import { StepSettings } from "./step-settings"
-import { blank, type Draft, draftOf, type TemplateName, templates } from "./templates"
+import type { WorkflowSearch } from "./search"
+import { blank, type Draft, draftOf } from "./templates"
 import { branchAt, insert, remove, type Slot } from "./tree"
-
-// `template` and `loop` only matter for a new workflow: what it starts as. A top-level
-// step's place is a number in the address, so it reads ?step=2: the router quotes
-// strings that look like numbers.
-export type WorkflowSearch = {
-  step?: string | number
-  tab?: "history"
-  run?: string
-  template?: TemplateName
-  loop?: string
-  draft?: Draft
-}
-export const workflowSearch = (search: Record<string, unknown>): WorkflowSearch => ({
-  step:
-    typeof search.step === "string" || typeof search.step === "number" ? search.step : undefined,
-  tab: search.tab === "history" ? "history" : undefined,
-  run: typeof search.run === "string" ? search.run : undefined,
-  template:
-    typeof search.template === "string" && search.template in templates
-      ? (search.template as TemplateName)
-      : undefined,
-  loop: typeof search.loop === "string" ? search.loop : undefined,
-  draft: validate(vDraft, search.draft) ? (search.draft as Draft) : undefined,
-})
 
 // The browser's zone, not the Calendar's: the Calendar's arrives later, and a draft that
 // changed under you would look edited.

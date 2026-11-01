@@ -1,6 +1,7 @@
 import { createFileRoute } from "@tanstack/react-router"
 
-import { Jobs, jobsSearch } from "@/features/jobs/jobs"
+import { Jobs } from "@/features/jobs/jobs"
+import { jobsSearch } from "@/features/jobs/search"
 import { publicHead, site } from "@/lib/seo"
 
 export const Route = createFileRoute("/_app/jobs/")({

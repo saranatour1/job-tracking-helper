@@ -1,7 +1,8 @@
 import { createFileRoute } from "@tanstack/react-router"
 
 import { useRouteId, useWorkflowRoutes } from "@/lib/route-ids"
-import { WorkflowBuilder, workflowSearch } from "@/features/workflows/builder"
+import { WorkflowBuilder } from "@/features/workflows/builder"
+import { workflowSearch } from "@/features/workflows/search"
 
 // "new" opens an empty builder; saving it moves to the new workflow's own address.
 const Page = () => {

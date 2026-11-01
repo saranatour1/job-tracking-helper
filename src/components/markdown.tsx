@@ -1,12 +1,12 @@
-import ReactMarkdown from "react-markdown"
-import rehypeSanitize from "rehype-sanitize"
-import remarkGfm from "remark-gfm"
+import { lazy, Suspense } from "react"
 
 import { cn } from "@/lib/utils"
 
+// The parser is the biggest thing list pages would otherwise load, and they never draw Markdown.
+const MarkdownBody = lazy(() => import("./markdown-body"))
+
 // Posting text as the server keeps it: Markdown made from the board's sanitized HTML, or a
-// page's own Markdown for a pasted link. Raw HTML in it is never drawn, and the tree is
-// sanitized again here, so a posting can't add scripts or handlers to the page.
+// page's own Markdown for a pasted link. Plain text until the parser arrives.
 export const Markdown = ({ children, className }: { children: string; className?: string }) => (
   <div
     className={cn(
@@ -20,22 +20,9 @@ export const Markdown = ({ children, className }: { children: string; className?
       className
     )}
   >
-    <ReactMarkdown
-      remarkPlugins={[remarkGfm]}
-      rehypePlugins={[rehypeSanitize]}
-      // A pasted page's own Markdown can carry images, which can track who reads them.
-      disallowedElements={["img"]}
-      unwrapDisallowed
-      components={{
-        a: ({ href, children }) => (
-          <a href={href} target="_blank" rel="noopener noreferrer nofollow">
-            {children}
-          </a>
-        ),
-      }}
-    >
-      {children}
-    </ReactMarkdown>
+    <Suspense fallback={<p className="whitespace-pre-line">{children}</p>}>
+      <MarkdownBody>{children}</MarkdownBody>
+    </Suspense>
   </div>
 )
 

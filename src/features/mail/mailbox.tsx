@@ -31,13 +31,11 @@ import { PageHeader } from "@/features/shell/page-header"
 import { cn } from "@/lib/utils"
 
 import type { EditorHandle } from "./editor"
+import { type View, views } from "./search"
 
 const MailEditor = lazy(() => import("./editor"))
 
 const pageSize = 25
-
-const views = ["inbox", "sent", "drafts", "archived", "trash", "templates"] as const
-type View = (typeof views)[number]
 
 const viewNames: Record<View, string> = {
   inbox: "Inbox",
@@ -46,43 +44,6 @@ const viewNames: Record<View, string> = {
   archived: "Archived",
   trash: "Trash",
   templates: "Templates",
-}
-
-export type MailSearch = {
-  view?: View
-  label?: string
-  open?: string
-  // Another email in the open email's thread, when you've picked one.
-  message?: string
-  // "new", or a draft's id.
-  compose?: string
-  // The email being answered.
-  reply?: string
-  // "new", or a template's id.
-  template?: string
-}
-
-const stringOf = (value: unknown) => (typeof value === "string" && value ? value : undefined)
-
-export const mailSearch = (search: Record<string, unknown>): MailSearch => {
-  const view = views.find((v) => v === search.view)
-  const [label, open, message, compose, reply, template] = [
-    stringOf(search.label),
-    stringOf(search.open),
-    stringOf(search.message),
-    stringOf(search.compose),
-    stringOf(search.reply),
-    stringOf(search.template),
-  ]
-  return {
-    ...(view && { view }),
-    ...(label && { label }),
-    ...(open && { open }),
-    ...(message && { message }),
-    ...(compose && { compose }),
-    ...(reply && { reply }),
-    ...(template && { template }),
-  }
 }
 
 const route = getRouteApi("/_app/email")

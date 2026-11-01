@@ -5,6 +5,7 @@ import { useQuery } from "convex-helpers/react/cache/hooks"
 import { Button } from "@/components/ui/button"
 import { SiteFooter, SiteHeader } from "@/features/landing/site-frame"
 import { AppShell } from "@/features/shell/app-shell"
+import { pageBody, RowSkeletons } from "@/features/shell/page-body"
 import { useAccess } from "@/hooks/use-access"
 
 // New accounts start on Preferences. Saving or "Skip for now" there stops this.
@@ -19,7 +20,14 @@ const AppLayout = () => {
   const { loading, member, inApp } = useAccess()
   const path = useRouterState({ select: (s) => s.location.pathname })
   const open = path === "/jobs" || path.startsWith("/jobs/")
-  if (loading) return null
+  // The server renders this too, so a page shows something before its scripts load. It can't be the
+  // real frame yet: that depends on who this is.
+  if (loading)
+    return (
+      <div aria-busy="true" className={pageBody}>
+        <RowSkeletons />
+      </div>
+    )
   if (member || (inApp && !open))
     return (
       <>

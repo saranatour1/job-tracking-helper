@@ -47,6 +47,7 @@ import { cn } from "@/lib/utils"
 import { IdentityBlocks } from "./identity-blocks"
 import { assistantPrompt, parseReply } from "./prompt"
 import { fillEmpty, type Section as FieldSection, suggestedSections } from "./prefilled"
+import type { PreferencesTab } from "./search"
 
 type Values = typeof PreferencesType.inferIn
 type Draft = typeof PreferencesDraft.infer
@@ -732,22 +733,6 @@ const Prefilled = ({
     </div>
   )
 }
-
-const preferencesTabs = ["overview", "edit", "prefilled"] as const
-export type PreferencesTab = (typeof preferencesTabs)[number]
-
-// Reads `?tab=`, `?step=` and `?add=` (a question Activity wants on Prefilled) for the
-// route, dropping anything that isn't one of them.
-export const preferencesSearch = (
-  search: Record<string, unknown>
-): { tab?: PreferencesTab; step?: number; add?: string } => ({
-  tab: preferencesTabs.find((t) => t === search.tab),
-  step:
-    typeof search.step === "number" && Number.isInteger(search.step) && search.step >= 0
-      ? search.step
-      : undefined,
-  add: typeof search.add === "string" && search.add.trim() ? search.add.slice(0, 200) : undefined,
-})
 
 // When an application last used each saved answer, by section and label.
 export type Usage = Record<string, { lastUsedAt?: number; useCount?: number }>
