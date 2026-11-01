@@ -74,7 +74,13 @@ const matchReasons = [
   "A strong match for what you want.",
 ]
 
-export const fitFrom = 1.8
+// A repeat of the same request can move a score across a line, so a fit near this one says so.
+export const fitFrom = 1.6
+export const clearFitFrom = 2
+
+// Below this, Jev's top answer is closer to a guess, so it can't rule a role out by itself.
+// (TypeSafe's example for acting on a Choice; tune it with scripts/verdict-eval.mjs.)
+export const sureFrom = 0.6
 
 type Spec = { kind: "want" | "need" | "avoid"; label: string; ask: string; must?: boolean }
 
@@ -187,14 +193,19 @@ export const checksOf = (
     const { confidence } = a
     const must = s.must ? { must: true } : {}
     if (s.kind === "avoid") {
-      if (a.outcome === "holds")
+      if (a.outcome === "holds" && confidence >= sureFrom)
         return [{ kind: s.kind, label: `Involves ${s.label}`, result: "notFit", confidence }]
       if (a.outcome === "fails")
         return [{ kind: s.kind, label: `No ${s.label}`, result: "fits", confidence }]
       return [{ kind: s.kind, label: `Might involve ${s.label}`, result: "maybe", confidence }]
     }
     if (s.kind === "want" && a.outcome === "fails") return []
-    const result = a.outcome === "holds" ? "fits" : a.outcome === "fails" ? "notFit" : "maybe"
+    const result =
+      a.outcome === "holds"
+        ? "fits"
+        : a.outcome === "fails" && confidence >= sureFrom
+          ? "notFit"
+          : "maybe"
     return [{ kind: s.kind, label: s.label, result, confidence, ...must }]
   })
   const company = job.company.toLowerCase()
@@ -225,8 +236,11 @@ export const verdictOf = (match: number, checks: Check[], model: string): Verdic
   if (misses.length) reasons.push(`It misses: ${misses.map((c) => c.label).join(", ")}.`)
   if (unconfirmed.length)
     reasons.push(`The posting doesn't confirm: ${unconfirmed.map((c) => c.label).join(", ")}.`)
+  const verdict = match >= fitFrom && !misses.length && !unconfirmed.length ? "fit" : "notFit"
+  if (verdict === "fit" && match < clearFitFrom)
+    reasons.push("A close call: the match is near the line for showing a role.")
   return {
-    verdict: match >= fitFrom && !misses.length && !unconfirmed.length ? "fit" : "notFit",
+    verdict,
     fit: Math.round((match / 3) * 100),
     reasons,
     checks,

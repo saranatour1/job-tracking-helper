@@ -74,11 +74,12 @@ src/
   assets/               the link preview image, built with a hash in its name
 public/                 logos, icons, robots.txt, sitemap.xml and llms.txt
 skills/                 the skill for people's own agents, which needs no account
-scripts/                dev and secrets scripts
+scripts/                dev, secrets and verdict-checking scripts
 docs/
   development.md        env vars, deploying, code rules
   flows.md              every user and agent flow, per feature
   workflows.md          workflows in depth
+  job-classification.md how a job goes from the internet to your board, with diagrams
   database-design.md    the tables, what deleting does, and how to change what's stored
 .claude/, .agents/      agent skills: running and checking the app, PRs, Convex and arktype
 ```
@@ -105,6 +106,7 @@ docs/
 Written for this repo:
 
 - `scripts/dev.sh` runs Convex and Vite together. It fills in missing Google and GitHub keys with `disabled` so Convex can start, and those two buttons fail until you push real keys.
+- `scripts/verdict-eval.mjs` shows what each match cutoff would do to roles someone already rated, from stored answers, with no model calls.
 - `scripts/push-secrets.sh` copies the OAuth keys from 1Password into Convex without printing them or writing them to disk.
 - `convex/lib/ark.ts` turns arktype types into Convex validators, so tables and arguments are defined once.
 - `convex/lib/functions.ts` has function builders that require sign-in and check arguments with arktype.
