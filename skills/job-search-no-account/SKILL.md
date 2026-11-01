@@ -60,14 +60,14 @@ Remote OK, Hacker News and the Arbeitsagentur (Germany) cover many companies at 
 
 ## 3. Fetch the roles
 
-Set `SLUG`, and set `Q` to a regular expression for titles. Fetch one feed at a time, and only what you need.
+Set `SLUG`, and set `Q` to a regular expression for titles. Fetch one feed at a time. Each feed's first command lists roles without their text, because a board's text can run to megabytes. Keep `Q` narrow, and use the second command only for roles you might show the person.
 
 ```bash
 SLUG=vercel
 Q='engineer|developer'
 ```
 
-**Greenhouse.** Fetch one role's text by its id, in `.content`, which is escaped HTML.
+**Greenhouse.** A role's text is in `.content`, which is escaped HTML.
 
 ```bash
 curl -fsS "https://boards-api.greenhouse.io/v1/boards/$SLUG/jobs" | jq -c --arg q "$Q" '.jobs[] | select(.title | test($q; "i")) | {id, title, location: .location.name, url: .absolute_url, posted: .first_published}'
@@ -80,48 +80,72 @@ curl -fsS "https://boards-api.greenhouse.io/v1/boards/$SLUG/jobs/$ID?questions=t
 **Lever.**
 
 ```bash
-curl -fsS "https://api.lever.co/v0/postings/$SLUG?mode=json" | jq -c --arg q "$Q" '.[] | select(.text | test($q; "i")) | {title: .text, location: .categories.location, workplace: .workplaceType, url: .hostedUrl, apply: .applyUrl, text: .descriptionPlain}'
+curl -fsS "https://api.lever.co/v0/postings/$SLUG?mode=json" | jq -c --arg q "$Q" '.[] | select(.text | test($q; "i")) | {id, title: .text, location: .categories.location, workplace: .workplaceType, url: .hostedUrl, apply: .applyUrl, posted: (.createdAt / 1000 | todate)}'
 ```
-
-**Ashby.**
 
 ```bash
-curl -fsS "https://api.ashbyhq.com/posting-api/job-board/$SLUG" | jq -c --arg q "$Q" '.jobs[] | select(.isListed != false and (.title | test($q; "i"))) | {title, location, remote: .isRemote, url: .jobUrl, apply: .applyUrl, text: .descriptionPlain}'
+curl -fsS "https://api.lever.co/v0/postings/$SLUG/$ID?mode=json" | jq '{text: .descriptionPlain, lists, additional: .additionalPlain}'
 ```
 
-**Personio.** This one is XML, with one `<position>` per role. A role's page is `https://$SLUG.jobs.personio.de/job/<id>`.
+**Ashby.** Set `URL` to the role's `url` to read its text.
 
 ```bash
-curl -fsS "https://$SLUG.jobs.personio.de/xml?language=en"
+curl -fsS "https://api.ashbyhq.com/posting-api/job-board/$SLUG" | jq -c --arg q "$Q" '.jobs[] | select(.isListed != false and (.title | test($q; "i"))) | {title, location, remote: .isRemote, url: .jobUrl, apply: .applyUrl, posted: .publishedAt}'
 ```
 
-**SmartRecruiters.** `q` here is plain words, not a regular expression. The list has no text or link, so fetch those for the roles you keep, from `.jobAd.sections` and `.postingUrl`.
+```bash
+curl -fsS "https://api.ashbyhq.com/posting-api/job-board/$SLUG" | jq -r --arg url "$URL" '.jobs[] | select(.jobUrl == $url) | .descriptionPlain'
+```
+
+**Personio.** This one is XML, and it has no filter, so check the titles yourself. A role's page is `https://$SLUG.jobs.personio.de/job/<id>`. Many roles have no text in the XML. For those, read the page in a browser or ask the person to paste it.
+
+```bash
+curl -fsS "https://$SLUG.jobs.personio.de/xml?language=en" | grep -E '^ {0,4}<(id|office|name)>'
+```
+
+```bash
+curl -fsS "https://$SLUG.jobs.personio.de/xml?language=en" | sed -n "/<id>$ID<\/id>/,/<\/position>/p"
+```
+
+**SmartRecruiters.** `q` here is plain words, not a regular expression. The list has no link, so take it from `.postingUrl` when you read a role, with its text in `.jobAd.sections`.
 
 ```bash
 curl -fsS "https://api.smartrecruiters.com/v1/companies/$SLUG/postings?limit=100&q=engineer" | jq -c '.content[] | {id, title: .name, location: .location.fullLocation, remote: .location.remote, posted: .releasedDate}'
 ```
 
 ```bash
-curl -fsS "https://api.smartrecruiters.com/v1/companies/$SLUG/postings/$ID"
+curl -fsS "https://api.smartrecruiters.com/v1/companies/$SLUG/postings/$ID" | jq '{url: .postingUrl, sections: .jobAd.sections}'
 ```
 
-**Workable.**
+**Workable.** Set `CODE` to the role's `code` to read its text.
 
 ```bash
-curl -fsS "https://apply.workable.com/api/v1/widget/accounts/$SLUG?details=true" | jq -c --arg q "$Q" --arg slug "$SLUG" '.jobs[] | select(.title | test($q; "i")) | {title, location: [.city, .state, .country], remote: .telecommuting, url: "https://apply.workable.com/\($slug)/j/\(.shortcode)/", text: .description}'
+curl -fsS "https://apply.workable.com/api/v1/widget/accounts/$SLUG" | jq -c --arg q "$Q" --arg slug "$SLUG" '.jobs[] | select(.title | test($q; "i")) | {code: .shortcode, title, location: [.city, .state, .country], remote: .telecommuting, url: "https://apply.workable.com/\($slug)/j/\(.shortcode)/", posted: .published_on}'
 ```
 
-**Remote OK.** Its terms ask you to link to the role and name Remote OK as the source. Its first row is a notice, not a role.
+```bash
+curl -fsS "https://apply.workable.com/api/v1/widget/accounts/$SLUG?details=true" | jq -r --arg code "$CODE" '.jobs[] | select(.shortcode == $code) | .description'
+```
+
+**Remote OK.** Its terms ask you to link to the role and name Remote OK as the source. Its first row is a notice, not a role. Set `URL` to the role's `url` to read its text.
 
 ```bash
-curl -fsSL "https://remoteok.com/api" | jq -c --arg q "$Q" '.[1:][] | select(.position | test($q; "i")) | {title: .position, company, location, url, posted: .date, text: .description}'
+curl -fsSL "https://remoteok.com/api" | jq -c --arg q "$Q" '.[1:][] | select(.position | test($q; "i")) | {title: .position, company, location, url, posted: .date}'
+```
+
+```bash
+curl -fsSL "https://remoteok.com/api" | jq -r --arg url "$URL" '.[1:][] | select(.url == $url) | .description'
 ```
 
 **Hacker News.** Take the latest "Who is hiring?" thread, then read its comments, one per company. By convention the top line is `Company | Role | Where | Remote`. A role's link is `https://news.ycombinator.com/item?id=<id>`.
 
 ```bash
 HN=$(curl -fsS 'https://hn.algolia.com/api/v1/search_by_date?tags=story,author_whoishiring&query=%22who%20is%20hiring%22&hitsPerPage=1' | jq -r '.hits[0].objectID')
-curl -fsS "https://hn.algolia.com/api/v1/items/$HN" | jq -c --arg q "$Q" '.children[] | select((.text // "") | test($q; "i")) | {id, text}'
+curl -fsS "https://hn.algolia.com/api/v1/items/$HN" | jq -c --arg q "$Q" '.children[] | select((.text // "") | test($q; "i")) | {id, top: (.text | split("<p>")[0][:200])}'
+```
+
+```bash
+curl -fsS "https://hn.algolia.com/api/v1/items/$ID" | jq -r '.text'
 ```
 
 **Arbeitsagentur.** For roles in Germany. The key is its public client id, not a secret. German titles find far more than English ones. It corrects a place it doesn't know to the nearest German one, so ignore the results if `ort` isn't the place you asked for.
