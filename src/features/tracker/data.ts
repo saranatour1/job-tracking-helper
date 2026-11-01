@@ -2,7 +2,7 @@ import { useSyncExternalStore } from "react"
 
 import type { Kind as MailKind } from "@convex/features/email/match"
 
-import type { Display } from "./display-options"
+import { type Display, type FilterField, type Filters, filterFields } from "./search"
 
 // shortcut: hard-coded sample data while the tracker UI has no backend; replace
 // with Convex queries once the schema in docs/database-design.md exists.
@@ -89,9 +89,8 @@ export type Goal = {
 }
 
 // Filters are "field is one of values". A view is a saved set of filters.
-export const filterFields = ["status", "priority", "label", "goal", "company", "method"] as const
-export type FilterField = (typeof filterFields)[number]
-export type Filters = Partial<Record<FilterField, string[]>>
+export { filterFields }
+export type { FilterField, Filters }
 
 // A view is a saved set of filters plus how to show them: board or list, grouping, ordering.
 export type View = {

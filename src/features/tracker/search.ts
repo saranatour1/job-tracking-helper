@@ -1,5 +1,31 @@
-import { type Display, groupings, orderings, properties } from "./display-options"
-import { type FilterField, type Filters, filterFields } from "./data"
+// Nothing here imports a value: routes load this file on every page.
+export const groupings = {
+  status: "Status",
+  priority: "Priority",
+  goal: "Goal",
+  none: "No grouping",
+}
+export const orderings = { priority: "Priority", created: "Created", company: "Company" }
+export const properties = {
+  id: "ID",
+  priority: "Priority",
+  goal: "Goal",
+  labels: "Labels",
+  location: "Location",
+  created: "Created",
+}
+
+export type Display = {
+  layout: "board" | "list"
+  groupBy: keyof typeof groupings
+  orderBy: keyof typeof orderings
+  showEmpty: boolean
+  shown: (keyof typeof properties)[]
+}
+
+export const filterFields = ["status", "priority", "label", "goal", "company", "method"] as const
+export type FilterField = (typeof filterFields)[number]
+export type Filters = Partial<Record<FilterField, string[]>>
 
 export const pipelineTabs = ["active", "saved", "all", "archived", "trash"] as const
 export type Tab = (typeof pipelineTabs)[number]

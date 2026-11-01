@@ -4,8 +4,9 @@ import type { CalEvent, EventColor } from "@/components/kloq/lib/event-types"
 import { formatInstant, instantPlus, parseInstant } from "@/components/kloq/lib/instant"
 import { type ApplicationCard, statusLabels } from "@/features/tracker/data"
 import type { MailEvent } from "@/features/tracker/mail"
+import type { EventKind } from "./search"
 
-export type EventKind = "applied" | "moved" | "email" | "interview" | "followup" | "reminder"
+export type { EventKind }
 
 /** An event you added or fixed, as Convex keeps it. */
 export type SavedEvent = Doc<"calendarEvents">
