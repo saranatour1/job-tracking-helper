@@ -671,7 +671,8 @@ call, `internal.ts` the row's steps, `utils.ts` starting one and preparing a loo
    answers it started with.
 4. **Your shortlist** ("For you", "Saved"): open a role for its fit, Jev's checks and the
    posting. Save it, favorite it ("Tomorrow's runs will look for more like it."), dismiss
-   it ("…less like it."), or add it to Applications as Saved (`api.loops.track`).
+   it ("…less like it."), or add it to Applications as Saved (`api.loops.track`). A row whose
+   posting can be prepared shows **Prepare**, or its status once it's started.
 5. **Check a link.** Paste a posting's link and press "Check it" (`api.loopActions.checkLink`).
    A known board is read for free; another page costs one Firecrawl credit. Jev judges
    it and it opens on your shortlist. 10 a day; a link you checked before opens straight
