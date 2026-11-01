@@ -293,7 +293,7 @@ function candidatesFor(
       const weekStart = localDate(cursor.y, cursor.m, cursor.d);
       const offsets = byDay.length
         ? byDay.map((b) => (weekdayIndexOf(b.weekday) - weekStart.getDay() + 7) % 7)
-        : [0];
+        : [(anchor.date.getDay() - weekStart.getDay() + 7) % 7];
       return [...new Set(offsets)]
         .sort((a, b) => a - b)
         .map((o) => addDays(weekStart, o))
@@ -383,7 +383,14 @@ export function expandRecurrence(
 
   const anchor = anchorOf(event, startMs);
   const interval = Math.max(1, parts.interval ?? 1);
-  const untilMs = parts.until ? untilToDate(parts.until).getTime() : null;
+  // a date-only UNTIL takes in that whole day; one with a time stops exactly then
+  const untilMs = parts.until
+    ? untilToDate(
+        parts.until.time
+          ? parts.until
+          : { ...parts.until, time: { hour: 23, minute: 59, second: 59 } },
+      ).getTime()
+    : null;
   // exclusions match exactly as written and by calendar day
   const skip = new Set<string>();
   for (const x of exdatesOf(event)) {
