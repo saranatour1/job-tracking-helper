@@ -182,17 +182,18 @@ export const profileFor = async (
 
 // ponytail: a waiting role can close on its board before it's shown; the sheet still
 // opens it, and the link says so.
-export const fillShortlist = async (ctx: MutationCtx, userId: Id<"users">, loopId: Id<"loops">) => {
+export const fillShortlist = async (ctx: MutationCtx, loopId: Id<"loops">) => {
   const loop = await ctx.db.get("loops", loopId)
-  const of = async (status: "new" | "waiting") =>
-    (
-      await ctx.db
-        .query("jobLeads")
-        .withIndex("by_userId_and_status", (q) => q.eq("userId", userId).eq("status", status))
-        .take(300)
-    ).filter((l) => l.loopId === loopId)
-  const room = Math.max(0, (loop?.show ?? defaultShow) - (await of("new")).length)
-  const best = (await of("waiting")).sort((a, b) => b.fit - a.fit).slice(0, room)
+  const show = loop?.show ?? defaultShow
+  const of = (status: "new" | "waiting", size: number) =>
+    ctx.db
+      .query("jobLeads")
+      .withIndex("by_loopId_and_status_and_fit", (q) => q.eq("loopId", loopId).eq("status", status))
+      .order("desc")
+      .take(size)
+  const room = show - (await of("new", show)).length
+  if (!room) return []
+  const best = await of("waiting", room)
   for (const lead of best) await ctx.db.patch("jobLeads", lead._id, { status: "new" })
   return best
 }

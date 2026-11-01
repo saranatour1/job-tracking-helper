@@ -158,7 +158,7 @@ const finishRun = internalMutation({
       })
       fits += Number(fit)
     }
-    const best = await fillShortlist(ctx, run.userId, run.loopId)
+    const best = await fillShortlist(ctx, run.loopId)
     const shown = best.length
     await prepareFits(ctx, run.userId, best)
     for (const p of providerIds) {

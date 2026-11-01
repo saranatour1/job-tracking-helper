@@ -75,13 +75,13 @@ export const Job = type({
   location: "string",
   remote: "boolean",
   postedAt: "number",
-  seenAt: "number",
+  // No longer written or read: older rows still have it.
+  "seenAt?": "number",
   text: "string",
 })
 
 export const vBoardFetchedArgs = {
   boardId: v.id("jobBoards"),
-  startedAt: v.number(),
   jobs: v.number(),
   error: v.optional(v.string()),
   company: v.optional(v.string()),

@@ -108,34 +108,55 @@ const addSearches = internalMutation({
 })
 
 const saveJobs = internalMutation({
-  args: { boardId: v.id("jobBoards"), jobs: v.array(vFeedJob), seenAt: v.number() },
+  args: { boardId: v.id("jobBoards"), jobs: v.array(vFeedJob) },
   returns: v.null(),
-  handler: async (ctx, { boardId, jobs, seenAt }) => {
+  handler: async (ctx, { boardId, jobs }) => {
     for (const job of jobs) {
       const key = urlKey(job.url)
       const known = await ctx.db
         .query("jobs")
         .withIndex("by_urlKey", (q) => q.eq("urlKey", key))
         .first()
-      if (known) await ctx.db.patch("jobs", known._id, { ...job, seenAt })
-      else await ctx.db.insert("jobs", { ...job, boardId, urlKey: key, seenAt })
+      if (!known) await ctx.db.insert("jobs", { ...job, boardId, urlKey: key })
+      // A write reindexes the role's text and reruns every open search that read it, so a
+      // role the feed didn't change stays as it is.
+      else if ((Object.keys(job) as (keyof typeof job)[]).some((k) => job[k] !== known[k]))
+        await ctx.db.patch("jobs", known._id, job)
     }
     return null
   },
 })
 
-// ponytail: removes up to 500 closed roles a fetch; the rest go on the next day's.
+const boardPostings = internalQuery({
+  args: { boardId: v.id("jobBoards"), cursor: v.union(v.string(), v.null()) },
+  returns: v.object({
+    page: v.array(v.object({ _id: v.id("jobs"), urlKey: v.string() })),
+    isDone: v.boolean(),
+    continueCursor: v.string(),
+  }),
+  handler: async (ctx, { boardId, cursor }) => {
+    const { page, isDone, continueCursor } = await ctx.db
+      .query("jobs")
+      .withIndex("by_boardId_and_postedAt", (q) => q.eq("boardId", boardId))
+      .paginate({ numItems: 200, cursor })
+    return { page: page.map((j) => ({ _id: j._id, urlKey: j.urlKey })), isDone, continueCursor }
+  },
+})
+
+const closeJobs = internalMutation({
+  args: { jobIds: v.array(v.id("jobs")) },
+  returns: v.null(),
+  handler: async (ctx, { jobIds }) => {
+    for (const jobId of jobIds)
+      if (await ctx.db.get("jobs", jobId)) await ctx.db.delete("jobs", jobId)
+    return null
+  },
+})
+
 const boardFetched = internalMutation({
   args: vBoardFetchedArgs,
   returns: v.null(),
-  handler: async (ctx, { boardId, startedAt, jobs, error, company }) => {
-    if (!error) {
-      const closed = await ctx.db
-        .query("jobs")
-        .withIndex("by_boardId_and_seenAt", (q) => q.eq("boardId", boardId).lt("seenAt", startedAt))
-        .take(500)
-      for (const job of closed) await ctx.db.delete("jobs", job._id)
-    }
+  handler: async (ctx, { boardId, jobs, error, company }) => {
     const b = await ctx.db.get("jobBoards", boardId)
     // A search with no roles, often a place outside Germany, isn't worth refreshing. The next
     // run asks again.
@@ -156,27 +177,41 @@ const boardFetched = internalMutation({
   },
 })
 
+// ponytail: a run gives up after reading 600 roles, which keeps full role texts under Convex's
+// 16 MB a query. Carry a cursor between runs if people run out of new roles that deep.
+const maxScanned = 600
+
 const candidates = internalQuery({
   args: vCandidatesArgs,
   returns: v.array(v.id("jobs")),
   handler: async (ctx, { userId, queries, remoteOnly, companies, since, limit }) => {
-    const results = await Promise.all(
-      queries.map((query) =>
-        ctx.db
-          .query("jobs")
-          .withSearchIndex("search_text", (q) =>
-            remoteOnly ? q.search("text", query).eq("remote", true) : q.search("text", query)
-          )
-          .take(limit)
-      )
+    // Read one role at a time, taking turns, so a run reads only as far down each search as it
+    // needs. The top matches stop being new once earlier runs have judged them.
+    const searches = queries.map((query) =>
+      ctx.db
+        .query("jobs")
+        .withSearchIndex("search_text", (q) =>
+          remoteOnly ? q.search("text", query).eq("remote", true) : q.search("text", query)
+        )
+        [Symbol.asyncIterator]()
     )
     const wanted = companies.map((c) => c.toLowerCase())
     const picked: Id<"jobs">[] = []
     const seen = new Set<string>()
-    for (let i = 0; picked.length < limit && results.some((r) => i < r.length); i++)
-      for (const job of results.map((r) => r[i]).filter(Boolean)) {
+    const read = new Set<Id<"jobs">>()
+    let open = searches
+    let scanned = 0
+    while (picked.length < limit && open.length && scanned < maxScanned) {
+      const turn = await Promise.all(open.map((s) => s.next()))
+      open = open.filter((_, i) => !turn[i]!.done)
+      scanned += open.length
+      for (const result of turn) {
+        if (result.done || picked.length >= limit) continue
+        const job = result.value
+        if (read.has(job._id)) continue
+        read.add(job._id)
         const role = roleKey(job)
-        if (picked.length >= limit || seen.has(role)) continue
+        if (seen.has(role)) continue
         if (since && job.postedAt < since) continue
         const company = job.company.toLowerCase()
         if (wanted.length && !wanted.some((c) => company.includes(c) || c.includes(company)))
@@ -188,6 +223,8 @@ const candidates = internalQuery({
         seen.add(role)
         picked.push(job._id)
       }
+    }
+    for (const search of open) await search.return?.()
     return picked
   },
 })
@@ -345,6 +382,8 @@ export const internalApi = {
   ensureBoard,
   hasBoard,
   saveJobs,
+  boardPostings,
+  closeJobs,
   boardFetched,
   researchDue,
   researchInputs,
