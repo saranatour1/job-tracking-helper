@@ -1,9 +1,11 @@
 import { isNonRetryableError } from "@convex-dev/workpool"
 import { v } from "convex/values"
 import { internal } from "../../_generated/api"
-import { internalAction } from "../../_generated/server"
+import type { Id } from "../../_generated/dataModel"
+import { type ActionCtx, internalAction } from "../../_generated/server"
 import { workLog } from "../../lib/log"
 import { botAuthHeaders } from "../../lib/webBotAuth"
+import { urlKey } from "../workflows/fit"
 import { limits } from "../workflows/manager"
 import { apiKeyOf } from "../workflows/sources"
 import { webSearch } from "../workflows/sources/firecrawl"
@@ -44,6 +46,27 @@ const readDetails = async (kind: BoardKind, slug: string, body: unknown) => {
   return details
 }
 
+const closeUnlisted = async (ctx: ActionCtx, boardId: Id<"jobBoards">, listed: Set<string>) => {
+  const closed: Id<"jobs">[] = []
+  let cursor: string | null = null
+  for (;;) {
+    const {
+      page,
+      isDone,
+      continueCursor,
+    }: {
+      page: { _id: Id<"jobs">; urlKey: string }[]
+      isDone: boolean
+      continueCursor: string
+    } = await ctx.runQuery(internal.api.jobs.boardPostings, { boardId, cursor })
+    closed.push(...page.filter((j) => !listed.has(j.urlKey)).map((j) => j._id))
+    if (isDone) break
+    cursor = continueCursor
+  }
+  for (let i = 0; i < closed.length; i += 100)
+    await ctx.runMutation(internal.api.jobs.closeJobs, { jobIds: closed.slice(i, i + 100) })
+}
+
 const fetchBoard = internalAction({
   args: { boardId: v.id("jobBoards") },
   returns: v.null(),
@@ -58,7 +81,6 @@ const fetchBoard = internalAction({
         const error = `The feed answered ${res.status}`
         await ctx.runMutation(internal.api.jobs.boardFetched, {
           boardId,
-          startedAt,
           jobs: 0,
           error,
         })
@@ -79,11 +101,10 @@ const fetchBoard = internalAction({
         await ctx.runMutation(internal.api.jobs.saveJobs, {
           boardId,
           jobs: jobs.slice(i, i + 100),
-          seenAt: startedAt,
         })
+      await closeUnlisted(ctx, boardId, new Set(jobs.map((j) => urlKey(j.url))))
       await ctx.runMutation(internal.api.jobs.boardFetched, {
         boardId,
-        startedAt,
         jobs: jobs.length,
         ...(isCompanyBoard(board.kind) && { company: jobs[0]?.company }),
       })

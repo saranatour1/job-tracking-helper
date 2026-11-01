@@ -51,7 +51,7 @@ describe("the job catalog's totals", () => {
       await countCatalog(ctx, {})
       return id
     })
-    const fetched = { boardId, startedAt: 0 }
+    const fetched = { boardId }
     await t.mutation(internal.api.jobs.boardFetched, { ...fetched, jobs: 8 })
     expect(await as.query(api.api.jobs.stats, {})).toEqual({ boards: 1, jobs: 8 })
     // A failed fetch keeps what the board had.
@@ -65,7 +65,7 @@ describe("the job catalog's totals", () => {
   it("counts what's there when the first change comes, once", async () => {
     const { t, as } = await setup()
     const boardId = await t.run((ctx) => ctx.db.insert("jobBoards", board(1, 5)))
-    await t.mutation(internal.api.jobs.boardFetched, { boardId, startedAt: 0, jobs: 9 })
+    await t.mutation(internal.api.jobs.boardFetched, { boardId, jobs: 9 })
     expect(await as.query(api.api.jobs.stats, {})).toEqual({ boards: 1, jobs: 9 })
   })
 })
@@ -188,6 +188,49 @@ describe("Arbeitsagentur searches", () => {
     ])
   })
 
+  it("keeps listed roles, updates changed ones and drops the ones no longer listed", async () => {
+    const { t } = await setup()
+    const feed = (titles: string[]) =>
+      vi.fn(async (input: string) =>
+        input.includes("/jobdetails/")
+          ? new Response(JSON.stringify({ stellenangebotsBeschreibung: "Pflege." }))
+          : new Response(
+              JSON.stringify({
+                woOutput: { bereinigterOrt: "Berlin" },
+                ergebnisliste: titles.map((title, i) => ({
+                  referenznummer: `10001-${i}-S`,
+                  stellenangebotsTitel: title,
+                  firma: "Permacon GmbH",
+                  datumErsteVeroeffentlichung: "2026-10-30",
+                  stellenlokationen: [{ adresse: { ort: "Berlin" } }],
+                })),
+              })
+            )
+      )
+    const [boardId] = await t.mutation(internal.api.jobs.addSearches, {
+      searches: [{ what: "Pflege", where: "Berlin" }],
+    })
+    const jobs = () => t.run((ctx) => ctx.db.query("jobs").take(10))
+
+    vi.stubGlobal("fetch", feed(["Kept", "Closed"]))
+    await t.action(internal.api.jobs.fetchBoard, { boardId: boardId! })
+    const before = await jobs()
+    expect(before.map((j) => j.title)).toEqual(["Kept", "Closed"])
+
+    vi.stubGlobal("fetch", feed(["Kept, renamed"]))
+    await t.action(internal.api.jobs.fetchBoard, { boardId: boardId! })
+    const after = await jobs()
+    expect(after.map((j) => [j._id, j.title])).toEqual([[before[0]?._id, "Kept, renamed"]])
+
+    // A feed that's down says nothing about what's closed.
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(async () => new Response("", { status: 404 }))
+    )
+    await t.action(internal.api.jobs.fetchBoard, { boardId: boardId! })
+    expect(await jobs()).toHaveLength(1)
+  })
+
   it("adds each search once, and forgets one with no roles", async () => {
     const { t, as } = await setup()
     const searches = [{ what: "Lagerist", where: "München" }]
@@ -199,17 +242,16 @@ describe("Arbeitsagentur searches", () => {
       slug: "lagerist|münchen",
       company: "Arbeitsagentur: Lagerist, München",
     })
-    await t.mutation(internal.api.jobs.boardFetched, { boardId: boardId!, startedAt: 0, jobs: 3 })
+    await t.mutation(internal.api.jobs.boardFetched, { boardId: boardId!, jobs: 3 })
     expect(await as.query(api.api.jobs.stats, {})).toEqual({ boards: 1, jobs: 3 })
     // A failed fetch doesn't count as none.
     await t.mutation(internal.api.jobs.boardFetched, {
       boardId: boardId!,
-      startedAt: 0,
       jobs: 0,
       error: "Down",
     })
     expect(await t.run((ctx) => ctx.db.get("jobBoards", boardId!))).not.toBeNull()
-    await t.mutation(internal.api.jobs.boardFetched, { boardId: boardId!, startedAt: 0, jobs: 0 })
+    await t.mutation(internal.api.jobs.boardFetched, { boardId: boardId!, jobs: 0 })
     expect(await t.run((ctx) => ctx.db.get("jobBoards", boardId!))).toBeNull()
     expect(await as.query(api.api.jobs.stats, {})).toEqual({ boards: 0, jobs: 0 })
   })
@@ -249,7 +291,7 @@ describe("duplicates", () => {
 
   const save = async (t: ReturnType<typeof convexTest>, jobs: ReturnType<typeof feedJob>[]) => {
     const boardId = await t.run((ctx) => ctx.db.insert("jobBoards", board(1, 0)))
-    await t.mutation(internal.api.jobs.saveJobs, { boardId, jobs, seenAt: 1 })
+    await t.mutation(internal.api.jobs.saveJobs, { boardId, jobs })
     return boardId
   }
   const owner = (t: ReturnType<typeof convexTest>) =>
@@ -293,6 +335,29 @@ describe("duplicates", () => {
     })
     const jobs = await t.run((ctx) => Promise.all(picked.map((id) => ctx.db.get("jobs", id))))
     expect(jobs.map((j) => j?.urlKey)).toEqual(["greenhouse/2"])
+  })
+
+  it("looks past the top matches when the person has seen them", async () => {
+    const { t } = await setup()
+    const userId = await owner(t)
+    const roles = ["One", "Two", "Three", "Four"].map((n, i) => ({
+      ...feedJob(`https://x.dev/a?gh_jid=${i + 1}`),
+      title: `Support ${n}`,
+    }))
+    await save(t, roles)
+    await t.run(async (ctx) => {
+      for (const [i, role] of roles.slice(0, 3).entries())
+        await ctx.db.insert("jobLeads", lead(userId, `greenhouse/${i + 1}`, role.title))
+    })
+    const picked = await t.query(internal.api.jobs.candidates, {
+      userId,
+      queries: ["support"],
+      remoteOnly: false,
+      companies: [],
+      limit: 1,
+    })
+    const jobs = await t.run((ctx) => Promise.all(picked.map((id) => ctx.db.get("jobs", id))))
+    expect(jobs.map((j) => j?.urlKey)).toEqual(["greenhouse/4"])
   })
 
   it("skips another posting of a role the person was shown", async () => {
