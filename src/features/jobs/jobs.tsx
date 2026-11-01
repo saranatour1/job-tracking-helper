@@ -1,6 +1,6 @@
 import { api } from "@/lib/api"
 import type { Id } from "@convex/_generated/dataModel"
-import { domainSaysName, groupDomains, type Proof, proofs } from "@convex/features/jobs/domains"
+import { domainSaysName, groupDomains, type Proof } from "@convex/features/jobs/domains"
 import { canPrepare } from "@convex/features/jobs/links"
 import { rowLimits } from "@convex/features/preferences/rows"
 import { groupRoles } from "@convex/features/workflows/fit"
@@ -32,58 +32,23 @@ import {
 import { Input } from "@/components/ui/input"
 import { ScrollArea } from "@/components/ui/scroll-area"
 import { Select, SelectItem, SelectPopup, SelectTrigger, SelectValue } from "@/components/ui/select"
-import { Skeleton } from "@/components/ui/skeleton"
 import { Toggle } from "@/components/ui/toggle"
 import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group"
-import { PageIntro, pageBody, Tile } from "@/features/shell/page-body"
+import { PageIntro, pageBody, RowSkeletons, Tile } from "@/features/shell/page-body"
 import { PageHeader } from "@/features/shell/page-header"
 import { messageOf } from "@/features/account/settings"
 import { useAccess } from "@/hooks/use-access"
 import { postingText } from "@/lib/route-ids"
 import { cn } from "@/lib/utils"
 
-const postedWithin = { day: 1, week: 7, month: 30 } as const
-type Posted = keyof typeof postedWithin
+import { type JobsSearch, type Posted, postedWithin } from "./search"
+
 const postedLabels: Record<Posted | "any", string> = {
   any: "Any time",
   day: "Past day",
   week: "Past week",
   month: "Past month",
 }
-
-type JobsSearch = {
-  q?: string
-  remote?: boolean
-  // Roles one after another, instead of under their domains.
-  view?: "roles"
-  collapsed?: boolean
-  posted?: Posted
-  // A board id; the server finds nothing for one that isn't.
-  board?: string
-  fits?: boolean
-  proof?: Proof
-  // A domain ending, like ".ai"; the server finds nothing for one that isn't.
-  ending?: string
-}
-
-// Reads the page's filters from the address, dropping anything it doesn't know.
-export const jobsSearch = (search: Record<string, unknown>): JobsSearch => ({
-  q: typeof search.q === "string" && search.q.trim() ? search.q.slice(0, 200) : undefined,
-  remote: search.remote === true ? true : undefined,
-  view: search.view === "roles" ? "roles" : undefined,
-  collapsed: search.collapsed === true ? true : undefined,
-  posted:
-    typeof search.posted === "string" && search.posted in postedWithin
-      ? (search.posted as Posted)
-      : undefined,
-  board: typeof search.board === "string" && search.board ? search.board : undefined,
-  fits: search.fits === true ? true : undefined,
-  proof: proofs.includes(search.proof as Proof) ? (search.proof as Proof) : undefined,
-  ending:
-    typeof search.ending === "string" && /^\.[a-z0-9-]{1,63}$/.test(search.ending)
-      ? search.ending
-      : undefined,
-})
 
 const hour = 60 * 60 * 1000
 const dayMs = 24 * hour
@@ -881,16 +846,7 @@ export const Jobs = () => {
               )
             }
           >
-            {jobs.status === "LoadingFirstPage" &&
-              Array.from({ length: 5 }, (_, i) => (
-                <div key={i} className="flex gap-3 px-2.5 py-2.5">
-                  <Skeleton className="size-8 rounded-md" />
-                  <div className="flex flex-1 flex-col gap-1.5">
-                    <Skeleton className="h-3.5 w-2/5" />
-                    <Skeleton className="h-3 w-1/4" />
-                  </div>
-                </div>
-              ))}
+            {jobs.status === "LoadingFirstPage" && <RowSkeletons />}
             {/* Only once every page is read: a filter can empty one page with more behind it. */}
             {jobs.status === "Exhausted" && jobs.results.length === 0 && (
               <p className="text-muted-foreground px-2.5 py-3 text-[13px]">

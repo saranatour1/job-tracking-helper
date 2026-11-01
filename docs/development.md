@@ -120,6 +120,10 @@ Anything that can delete many rows goes through `startDelete` (`convex/features/
 
 Convex loads a function's whole file and its imports on every run that isn't cached, so imports decide how fast it is. Feature function files don't import `schema`: `docOf` builds a return validator from one table (`convex/lib/docs.ts`). Keep heavy packages, like the AI SDK, out of the helpers that plain reads share, and put actions that need them in their own `convex/api` file, as the `*Actions` files there do.
 
+### Page speed
+
+A route's `validateSearch` loads with the first page of every visit, so whatever module it comes from does too. Keep it in the feature's `search.ts`, never beside the page's component, or that whole page and its packages join every visitor's download. Load what only some pages draw, like the Markdown parser, with `lazy`.
+
 ### Validation
 
 Arguments use arktype when text has rules Convex can't check, like trimming or lengths. Ids, booleans and fixed choices use `v`.

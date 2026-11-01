@@ -20,17 +20,13 @@ import { Label } from "@/components/ui/label"
 import { Textarea } from "@/components/ui/textarea"
 import { messageOf } from "@/features/account/settings"
 
+import type { BookingSearch } from "./search"
+
 const minute = 60_000
 const day = 24 * 60 * minute
 const draftId = "draft"
 // The booking form is the panel; kloq's own editor never opens here.
 const slots = { EventPanel: () => null }
-
-export type BookingSearch = { at?: number; booked?: number }
-export const bookingSearch = (search: Record<string, unknown>): BookingSearch => ({
-  at: Number.isInteger(search.at) ? Number(search.at) : undefined,
-  booked: Number.isInteger(search.booked) ? Number(search.booked) : undefined,
-})
 
 const whenLabel = (start: number, minutes: number) => {
   const time = (ms: number) =>

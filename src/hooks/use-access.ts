@@ -1,5 +1,6 @@
+import { useAuthToken } from "@convex-dev/auth/react"
 import { useConvexAuth } from "convex/react"
-import { useQuery } from "convex-helpers/react/cache/hooks"
+import { useQueries } from "convex-helpers/react/cache/hooks"
 
 import { api } from "@/lib/api"
 
@@ -7,7 +8,15 @@ import { api } from "@/lib/api"
  * Local dev's "Continue as guest" is the same kind of account, and still gets the rest of the app. */
 export const useAccess = () => {
   const { isAuthenticated, isLoading } = useConvexAuth()
-  const me = useQuery(api.users.me, isAuthenticated ? {} : "skip")
+  const token = useAuthToken()
+  // Asked for with a stored token, not once it's confirmed: both then share one trip to the server,
+  // and every page waits on this. A token that turns out stale only gets an error, which stays quiet
+  // until the session is confirmed.
+  const { me: result } = useQueries(
+    isAuthenticated || token ? { me: { query: api.users.me, args: {} } } : {}
+  )
+  if (result instanceof Error && isAuthenticated) throw result
+  const me = result instanceof Error ? undefined : result
   return {
     loading: isLoading || (isAuthenticated && me === undefined),
     allowedSearch: me?.allowedSearch ?? null,

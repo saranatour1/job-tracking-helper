@@ -13,13 +13,10 @@ import { statusLabels, statusVariant } from "@/features/prefilled/prefilled"
 import { PageIntro, pageBody, Tile, tileGrid } from "@/features/shell/page-body"
 import { PageHeader } from "@/features/shell/page-header"
 
+import type { Show } from "./search"
+
 type Run = FunctionReturnType<typeof api.prefilled.list>[number]
 type Event = FunctionReturnType<typeof api.activity.page>["page"][number]
-
-type Show = "failed" | "applications"
-
-export const activitySearch = (search: Record<string, unknown>): { show?: Show } =>
-  search.show === "failed" || search.show === "applications" ? { show: search.show } : {}
 
 const route = getRouteApi("/_app/activity")
 
