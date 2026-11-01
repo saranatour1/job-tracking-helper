@@ -7,6 +7,9 @@ import { SiteFooter, SiteHeader } from "@/features/landing/site-frame"
 export const Landing = () => (
   <div className="flex h-svh min-h-[34rem] flex-col">
     <SiteHeader>
+      <Button variant="ghost" render={<Link to="/jobs" />}>
+        Jobs
+      </Button>
       <Button variant="ghost" render={<Link to="/sign-in" />}>
         Sign in
       </Button>

@@ -4,7 +4,7 @@ import { type Type, type } from "arktype"
 import type { Doc, Id } from "../../_generated/dataModel"
 import { internal, components } from "../../_generated/api"
 import { RateLimiter, HOUR } from "@convex-dev/rate-limiter"
-import { getAuthUserId } from "@convex-dev/auth/server"
+import { memberId } from "../../lib/functions"
 import { ConvexError } from "convex/values"
 import { Details, MailNote } from "./validators"
 import { removeInbound } from "./cloudflare"
@@ -135,7 +135,7 @@ export const limits = new RateLimiter(components.rateLimiter, {
 })
 
 export const userIdOf = async (ctx: ActionCtx) => {
-  const userId = await getAuthUserId(ctx)
+  const userId = await memberId(ctx)
   if (!userId) throw new Error("Not signed in")
   return userId
 }

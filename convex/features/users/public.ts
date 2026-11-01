@@ -1,6 +1,6 @@
 import { ConvexError, v } from "convex/values"
 import { components } from "../../_generated/api"
-import { arkMutation, authedMutation, authedQuery } from "../../lib/functions"
+import { arkMutation, authedMutation, sessionQuery } from "../../lib/functions"
 import { deleteEmail } from "../email/utils"
 import { deleteNotifications } from "../notifications/utils"
 import { logEdit } from "../activity/utils"
@@ -9,7 +9,7 @@ import { deleteResumeFile } from "../preferences/utils"
 import { removeAgents } from "../agents/utils"
 import { maxImageBytes, Profile, vMe } from "./validators"
 
-const me = authedQuery({
+const me = sessionQuery({
   args: {},
   returns: vMe,
   handler: async (ctx) => {
@@ -24,6 +24,8 @@ const me = authedQuery({
       x: user?.x ?? "",
       imageUrl: user?.imageId ? await ctx.storage.getUrl(user.imageId) : (user?.avatarUrl ?? null),
       onboarded: user?.onboardedAt !== undefined,
+      anonymous: Boolean(user?.anonymous),
+      allowedSearch: user?.allowedSearch ?? null,
     }
   },
 })

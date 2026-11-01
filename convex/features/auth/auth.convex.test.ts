@@ -1,5 +1,6 @@
 // @vitest-environment edge-runtime
 /// <reference types="vite/client" />
+import rateLimiter from "@convex-dev/rate-limiter/test"
 import { convexTest } from "convex-test"
 import type { Infer } from "convex/values"
 import { describe, expect, it, vi } from "vite-plus/test"
@@ -16,9 +17,9 @@ type Provider = Infer<typeof vCreateUserArgs.provider>
 
 const closed: Provider[] = [
   { name: "password", accountId: "a", profile: {} },
-  { name: "anonymous", accountId: "a", profile: {} },
   { name: "google", accountId: "a", profile: { id: "1", emailVerified: true } },
 ]
+const anonymous: Provider = { name: "anonymous", accountId: "a", profile: {} }
 const github: Provider = {
   name: "github",
   accountId: "a",
@@ -27,6 +28,86 @@ const github: Provider = {
 
 const count = (t: ReturnType<typeof convexTest>) =>
   t.run(async (ctx) => (await ctx.db.query("users").take(5)).length)
+
+describe("anonymous accounts on production", () => {
+  const visitor = async () => {
+    vi.stubEnv("SITE_URL", "https://ye.saranatour.dev")
+    const t = convexTest(schema, modules)
+    rateLimiter.register(t)
+    const userId = await t.mutation(internal.api.auth.createUser, { provider: anonymous })
+    return { t, as: t.withIdentity({ subject: userId }) }
+  }
+
+  it("can be made, and know what they are", async () => {
+    const { as } = await visitor()
+    expect(await as.query(api.api.users.me, {})).toMatchObject({
+      anonymous: true,
+      allowedSearch: null,
+    })
+  })
+
+  it("can't reach the app: not its queries, mutations or actions", async () => {
+    const { as } = await visitor()
+    await expect(as.query(api.api.jobs.companies, {})).rejects.toThrow("Not signed in")
+    await expect(as.mutation(api.api.users.deleteAccount, {})).rejects.toThrow("Not signed in")
+    await expect(as.action(api.api.resume.review, {})).rejects.toThrow("Not signed in")
+  })
+
+  it("get 10 searches a day, and repeating one costs nothing", async () => {
+    const { as } = await visitor()
+    for (let n = 1; n <= 10; n++) {
+      await as.mutation(api.api.jobs.allowSearch, { q: `search ${n}` })
+      await as.mutation(api.api.jobs.allowSearch, { q: `search ${n}` })
+    }
+    await expect(as.mutation(api.api.jobs.allowSearch, { q: "one more" })).rejects.toThrow(
+      "That's 10 searches today"
+    )
+    expect((await as.query(api.api.users.me, {})).allowedSearch).toBe("search 10")
+  })
+
+  it("only search for what they've spent a search on", async () => {
+    const { t, as } = await visitor()
+    await t.run(async (ctx) => {
+      const boardId = await ctx.db.insert("jobBoards", {
+        kind: "lever",
+        slug: "hooli",
+        company: "Hooli",
+        addedAt: 0,
+        jobs: 2,
+      })
+      for (const [n, text] of ["gardener", "pilot"].entries())
+        await ctx.db.insert("jobs", {
+          boardId,
+          urlKey: text,
+          url: `https://jobs.lever.co/hooli/${text}`,
+          title: text,
+          company: "Hooli",
+          location: "",
+          remote: false,
+          postedAt: n,
+          seenAt: n,
+          text,
+        })
+    })
+    const titles = async (q: string) =>
+      (
+        await as.query(api.api.jobs.search, { q, paginationOpts: { numItems: 25, cursor: null } })
+      ).page.map((r) => r.title)
+    // Not spent yet: the newest roles, not a search. Same with no account at all.
+    expect(await titles("gardener")).toEqual(["pilot", "gardener"])
+    await as.mutation(api.api.jobs.allowSearch, { q: "gardener" })
+    expect(await titles("gardener")).toEqual(["gardener"])
+    expect(await titles("pilot")).toEqual(["pilot", "gardener"])
+    expect(
+      (
+        await t.query(api.api.jobs.search, {
+          q: "gardener",
+          paginationOpts: { numItems: 25, cursor: null },
+        })
+      ).page
+    ).toHaveLength(2)
+  })
+})
 
 describe("createUser", () => {
   it.each(closed)("refuses $name on production without making a user", async (provider) => {

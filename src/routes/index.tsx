@@ -1,8 +1,8 @@
 import { Navigate, createFileRoute } from "@tanstack/react-router"
-import { Authenticated } from "convex/react"
 
 import { Landing } from "@/features/landing/landing"
 import { pipelineSearch } from "@/features/tracker/search"
+import { useAccess } from "@/hooks/use-access"
 import { ogImage, publicHead, site } from "@/lib/seo"
 
 const description =
@@ -42,12 +42,11 @@ const discoveryLinks = [
 
 const HomePage = () => {
   const search = Route.useSearch()
+  const { inApp } = useAccess()
   return (
     <>
-      <Authenticated>
-        {/* Keeps old links to the board, like /?app=app-4, working. */}
-        <Navigate to="/pipeline" search={search} replace />
-      </Authenticated>
+      {/* Keeps old links to the board, like /?app=app-4, working. */}
+      {inApp && <Navigate to="/pipeline" search={search} replace />}
       <Landing />
     </>
   )

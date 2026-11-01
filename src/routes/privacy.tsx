@@ -42,11 +42,18 @@ const PrivacyPage = () => (
           failed. Summaries can name companies and goals.
         </li>
         <li>
+          <strong>Searching Jobs without an account.</strong> Your first search gives your browser
+          an anonymous account with no name or email. We keep your latest search on it and a count
+          of today's searches, to limit them to 10 a day.
+        </li>
+        <li>
           <strong>Analytics.</strong> Page views, page speed, clicks on links that leave the site
-          and session replays. Separately, our server tells Databuddy when an AI crawler or AI agent
-          requests a page, except booking pages: the path, host, user agent, accept header, referrer
-          and the format asked for. An AI browser acting for you can be counted this way, and
-          browser privacy signals don't stop it, because it doesn't run in your browser.
+          and session replays. On Jobs, also the words you search for and which roles you open.
+          These go to Databuddy under its anonymous visitor ID, not your account. Separately, our
+          server tells Databuddy when an AI crawler or AI agent requests a page, except booking
+          pages: the path, host, user agent, accept header, referrer and the format asked for. An AI
+          browser acting for you can be counted this way, and browser privacy signals don't stop it,
+          because it doesn't run in your browser.
         </li>
       </ul>
       <p>

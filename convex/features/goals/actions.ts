@@ -1,10 +1,10 @@
-import { getAuthUserId } from "@convex-dev/auth/server"
 import { convexGateway } from "@convex-dev/ai-sdk-provider"
 import { experimental_decide as decide } from "ai"
 import { ConvexError, v } from "convex/values"
 import { internal } from "../../_generated/api"
 import { action } from "../../_generated/server"
 import type { FunctionReturnType } from "convex/server"
+import { memberId } from "../../lib/functions"
 import { type NoulAnswer, readNoul } from "../../lib/jev"
 import { jevModel } from "../workflows/judge"
 import { limits as rates } from "../workflows/manager"
@@ -14,7 +14,7 @@ const evaluate = action({
   args: { id: v.id("goals") },
   returns: vVerdicts,
   handler: async (ctx, { id }): Promise<Verdicts> => {
-    const userId = await getAuthUserId(ctx)
+    const userId = await memberId(ctx)
     if (!userId) throw new Error("Not signed in")
     const { ok } = await rates.limit(ctx, "goalEvaluate", { key: userId })
     if (!ok) throw new ConvexError("That's 10 re-evaluations today. Try again tomorrow.")

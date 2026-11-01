@@ -23,10 +23,14 @@ export const publicHead = ({
   title,
   description,
   path,
+  image = ogImage,
+  imageAlt = "It finds the jobs and fills in the forms. You press Submit.",
 }: {
   title: string
   description: string
   path: string
+  image?: string
+  imageAlt?: string
 }) => ({
   meta: [
     { title },
@@ -37,17 +41,14 @@ export const publicHead = ({
     { property: "og:title", content: title },
     { property: "og:description", content: description },
     { property: "og:url", content: `${site.url}${path}` },
-    { property: "og:image", content: ogImage },
+    { property: "og:image", content: image },
     { property: "og:image:width", content: "1200" },
     { property: "og:image:height", content: "630" },
-    {
-      property: "og:image:alt",
-      content: "It finds the jobs and fills in the forms. You press Submit.",
-    },
+    { property: "og:image:alt", content: imageAlt },
     { name: "twitter:card", content: "summary_large_image" },
     { name: "twitter:title", content: title },
     { name: "twitter:description", content: description },
-    { name: "twitter:image", content: ogImage },
+    { name: "twitter:image", content: image },
   ],
   links: [{ rel: "canonical", href: `${site.url}${path}` }],
 })

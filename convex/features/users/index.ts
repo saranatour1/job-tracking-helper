@@ -1,3 +1,4 @@
+import { internalApi } from "./internal"
 import { publicApi } from "./public"
 
-export const usersApi = { ...publicApi }
+export const usersApi = { ...publicApi, ...internalApi }

@@ -1,8 +1,8 @@
-import { getAuthUserId } from "@convex-dev/auth/server"
 import { ConvexError, v } from "convex/values"
 import { internal } from "../../_generated/api"
 import type { Id } from "../../_generated/dataModel"
 import { action, type ActionCtx, internalAction } from "../../_generated/server"
+import { memberId } from "../../lib/functions"
 import { boardOf } from "../jobs/links"
 import { urlKey } from "../workflows/fit"
 import { limits } from "../workflows/manager"
@@ -26,7 +26,7 @@ const checkLink = action({
   args: { url: v.string() },
   returns: v.id("jobLeads"),
   handler: async (ctx, { url }): Promise<Id<"jobLeads">> => {
-    const userId = await getAuthUserId(ctx)
+    const userId = await memberId(ctx)
     if (!userId) throw new Error("Not signed in")
     return check(ctx, userId, url)
   },
@@ -36,7 +36,7 @@ const checkText = action({
   args: { url: v.string(), text: v.string(), company: v.optional(v.string()) },
   returns: v.id("jobLeads"),
   handler: async (ctx, { url, text, company }): Promise<Id<"jobLeads">> => {
-    const userId = await getAuthUserId(ctx)
+    const userId = await memberId(ctx)
     if (!userId) throw new Error("Not signed in")
     const link = url.trim()
     if (!isLink(link)) throw new ConvexError("That isn't a link to a job posting.")

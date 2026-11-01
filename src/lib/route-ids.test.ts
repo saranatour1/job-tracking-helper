@@ -1,6 +1,15 @@
 import { describe, expect, it } from "vite-plus/test"
 
-import { dateText, routeIds, routeText } from "./route-ids"
+import { dateText, postingId, postingText, routeIds, routeText } from "./route-ids"
+
+describe("postingText", () => {
+  it("reads as words and gives back the id, with or without them", () => {
+    const text = postingText({ _id: "k57abc", title: "Staff Engineer", company: "Figma" })
+    expect(text).toBe("staff-engineer-figma-k57abc")
+    expect(postingId(text)).toBe("k57abc")
+    expect(postingId("k57abc")).toBe("k57abc")
+  })
+})
 
 describe("routeText", () => {
   it("makes regular text", () => {

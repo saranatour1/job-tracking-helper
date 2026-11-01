@@ -1,8 +1,8 @@
-import { getAuthUserId } from "@convex-dev/auth/server"
 import { convexGateway } from "@convex-dev/ai-sdk-provider"
 import { experimental_decide as decide, generateText } from "ai"
 import type { FunctionReturnType } from "convex/server"
 import { ConvexError, v } from "convex/values"
+import { memberId } from "../../lib/functions"
 import { internal } from "../../_generated/api"
 import { action, internalAction } from "../../_generated/server"
 import { workLog } from "../../lib/log"
@@ -160,7 +160,7 @@ const startLive = action({
   args: { id: v.id("prefills") },
   returns: v.null(),
   handler: async (ctx, { id }): Promise<null> => {
-    const userId = await getAuthUserId(ctx)
+    const userId = await memberId(ctx)
     if (!userId) throw new Error("Not signed in")
     await ctx.runMutation(internal.api.prefilled.beginLive, { userId, id })
     const log = workLog("prefill.live", { prefillId: id, userId })
@@ -234,7 +234,7 @@ const sendToForm = action({
   args: { id: v.id("prefills"), question: v.string() },
   returns: v.object({ filled: v.boolean() }),
   handler: async (ctx, { id, question }): Promise<{ filled: boolean }> => {
-    const userId = await getAuthUserId(ctx)
+    const userId = await memberId(ctx)
     if (!userId) throw new Error("Not signed in")
     const found = await ctx.runQuery(internal.api.prefilled.session, { id })
     if (found?.userId !== userId) throw new ConvexError("That isn't yours.")
@@ -279,7 +279,7 @@ const confirmSent = action({
   args: { id: v.id("prefills"), anyway: v.optional(v.boolean()) },
   returns: v.object({ sent: v.boolean() }),
   handler: async (ctx, { id, anyway }): Promise<{ sent: boolean }> => {
-    const userId = await getAuthUserId(ctx)
+    const userId = await memberId(ctx)
     if (!userId) throw new Error("Not signed in")
     const found = await ctx.runQuery(internal.api.prefilled.session, { id })
     if (found?.userId !== userId) throw new ConvexError("That isn't yours.")
@@ -305,7 +305,7 @@ const cancelLive = action({
   args: { id: v.id("prefills") },
   returns: v.null(),
   handler: async (ctx, { id }): Promise<null> => {
-    const userId = await getAuthUserId(ctx)
+    const userId = await memberId(ctx)
     if (!userId) throw new Error("Not signed in")
     const found = await ctx.runQuery(internal.api.prefilled.session, { id })
     if (found?.userId !== userId) throw new ConvexError("That isn't yours.")

@@ -15,9 +15,13 @@ export default {
     if (!pathname.startsWith("/book/")) {
       ctx?.waitUntil(trackAgents(request, { websiteId: site.databuddyId }))
     }
-    const document =
-      request.method === "GET" || request.method === "HEAD" ? discovery[pathname] : null
+    const reading = request.method === "GET" || request.method === "HEAD"
+    const document = reading ? discovery[pathname] : null
     if (document) return document()
+    const posting = reading ? /^\/jobs\/([^/]+)\/og\.png$/.exec(pathname) : null
+    // Imported here, so the image library only loads for the requests that draw one.
+    if (posting)
+      return import("@/features/jobs/og").then((og) => og.postingImage(request, posting[1], ctx))
     // wrangler.jsonc runs the Worker first for .txt files, so reads of llms.txt get recorded.
     return env && pathname.endsWith(".txt") ? env.ASSETS.fetch(request) : handler.fetch(request)
   },

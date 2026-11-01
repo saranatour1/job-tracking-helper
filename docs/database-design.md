@@ -63,7 +63,7 @@ Convex stores references as typed ids but doesn't enforce them or cascade delete
 
 | Table            | Holds                                                                                                                                        | Why it's a table               | Indexes                        |
 | ---------------- | -------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------ | ------------------------------ |
-| `users`          | name, email, username, image, `trashDays`, `onboardedAt`, `prepareAt`                                                                        | Convex Auth points at it       | `by_userName`, `by_imageId`    |
+| `users`          | name, email, username, image, `trashDays`, `onboardedAt`, `prepareAt`, `anonymous`, `allowedSearch`                                          | Convex Auth points at it       | `by_userName`, `by_imageId`    |
 | `preferences`    | one row per person: `workMode`, the resume file, its text and last review, `prefilledAt`                                                     | exception: keeps `users` basic | `by_userId`, `by_resumeId`     |
 | `preferenceTags` | one row per interest, skill, place, company or thing to avoid                                                                                | 1                              | `by_userId_and_kind_and_order` |
 | `profileEntries` | one row per answer (`kind: answer`) or saved form field (`kind: field`), with usage stamps, and `byAgent` until you save what an agent wrote | 1                              | `by_userId_and_kind_and_order` |

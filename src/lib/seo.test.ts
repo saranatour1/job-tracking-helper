@@ -7,7 +7,8 @@ const disallowed = [...robots.matchAll(/^Disallow: (\S+)$/gm)].map((m) => m[1])
 const routes = Object.keys(import.meta.glob("../routes/**/*.tsx")).map((file) =>
   file.replace("../routes/", "").replace(".tsx", "")
 )
-const isPublic = (route: string) => ["index", "privacy", "terms", "__root"].includes(route)
+const isPublic = (route: string) =>
+  ["index", "privacy", "terms", "__root", "_app/jobs/index", "_app/jobs/$id"].includes(route)
 
 // The first URL segment of a route file, leaving out pathless folders like _app.
 const pathOf = (route: string) => {
@@ -29,7 +30,14 @@ describe("robots.txt", () => {
 
   it("leaves the public pages open", () => {
     expect(disallowed).not.toContain("/")
-    for (const path of ["/privacy", "/terms", "/llms.txt", "/sitemap.xml", "/assets/og.png"]) {
+    for (const path of [
+      "/jobs",
+      "/privacy",
+      "/terms",
+      "/llms.txt",
+      "/sitemap.xml",
+      "/assets/og.png",
+    ]) {
       expect(disallowed.some((rule) => path.startsWith(rule))).toBe(false)
     }
   })
