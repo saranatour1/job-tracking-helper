@@ -13,6 +13,12 @@ describe("detailsOf", () => {
     expect(detailsOf({ ...job, location: "", remote: true })).toEqual(["Remote"])
   })
 
+  it("shortens a long list of places", () => {
+    expect(detailsOf({ ...job, location: "Remote, Canada; Remote, UK; Remote, US" })[0]).toBe(
+      "Remote, Canada +2 more"
+    )
+  })
+
   it("keeps remote-first to postings that say it", () => {
     expect(detailsOf({ ...job, remote: true })).toEqual(["Berlin", "Remote"])
     expect(detailsOf({ ...job, location: "Remote, Canada", remote: true })).toEqual([
@@ -46,6 +52,6 @@ describe("detailsOf", () => {
   it("stays short enough to fit", () => {
     const text =
       "remote-first async-first flexible hours four-day week unlimited pto mission-driven employee-owned"
-    expect(detailsOf({ ...job, text })).toHaveLength(5)
+    expect(detailsOf({ ...job, text })).toEqual(["Berlin", "Remote-first", "Async-first"])
   })
 })
