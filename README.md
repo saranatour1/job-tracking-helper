@@ -81,6 +81,7 @@ docs/
   workflows.md          workflows in depth
   job-classification.md how a job goes from the internet to your board, with diagrams
   database-design.md    the tables, what deleting does, and how to change what's stored
+  packages.md           every npm package and why it's here
 .claude/, .agents/      agent skills: running and checking the app, PRs, Convex and arktype
 ```
 
@@ -89,7 +90,7 @@ docs/
 | Area          | Used                                                                  |
 | ------------- | --------------------------------------------------------------------- |
 | Toolchain     | Vite+ (`vp`) for the dev server, build, lint and format               |
-| Frontend      | React 19, TanStack Start, Router, Table and Form, Tiptap              |
+| Frontend      | React 19, TanStack Start, Router and Form, Tiptap                     |
 | UI            | Tailwind CSS v4, shadcn CLI with coss ui, Hugeicons, kloq, React Flow |
 | Backend       | Convex, Convex Auth v2, convex-helpers, batch worker for big deletes  |
 | Agents        | `@convex-dev/mcp`                                                     |
