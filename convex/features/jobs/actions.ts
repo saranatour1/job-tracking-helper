@@ -3,6 +3,7 @@ import { v } from "convex/values"
 import { internal } from "../../_generated/api"
 import { internalAction } from "../../_generated/server"
 import { workLog } from "../../lib/log"
+import { botAuthHeaders } from "../../lib/webBotAuth"
 import { limits } from "../workflows/manager"
 import { apiKeyOf } from "../workflows/sources"
 import { webSearch } from "../workflows/sources/firecrawl"
@@ -26,6 +27,9 @@ import {
   ycUrl,
 } from "./companies"
 
+const fetchFeed = async (kind: BoardKind, url: string) =>
+  fetch(url, { headers: { ...feedHeaders(kind), ...(await botAuthHeaders(url)) } })
+
 // A role whose request fails is left out of the map; parseFeed decides what that means.
 const readDetails = async (kind: BoardKind, slug: string, body: unknown) => {
   const urls = detailUrls(kind, slug, body)
@@ -33,7 +37,7 @@ const readDetails = async (kind: BoardKind, slug: string, body: unknown) => {
   for (let i = 0; i < urls.length; i += 10)
     await Promise.all(
       urls.slice(i, i + 10).map(async ({ id, url }) => {
-        const res = await fetch(url, { headers: feedHeaders(kind) }).catch(() => null)
+        const res = await fetchFeed(kind, url).catch(() => null)
         if (res?.ok) details.set(id, await res.json().catch(() => null))
       })
     )
@@ -49,7 +53,7 @@ const fetchBoard = internalAction({
     const log = workLog("jobs.fetchBoard", { kind: board.kind, slug: board.slug })
     const startedAt = Date.now()
     try {
-      const res = await fetch(feedUrl(board.kind, board.slug), { headers: feedHeaders(board.kind) })
+      const res = await fetchFeed(board.kind, feedUrl(board.kind, board.slug))
       if (!res.ok) {
         const error = `The feed answered ${res.status}`
         await ctx.runMutation(internal.api.jobs.boardFetched, {

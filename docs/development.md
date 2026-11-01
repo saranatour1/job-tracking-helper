@@ -16,6 +16,7 @@ These all live in the Convex env, declared in `convex/convex.config.ts`.
 | `FIRECRAWL_API_KEY`                                        | Prefilled applications, reading pasted links, and finding new boards                           |
 | `CONTEXT_DEV_API_KEY`                                      | Another way for loops to find new boards                                                       |
 | `FIRECRAWL_MONTHLY_CREDITS`, `CONTEXT_DEV_MONTHLY_CREDITS` | Your plan's credits, if they differ from the free plans' 500 and 1,000                         |
+| `WEB_BOT_AUTH_KEY`                                         | Signing job feed requests. Without it they go unsigned and the key directory is empty          |
 
 ### Email
 
@@ -38,6 +39,30 @@ With neither `FIRECRAWL_API_KEY` nor `CONTEXT_DEV_API_KEY`, loops only judge rol
 Add an item called `job-tracking-helper` to your Private vault in 1Password, with fields `AUTH_GOOGLE_CLIENT_ID`, `AUTH_GOOGLE_CLIENT_SECRET`, `AUTH_GITHUB_CLIENT_ID` and `AUTH_GITHUB_CLIENT_SECRET`. Then run `vp run secrets:push`. Set `OP_VAULT` to use another vault.
 
 Dev shows both buttons. Production only shows GitHub.
+
+### Agent discovery
+
+`src/lib/discovery.ts` serves what agents read, like `/auth.md` and the `/.well-known/` documents, with no setup. Two parts live outside the code.
+
+**Web Bot Auth.** Generate the signing key once per deployment. The public half is published from it, so this is all it takes:
+
+```bash
+pnpm exec convex env set --prod WEB_BOT_AUTH_KEY "$(node -e 'console.log(JSON.stringify(require("crypto").generateKeyPairSync("ed25519").privateKey.export({format:"jwk"})))')"
+```
+
+To rotate it, run the same command. Sites that cached the old key can take up to an hour to see the new one.
+
+**DNS for AI Discovery.** Add this record in the Cloudflare DNS settings for `saranatour.dev`, then turn on DNSSEC for the zone. The target is the production MCP server's host, so it changes only if the Convex deployment does.
+
+```dns
+_index._agents.ye.saranatour.dev. 3600 IN SVCB 1 acrobatic-tiger-342.eu-west-1.convex.site. alpn="mcp" port=443 mandatory=alpn,port
+```
+
+Check all of it after a deploy. `isitagentready.com` lists any check that fails:
+
+```bash
+curl -s -X POST https://isitagentready.com/api/scan -H 'Content-Type: application/json' -d '{"url":"https://ye.saranatour.dev"}'
+```
 
 ## Deploy
 

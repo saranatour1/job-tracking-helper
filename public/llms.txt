@@ -18,6 +18,11 @@ What it doesn't do:
 - Answer demographic questions on purpose, or store job-site passwords.
 - Guarantee interviews or job offers.
 
+## For agents
+
+- [auth.md](https://ye.saranatour.dev/auth.md): how to connect to the MCP server for someone with an account
+- [API catalog](https://ye.saranatour.dev/.well-known/api-catalog): where the API and its description are
+
 ## Pages
 
 - [Home](https://ye.saranatour.dev/): what the app is and how to get started

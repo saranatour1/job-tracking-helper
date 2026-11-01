@@ -31,6 +31,15 @@ const withKeywords = (head: ReturnType<typeof publicHead>) => ({
   ],
 })
 
+// RFC 8288: how an agent reading only the homepage's headers finds the rest. src/lib/discovery.ts
+// serves these.
+const discoveryLinks = [
+  '</.well-known/api-catalog>; rel="api-catalog"',
+  '</.well-known/mcp/server-card.json>; rel="service-desc"; type="application/json"',
+  '</auth.md>; rel="service-doc"; type="text/markdown"',
+  '</llms.txt>; rel="describedby"; type="text/plain"',
+].join(", ")
+
 const HomePage = () => {
   const search = Route.useSearch()
   return (
@@ -46,6 +55,7 @@ const HomePage = () => {
 
 export const Route = createFileRoute("/")({
   validateSearch: pipelineSearch,
+  headers: () => ({ Link: discoveryLinks }),
   head: () => ({
     ...withKeywords(
       publicHead({

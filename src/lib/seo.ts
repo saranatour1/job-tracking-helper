@@ -8,6 +8,13 @@ export const site = {
   databuddyId: "8ed4f691-f76a-400e-b1fb-a9233678940e",
 }
 
+// ponytail: assumes the default convex.site address. A custom HTTP actions domain changes this.
+export const convexSite = String(import.meta.env.VITE_CONVEX_URL).replace(
+  ".convex.cloud",
+  ".convex.site"
+)
+export const mcpUrl = `${convexSite}/mcp`
+
 // Link previews cache by URL, so the built file name has to change whenever the image does.
 export const ogImage = `${site.url}${ogPath}`
 

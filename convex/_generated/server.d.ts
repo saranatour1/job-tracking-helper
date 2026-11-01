@@ -42,6 +42,7 @@ type Env = {
   readonly FIRECRAWL_MONTHLY_CREDITS: string | undefined;
   readonly SECRETS_KEYS: string | undefined;
   readonly SITE_URL: string;
+  readonly WEB_BOT_AUTH_KEY: string | undefined;
 };
 
 /**

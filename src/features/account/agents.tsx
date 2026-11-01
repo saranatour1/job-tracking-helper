@@ -8,9 +8,7 @@ import { Input } from "@/components/ui/input"
 import { Switch } from "@/components/ui/switch"
 import { messageOf, Row, Section } from "@/features/account/settings"
 import { mcp } from "@/lib/api"
-
-// ponytail: assumes the default convex.site address. A custom HTTP actions domain changes this.
-const serverUrl = `${String(import.meta.env.VITE_CONVEX_URL).replace(".convex.cloud", ".convex.site")}/mcp`
+import { mcpUrl } from "@/lib/seo"
 
 const Copyable = ({ children }: { children: string }) => (
   <code className="bg-muted rounded px-2 py-1 text-xs break-all select-all">{children}</code>
@@ -75,7 +73,7 @@ const CreateKey = () => {
           <p className="text-xs">Copy this key now. It won't be shown again.</p>
           <Copyable>{result.apiKey}</Copyable>
           <p className="text-muted-foreground text-xs">To add it to Claude Code:</p>
-          <Copyable>{`claude mcp add --transport http job-tracking-helper ${serverUrl} --header "Authorization: Bearer ${result.apiKey}"`}</Copyable>
+          <Copyable>{`claude mcp add --transport http job-tracking-helper ${mcpUrl} --header "Authorization: Bearer ${result.apiKey}"`}</Copyable>
         </div>
       )}
     </>
@@ -91,7 +89,7 @@ export const AgentsSection = () => {
         label="Server address"
         description="Paste this into Claude, ChatGPT, Cursor or any agent that takes an MCP server. It can then find jobs, prepare applications and draft answers with your data. It can't submit an application."
       >
-        <Copyable>{serverUrl}</Copyable>
+        <Copyable>{mcpUrl}</Copyable>
       </Row>
       {connections?.map((c) => (
         <Row
