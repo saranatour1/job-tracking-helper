@@ -7,30 +7,10 @@ import { Select, SelectItem, SelectPopup, SelectTrigger, SelectValue } from "@/c
 import { Switch } from "@/components/ui/switch"
 import { Toggle } from "@/components/ui/toggle"
 import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group"
+import { type Display, groupings, orderings, properties } from "./search"
 
-export const groupings = {
-  status: "Status",
-  priority: "Priority",
-  goal: "Goal",
-  none: "No grouping",
-}
-export const orderings = { priority: "Priority", created: "Created", company: "Company" }
-export const properties = {
-  id: "ID",
-  priority: "Priority",
-  goal: "Goal",
-  labels: "Labels",
-  location: "Location",
-  created: "Created",
-}
-
-export type Display = {
-  layout: "board" | "list"
-  groupBy: keyof typeof groupings
-  orderBy: keyof typeof orderings
-  showEmpty: boolean
-  shown: (keyof typeof properties)[]
-}
+export { groupings, orderings, properties }
+export type { Display }
 
 export const defaultDisplay: Display = {
   layout: "board",

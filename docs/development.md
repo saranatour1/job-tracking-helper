@@ -122,7 +122,7 @@ Convex loads a function's whole file and its imports on every run that isn't cac
 
 ### Page speed
 
-A route's `validateSearch` loads with the first page of every visit, so whatever module it comes from does too. Keep it in the feature's `search.ts`, never beside the page's component, or that whole page and its packages join every visitor's download. Load what only some pages draw, like the Markdown parser, with `lazy`.
+A route's `validateSearch` loads with the first page of every visit, so whatever module it comes from does too. Keep it in the feature's `search.ts`, never beside the page's component, or that whole page and its packages join every visitor's download. `search.ts` imports no components and nothing that reaches arktype, and a check that needs those runs where the page reads the value, like `draft` in the workflow builder. Load what only some pages draw, like the Markdown parser, with `lazy`. Import kloq's constants from their own files, not `@/components/kloq`, which brings the whole calendar. What only draws in the browser stays out of the Worker with `import.meta.env.SSR`, like the mail editor in `mailbox.tsx`.
 
 ### Validation
 

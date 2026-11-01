@@ -1,9 +1,9 @@
-import type { KloqView } from "@/components/kloq"
-
-import { type EventKind, kinds } from "./events"
+import type { KloqView } from "@/components/kloq/lib/view"
 
 const views = ["day", "week", "month", "agenda", "year", "timeline"] as const
-export const kindKeys = Object.keys(kinds) as EventKind[]
+
+export const kindKeys = ["applied", "moved", "email", "interview", "followup", "reminder"] as const
+export type EventKind = (typeof kindKeys)[number]
 
 export type CalendarSearch = {
   view?: KloqView

@@ -1,9 +1,10 @@
 import { dateText, routeIds, useLoopRoutes } from "@/lib/route-ids"
 import { api } from "@/lib/api"
 import type { Doc, Id } from "@convex/_generated/dataModel"
-import { problemOf, type Step } from "@convex/features/automations/validators"
+import { vDraft, problemOf, type Step } from "@convex/features/automations/validators"
 import { HugeiconsIcon } from "@hugeicons/react"
 import { useForm, useStore } from "@tanstack/react-form"
+import { validate } from "convex-helpers/validators"
 import { useNavigate, useSearch } from "@tanstack/react-router"
 import { useMutation } from "convex/react"
 import { useQuery } from "convex-helpers/react/cache/hooks"
@@ -21,9 +22,9 @@ import { cn } from "@/lib/utils"
 import { blockKinds, blocks, branches } from "./blocks"
 import { Canvas, type InsertKind, type StepStatus } from "./canvas"
 import { StepSettings } from "./step-settings"
-import type { WorkflowSearch } from "./search"
-import { blank, type Draft, draftOf } from "./templates"
+import { blank, type Draft, draftOf, type TemplateName, templates } from "./templates"
 import { branchAt, insert, remove, type Slot } from "./tree"
+import type { WorkflowSearch } from "./search"
 
 // The browser's zone, not the Calendar's: the Calendar's arrives later, and a draft that
 // changed under you would look edited.
@@ -156,11 +157,12 @@ const Editor = ({ saved }: { saved?: Doc<"automations"> }) => {
   const zone = useCalendarSettings()?.timeZone ?? Intl.DateTimeFormat().resolvedOptions().timeZone
 
   const unsaved = useRef<Draft>(null)
-  unsaved.current ??= search.draft
-    ? search.draft
-    : search.template
+  // Checked here, not in the route's search function, which loads on every page.
+  unsaved.current ??= validate(vDraft, search.draft)
+    ? (search.draft as Draft)
+    : search.template && search.template in templates
       ? draftOf(
-          search.template,
+          search.template as TemplateName,
           browserZone,
           search.loop && (loopRoutes.id(search.loop) ?? search.loop)
         )
