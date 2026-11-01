@@ -11,7 +11,7 @@ A job search app. It finds roles that fit what you asked for, fills in their app
 - **Mail and Contacts.** Connect your own Cloudflare account to send from your domain and receive replies. Each company can have its own address, so mail lands on the right application.
 - **Calendar and Booking pages.** Application dates, interviews read from email and your own events, plus links a recruiter can book from.
 - **Workflows and Activity.** A trigger and up to 20 steps built on a canvas, and a record of everything the app did for you and why anything failed.
-- **Connected agents.** An MCP server, so Claude, ChatGPT, Cursor or Claude Code can do much of this for you. Agents draft and you submit.
+- **Connected agents.** An MCP server, so Claude, ChatGPT, Cursor or Claude Code can do much of this for you, plus the public documents agents use to find it. Agents draft and you submit.
 
 [docs/flows.md](docs/flows.md) covers every flow, and [docs/workflows.md](docs/workflows.md) covers workflows.
 
@@ -56,14 +56,14 @@ convex/
   api/<feature>.ts      registers each feature's functions, since a file's path is its API name
   features/<feature>/   a feature's tables, validators and functions
   components/           local components: cloudflareEmail and notifications
-  lib/                  arktype to Convex, signed-in function builders, secrets, logging
+  lib/                  arktype to Convex, signed-in function builders, secrets, logging, request signing
 src/
   routes/               pages. /, /privacy, /terms and /book/$slug are public
-  server.ts             the Worker's entry, which reports AI crawlers to Databuddy
+  server.ts             the Worker's entry, which reports AI crawlers and serves agent discovery
   features/<feature>/   a feature's components. Applications, Views and Goals are in tracker/
   components/ui/        shadcn and coss components, managed by the shadcn CLI
   components/kloq/      the kloq calendar as source, from its registry
-  hooks/, lib/          shared hooks and helpers, like the api import, route text and SEO
+  hooks/, lib/          shared hooks and helpers, like the api import, route text, SEO and agent discovery
   assets/               the link preview image, built with a hash in its name
 public/                 logos, icons, robots.txt, sitemap.xml and llms.txt
 scripts/                dev and secrets scripts

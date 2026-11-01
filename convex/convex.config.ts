@@ -29,6 +29,7 @@ const app = defineApp({
     FIRECRAWL_MONTHLY_CREDITS: v.optional(v.string()),
     CONTEXT_DEV_MONTHLY_CREDITS: v.optional(v.string()),
     SECRETS_KEYS: v.optional(v.string()),
+    WEB_BOT_AUTH_KEY: v.optional(v.string()),
   },
 })
 

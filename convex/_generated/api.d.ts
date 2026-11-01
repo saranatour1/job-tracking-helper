@@ -192,6 +192,7 @@ import type * as lib_log from "../lib/log.js";
 import type * as lib_markdown from "../lib/markdown.js";
 import type * as lib_secrets from "../lib/secrets.js";
 import type * as lib_unmark from "../lib/unmark.js";
+import type * as lib_webBotAuth from "../lib/webBotAuth.js";
 import type * as mcp from "../mcp.js";
 
 import type {
@@ -385,6 +386,7 @@ declare const fullApi: ApiFromModules<{
   "lib/markdown": typeof lib_markdown;
   "lib/secrets": typeof lib_secrets;
   "lib/unmark": typeof lib_unmark;
+  "lib/webBotAuth": typeof lib_webBotAuth;
   mcp: typeof mcp;
 }>;
 

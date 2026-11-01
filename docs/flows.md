@@ -79,6 +79,7 @@ A repeat gets a number (`-2`), and a real id still finds its row, so old links w
 | The batch worker (`readPool`) | Fetches job boards, researches companies and runs Jev's judgments, 8 at a time, with up to 3 attempts each                                                                                                                   | `convex/features/workflows/manager.ts`                                                                                                              |
 | Workflows                     | Runs the steps people build                                                                                                                                                                                                  | `convex/features/automations/engine.ts`                                                                                                             |
 | An agent you connect          | Calls the tools you allowed, as you                                                                                                                                                                                          | `POST /mcp`, `convex/mcp.ts`                                                                                                                        |
+| An agent looking at the site  | Reads what the app offers and how to connect, without an account                                                                                                                                                             | `src/lib/discovery.ts`, `src/lib/web-mcp.ts`                                                                                                        |
 
 ### Events that start workflows
 
@@ -1038,12 +1039,30 @@ Prefilled applications, Interface and theme, Account)
      an agent into sending your data to its own site or adding a board for everyone.
    - Read your saved field answers as a list, your mail, or your Updates.
 
+6. **Finding the server without being told.** Everything here is public, and none of it shows
+   anyone's data.
+   - The homepage's `Link` header points to the API catalog, the server card, `/auth.md` and
+     `/llms.txt`.
+   - `/auth.md` explains both ways to connect and lists the scopes.
+   - `/.well-known/` holds the API catalog, MCP server card, agent card, agent skill, OAuth metadata
+     and bot key directory. The MCP server and its OAuth stay on the Convex address, since tokens are
+     bound to it, so these documents point there.
+   - The agent card lists MCP as its only interface, because the app has no A2A endpoint.
+   - The OAuth metadata's `jwks_uri` leads to an empty key set, because tokens are random strings
+     the server looks up and nothing signs them.
+   - A browser with WebMCP gets two tools on every page: `get_site_info` and `open_page`. They only
+     read about the site and move around it.
+7. **How the app identifies itself.** Job feed requests carry a Web Bot Auth signature once
+   `WEB_BOT_AUTH_KEY` is set, so a feed can check they're from this app. Feed requests that fail to
+   sign still go out unsigned. Requests through Firecrawl come from Firecrawl and aren't signed.
+
 **Limits:** `prepare_application` and `run_job_search` share the day's limits with the app (10 and
 3), as does `check_job_link` (10). `notify_user` is 20 a day and `add_contact` 100. Every other change counts toward 500 a day, and
 reads toward 120 a minute. A new loop starts paused, and you can keep 3.
 
 **Files:** `convex/mcp.ts`, `convex/features/agents/`, `src/features/account/agents.tsx`,
-`src/features/account/connect.tsx`.
+`src/features/account/connect.tsx`, `src/lib/discovery.ts`, `src/lib/web-mcp.ts`,
+`convex/lib/webBotAuth.ts`.
 
 ## Workflows
 

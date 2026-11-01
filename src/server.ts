@@ -1,6 +1,7 @@
 import { trackAgents } from "@databuddy/sdk/agents"
 import handler from "@tanstack/react-start/server-entry"
 
+import { discovery } from "@/lib/discovery"
 import { site } from "@/lib/seo"
 
 type Env = { ASSETS: { fetch: (request: Request) => Promise<Response> } }
@@ -14,6 +15,9 @@ export default {
     if (!pathname.startsWith("/book/")) {
       ctx?.waitUntil(trackAgents(request, { websiteId: site.databuddyId }))
     }
+    const document =
+      request.method === "GET" || request.method === "HEAD" ? discovery[pathname] : null
+    if (document) return document()
     // wrangler.jsonc runs the Worker first for .txt files, so reads of llms.txt get recorded.
     return env && pathname.endsWith(".txt") ? env.ASSETS.fetch(request) : handler.fetch(request)
   },
