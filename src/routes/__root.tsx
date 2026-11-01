@@ -38,9 +38,8 @@ const RootDocument = ({ children }: { children: React.ReactNode }) => {
             shows current data right away instead of loading again. */}
           <ConvexQueryCacheProvider expiration={queryCacheMs}>{children}</ConvexQueryCacheProvider>
         </ConvexAuthProvider>
-        {/* Booking guests never agreed to analytics, so their pages stay out of it. A consent
-          page's address holds an agent's request, so that stays out too. */}
-        {!path.startsWith("/book/") && path !== "/connect" && (
+        {/* A consent page's address holds an agent's request, so it stays out of analytics. */}
+        {path !== "/connect" && (
           <Databuddy
             clientId={site.databuddyId}
             trackHashChanges={true}

@@ -17,10 +17,6 @@ export const notificationKinds = {
     label: "Mail that needs filing",
     description: "When an email doesn't match any of your applications.",
   },
-  "booking.new": {
-    label: "New bookings",
-    description: "When someone books time on one of your booking pages.",
-  },
   "automation.notify": {
     label: "Messages from your workflows",
     description: "When a workflow's Notify me step runs.",

@@ -195,4 +195,4 @@ Then set the row to `drafted`, and send the person the draft and the link so the
 
 Change a row to `applied` only when the person says they sent it. Note replies and interviews as they tell you about them.
 
-Morning searches, a board, mail, a calendar and booking links need the app, at https://ye.saranatour.dev. Mention it once, only if they ask for something like that.
+Morning searches, a board, mail and a calendar need the app, at https://ye.saranatour.dev. Mention it once, only if they ask for something like that.

@@ -36,7 +36,6 @@ const accountTables: { table: TableNames; index: string; size?: number }[] = [
   { table: "goals", index: "by_userId" },
   { table: "calendarEvents", index: "by_userId_and_key" },
   { table: "calendarSettings", index: "by_userId" },
-  { table: "bookingPages", index: "by_userId" },
 ]
 
 const { vQueryArgs, vQueryReturns, vMutationArgs, vMutationReturns } = defineBatchWorkerValidators({

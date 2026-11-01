@@ -23,7 +23,6 @@ export const describeQuestions = {
     schedule: "A time of day, like every morning or each Monday",
     mail: "An email about a job application coming in",
     status: "An application moving to a status, like after applying or getting an offer",
-    booking: "Someone booking time with the person",
   }),
   time: choice("If `request` runs on a schedule, at what time of day?", {
     t07: "Early morning, around 7",
@@ -127,7 +126,7 @@ export const draftFrom = (
               to:
                 !answers.statusTo || answers.statusTo === "any" ? [] : [answers.statusTo as Status],
             }
-          : { kind: answers.trigger === "booking" ? "booking" : "manual" }
+          : { kind: "manual" }
   const about = triggerHasApplication(trigger)
   const company = about ? " with {application.company}" : ""
   const said = {
@@ -135,7 +134,6 @@ export const draftFrom = (
     schedule: "{workflow.name} ran on {run.date}",
     mail: "{email.kind} email from {email.from}: {email.subject}",
     status: "{application.company} moved to {status.to}",
-    booking: "Booked: {booking.title}, {booking.when}",
     goal: "{application.company} joined {goal.name}",
   }[trigger.kind]
 

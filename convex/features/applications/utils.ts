@@ -45,12 +45,6 @@ export const deleteApplication = async (ctx: MutationCtx, application: Doc<"appl
     )
     .take(500))
     await ctx.db.patch("calendarEvents", event._id, { applicationId: undefined })
-  for (const page of await ctx.db
-    .query("bookingPages")
-    .withIndex("by_userId", (q) => q.eq("userId", userId))
-    .take(50))
-    if (page.applicationId === applicationId)
-      await ctx.db.patch("bookingPages", page._id, { applicationId: undefined })
   for (const prefill of await ctx.db
     .query("prefills")
     .withIndex("by_userId_and_applicationId", (q) =>

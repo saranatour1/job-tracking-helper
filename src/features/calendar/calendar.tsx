@@ -1,4 +1,4 @@
-import { Link, useNavigate, useSearch } from "@tanstack/react-router"
+import { useNavigate, useSearch } from "@tanstack/react-router"
 import { useQuery } from "convex-helpers/react/cache/hooks"
 import { api } from "@/lib/api"
 import { applicationText } from "@/lib/route-ids"
@@ -244,12 +244,7 @@ export const CalendarPage = () => {
           >
             <KloqToolbar>
               <KloqNav />
-              <div className="flex items-center gap-1">
-                <Button variant="ghost" size="xs" render={<Link to="/account" hash="booking" />}>
-                  Booking pages
-                </Button>
-                <IcsButtons />
-              </div>
+              <IcsButtons />
             </KloqToolbar>
           </Kloq>
         </div>

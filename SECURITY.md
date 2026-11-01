@@ -18,7 +18,6 @@ The most useful reports are ones where someone can:
 
 - read or change another person's applications, resume, mail, contacts or calendar
 - get a Cloudflare token or anything else the server encrypts
-- get a booking guest's details, or use a booking page to reach the rest of an account
 - make the app press Submit on a job form, which it must never do
 
 Bugs in a dependency belong with that project, unless the way this app uses it makes things worse.

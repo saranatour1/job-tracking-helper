@@ -3,7 +3,6 @@ import { applicationsTable } from "./features/applications/models"
 import { activityEventsTable } from "./features/activity/models"
 import { deleteJobsTable } from "./features/deletes/models"
 import { automationRunsTable, automationsTable } from "./features/automations/models"
-import { bookingPagesTable } from "./features/booking/models"
 import { calendarEventsTable, calendarSettingsTable } from "./features/calendar/models"
 import { contactsTable } from "./features/contacts/models"
 import { emailConnectionsTable, mailEventsTable } from "./features/email/models"
@@ -63,7 +62,6 @@ export default defineSchema({
 
   calendarEvents: calendarEventsTable,
   calendarSettings: calendarSettingsTable,
-  bookingPages: bookingPagesTable,
 
   automations: automationsTable,
   automationRuns: automationRunsTable,

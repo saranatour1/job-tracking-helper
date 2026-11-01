@@ -79,15 +79,11 @@ const TermsPage = () => (
     <LegalSection title="Fair use">
       <p>You agree not to:</p>
       <ul>
-        <li>Send spam, or use mail or booking pages to harass or mislead anyone.</li>
+        <li>Send spam, or use mail to harass or mislead anyone.</li>
         <li>Submit false information to employers, or apply as someone else.</li>
         <li>Break the law, or try to get around the app's limits or security.</li>
         <li>Try to reach other people's data, or disrupt the app.</li>
       </ul>
-      <p>
-        Booking pages are public to anyone with the link. They show your name, the page's title and
-        location, and when you're busy, so only share them with people you trust.
-      </p>
     </LegalSection>
 
     <LegalSection title="An early version">

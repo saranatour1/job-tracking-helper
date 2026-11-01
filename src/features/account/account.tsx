@@ -18,7 +18,6 @@ import { AgentsSection } from "@/features/account/agents"
 import { EmailSection } from "@/features/account/email"
 import { NotificationsSection } from "@/features/account/notifications"
 import { messageOf, Row, Section } from "@/features/account/settings"
-import { BookingSection } from "@/features/booking/pages-section"
 import { CalendarSection } from "@/features/calendar/settings"
 import { PageIntro, pageBody } from "@/features/shell/page-body"
 import { PageHeader } from "@/features/shell/page-header"
@@ -351,14 +350,13 @@ export const Account = () => {
         <main className={cn(pageBody, "max-w-2xl gap-10")}>
           <PageIntro
             title="Account"
-            description="Your profile, email, notifications, connected agents, calendar, booking pages, how the app looks, and your sign-in."
+            description="Your profile, email, notifications, connected agents, calendar, how the app looks, and your sign-in."
           />
           {me && <ProfileSection me={me} />}
           <EmailSection />
           <NotificationsSection />
           <AgentsSection />
           <CalendarSection />
-          <BookingSection />
           <ApplicationsSection />
           <PrefilledSection />
           <Section title="Interface and theme">

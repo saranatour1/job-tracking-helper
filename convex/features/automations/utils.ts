@@ -24,7 +24,7 @@ import { statusLabels, limits as applicationLimits } from "../applications/valid
 import { keys, openJson, aad } from "../email/utils"
 import { MailNote } from "../email/validators"
 import { changeStatus } from "../applications/utils"
-import { wallOf, fromWall, instantOf } from "../booking/slots"
+import { wallOf, fromWall, instantOf } from "./time"
 import { kindOf } from "../calendar/utils"
 import { lastRunOf, insertLoopRun, stopRunNow } from "../loops/utils"
 
@@ -183,9 +183,9 @@ export const factsOf = async (ctx: QueryCtx, found: Doc<"automationRuns">) => {
     .withIndex("by_userId", (q) => q.eq("userId", found.userId))
     .unique()
   const zone = settings?.timeZone
-  const date = (ms: number, time = false, where = zone) =>
+  const date = (ms: number, time = false) =>
     new Intl.DateTimeFormat("en-US", {
-      timeZone: where,
+      timeZone: zone,
       weekday: "short",
       month: "short",
       day: "numeric",
@@ -231,13 +231,6 @@ export const factsOf = async (ctx: QueryCtx, found: Doc<"automationRuns">) => {
       values["loop.name"] = loopRun.loopName
       values["roles.judged"] = String(loopRun.scanned)
       values["roles.fits"] = String(loopRun.kept)
-    }
-  }
-  if (context.bookingId) {
-    const booking = await ctx.db.get("calendarEvents", context.bookingId)
-    if (booking?.userId === found.userId) {
-      values["booking.title"] = booking.title
-      values["booking.when"] = date(Date.parse(booking.start), true, zone ?? booking.timeZone)
     }
   }
   return {
@@ -392,7 +385,6 @@ export const matches = (trigger: Trigger, event: typeof vAutomationEvent.type) =
   (trigger.kind === "status" &&
     event.kind === "status" &&
     (!trigger.to.length || trigger.to.includes(event.to))) ||
-  (trigger.kind === "booking" && event.kind === "booking") ||
   (trigger.kind === "goal" &&
     event.kind === "goal" &&
     (!trigger.goals.length || trigger.goals.includes(event.goalId)))
