@@ -1,10 +1,10 @@
-import { getAuthUserId } from "@convex-dev/auth/server"
 import { convexGateway } from "@convex-dev/ai-sdk-provider"
 import { experimental_decide as decide } from "ai"
 import { ConvexError, v } from "convex/values"
 import { components, internal } from "../../_generated/api"
 import type { Id } from "../../_generated/dataModel"
 import { action, internalAction } from "../../_generated/server"
+import { memberId } from "../../lib/functions"
 import { seal } from "../../lib/secrets"
 import { companyAddress } from "../email/addresses"
 import { openConnection, aad, outgoing } from "../email/utils"
@@ -125,7 +125,7 @@ const describe = action({
   args: { request: v.string(), zone: v.string() },
   returns: vDraft,
   handler: async (ctx, { request, zone }): Promise<Draft> => {
-    const userId = await getAuthUserId(ctx)
+    const userId = await memberId(ctx)
     if (!userId) throw new Error("Not signed in")
     const said = request.trim()
     if (said.length < 5 || said.length > 300)

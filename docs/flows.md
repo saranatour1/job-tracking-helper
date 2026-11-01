@@ -167,7 +167,10 @@ in Account replaces the GitHub photo for good.
 **Rules:** signed-out visits to app pages go to `/sign-in`; signed-in visits to
 `/sign-in` go to `/pipeline`. Production only offers GitHub until email is set up: the
 username and password form and the Google, guest and sign-up options are hidden, `/sign-up`
-goes to `/sign-in`, and `createUser` refuses other providers. Existing username accounts have
+goes to `/sign-in`, and `createUser` refuses other providers, except the anonymous accounts
+[Jobs](#jobs) makes for searching. Those reach nothing but Jobs on production: `memberId` in
+`convex/lib/functions.ts` refuses them everywhere else, and the app sends them to `/sign-in`. Local
+dev's guests are the same kind of account and keep the whole app. Existing username accounts have
 no form to sign in with there.
 
 **Files:** `src/features/auth/sign-in.tsx`, `src/routes/_auth*.tsx`,
@@ -413,6 +416,7 @@ and loops can be picked, edited or deleted.
 - As a job seeker, I want to see which roles a loop already judged for me.
 - As a job seeker, I want to see what's publicly known about a company, so I can judge for
   myself whether it's real before I apply.
+- As anyone, I want to look through open roles and share one without making an account.
 
 **Flows**
 
@@ -442,10 +446,32 @@ and loops can be picked, edited or deleted.
 
 4. "More like this" searches by a role's title; the link icon opens the posting.
    Applications link here too.
-5. **Prepare** makes the role a prefilled application (`api.prefilled.prepare`); see
+5. A role's title opens its own page, `/jobs/<words>-<id>`, with its full text. Sharing that link
+   shows a preview image with its title, company and place (`/jobs/<id>/og.png`, drawn by the
+   Worker and cached for a day, `src/features/jobs/og.tsx`). A role that's gone is a 404.
+6. **Prepare** makes the role a prefilled application (`api.prefilled.prepare`); see
    [Prefilled applications and Activity](#prefilled-applications-and-activity). A role
    already prepared shows its status, which opens it. Only roles on Greenhouse, Lever, Ashby
    and Personio show it (`canPrepare`); you apply to the others on their own page.
+
+**Without an account:**
+
+1. `/jobs` and role pages are open to anyone, and to crawlers. "Jobs" on the home page links here.
+   There are no filters, verdicts, "Try" chips or Prepare, and the server ignores filters sent
+   anyway (`api.jobs.search`, at most 25 at a time).
+2. The first search or "More like this" makes an anonymous account, not the page load, so crawlers
+   don't make any. Each new search spends one of 10 a day (`api.jobs.allowSearch`, rate limit
+   `anonymousSearch`); running the same one again or "Show more" doesn't. Past 10: "That's 10
+   searches today. Sign in to keep searching."
+3. Queries can't count anything, so `allowSearch` keeps the last search on the account
+   (`users.allowedSearch`), and `api.jobs.search` answers only that one. Otherwise, as with a
+   shared `/jobs?q=` link, it shows the newest roles and leaves the words in the box.
+4. Databuddy gets `job_search`, `job_search_refused`, `job_opened`, `job_more_like_this`,
+   `job_apply_link` and `job_show_more`, with the words searched for or the role and company. These
+   fire for everyone on Jobs, under Databuddy's own visitor ID, never the account.
+
+**Known limits:** clearing browser storage makes a new anonymous account with 10 more searches.
+Anonymous accounts aren't removed, and signing in later starts a separate account.
 
 **By itself:** every hour (`internal.api.jobs.refreshDue`) up to 25 boards not fetched in 20
 hours go to the batch worker (`internal.api.jobs.fetchBoard`). It reads each public feed
@@ -503,7 +529,8 @@ posting stays in the catalog, since each has its own link.
 
 **Rules:** the catalog is shared by everyone; what Jev thought of a role is yours alone.
 
-**Files:** `src/features/jobs/`, `convex/features/jobs/`.
+**Files:** `src/features/jobs/`, `src/routes/_app/jobs/`, `src/hooks/use-access.ts`,
+`convex/features/jobs/`.
 
 ## Prefilled applications and Activity
 

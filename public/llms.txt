@@ -26,5 +26,6 @@ What it doesn't do:
 ## Pages
 
 - [Home](https://ye.saranatour.dev/): what the app is and how to get started
+- [Jobs](https://ye.saranatour.dev/jobs): open roles from company job boards, to search and link to
 - [Privacy Policy](https://ye.saranatour.dev/privacy): what data the app handles and who it goes to
 - [Terms of Use](https://ye.saranatour.dev/terms): the rules for using the app

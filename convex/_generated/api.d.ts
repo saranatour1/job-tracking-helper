@@ -165,6 +165,7 @@ import type * as features_prefilled_public from "../features/prefilled/public.js
 import type * as features_prefilled_utils from "../features/prefilled/utils.js";
 import type * as features_prefilled_validators from "../features/prefilled/validators.js";
 import type * as features_users_index from "../features/users/index.js";
+import type * as features_users_internal from "../features/users/internal.js";
 import type * as features_users_models from "../features/users/models.js";
 import type * as features_users_public from "../features/users/public.js";
 import type * as features_users_validators from "../features/users/validators.js";
@@ -359,6 +360,7 @@ declare const fullApi: ApiFromModules<{
   "features/prefilled/utils": typeof features_prefilled_utils;
   "features/prefilled/validators": typeof features_prefilled_validators;
   "features/users/index": typeof features_users_index;
+  "features/users/internal": typeof features_users_internal;
   "features/users/models": typeof features_users_models;
   "features/users/public": typeof features_users_public;
   "features/users/validators": typeof features_users_validators;

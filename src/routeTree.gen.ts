@@ -21,7 +21,6 @@ import { Route as AppCalendarRouteImport } from './routes/_app/calendar'
 import { Route as AppContactsRouteImport } from './routes/_app/contacts'
 import { Route as AppEmailRouteImport } from './routes/_app/email'
 import { Route as AppInboxRouteImport } from './routes/_app/inbox'
-import { Route as AppJobsRouteImport } from './routes/_app/jobs'
 import { Route as AppLoopsRouteImport } from './routes/_app/loops'
 import { Route as AppPreferencesRouteImport } from './routes/_app/preferences'
 import { Route as AppResumeRouteImport } from './routes/_app/resume'
@@ -30,6 +29,8 @@ import { Route as AuthSignUpRouteImport } from './routes/_auth/sign-up'
 import { Route as BookSlugRouteImport } from './routes/book.$slug'
 import { Route as AppGoalsIndexRouteImport } from './routes/_app/goals/index'
 import { Route as AppGoalsIdRouteImport } from './routes/_app/goals/$id'
+import { Route as AppJobsIndexRouteImport } from './routes/_app/jobs/index'
+import { Route as AppJobsIdRouteImport } from './routes/_app/jobs/$id'
 import { Route as AppPipelineIndexRouteImport } from './routes/_app/pipeline/index'
 import { Route as AppPipelineIdRouteImport } from './routes/_app/pipeline/$id'
 import { Route as AppPrefilledIndexRouteImport } from './routes/_app/prefilled/index'
@@ -97,11 +98,6 @@ const AppInboxRoute = AppInboxRouteImport.update({
   path: '/inbox',
   getParentRoute: () => AppRoute,
 } as any)
-const AppJobsRoute = AppJobsRouteImport.update({
-  id: '/jobs',
-  path: '/jobs',
-  getParentRoute: () => AppRoute,
-} as any)
 const AppLoopsRoute = AppLoopsRouteImport.update({
   id: '/loops',
   path: '/loops',
@@ -140,6 +136,16 @@ const AppGoalsIndexRoute = AppGoalsIndexRouteImport.update({
 const AppGoalsIdRoute = AppGoalsIdRouteImport.update({
   id: '/goals/$id',
   path: '/goals/$id',
+  getParentRoute: () => AppRoute,
+} as any)
+const AppJobsIndexRoute = AppJobsIndexRouteImport.update({
+  id: '/jobs/',
+  path: '/jobs/',
+  getParentRoute: () => AppRoute,
+} as any)
+const AppJobsIdRoute = AppJobsIdRouteImport.update({
+  id: '/jobs/$id',
+  path: '/jobs/$id',
   getParentRoute: () => AppRoute,
 } as any)
 const AppPipelineIndexRoute = AppPipelineIndexRouteImport.update({
@@ -194,7 +200,6 @@ export interface FileRoutesByFullPath {
   '/contacts': typeof AppContactsRoute
   '/email': typeof AppEmailRoute
   '/inbox': typeof AppInboxRoute
-  '/jobs': typeof AppJobsRoute
   '/loops': typeof AppLoopsRoute
   '/preferences': typeof AppPreferencesRoute
   '/resume': typeof AppResumeRoute
@@ -202,11 +207,13 @@ export interface FileRoutesByFullPath {
   '/sign-up': typeof AuthSignUpRoute
   '/book/$slug': typeof BookSlugRoute
   '/goals/$id': typeof AppGoalsIdRoute
+  '/jobs/$id': typeof AppJobsIdRoute
   '/pipeline/$id': typeof AppPipelineIdRoute
   '/prefilled/$id': typeof AppPrefilledIdRoute
   '/views/new': typeof AppViewsNewRoute
   '/workflows/$id': typeof AppWorkflowsIdRoute
   '/goals/': typeof AppGoalsIndexRoute
+  '/jobs/': typeof AppJobsIndexRoute
   '/pipeline/': typeof AppPipelineIndexRoute
   '/prefilled/': typeof AppPrefilledIndexRoute
   '/views/': typeof AppViewsIndexRoute
@@ -223,7 +230,6 @@ export interface FileRoutesByTo {
   '/contacts': typeof AppContactsRoute
   '/email': typeof AppEmailRoute
   '/inbox': typeof AppInboxRoute
-  '/jobs': typeof AppJobsRoute
   '/loops': typeof AppLoopsRoute
   '/preferences': typeof AppPreferencesRoute
   '/resume': typeof AppResumeRoute
@@ -231,11 +237,13 @@ export interface FileRoutesByTo {
   '/sign-up': typeof AuthSignUpRoute
   '/book/$slug': typeof BookSlugRoute
   '/goals/$id': typeof AppGoalsIdRoute
+  '/jobs/$id': typeof AppJobsIdRoute
   '/pipeline/$id': typeof AppPipelineIdRoute
   '/prefilled/$id': typeof AppPrefilledIdRoute
   '/views/new': typeof AppViewsNewRoute
   '/workflows/$id': typeof AppWorkflowsIdRoute
   '/goals': typeof AppGoalsIndexRoute
+  '/jobs': typeof AppJobsIndexRoute
   '/pipeline': typeof AppPipelineIndexRoute
   '/prefilled': typeof AppPrefilledIndexRoute
   '/views': typeof AppViewsIndexRoute
@@ -255,7 +263,6 @@ export interface FileRoutesById {
   '/_app/contacts': typeof AppContactsRoute
   '/_app/email': typeof AppEmailRoute
   '/_app/inbox': typeof AppInboxRoute
-  '/_app/jobs': typeof AppJobsRoute
   '/_app/loops': typeof AppLoopsRoute
   '/_app/preferences': typeof AppPreferencesRoute
   '/_app/resume': typeof AppResumeRoute
@@ -263,11 +270,13 @@ export interface FileRoutesById {
   '/_auth/sign-up': typeof AuthSignUpRoute
   '/book/$slug': typeof BookSlugRoute
   '/_app/goals/$id': typeof AppGoalsIdRoute
+  '/_app/jobs/$id': typeof AppJobsIdRoute
   '/_app/pipeline/$id': typeof AppPipelineIdRoute
   '/_app/prefilled/$id': typeof AppPrefilledIdRoute
   '/_app/views/new': typeof AppViewsNewRoute
   '/_app/workflows/$id': typeof AppWorkflowsIdRoute
   '/_app/goals/': typeof AppGoalsIndexRoute
+  '/_app/jobs/': typeof AppJobsIndexRoute
   '/_app/pipeline/': typeof AppPipelineIndexRoute
   '/_app/prefilled/': typeof AppPrefilledIndexRoute
   '/_app/views/': typeof AppViewsIndexRoute
@@ -286,7 +295,6 @@ export interface FileRouteTypes {
     | '/contacts'
     | '/email'
     | '/inbox'
-    | '/jobs'
     | '/loops'
     | '/preferences'
     | '/resume'
@@ -294,11 +302,13 @@ export interface FileRouteTypes {
     | '/sign-up'
     | '/book/$slug'
     | '/goals/$id'
+    | '/jobs/$id'
     | '/pipeline/$id'
     | '/prefilled/$id'
     | '/views/new'
     | '/workflows/$id'
     | '/goals/'
+    | '/jobs/'
     | '/pipeline/'
     | '/prefilled/'
     | '/views/'
@@ -315,7 +325,6 @@ export interface FileRouteTypes {
     | '/contacts'
     | '/email'
     | '/inbox'
-    | '/jobs'
     | '/loops'
     | '/preferences'
     | '/resume'
@@ -323,11 +332,13 @@ export interface FileRouteTypes {
     | '/sign-up'
     | '/book/$slug'
     | '/goals/$id'
+    | '/jobs/$id'
     | '/pipeline/$id'
     | '/prefilled/$id'
     | '/views/new'
     | '/workflows/$id'
     | '/goals'
+    | '/jobs'
     | '/pipeline'
     | '/prefilled'
     | '/views'
@@ -346,7 +357,6 @@ export interface FileRouteTypes {
     | '/_app/contacts'
     | '/_app/email'
     | '/_app/inbox'
-    | '/_app/jobs'
     | '/_app/loops'
     | '/_app/preferences'
     | '/_app/resume'
@@ -354,11 +364,13 @@ export interface FileRouteTypes {
     | '/_auth/sign-up'
     | '/book/$slug'
     | '/_app/goals/$id'
+    | '/_app/jobs/$id'
     | '/_app/pipeline/$id'
     | '/_app/prefilled/$id'
     | '/_app/views/new'
     | '/_app/workflows/$id'
     | '/_app/goals/'
+    | '/_app/jobs/'
     | '/_app/pipeline/'
     | '/_app/prefilled/'
     | '/_app/views/'
@@ -461,13 +473,6 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AppInboxRouteImport
       parentRoute: typeof AppRoute
     }
-    '/_app/jobs': {
-      id: '/_app/jobs'
-      path: '/jobs'
-      fullPath: '/jobs'
-      preLoaderRoute: typeof AppJobsRouteImport
-      parentRoute: typeof AppRoute
-    }
     '/_app/loops': {
       id: '/_app/loops'
       path: '/loops'
@@ -522,6 +527,20 @@ declare module '@tanstack/react-router' {
       path: '/goals/$id'
       fullPath: '/goals/$id'
       preLoaderRoute: typeof AppGoalsIdRouteImport
+      parentRoute: typeof AppRoute
+    }
+    '/_app/jobs/': {
+      id: '/_app/jobs/'
+      path: '/jobs'
+      fullPath: '/jobs/'
+      preLoaderRoute: typeof AppJobsIndexRouteImport
+      parentRoute: typeof AppRoute
+    }
+    '/_app/jobs/$id': {
+      id: '/_app/jobs/$id'
+      path: '/jobs/$id'
+      fullPath: '/jobs/$id'
+      preLoaderRoute: typeof AppJobsIdRouteImport
       parentRoute: typeof AppRoute
     }
     '/_app/pipeline/': {
@@ -590,16 +609,17 @@ interface AppRouteChildren {
   AppContactsRoute: typeof AppContactsRoute
   AppEmailRoute: typeof AppEmailRoute
   AppInboxRoute: typeof AppInboxRoute
-  AppJobsRoute: typeof AppJobsRoute
   AppLoopsRoute: typeof AppLoopsRoute
   AppPreferencesRoute: typeof AppPreferencesRoute
   AppResumeRoute: typeof AppResumeRoute
   AppGoalsIdRoute: typeof AppGoalsIdRoute
+  AppJobsIdRoute: typeof AppJobsIdRoute
   AppPipelineIdRoute: typeof AppPipelineIdRoute
   AppPrefilledIdRoute: typeof AppPrefilledIdRoute
   AppViewsNewRoute: typeof AppViewsNewRoute
   AppWorkflowsIdRoute: typeof AppWorkflowsIdRoute
   AppGoalsIndexRoute: typeof AppGoalsIndexRoute
+  AppJobsIndexRoute: typeof AppJobsIndexRoute
   AppPipelineIndexRoute: typeof AppPipelineIndexRoute
   AppPrefilledIndexRoute: typeof AppPrefilledIndexRoute
   AppViewsIndexRoute: typeof AppViewsIndexRoute
@@ -613,16 +633,17 @@ const AppRouteChildren: AppRouteChildren = {
   AppContactsRoute: AppContactsRoute,
   AppEmailRoute: AppEmailRoute,
   AppInboxRoute: AppInboxRoute,
-  AppJobsRoute: AppJobsRoute,
   AppLoopsRoute: AppLoopsRoute,
   AppPreferencesRoute: AppPreferencesRoute,
   AppResumeRoute: AppResumeRoute,
   AppGoalsIdRoute: AppGoalsIdRoute,
+  AppJobsIdRoute: AppJobsIdRoute,
   AppPipelineIdRoute: AppPipelineIdRoute,
   AppPrefilledIdRoute: AppPrefilledIdRoute,
   AppViewsNewRoute: AppViewsNewRoute,
   AppWorkflowsIdRoute: AppWorkflowsIdRoute,
   AppGoalsIndexRoute: AppGoalsIndexRoute,
+  AppJobsIndexRoute: AppJobsIndexRoute,
   AppPipelineIndexRoute: AppPipelineIndexRoute,
   AppPrefilledIndexRoute: AppPrefilledIndexRoute,
   AppViewsIndexRoute: AppViewsIndexRoute,

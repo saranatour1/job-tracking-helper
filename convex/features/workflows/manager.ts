@@ -17,6 +17,7 @@ export const limits = new RateLimiter(components.rateLimiter, {
   companySearch: { kind: "token bucket", rate: 4, period: MINUTE, capacity: 1 },
   runNow: { kind: "fixed window", rate: 3, period: DAY },
   checkLink: { kind: "fixed window", rate: 10, period: DAY },
+  anonymousSearch: { kind: "fixed window", rate: 10, period: DAY },
   automationRun: { kind: "fixed window", rate: 50, period: DAY },
   automationEvent: { kind: "fixed window", rate: 200, period: DAY },
   automationFind: { kind: "fixed window", rate: 5, period: DAY },

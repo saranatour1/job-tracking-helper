@@ -1,11 +1,11 @@
-import { getAuthUserId } from "@convex-dev/auth/server"
 import { createTool, McpServer } from "@convex-dev/mcp"
 import { ConvexError, v } from "convex/values"
 import { components, internal } from "./_generated/api"
 import type { Id } from "./_generated/dataModel"
-import { action, env } from "./_generated/server"
+import { action, type ActionCtx, env, type QueryCtx } from "./_generated/server"
 import { agentScopes } from "./features/agents/scopes"
 import { limits } from "./features/workflows/manager"
+import { memberId } from "./lib/functions"
 import {
   vContactAdded,
   vContactArgs,
@@ -378,7 +378,8 @@ export const mcp: McpServer<Id<"users">> = new McpServer(components.mcp, {
 })
 
 export const { getAuthRequest, authorize, listConnections, revokeConnection } = mcp.api({
-  getUserId: getAuthUserId,
+  // The component only types the auth part, but passes its queries' and actions' whole ctx.
+  getUserId: (ctx) => memberId(ctx as QueryCtx | ActionCtx),
 })
 
 // For the CLI and tests. Internal, so only deploy credentials can call it.
@@ -390,7 +391,7 @@ const maxConnections = 50
 export const createApiKey = action({
   args: { name: v.string(), scopes: v.optional(v.array(v.string())) },
   handler: async (ctx, args): Promise<{ id: string; apiKey: string; url: string }> => {
-    const userId = await getAuthUserId(ctx)
+    const userId = await memberId(ctx)
     if (!userId) throw new ConvexError("Not signed in")
     const connections = await ctx.runQuery(components.mcp.grants.list, { userId })
     if (connections.length >= maxConnections)

@@ -10,7 +10,6 @@ Disallow: /contacts
 Disallow: /email
 Disallow: /goals
 Disallow: /inbox
-Disallow: /jobs
 Disallow: /loops
 Disallow: /pipeline
 Disallow: /preferences

@@ -8,15 +8,22 @@ const createUser = internalMutation({
   args: vCreateUserArgs,
   returns: v.id("users"),
   handler: async (ctx, { provider }) => {
-    // Production takes new accounts only from GitHub until email is set up.
-    if (!env.SITE_URL.startsWith("http://localhost") && provider.name !== "github") {
+    // Production takes new accounts only from GitHub until email is set up, and anonymous ones
+    // for searching Jobs, which memberId keeps out of everything else.
+    if (
+      !env.SITE_URL.startsWith("http://localhost") &&
+      provider.name !== "github" &&
+      provider.name !== "anonymous"
+    ) {
       throw new ConvexError("Sign-ups are closed")
     }
     const userId = await ctx.db.insert(
       "users",
       provider.name === "google"
         ? { name: provider.profile.name, email: provider.profile.email }
-        : {}
+        : provider.name === "anonymous"
+          ? { anonymous: true }
+          : {}
     )
     const log = workLog("account.joined", { userId })
     log.set({ provider: provider.name, outcome: "joined" })

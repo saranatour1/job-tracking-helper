@@ -39,6 +39,10 @@ export const User = type({
   "trashDays?": "number",
   "nextApplicationNumber?": "number",
   "prepareAt?": "number",
+  // An account with no sign-in behind it. See memberId.
+  "anonymous?": "boolean",
+  // The one search an anonymous account has spent one of its daily searches on.
+  "allowedSearch?": "string",
 })
 
 export const vMe = v.object({
@@ -51,4 +55,6 @@ export const vMe = v.object({
   x: v.string(),
   imageUrl: v.union(v.string(), v.null()),
   onboarded: v.boolean(),
+  anonymous: v.boolean(),
+  allowedSearch: v.union(v.string(), v.null()),
 })

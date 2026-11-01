@@ -70,6 +70,77 @@ describe("the job catalog's totals", () => {
   })
 })
 
+describe("the public catalog", () => {
+  const opts = { numItems: 25, cursor: null }
+
+  const withLead = async () => {
+    const { t, as } = await setup()
+    const jobId = await t.run(async (ctx) => {
+      const boardId = await ctx.db.insert("jobBoards", board(1, 1))
+      const userId = await ctx.db.insert("users", { name: "Pat" })
+      const url = "https://boards.greenhouse.io/hooli/jobs/1"
+      await ctx.db.insert("jobLeads", {
+        userId,
+        url,
+        urlKey: url,
+        title: "Engineer",
+        company: "Hooli",
+        snippet: "Engineer",
+        fit: 90,
+        reasons: [],
+        status: "new",
+        verdict: "fit",
+      })
+      for (let n = 1; n <= 30; n++)
+        await ctx.db.insert("jobs", {
+          boardId,
+          urlKey: n === 1 ? url : `${url}${n}`,
+          url,
+          title: "Engineer",
+          company: "Hooli",
+          location: "Berlin",
+          remote: false,
+          postedAt: n,
+          seenAt: n,
+          text: "Engineer",
+        })
+      return ctx.db
+        .query("jobs")
+        .first()
+        .then((job) => job!._id)
+    })
+    return { t, as, jobId }
+  }
+
+  it("lets anyone read the newest roles, with no verdicts and no bigger pages than the app asks for", async () => {
+    const { t } = await withLead()
+    const found = await t.query(api.api.jobs.search, {
+      paginationOpts: { ...opts, numItems: 1000 },
+      fits: true,
+    })
+    expect(found.page).toHaveLength(25)
+    expect(found.page.every((r) => r.verdict === null && r.fit === null)).toBe(true)
+  })
+
+  it("opens one role to anyone, and nothing for what isn't one", async () => {
+    const { t, jobId } = await withLead()
+    expect(await t.query(api.api.jobs.posting, { id: jobId })).toMatchObject({
+      title: "Engineer",
+      verdict: null,
+      text: "Engineer",
+    })
+    expect(await t.query(api.api.jobs.posting, { id: "nonsense" })).toBeNull()
+  })
+
+  it("keeps filters and companies for people signed in", async () => {
+    const { t, as } = await withLead()
+    await expect(t.query(api.api.jobs.companies, {})).rejects.toThrow("Not signed in")
+    expect(
+      (await as.query(api.api.jobs.search, { paginationOpts: opts, remoteOnly: true })).page
+    ).toEqual([])
+  })
+})
+
 describe("Arbeitsagentur searches", () => {
   afterEach(() => vi.unstubAllGlobals())
 

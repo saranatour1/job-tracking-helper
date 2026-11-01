@@ -25,6 +25,13 @@ export const dateText = (at: number) =>
     }).format(at)
   )
 
+/** A posting's route: the catalog is too big to load for `routeIds`, so its id stays on the end.
+ * "engineer-figma-k57abc". Ids have no dashes, and the words can change without breaking a link. */
+export const postingText = (job: { _id: string; title: string; company: string }) =>
+  `${routeText(`${job.title} ${job.company}`)}-${job._id}`
+
+export const postingId = (text: string) => text.slice(text.lastIndexOf("-") + 1)
+
 /** Turns rows' ids into text and back. A repeat gets a number; a real id still finds its row,
  * so old links work, and a row that isn't loaded keeps its id. */
 export const routeIds = <T, I extends string>(

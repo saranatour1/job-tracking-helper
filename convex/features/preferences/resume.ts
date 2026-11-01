@@ -1,5 +1,4 @@
 "use node"
-import { getAuthUserId } from "@convex-dev/auth/server"
 import { convexGateway } from "@convex-dev/ai-sdk-provider"
 import { experimental_decide as decide } from "ai"
 import { ConvexError } from "convex/values"
@@ -7,6 +6,7 @@ import { extractText } from "unpdf"
 import { internal } from "../../_generated/api"
 import { action } from "../../_generated/server"
 import { arkOutputToConvex } from "../../lib/ark"
+import { memberId } from "../../lib/functions"
 import { type NoulAnswer, readNoul } from "../../lib/jev"
 import { jevModel } from "../workflows/judge"
 import { limits as rates } from "../workflows/manager"
@@ -28,7 +28,7 @@ const review = action({
   args: {},
   returns: arkOutputToConvex(Review),
   handler: async (ctx): Promise<Review> => {
-    const userId = await getAuthUserId(ctx)
+    const userId = await memberId(ctx)
     if (!userId) throw new Error("Not signed in")
     const { ok } = await rates.limit(ctx, "resumeReview", { key: userId })
     if (!ok) throw new ConvexError("That's 10 reviews today. Try again tomorrow.")
