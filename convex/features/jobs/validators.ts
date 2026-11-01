@@ -1,5 +1,6 @@
 import { v } from "convex/values"
 import { vVerdict } from "../workflows/validators"
+import { proofs } from "./domains"
 import { type } from "arktype"
 import { boardKinds } from "./boards"
 import { arkId } from "../../lib/ark"
@@ -25,10 +26,23 @@ export const vYc = v.object({
 })
 
 export const vEvidence = v.object({
+  boardId: v.union(v.id("jobBoards"), v.null()),
   domain: v.union(v.string(), v.null()),
   link: v.union(vCompanyLink, v.null()),
   yc: v.union(vYc, v.null()),
   registeredAt: v.union(v.number(), v.null()),
+  // Roles open at this company. Null for a board of many companies.
+  open: v.union(v.number(), v.null()),
+})
+
+export const vProof = v.union(...proofs.map((p) => v.literal(p)))
+
+export const vCatalogSummary = v.object({
+  domains: v.number(),
+  own: v.number(),
+  name: v.number(),
+  unverified: v.number(),
+  endings: v.array(v.object({ ending: v.string(), jobs: v.number() })),
 })
 
 export const vJobRow = v.object({
@@ -112,5 +126,7 @@ export const vJobSearchArgs = {
   boardId: v.optional(v.string()),
   since: v.optional(v.number()),
   fits: v.optional(v.boolean()),
+  proof: v.optional(vProof),
+  ending: v.optional(v.string()),
   paginationOpts: paginationOptsValidator,
 }

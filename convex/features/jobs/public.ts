@@ -6,7 +6,7 @@ import { query, type QueryCtx } from "../../_generated/server"
 import { authedQuery, sessionMutation } from "../../lib/functions"
 import { limits } from "../workflows/manager"
 import { evidenceOf } from "./companies"
-import { vJobRow, vJobSearchArgs } from "./validators"
+import { vCatalogSummary, vJobRow, vJobSearchArgs } from "./validators"
 import { rowOf, searchJobs } from "./utils"
 
 // The page size the app asks for. Signed out, nobody can ask for more.
@@ -77,26 +77,45 @@ const posting = query({
 
 const companies = authedQuery({
   args: {},
-  returns: v.array(v.object({ boardId: v.id("jobBoards"), company: v.string(), jobs: v.number() })),
-  handler: async (ctx) =>
-    (
-      await ctx.db
-        .query("jobBoards")
-        .withIndex("by_jobs", (q) => q.gt("jobs", 0))
-        .order("desc")
-        .take(200)
-    )
-      .sort((a, b) => b.jobs - a.jobs || a.company.localeCompare(b.company))
-      .map((b) => ({ boardId: b._id, company: b.company, jobs: b.jobs })),
+  returns: v.array(
+    v.object({
+      boardId: v.id("jobBoards"),
+      company: v.string(),
+      domain: v.union(v.string(), v.null()),
+      jobs: v.number(),
+    })
+  ),
+  handler: async (ctx) => {
+    const boards = await ctx.db
+      .query("jobBoards")
+      .withIndex("by_jobs", (q) => q.gt("jobs", 0))
+      .order("desc")
+      .take(200)
+    boards.sort((a, b) => b.jobs - a.jobs || a.company.localeCompare(b.company))
+    const rows = []
+    for (const b of boards) {
+      const company = b.companyId ? await ctx.db.get("companies", b.companyId) : null
+      rows.push({
+        boardId: b._id,
+        company: b.company,
+        domain: company?.domain ?? null,
+        jobs: b.jobs,
+      })
+    }
+    return rows
+  },
 })
 
 // Null until it's first counted.
 const stats = query({
   args: {},
-  returns: v.union(v.object({ boards: v.number(), jobs: v.number() }), v.null()),
+  returns: v.union(
+    v.object({ boards: v.number(), jobs: v.number(), summary: v.optional(vCatalogSummary) }),
+    v.null()
+  ),
   handler: async (ctx) => {
     const row = await ctx.db.query("jobCatalog").first()
-    return row && { boards: row.boards, jobs: row.jobs }
+    return row && { boards: row.boards, jobs: row.jobs, summary: row.summary }
   },
 })
 

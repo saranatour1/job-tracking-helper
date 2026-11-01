@@ -304,7 +304,7 @@ describe("what shows on Jobs", () => {
     const t = setup()
     await addBoard(t, "hooli", ["https://jobs.lever.co/hooli/1"])
     const [row] = await search(t)
-    expect(row?.evidence).toEqual({ domain: null, link: null, yc: null, registeredAt: null })
+    expect(row?.evidence).toMatchObject({ domain: null, link: null, yc: null, registeredAt: null })
   })
 })
 

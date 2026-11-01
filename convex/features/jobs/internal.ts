@@ -9,6 +9,7 @@ import { readPool } from "../workflows/manager"
 import { apiKeyOf, monthlyCredits, monthOf } from "../workflows/sources"
 import { boardKinds, companyOf, isCompanyBoard, searchSlug, starterBoards } from "./boards"
 import { researchBatch, researchEvery } from "./companies"
+import { summarize } from "./domains"
 import { leadOf } from "./leads"
 import { boardOf } from "./links"
 import { vFeedJob, vBoardFetchedArgs, vCandidatesArgs, vSaveResearchArgs } from "./validators"
@@ -369,6 +370,27 @@ const saveResearch = internalMutation({
   },
 })
 
+// ponytail: reads every board with roles and its company each hour. Fine for hundreds of boards;
+// keep these counts up in each write, or use @convex-dev/aggregate, if saved searches reach the
+// thousands.
+const summarizeCatalog = internalMutation({
+  args: {},
+  returns: v.null(),
+  handler: async (ctx) => {
+    const boards = []
+    for await (const b of ctx.db.query("jobBoards").withIndex("by_jobs", (q) => q.gt("jobs", 0))) {
+      const company = b.companyId ? await ctx.db.get("companies", b.companyId) : null
+      boards.push({ jobs: b.jobs, domain: company?.domain, link: b.companyLink })
+    }
+    const summary = summarize(boards)
+    const row = await ctx.db.query("jobCatalog").first()
+    // An unchanged write would rerun every open Jobs page.
+    if (row && JSON.stringify(row.summary) !== JSON.stringify(summary))
+      await ctx.db.patch("jobCatalog", row._id, { summary })
+    return null
+  },
+})
+
 const get = internalQuery({
   args: { jobId: v.id("jobs") },
   handler: (ctx, { jobId }) => ctx.db.get("jobs", jobId),
@@ -388,6 +410,7 @@ export const internalApi = {
   researchDue,
   researchInputs,
   saveResearch,
+  summarizeCatalog,
   candidates,
   byUrlKey,
   get,

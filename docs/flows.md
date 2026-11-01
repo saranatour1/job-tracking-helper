@@ -416,21 +416,33 @@ and loops can be picked, edited or deleted.
 - As a job seeker, I want to see which roles a loop already judged for me.
 - As a job seeker, I want to see what's publicly known about a company, so I can judge for
   myself whether it's real before I apply.
+- As a job seeker, I want to look through companies, not one posting at a time, so one big
+  employer doesn't bury the rest.
 - As anyone, I want to look through open roles and share one without making an account.
 
 **Flows**
 
-1. `/jobs` says how many roles are in the shared catalog, from how many boards, from a
-   stored count (`api.jobs.stats`).
+1. `/jobs` says how many roles are in the shared catalog, across how many company domains, from a
+   stored count (`api.jobs.stats`). Two tiles sum up the catalog: how roles tie to a company (Own
+   site, Name only, Unverified) and each domain's ending (`.com`, `.ai`). Every hour
+   `internal.api.jobs.summarizeCatalog` counts these from the boards, so they can be an hour behind.
+   Signed in, each one is a filter (`?proof=`, `?ending=`).
 2. Search by words (`?q=`), or pick a "Try" chip from your Preferences (interests,
    places, companies). Narrow it down with Remote only, Fits me (only roles Jev said fit
-   you, best first), Posted (past day, week or month) and a company (`api.jobs.companies`,
+   you, best first), Posted (past day, week or month) and a domain (`api.jobs.companies`,
    the boards with the most roles). Every filter is in the address, so a link opens the
-   same list; Clear filters resets them (`api.jobs.search`, 25 at a time).
-3. Each role shows its company, title, where, how long ago it was posted, and badges:
+   same list; Clear filters resets them (`api.jobs.search`, 25 at a time). A proof or ending
+   filter on a search only keeps matches from the page it read, so Show more may find more.
+3. Roles group under their company's domain, in the order of their first role. A company with no
+   site found goes under its name. A domain's row has lanes for how it ties to the company, when
+   it was registered, its YC batch, how many roles it has open and its newest role, in blue while
+   that's under two days old. Over 250 open roles, it starts closed and lists the titles on one
+   line. Collapse all (`?collapsed=true`) closes every domain, and Show N more opens all of a
+   board's roles. Hovering a role swaps where it is for its actions; on a touch screen they stay.
+   **Roles** (`?view=roles`) lists each role with its preview and these badges instead:
    Jev's verdict for you ("Fits you · 69%", "Not a fit"), New (posted in the last two
-   days) and Remote. Compact turns them into one line each.
-   It also shows what was found about the company, never a verdict: most real employers
+   days) and Remote.
+   Both show what was found about the company, never a verdict: most real employers
    aren't in YC, and a scammer can copy a real name.
    - **On stripe.com:** the board's postings live on the company's own site.
    - **Name matches hooli.xyz:** only the name led there. The badges after it are about that
@@ -440,9 +452,7 @@ and loops can be picked, edited or deleted.
    - **Domain 31 years:** when the site was registered, marked under a year old.
    - **Unverified:** no site found, not researched yet, or a role from a board of many
      companies (Arbeitsagentur, Remote OK, Hacker News), which isn't researched.
-   - **LinkedIn:** a search link in the full view. Nothing is read from LinkedIn.
-
-   Compact shows only the first of these.
+   - **LinkedIn:** a search link. Nothing is read from LinkedIn.
 
 4. "More like this" searches by a role's title; the link icon opens the posting.
    Applications link here too.

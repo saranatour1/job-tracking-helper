@@ -2,7 +2,7 @@ import { describe, expect, it } from "vite-plus/test"
 
 import { detailsOf } from "./og"
 
-const none = { domain: null, link: null, yc: null, registeredAt: null }
+const none = { domain: null, link: null, yc: null, registeredAt: null, boardId: null, open: null }
 const job = { location: "Berlin", remote: false, text: "", evidence: none }
 const yc = { batch: "Summer 2009", status: "Active", url: "" }
 

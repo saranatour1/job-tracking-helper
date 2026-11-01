@@ -184,7 +184,7 @@ describe("Arbeitsagentur searches", () => {
     })
     expect(jobs[0]?.text).toContain("Pflege im **Krankenhaus**.")
     expect(await as.query(api.api.jobs.companies, {})).toEqual([
-      { boardId, company: "Arbeitsagentur: Pflegefachkraft, Berlin", jobs: 1 },
+      { boardId, company: "Arbeitsagentur: Pflegefachkraft, Berlin", domain: null, jobs: 1 },
     ])
   })
 
@@ -426,6 +426,159 @@ describe("duplicates", () => {
       jobId,
     })
     expect(prefill?.urlKey).toBe("greenhouse/1")
+  })
+})
+
+describe("domains", () => {
+  const opts = { numItems: 25, cursor: null }
+
+  const withDomains = async () => {
+    const { t, as } = await setup()
+    await t.run(async (ctx) => {
+      const site = async (n: number, jobs: number, domain?: string, link?: "postings" | "name") => {
+        const companyId = domain
+          ? await ctx.db.insert("companies", { name: `Company ${n}`, domain })
+          : undefined
+        const boardId = await ctx.db.insert("jobBoards", {
+          ...board(n, jobs),
+          companyId,
+          companyLink: link,
+        })
+        for (let i = 0; i < jobs; i++)
+          await ctx.db.insert("jobs", {
+            boardId,
+            urlKey: `${n}/${i}`,
+            url: `https://example.com/${n}/${i}`,
+            title: `Role ${n}`,
+            company: `Company ${n}`,
+            location: "Berlin",
+            remote: n === 2,
+            postedAt: n * 100 + i,
+            text: `Role ${n} engineer`,
+          })
+      }
+      await site(1, 3, "stripe.com", "postings")
+      await site(2, 2, "hooli.ai", "name")
+      await site(3, 1)
+      await ctx.db.insert("jobCatalog", { boards: 3, jobs: 6 })
+    })
+    const titles = async (args: {
+      proof?: "own" | "name" | "unverified"
+      ending?: string
+      q?: string
+      remoteOnly?: boolean
+    }) =>
+      (await as.query(api.api.jobs.search, { paginationOpts: opts, ...args })).page.map(
+        (j) => j.title
+      )
+    return { t, as, titles }
+  }
+
+  it("filters by how a role ties to a company, newest first", async () => {
+    const { titles } = await withDomains()
+    expect(await titles({ proof: "own" })).toEqual(["Role 1", "Role 1", "Role 1"])
+    expect(await titles({ proof: "name" })).toEqual(["Role 2", "Role 2"])
+    expect(await titles({ proof: "unverified" })).toEqual(["Role 3"])
+  })
+
+  it("filters by domain ending, leaving out roles with no site", async () => {
+    const { titles } = await withDomains()
+    expect(await titles({ ending: ".ai" })).toEqual(["Role 2", "Role 2"])
+    expect(await titles({ ending: ".com" })).toEqual(["Role 1", "Role 1", "Role 1"])
+    expect(await titles({ ending: ".io" })).toEqual([])
+  })
+
+  it("combines those with the other filters and a search", async () => {
+    const { titles } = await withDomains()
+    expect(await titles({ proof: "own", remoteOnly: true })).toEqual([])
+    expect(await titles({ proof: "name", remoteOnly: true })).toEqual(["Role 2", "Role 2"])
+    expect(await titles({ ending: ".ai", q: "engineer" })).toEqual(["Role 2", "Role 2"])
+  })
+
+  it("stops looking at the scan limit and lets the next page carry on", async () => {
+    const { t, as } = await setup()
+    await t.run(async (ctx) => {
+      const boardId = await ctx.db.insert("jobBoards", board(1, 501))
+      for (let i = 0; i < 501; i++)
+        await ctx.db.insert("jobs", {
+          boardId,
+          urlKey: `${i}`,
+          url: `https://example.com/${i}`,
+          title: `Role ${i}`,
+          company: "Company 1",
+          location: "Berlin",
+          remote: false,
+          postedAt: i,
+          text: "Role",
+        })
+    })
+    const first = await as.query(api.api.jobs.search, { paginationOpts: opts, proof: "own" })
+    expect(first.page).toEqual([])
+    expect(first.isDone).toBe(false)
+    const next = await as.query(api.api.jobs.search, {
+      paginationOpts: { numItems: 25, cursor: first.continueCursor },
+      proof: "own",
+    })
+    expect(next.isDone).toBe(true)
+  })
+
+  it("counts a company's open roles, and none for a board of many companies", async () => {
+    const { t, as } = await withDomains()
+    await t.run(async (ctx) => {
+      const company = await ctx.db
+        .query("companies")
+        .withIndex("by_domain", (q) => q.eq("domain", "stripe.com"))
+        .first()
+      await ctx.db.insert("jobBoards", { ...board(9, 40), companyId: company!._id })
+      const boardId = await ctx.db.insert("jobBoards", {
+        kind: "remoteok",
+        slug: "all",
+        company: "Remote OK",
+        addedAt: 0,
+        jobs: 900,
+      })
+      await ctx.db.insert("jobs", {
+        boardId,
+        urlKey: "remote",
+        url: "https://example.com/remote",
+        title: "Remote role",
+        company: "Wren",
+        location: "",
+        remote: true,
+        postedAt: 9999,
+        text: "Remote role",
+      })
+    })
+    const { page } = await as.query(api.api.jobs.search, { paginationOpts: opts })
+    expect(page.find((j) => j.title === "Remote role")?.evidence.open).toBeNull()
+    expect(page.find((j) => j.title === "Role 1")?.evidence.open).toBe(43)
+    expect(page.find((j) => j.title === "Role 3")?.evidence.open).toBe(1)
+  })
+
+  it("keeps a summary of the catalog, and writes only when it changes", async () => {
+    const { t } = await withDomains()
+    expect((await t.query(api.api.jobs.stats, {}))?.summary).toBeUndefined()
+    await t.mutation(internal.api.jobs.summarizeCatalog, {})
+    expect((await t.query(api.api.jobs.stats, {}))?.summary).toEqual({
+      domains: 2,
+      own: 3,
+      name: 2,
+      unverified: 1,
+      endings: [
+        { ending: ".com", jobs: 3 },
+        { ending: ".ai", jobs: 2 },
+      ],
+    })
+    const written = await t.run(async (ctx) => (await ctx.db.query("jobCatalog").first())!)
+    await t.mutation(internal.api.jobs.summarizeCatalog, {})
+    const again = await t.run(async (ctx) => (await ctx.db.query("jobCatalog").first())!)
+    expect(again).toEqual(written)
+  })
+
+  it("names each board's domain in the filter", async () => {
+    const { as } = await withDomains()
+    const companies = await as.query(api.api.jobs.companies, {})
+    expect(companies.map((c) => c.domain)).toEqual(["stripe.com", "hooli.ai", null])
   })
 })
 
