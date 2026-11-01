@@ -8,6 +8,7 @@ import { describe, expect, it } from "vite-plus/test"
 import { api, internal } from "../../_generated/api"
 import type { Id } from "../../_generated/dataModel"
 import schema from "../../schema"
+import { insertJob, recount } from "./counts"
 
 const modules = import.meta.glob([
   "../../**/*.ts",
@@ -196,6 +197,26 @@ describe("the catalog's counts", () => {
     await t.mutation(internal.api.jobs.boardFetched, { boardId, jobs: 300 })
     expect(await summary(t)).toMatchObject({ jobs: 2, unverified: 2 })
     expect((await t.run((ctx) => ctx.db.get("jobBoards", boardId)))?.jobs).toBe(2)
+  })
+})
+
+describe("moving postings to their new keys", () => {
+  it("removes a page of old copies, and the counts follow", async () => {
+    const t = setup()
+    await ready(t)
+    const boardId = await addBoard(t, "stripe")
+    await research(t, boardId, "stripe.com", "postings")
+    await save(t, boardId, 0, 60)
+    await t.run(async (ctx) => {
+      for (let n = 0; n < 50; n++)
+        await insertJob(ctx, { ...feedJob(n), boardId, urlKey: `old-${n}` })
+      await recount(ctx, boardId)
+    })
+    expect(await summary(t)).toMatchObject({ jobs: 110, own: 110 })
+    await t.mutation(internal.api.migrations.fillPostingKeys, {})
+    await t.finishAllScheduledFunctions(() => {})
+    expect(await summary(t)).toMatchObject({ jobs: 60, own: 60, domains: 1 })
+    expect((await t.run((ctx) => ctx.db.get("jobBoards", boardId)))?.jobs).toBe(60)
   })
 })
 

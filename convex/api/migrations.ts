@@ -1,5 +1,6 @@
 import { v } from "convex/values"
 import { internal } from "../_generated/api"
+import type { Id } from "../_generated/dataModel"
 import { internalMutation, internalQuery } from "../_generated/server"
 import { fitOf } from "../features/applications/utils"
 import { syncMailSummary } from "../features/email/utils"
@@ -59,15 +60,17 @@ export const fillPostingKeys = internalMutation({
     let page
     if (table === "jobs") {
       page = await ctx.db.query("jobs").paginate(opts)
+      const boards = new Set<Id<"jobBoards">>()
       for (const job of page.page) {
         const key = urlKey(job.url)
         if (key === job.urlKey) continue
         // A refresh got there first and saved it under the new key. Leads move over below.
         if (await jobByKey(key)) {
           await deleteJob(ctx, job)
-          await recount(ctx, job.boardId)
+          boards.add(job.boardId)
         } else await ctx.db.patch("jobs", job._id, { urlKey: key })
       }
+      for (const boardId of boards) await recount(ctx, boardId)
     } else if (table === "jobLeads") {
       page = await ctx.db.query("jobLeads").paginate(opts)
       for (const lead of page.page) {
