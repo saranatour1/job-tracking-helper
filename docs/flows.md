@@ -643,6 +643,8 @@ call, `internal.ts` the row's steps, `utils.ts` starting one and preparing a loo
 
 ## Loops
 
+[job-classification.md](job-classification.md) shows how a job gets from a board to your shortlist, with diagrams.
+
 **Stories**
 
 - As a job seeker, I want a loop that each morning finds roles and has Jev keep only the
@@ -697,7 +699,9 @@ call, `internal.ts` the row's steps, `utils.ts` starting one and preparing a loo
    4. Hands them all to the batch worker for Jev, and waits for every verdict.
 3. **Jev's judgment per role:** how well it matches (unrelated to strong), then whether
    each need holds: the place, pay, visa, things to avoid, interests and skills. A role
-   fits when the match is good enough, no need fails, and every must-have is confirmed.
+   fits when the match is at least 1.6 of 3, no need fails, and every must-have is confirmed.
+   A failed need or an avoid counts only when Jev gives that answer at least 60%, and a fit
+   under 2 of 3 is marked as a close call. Fits are shown best first.
 4. **The end of a run:** fits wait, and the best go on your shortlist up to the loop's
    size. Updates gets "N new roles fit" (`loop.found`).
 5. **Failures:** a failed or canceled run says so on the Runs tab.

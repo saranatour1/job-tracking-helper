@@ -26,16 +26,15 @@ const evaluate = action({
     if (found.applications.length === 0) return { add: [], remove: [], judged: 0 }
     const result = await decide({
       model: convexGateway.evaluationModel(jevModel),
-      state: {
-        goal: found.goal,
-        applications: found.applications.map(({ id: _id, onGoal: _onGoal, ...a }) => a),
-      },
+      state: { goal: found.goal },
+      // Each application in its own question: on dev, a shared list changed 41 of 90 answers from
+      // asking about each one alone, and this changed 15.
       questions: Object.fromEntries(
-        found.applications.map((_, i) => [
+        found.applications.map(({ id: _id, onGoal: _onGoal, ...a }, i) => [
           `fits${i}`,
           {
             type: "boolean" as const,
-            instructions: `\`goal\` is what the person's job search is for. Does \`applications[${i}]\` count toward it: is it the kind of role, company or step \`goal\` describes?`,
+            instructions: `\`goal\` is what the person's job search is for. Does this application count toward it: is it the kind of role, company or step \`goal\` describes?\n\n${JSON.stringify(a)}`,
           },
         ])
       ),

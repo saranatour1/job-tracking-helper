@@ -98,6 +98,39 @@ describe("checksOf and verdictOf", () => {
     ])
   })
 
+  it("doesn't rule a role out on an unsure answer", () => {
+    const unsure = (outcome: "holds" | "fails") => ({ outcome, confidence: 0.59 })
+    const sure = { outcome: "holds" as const, confidence: 0.9 }
+    const checks = checksOf(p, job, [sure, sure, unsure("holds")])
+    expect(checks[2]).toMatchObject({ label: "Might involve ad tech", result: "maybe" })
+    expect(verdictOf(2.4, checks, "m").verdict).toBe("fit")
+    const need = profile("close-to-home", { pay: "60k EUR" })
+    const pay = checksOf(need, job, [sure, sure, sure, unsure("fails")])
+    expect(pay[3]).toMatchObject({ label: "Pays what you need", result: "maybe" })
+    expect(
+      checksOf(need, job, [sure, sure, sure, { ...unsure("fails"), confidence: 0.6 }])[3]
+    ).toMatchObject({ result: "notFit" })
+  })
+
+  it("still needs the place confirmed when the answer against it is unsure", () => {
+    const checks = checksOf(p, job, [
+      { outcome: "fails", confidence: 0.5 },
+      { outcome: "holds", confidence: 0.9 },
+      { outcome: "fails", confidence: 0.9 },
+    ])
+    expect(verdictOf(2.8, checks, "m").verdict).toBe("notFit")
+  })
+
+  it("marks a fit near the line as a close call", () => {
+    const fits = checksOf(p, job, answer("holds", "holds", "fails"))
+    const close = "A close call: the match is near the line for showing a role."
+    expect(verdictOf(1.59, fits, "m").verdict).toBe("notFit")
+    expect(verdictOf(1.6, fits, "m")).toMatchObject({ verdict: "fit" })
+    expect(verdictOf(1.6, fits, "m").reasons).toContain(close)
+    expect(verdictOf(1.99, fits, "m").reasons).toContain(close)
+    expect(verdictOf(2, fits, "m").reasons).not.toContain(close)
+  })
+
   it("shows a role only when it matches and every must-have is confirmed", () => {
     const fits = checksOf(p, job, answer("holds", "holds", "fails"))
     expect(verdictOf(2.4, fits, "m").verdict).toBe("fit")
