@@ -447,8 +447,10 @@ and loops can be picked, edited or deleted.
 4. "More like this" searches by a role's title; the link icon opens the posting.
    Applications link here too.
 5. A role's title opens its own page, `/jobs/<words>-<id>`, with its full text. Sharing that link
-   shows a preview image with its title, company and place (`/jobs/<id>/og.png`, drawn by the
-   Worker and cached for a day, `src/features/jobs/og.tsx`). A role that's gone is a 404.
+   shows a preview image with its title, company, place and logo (`/jobs/<id>/og.png`, drawn by
+   the Worker and cached for a day, `src/features/jobs/og.tsx`). Remote-first and culture tags,
+   like Flexible hours, appear only when the posting says so in its own words. A YC tag appears
+   only when the board's postings live on that company's site. A role that's gone is a 404.
 6. **Prepare** makes the role a prefilled application (`api.prefilled.prepare`); see
    [Prefilled applications and Activity](#prefilled-applications-and-activity). A role
    already prepared shows its status, which opens it. Only roles on Greenhouse, Lever, Ashby
