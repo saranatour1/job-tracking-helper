@@ -34,7 +34,11 @@ describe("discovery documents", () => {
     const { skills } = await jsonOf<{ skills: { name: string; url: string; digest: string }[] }>(
       "/.well-known/agent-skills/index.json"
     )
-    expect(skills.map((s) => s.name)).toEqual(["job-search", "job-search-no-account"])
+    expect(skills.map((s) => s.name)).toEqual([
+      "job-search",
+      "job-search-no-account",
+      "job-goals-no-account",
+    ])
     for (const skill of skills) {
       const body = await (await read(new URL(skill.url).pathname)).text()
       const hash = await crypto.subtle.digest("SHA-256", new TextEncoder().encode(body))

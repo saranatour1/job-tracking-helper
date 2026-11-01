@@ -2,6 +2,7 @@ import { agentScopes } from "@convex/features/agents/scopes"
 
 import { convexSite, mcpUrl, site } from "@/lib/seo"
 
+import goalsSkill from "../../skills/job-goals-no-account/SKILL.md?raw"
 import noAccountSkill from "../../skills/job-search-no-account/SKILL.md?raw"
 
 // What an agent reads to find out how to use this app. The MCP server and its OAuth live on the
@@ -24,6 +25,7 @@ const markdown = (body: string) => respond(body, "text/markdown; charset=utf-8")
 
 const skillPath = "/.well-known/agent-skills/job-search/SKILL.md"
 const noAccountSkillPath = "/.well-known/agent-skills/job-search-no-account/SKILL.md"
+const goalsSkillPath = "/.well-known/agent-skills/job-goals-no-account/SKILL.md"
 const serverCardPath = "/.well-known/mcp/server-card.json"
 const jwksPath = "/.well-known/jwks.json"
 
@@ -171,10 +173,19 @@ export const discovery: Record<string, (() => Response | Promise<Response>) | un
           url: `${site.url}${noAccountSkillPath}`,
           digest: `sha256:${await sha256(noAccountSkill)}`,
         },
+        {
+          name: "job-goals-no-account",
+          type: "skill-md",
+          description:
+            "Set job search goals and preferences that work in any AI chat, and optionally keep a decision and report on each company, with no account.",
+          url: `${site.url}${goalsSkillPath}`,
+          digest: `sha256:${await sha256(goalsSkill)}`,
+        },
       ],
     }),
   [skillPath]: () => markdown(skill),
   [noAccountSkillPath]: () => markdown(noAccountSkill),
+  [goalsSkillPath]: () => markdown(goalsSkill),
   "/auth.md": () => markdown(auth),
   // These come from Convex, which knows the current scopes. `resource` stays the Convex address
   // because that's what tokens are bound to, and clients find it through /mcp there anyway.

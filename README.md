@@ -18,6 +18,8 @@ A job search app. It finds roles that fit what you asked for, fills in their app
   mkdir -p ~/.claude/skills/job-search-no-account && curl -fsS https://ye.saranatour.dev/.well-known/agent-skills/job-search-no-account/SKILL.md -o ~/.claude/skills/job-search-no-account/SKILL.md
   ```
 
+  [skills/job-goals-no-account](skills/job-goals-no-account/SKILL.md) needs no shell or API key either. It sets goals and preferences, writes a brief to paste into Grok, Claude or any AI chat, and can keep a decision and report on each company. Paste it into the chat, or install it the same way.
+
 Anyone can browse Jobs and open a posting, which has its own page and link preview image. Searching without an account makes an anonymous one, limited to 10 searches a day and to Jobs.
 
 [docs/flows.md](docs/flows.md) covers every flow, and [docs/workflows.md](docs/workflows.md) covers workflows.
@@ -73,7 +75,7 @@ src/
   hooks/, lib/          shared hooks and helpers, like the api import, route text, SEO and agent discovery
   assets/               the link preview image, built with a hash in its name
 public/                 logos, icons, robots.txt, sitemap.xml and llms.txt
-skills/                 the skill for people's own agents, which needs no account
+skills/                 the skills for people's own agents, which need no account
 scripts/                dev, secrets and verdict-checking scripts
 docs/
   development.md        env vars, deploying, code rules
