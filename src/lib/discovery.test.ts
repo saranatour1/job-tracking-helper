@@ -30,14 +30,18 @@ describe("discovery documents", () => {
     expect(linkset[0]["service-doc"]).toBeTruthy()
   })
 
-  it("lists a skill whose digest matches the file", async () => {
-    const { skills } = await jsonOf<{ skills: { url: string; digest: string }[] }>(
+  it("lists skills whose digests and names match their files", async () => {
+    const { skills } = await jsonOf<{ skills: { name: string; url: string; digest: string }[] }>(
       "/.well-known/agent-skills/index.json"
     )
-    const body = await (await read(new URL(skills[0].url).pathname)).text()
-    const hash = await crypto.subtle.digest("SHA-256", new TextEncoder().encode(body))
-    const hex = Array.from(new Uint8Array(hash), (b) => b.toString(16).padStart(2, "0")).join("")
-    expect(skills[0].digest).toBe(`sha256:${hex}`)
+    expect(skills.map((s) => s.name)).toEqual(["job-search", "job-search-no-account"])
+    for (const skill of skills) {
+      const body = await (await read(new URL(skill.url).pathname)).text()
+      const hash = await crypto.subtle.digest("SHA-256", new TextEncoder().encode(body))
+      const hex = Array.from(new Uint8Array(hash), (b) => b.toString(16).padStart(2, "0")).join("")
+      expect(skill.digest).toBe(`sha256:${hex}`)
+      expect(body).toContain(`name: ${skill.name}\n`)
+    }
   })
 
   it("starts auth.md with the heading scanners look for, and lists every scope", async () => {

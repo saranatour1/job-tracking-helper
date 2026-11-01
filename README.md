@@ -12,6 +12,11 @@ A job search app. It finds roles that fit what you asked for, fills in their app
 - **Calendar and Booking pages.** Application dates, interviews read from email and your own events, plus links a recruiter can book from.
 - **Workflows and Activity.** A trigger and up to 20 steps built on a canvas, and a record of everything the app did for you and why anything failed.
 - **Connected agents.** An MCP server, so Claude, ChatGPT, Cursor or Claude Code can do much of this for you, plus the public documents agents use to find it. Agents draft and you submit.
+- **No account?** [skills/job-search-no-account](skills/job-search-no-account/SKILL.md) is a skill for your own agent. It searches the same public feeds, judges roles, drafts answers and tracks everything in local files, with no sign-up. In Claude Code:
+
+  ```bash
+  mkdir -p ~/.claude/skills/job-search-no-account && curl -fsS https://ye.saranatour.dev/.well-known/agent-skills/job-search-no-account/SKILL.md -o ~/.claude/skills/job-search-no-account/SKILL.md
+  ```
 
 Anyone can browse Jobs and open a posting, which has its own page and link preview image. Searching without an account makes an anonymous one, limited to 10 searches a day and to Jobs.
 
@@ -68,6 +73,7 @@ src/
   hooks/, lib/          shared hooks and helpers, like the api import, route text, SEO and agent discovery
   assets/               the link preview image, built with a hash in its name
 public/                 logos, icons, robots.txt, sitemap.xml and llms.txt
+skills/                 the skill for people's own agents, which needs no account
 scripts/                dev and secrets scripts
 docs/
   development.md        env vars, deploying, code rules
