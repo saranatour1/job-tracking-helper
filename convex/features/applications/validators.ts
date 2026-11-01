@@ -20,6 +20,10 @@ export const statusLabels: Record<Status, string> = {
   withdrawn: "Withdrawn",
 }
 
+// Withdrawn isn't here because it can happen from Saved.
+export const sentStatuses: readonly Status[] = ["applied", "interviewing", "offer", "rejected"]
+export const isSent = (status: Status) => sentStatuses.includes(status)
+
 export const priorities = ["urgent", "high", "medium", "low", "none"] as const
 export type Priority = (typeof priorities)[number]
 

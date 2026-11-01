@@ -171,6 +171,10 @@ const PrivacyPage = () => (
       <ul>
         <li>An empty account record and your sign-in link with GitHub or your password record.</li>
         <li>
+          The times you sent applications, without the company or role. If you sign back in with the
+          same account, they come back with it.
+        </li>
+        <li>
           Anything in your own Cloudflare account, like the email Worker. You can remove it there.
         </li>
         <li>Data that providers already received, which their own policies cover.</li>

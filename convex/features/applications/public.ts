@@ -13,7 +13,7 @@ import {
   AddNote,
 } from "./validators"
 import { vCard } from "./models"
-import { own, capped, cardOf, logNewApplication, nextNumber, changeStatus } from "./utils"
+import { own, capped, cardOf, logNewApplication, nextNumber, changeStatus, syncSend } from "./utils"
 import { logEdit } from "../activity/utils"
 
 const list = authedQuery({
@@ -63,6 +63,19 @@ const numberOf = authedQuery({
   },
 })
 
+const sends = authedQuery({
+  args: {},
+  returns: v.array(v.number()),
+  handler: async (ctx) =>
+    (
+      await ctx.db
+        .query("applicationSends")
+        .withIndex("by_userId_and_at", (q) => q.eq("userId", ctx.userId))
+        .order("desc")
+        .take(maxApplications)
+    ).map((send) => send.at),
+})
+
 const add = arkMutation({
   args: Application,
   returns: v.id("applications"),
@@ -73,6 +86,7 @@ const add = arkMutation({
       number: await nextNumber(ctx, ctx.userId),
       history: [{ status: application.status, at: Date.now() }],
     })
+    await syncSend(ctx, ctx.userId, applicationId, application.status)
     await logNewApplication(ctx, ctx.userId, applicationId, application.company)
     if (application.url)
       await ctx.scheduler.runAfter(0, internal.api.loopActions.enrichApplication, {
@@ -140,4 +154,4 @@ const addNote = arkMutation({
   },
 })
 
-export const publicApi = { list, get, numberOf, add, update, setStatus, addNote, setGoal }
+export const publicApi = { list, get, numberOf, sends, add, update, setStatus, addNote, setGoal }

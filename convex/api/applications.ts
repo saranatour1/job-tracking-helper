@@ -4,6 +4,7 @@ export const {
   list,
   get,
   numberOf,
+  sends,
   add,
   update,
   setStatus,

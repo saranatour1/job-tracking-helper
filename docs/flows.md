@@ -997,6 +997,7 @@ Prefilled applications, Interface and theme, Account)
    resume, loops and their runs and roles, email connection and mail, notifications,
    views, goals, prefilled applications, calendar and workflows. Your username is
    freed. Your profile, files, mail connection and connected agents go at once, and the rest follows in batches moments later.
+   The times you sent applications stay; see [Known gaps](#known-gaps).
 
 **Files:** `src/features/account/`, `convex/features/users/`.
 
@@ -1100,4 +1101,7 @@ describe it in a sentence and let Jev draft it. The full story is in
   afterwards is refused.
 - Deleting an account doesn't stop a loop run that's in progress; it finds nothing to
   save and stops.
+- Deleting an account leaves its `applicationSends` rows: the times applications were
+  sent, with no company or role. Signing back in reuses the user id, so they come back.
+  The fix is one line at the end of `accountTables` in `convex/features/deletes/internal.ts`.
 - A guest with no Calendar time zone gets workflow calendar events in UTC.

@@ -36,3 +36,13 @@ export const applicationsTable = defineTable(arkOutputToConvex(Stored))
   .index("by_userId_and_number", ["userId", "number"])
   .index("by_archivedAt", ["archivedAt"])
   .index("by_purgeAt", ["purgeAt"])
+
+// One row per sent application, for streaks. It outlives the application, so the Trash
+// emptying can't shorten someone's streak.
+export const applicationSendsTable = defineTable(
+  arkOutputToConvex(
+    type({ userId: arkId("users"), applicationId: arkId("applications"), at: "number" })
+  )
+)
+  .index("by_userId_and_at", ["userId", "at"])
+  .index("by_applicationId", ["applicationId"])
