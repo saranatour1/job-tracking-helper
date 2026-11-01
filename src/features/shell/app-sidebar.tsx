@@ -113,9 +113,7 @@ export const AppSidebar = (props: React.ComponentProps<typeof Sidebar>) => {
     <Sidebar collapsible="icon" {...props}>
       <SidebarHeader className="flex-row items-center justify-between">
         <span className="flex items-center gap-2 px-2 text-sm font-medium group-data-[collapsible=icon]:hidden">
-          <span className="bg-primary text-primary-foreground flex size-5 items-center justify-center rounded-md text-xs">
-            J
-          </span>
+          <img src="/logo.svg" alt="" width={20} height={20} />
           Job search
         </span>
         <NewApplicationDialog
