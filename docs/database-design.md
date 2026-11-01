@@ -84,24 +84,24 @@ Built-in questions are a list in code (`preferences/rows.ts`), keyed so a label 
 
 These have no owner. Deleting an account leaves them.
 
-| Table         | Holds                                                                | Why it's a table | Indexes                                                                                                                    |
-| ------------- | -------------------------------------------------------------------- | ---------------- | -------------------------------------------------------------------------------------------------------------------------- |
-| `companies`   | one per website domain: its registration date and YC details         | 1, 3             | `by_domain`                                                                                                                |
-| `jobBoards`   | one feed the catalog reads, usually a company's board, and its count | 2, 3             | `by_kind_and_slug`, `by_fetchedAt`, `by_jobs`, `by_researchedAt`, `by_companyId`                                           |
-| `jobCatalog`  | one row: how many boards and roles the catalog has                   | 3                | none                                                                                                                       |
-| `jobs`        | one open role from a board's feed, with its text for search          | 1, 3, 4          | `by_urlKey`, `by_boardId_and_seenAt`, `by_boardId_and_postedAt`, `by_postedAt`, `by_remote_and_postedAt`, search on `text` |
-| `sourceUsage` | credits each search source used this month                           | 3                | `by_provider_and_month`                                                                                                    |
+| Table         | Holds                                                                | Why it's a table | Indexes                                                                                           |
+| ------------- | -------------------------------------------------------------------- | ---------------- | ------------------------------------------------------------------------------------------------- |
+| `companies`   | one per website domain: its registration date and YC details         | 1, 3             | `by_domain`                                                                                       |
+| `jobBoards`   | one feed the catalog reads, usually a company's board, and its count | 2, 3             | `by_kind_and_slug`, `by_fetchedAt`, `by_jobs`, `by_researchedAt`, `by_companyId`                  |
+| `jobCatalog`  | one row: how many boards and roles the catalog has                   | 3                | none                                                                                              |
+| `jobs`        | one open role from a board's feed, with its text for search          | 1, 3, 4          | `by_urlKey`, `by_boardId_and_postedAt`, `by_postedAt`, `by_remote_and_postedAt`, search on `text` |
+| `sourceUsage` | credits each search source used this month                           | 3                | `by_provider_and_month`                                                                           |
 
 A company row holds what's true of a domain. How a board reached that domain is on the board (`companyLink`): `postings` when its postings live on that site, `name` when only a domain matching its name turned up. Anyone can open a board under a copied name, so a copycat of a known company shares the real row but keeps `name`, and never reads as posting on that site. A board with no site found has a row of its own, since a name alone can't say two boards are one company.
 
 ### Finding roles and getting them ready
 
-| Table      | Holds                                                                                                                  | Why it's a table | Indexes                                                                                                                                                                               |
-| ---------- | ---------------------------------------------------------------------------------------------------------------------- | ---------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `loops`    | a saved search: its answers, size, time and next run                                                                   | 4                | `by_userId`, `by_active_and_nextRunAt`                                                                                                                                                |
-| `loopRuns` | one run's counts and cost, and while it runs, Jev's verdicts so far                                                    | 1                | `by_loopId_and_startedAt`, `by_userId_and_startedAt`                                                                                                                                  |
-| `jobLeads` | a role judged for one person: verdict, fit, reasons, checks, where it stands                                           | 1, 4             | `by_userId_and_urlKey`, `by_userId_and_roleKey`, `by_userId_and_status`, `by_userId_and_feedback`, `by_userId_and_verdict_and_fit`, `by_applicationId`, `by_userId_and_applicationId` |
-| `prefills` | an application made ready: every question on the form with its answer and source, and the live browser while it's open | 2, 4             | `by_userId`, `by_userId_and_status`, `by_userId_and_urlKey`, `by_userId_and_applicationId`                                                                                            |
+| Table      | Holds                                                                                                                  | Why it's a table | Indexes                                                                                                                                                                                |
+| ---------- | ---------------------------------------------------------------------------------------------------------------------- | ---------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `loops`    | a saved search: its answers, size, time and next run                                                                   | 4                | `by_userId`, `by_active_and_nextRunAt`                                                                                                                                                 |
+| `loopRuns` | one run's counts and cost, and while it runs, Jev's verdicts so far                                                    | 1                | `by_loopId_and_startedAt`, `by_userId_and_startedAt`                                                                                                                                   |
+| `jobLeads` | a role judged for one person: verdict, fit, reasons, checks, where it stands                                           | 1, 4             | `by_userId_and_urlKey`, `by_userId_and_roleKey`, `by_userId_and_status`, `by_userId_and_feedback`, `by_userId_and_verdict_and_fit`, `by_loopId_and_status_and_fit`, `by_applicationId` |
+| `prefills` | an application made ready: every question on the form with its answer and source, and the live browser while it's open | 2, 4             | `by_userId`, `by_userId_and_status`, `by_userId_and_urlKey`, `by_userId_and_applicationId`                                                                                             |
 
 `prefills.fields` is an array, capped at 80, not a table: a form is bounded and only read with its application.
 
@@ -324,7 +324,6 @@ erDiagram
         string title "also company, location, url"
         boolean remote
         number postedAt
-        number seenAt "last fetch that listed it"
         string text "title line + description, searched"
     }
     jobBoards {
@@ -352,16 +351,16 @@ erDiagram
     }
 ```
 
-| Table         | Passes rule                                                     | Indexes                                                                                                                          |
-| ------------- | --------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------- |
-| `loops`       | 4: the cron finds due loops across all users                    | `by_userId`, `by_active_and_nextRunAt`                                                                                           |
-| `loopRuns`    | 1: one per loop per morning, kept for the Runs tab              | `by_loopId_and_startedAt`, `by_userId_and_startedAt`                                                                             |
-| `jobLeads`    | 1 and 4: grows every morning, and "shown this role?" spans runs | `by_userId_and_urlKey`, `by_applicationId`, `by_userId_and_status`, `by_userId_and_feedback`, more                               |
-| `jobs`        | 3 and 4: shared by everyone, searched by every run              | `by_urlKey`, `by_boardId_and_seenAt`, `by_boardId_and_postedAt`, `by_postedAt`, `by_remote_and_postedAt`, search index on `text` |
-| `jobBoards`   | 3: shared by everyone; the refresh finds the ones due           | `by_kind_and_slug`, `by_fetchedAt`, `by_jobs`, `by_researchedAt`, `by_companyId`                                                 |
-| `companies`   | 1 and 3: shared by everyone, several boards can reach one site  | `by_domain`                                                                                                                      |
-| `jobCatalog`  | 3: one row of totals, so Jobs needn't add up every board        | none                                                                                                                             |
-| `sourceUsage` | 3: shared by everyone, one row per source per month             | `by_provider_and_month`                                                                                                          |
+| Table         | Passes rule                                                     | Indexes                                                                                                 |
+| ------------- | --------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------- |
+| `loops`       | 4: the cron finds due loops across all users                    | `by_userId`, `by_active_and_nextRunAt`                                                                  |
+| `loopRuns`    | 1: one per loop per morning, kept for the Runs tab              | `by_loopId_and_startedAt`, `by_userId_and_startedAt`                                                    |
+| `jobLeads`    | 1 and 4: grows every morning, and "shown this role?" spans runs | `by_userId_and_urlKey`, `by_applicationId`, `by_userId_and_status`, `by_userId_and_feedback`, more      |
+| `jobs`        | 3 and 4: shared by everyone, searched by every run              | `by_urlKey`, `by_boardId_and_postedAt`, `by_postedAt`, `by_remote_and_postedAt`, search index on `text` |
+| `jobBoards`   | 3: shared by everyone; the refresh finds the ones due           | `by_kind_and_slug`, `by_fetchedAt`, `by_jobs`, `by_researchedAt`, `by_companyId`                        |
+| `companies`   | 1 and 3: shared by everyone, several boards can reach one site  | `by_domain`                                                                                             |
+| `jobCatalog`  | 3: one row of totals, so Jobs needn't add up every board        | none                                                                                                    |
+| `sourceUsage` | 3: shared by everyone, one row per source per month             | `by_provider_and_month`                                                                                 |
 
 A judged role is saved for a person whether or not it fits, so it never comes back. Jev answers one question per thing they asked for: where they want to work (their places and work mode, or the loop's "where"), each interest, the skills they're building, each thing to avoid, the pay they need and their visa situation. Each answer is "the posting shows it holds", "shows it doesn't" or "doesn't say", which becomes a `checks` line under fits, doesn't fit or could fit. Red-flag companies are checked in code. A role is a fit only when it matches well overall, nothing they need or avoid fails, and the posting confirms where they'd work. `verdict` is Jev's call and never changes; `status` is where it stands for the person. `reasons` are sentences a person can read; `checks` and `judgment` keep the per-question answers with their confidence and the model, so an agent or a later check can filter on them. Older leads may have no checks.
 

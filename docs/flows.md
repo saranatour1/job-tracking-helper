@@ -450,9 +450,10 @@ and loops can be picked, edited or deleted.
 **By itself:** every hour (`internal.api.jobs.refreshDue`) up to 25 boards not fetched in 20
 hours go to the batch worker (`internal.api.jobs.fetchBoard`). It reads each public feed
 (Greenhouse, Lever, Ashby, Personio, SmartRecruiters, Workable, Remote OK, Hacker News's latest
-Who is hiring thread, and Arbeitsagentur searches), saves the roles, and drops ones the board
-no longer lists. A board that answers 4xx is noted with no immediate retry, and comes due again
-20 hours later. Loops and pasted links add new boards.
+Who is hiring thread, and Arbeitsagentur searches), saves new and changed roles, leaves
+unchanged ones alone, and drops ones the board no longer lists. A board that answers 4xx is
+noted with no immediate retry, and comes due again 20 hours later. Loops and pasted links add
+new boards.
 
 SmartRecruiters and the Arbeitsagentur list roles without their text, so each role costs one
 more request. A SmartRecruiters board keeps its newest 100 roles, and an Arbeitsagentur search

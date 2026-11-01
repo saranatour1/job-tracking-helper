@@ -11,6 +11,8 @@ export const {
   ensureBoard,
   hasBoard,
   saveJobs,
+  boardPostings,
+  closeJobs,
   boardFetched,
   researchDue,
   researchInputs,
