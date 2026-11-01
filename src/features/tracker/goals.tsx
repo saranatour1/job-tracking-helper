@@ -58,6 +58,7 @@ import { PriorityIcon } from "./icons"
 import { MailLine } from "./mail"
 import { Pipeline } from "./pipeline"
 import { useSource } from "./source"
+import { StreakCard } from "./streak-card"
 import { useSavedEvents } from "@/features/calendar/saved"
 
 // Today as YYYY-MM-DD, the form a goal's dates take.
@@ -323,6 +324,7 @@ export const Goals = () => {
             title="Goals"
             description="What your search is for. Give a goal milestones to tick and put applications on it from their Goal property; the board can then filter, group and count by goal."
           />
+          <StreakCard />
           {loaded && (
             <Section title="Yours">
               {open.length === 0 ? (

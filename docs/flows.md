@@ -355,6 +355,7 @@ application.
 
 - As a job seeker, I want to save a filtered board as a view and open it from a tab.
 - As a job seeker, I want goals for my search and to see how each is going.
+- As a job seeker, I want to see that I've kept going, so a long search feels like progress.
 
 **Flows**
 
@@ -394,12 +395,22 @@ application.
    no); the panel then lists ones to **Add** and ones to **Take off**, and nothing
    changes until you press one. 10 re-evaluations a day, over your newest 30
    applications.
+9. **See your streak:** the top of **Goals** shows how many applications you've sent, how
+   many this week, your current and top streak, your busiest week and how many weeks had
+   one. Under that, a square for each day over the last 6 months, 9 months or year, darker
+   the more you sent. The flame in the Applications header shows the current run and
+   opens Goals (`api.applications.sends`).
 
 **Rules:** 50 views, 50 goals, 20 milestones a goal. Progress is the share of milestones
 ticked; a goal with none is complete once its target date has passed. Only your own goals
-and loops can be picked, edited or deleted.
+and loops can be picked, edited or deleted. A week counts toward a streak once one
+application reaches Applied, Interviewing, Offer or Rejected, whatever comes of it. Weeks
+are in your browser's time zone and start on your Calendar's first day. A run stays alive
+while this week is empty and ends after a whole week with nothing; the number sent never
+resets. Moving an application back to Saved takes it off. Archiving, trashing or deleting
+it doesn't.
 
-**Files:** `src/features/tracker/views.tsx`, `goals.tsx`, `convex/features/views/`,
+**Files:** `src/features/tracker/views.tsx`, `goals.tsx`, `streak.ts`, `streak-card.tsx`, `convex/features/views/`,
 `convex/features/goals/`.
 
 ## Jobs
