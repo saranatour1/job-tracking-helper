@@ -1,5 +1,5 @@
 import { defineSchema } from "convex/server"
-import { applicationsTable } from "./features/applications/models"
+import { applicationSendsTable, applicationsTable } from "./features/applications/models"
 import { activityEventsTable } from "./features/activity/models"
 import { deleteJobsTable } from "./features/deletes/models"
 import { automationRunsTable, automationsTable } from "./features/automations/models"
@@ -37,6 +37,7 @@ export default defineSchema({
   profileEntries: profileEntriesTable,
 
   applications: applicationsTable,
+  applicationSends: applicationSendsTable,
   goals: goalsTable,
   views: viewsTable,
 

@@ -1,7 +1,14 @@
 import type { MutationCtx } from "../../_generated/server"
 import type { Id, Doc } from "../../_generated/dataModel"
 import { ConvexError } from "convex/values"
-import { defaultTrashDays, type Status, limits, priorityFor, statusLabels } from "./validators"
+import {
+  defaultTrashDays,
+  type Status,
+  isSent,
+  limits,
+  priorityFor,
+  statusLabels,
+} from "./validators"
 import { workLog } from "../../lib/log"
 import { keepLog, logEdit } from "../activity/utils"
 import { fireEvent } from "../automations/fire"
@@ -103,6 +110,24 @@ export const logNewApplication = async (
   await logEdit(ctx, userId, "application.added", `Added ${company}`, { applicationId })
 }
 
+// Back at Saved takes it off, so a misdrag or an undone move leaves nothing behind.
+export const syncSend = async (
+  ctx: MutationCtx,
+  userId: Id<"users">,
+  applicationId: Id<"applications">,
+  status: Status,
+  at = Date.now()
+) => {
+  const send = await ctx.db
+    .query("applicationSends")
+    .withIndex("by_applicationId", (q) => q.eq("applicationId", applicationId))
+    .unique()
+  if (status === "saved") {
+    if (send) await ctx.db.delete("applicationSends", send._id)
+  } else if (!send && isSent(status))
+    await ctx.db.insert("applicationSends", { userId, applicationId, at })
+}
+
 export const changeStatus = async (
   ctx: MutationCtx,
   application: Doc<"applications">,
@@ -134,6 +159,7 @@ export const changeStatus = async (
       limits.history
     ),
   })
+  await syncSend(ctx, application.userId, application._id, status)
 }
 
 export const fitOf = (lead: Pick<Doc<"jobLeads">, "fit" | "verdict">) => ({

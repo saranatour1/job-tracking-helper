@@ -6,7 +6,7 @@ import { internalMutation, internalQuery, type MutationCtx } from "../../_genera
 import { arkOutputToConvex } from "../../lib/ark"
 import { workLog } from "../../lib/log"
 import { keepLog } from "../activity/utils"
-import { changeStatus, fitOf, logNewApplication, nextNumber } from "../applications/utils"
+import { changeStatus, fitOf, logNewApplication, nextNumber, syncSend } from "../applications/utils"
 import { companyAddress } from "../email/addresses"
 import { trackingAddressOf } from "../email/utils"
 import { addUsage } from "../loops/usage"
@@ -159,6 +159,7 @@ const newApplication = async (
     labels: job?.remote ? ["Remote"] : [],
     history: [{ status, at: Date.now(), ...(note && { note }) }],
   })
+  await syncSend(ctx, row.userId, applicationId, status)
   await logNewApplication(ctx, row.userId, applicationId, row.company)
   return applicationId
 }
