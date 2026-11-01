@@ -4,6 +4,7 @@ export const {
   search,
   allowSearch,
   posting,
+  sitemapPage,
   stats,
   companies,
   refreshDue,

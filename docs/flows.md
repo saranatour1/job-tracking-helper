@@ -118,9 +118,9 @@ company sites for Jobs, and preparing applications needs it.
    switches between light and dark. Signed-in people go on to `/pipeline`, keeping any search
    like `?app=app-4`.
 2. **Legal.** `/privacy` and `/terms` are linked from the footer and sign-in.
-3. **Crawlers.** `public/robots.txt` lists every private route, and `public/llms.txt` and
-   `public/sitemap.xml` list the public ones. All pages render on the server, so crawlers don't
-   need JavaScript.
+3. **Crawlers.** `public/robots.txt` lists every private route, and `public/llms.txt` lists the
+   public ones. The Worker builds `/sitemap.xml` from the public pages and every open posting,
+   and caches it for a day. All pages render on the server, so crawlers don't need JavaScript.
 4. **AI crawler tracking.** Crawlers don't run the Databuddy script, so the Worker
    (`src/server.ts`) reports each request from an AI agent to Databuddy in the background.
    `wrangler.jsonc` runs the Worker first for `.txt` files, so reads of `llms.txt` count too.

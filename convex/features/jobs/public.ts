@@ -78,6 +78,35 @@ const posting = query({
   },
 })
 
+// Part of the catalog for the sitemap. A posting is about 4 KB and a query can read 16 MB.
+const sitemapPage = query({
+  args: { cursor: v.union(v.string(), v.null()) },
+  returns: v.object({
+    page: v.array(
+      v.object({
+        _id: v.id("jobs"),
+        title: v.string(),
+        company: v.string(),
+        postedAt: v.number(),
+      })
+    ),
+    isDone: v.boolean(),
+    continueCursor: v.string(),
+  }),
+  handler: async (ctx, { cursor }) => {
+    const { page, isDone, continueCursor } = await ctx.db
+      .query("jobs")
+      .withIndex("by_postedAt")
+      .order("desc")
+      .paginate({ numItems: 2000, cursor })
+    return {
+      page: page.map(({ _id, title, company, postedAt }) => ({ _id, title, company, postedAt })),
+      isDone,
+      continueCursor,
+    }
+  },
+})
+
 const companies = authedQuery({
   args: {},
   returns: v.array(
@@ -122,4 +151,4 @@ const stats = query({
   },
 })
 
-export const publicApi = { search, allowSearch, posting, stats, companies }
+export const publicApi = { search, allowSearch, posting, sitemapPage, stats, companies }

@@ -68,13 +68,13 @@ convex/
   lib/                  arktype to Convex, signed-in function builders, secrets, logging, request signing
 src/
   routes/               pages. /, /jobs, /jobs/$id, /privacy and /terms are public
-  server.ts             the Worker's entry: reports AI crawlers, serves agent discovery and posting images
+  server.ts             the Worker's entry: reports AI crawlers, serves agent discovery, the sitemap and posting images
   features/<feature>/   a feature's components. Applications, Views and Goals are in tracker/
   components/ui/        shadcn and coss components, managed by the shadcn CLI
   components/kloq/      the kloq calendar as source, from its registry
   hooks/, lib/          shared hooks and helpers, like the api import, route text, SEO and agent discovery
   assets/               the link preview image, built with a hash in its name
-public/                 logos, icons, robots.txt, sitemap.xml and llms.txt
+public/                 logos, icons, robots.txt and llms.txt
 skills/                 the skills for people's own agents, which need no account
 scripts/                dev, secrets and verdict-checking scripts
 docs/

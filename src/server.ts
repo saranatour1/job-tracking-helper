@@ -1,6 +1,7 @@
 import { trackAgents } from "@databuddy/sdk/agents"
 import handler from "@tanstack/react-start/server-entry"
 
+import { sitemap } from "@/features/jobs/sitemap"
 import { discovery } from "@/lib/discovery"
 import { site } from "@/lib/seo"
 
@@ -15,6 +16,7 @@ export default {
     const reading = request.method === "GET" || request.method === "HEAD"
     const document = reading ? discovery[pathname] : null
     if (document) return document()
+    if (reading && pathname === "/sitemap.xml") return sitemap(request, ctx)
     const posting = reading ? /^\/jobs\/([^/]+)\/og\.png$/.exec(pathname) : null
     // Imported here, so the image library only loads for the requests that draw one.
     if (posting)
