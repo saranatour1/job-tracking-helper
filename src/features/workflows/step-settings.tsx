@@ -53,14 +53,16 @@ const Pick = ({
   value,
   items,
   onChange,
+  className,
 }: {
   label: string
   value: string | null
   items: { value: string; label: string }[]
   onChange: (value: string) => void
+  className?: string
 }) => (
   <Select value={value} items={items} onValueChange={(v) => v !== null && onChange(String(v))}>
-    <SelectTrigger aria-label={label}>
+    <SelectTrigger aria-label={label} className={className}>
       <SelectValue placeholder={label} />
     </SelectTrigger>
     <SelectPopup>
@@ -71,6 +73,29 @@ const Pick = ({
       ))}
     </SelectPopup>
   </Select>
+)
+
+const quarterHours = Array.from({ length: 96 }, (_, i) =>
+  [Math.floor(i / 4), (i % 4) * 15].map((part) => String(part).padStart(2, "0")).join(":")
+)
+
+// Times come in quarter hours, and one saved between them stays on the list.
+const TimePick = ({
+  label,
+  value,
+  onChange,
+}: {
+  label: string
+  value: string
+  onChange: (value: string) => void
+}) => (
+  <Pick
+    label={label}
+    value={value}
+    items={[...new Set([...quarterHours, value])].sort().map((t) => ({ value: t, label: t }))}
+    onChange={onChange}
+    className="min-w-0"
+  />
 )
 
 const weekdays = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"]
@@ -183,10 +208,10 @@ const TriggerSettings = ({
       {trigger.kind === "schedule" && (
         <>
           <Field label="At">
-            <Input
-              type="time"
+            <TimePick
+              label="Time"
               value={trigger.at}
-              onChange={(e) => onChange({ ...trigger, at: e.target.value })}
+              onChange={(at) => onChange({ ...trigger, at })}
             />
           </Field>
           <Field label="On">
@@ -456,10 +481,10 @@ const BlockSettings = ({
               <span className="text-muted-foreground text-xs">days later</span>
             </label>
             <label className="grid gap-1">
-              <Input
-                type="time"
+              <TimePick
+                label="Time"
                 value={block.at}
-                onChange={(e) => onChange({ ...block, at: e.target.value })}
+                onChange={(at) => onChange({ ...block, at })}
               />
               <span className="text-muted-foreground text-xs">at</span>
             </label>

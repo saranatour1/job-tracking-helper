@@ -5,9 +5,10 @@
  * The rule string is the state: every control commits through `onChange`.
  */
 
-import { ArrowLeft, ChevronDown, Repeat, SlidersHorizontal } from "lucide-react";
+import { ArrowLeft, CalendarDays, ChevronDown, Repeat, SlidersHorizontal } from "lucide-react";
 import { type ReactNode, type RefObject, useEffect, useMemo, useRef, useState } from "react";
 import { createPortal } from "react-dom";
+import { LazyCalendar } from "@/components/lazy-calendar";
 import { pad2 } from "../lib/date-math";
 import {
   describeRRule,
@@ -42,7 +43,7 @@ import {
   MenuSeparator,
   MenuTrigger,
 } from "../ui/menu";
-import { Popover, PopoverPopup } from "../ui/popover";
+import { Popover, PopoverPopup, PopoverTrigger } from "../ui/popover";
 import { Radio, RadioGroup } from "../ui/radio-group";
 import { SegmentedControl, SegmentedControlItem } from "../ui/segmented-control";
 import { Select, SelectItem, SelectPopup, SelectTrigger, SelectValue } from "../ui/select";
@@ -238,6 +239,7 @@ export function RRuleBuilder({
   const [inline, setInline] = useState<HTMLElement | null>(null);
   const inlineRef = useRef<HTMLDivElement>(null);
   const [monthOpen, setMonthOpen] = useState(false);
+  const [untilOpen, setUntilOpen] = useState(false);
   const [typing, setTyping] = useState<{ interval?: string; count?: string }>({});
   const ownRef = useRef<HTMLButtonElement>(null);
   const anchorRef = triggerRef ?? ownRef;
@@ -284,8 +286,8 @@ export function RRuleBuilder({
     setCustomOpen(false);
   };
 
-  // capture phase, to beat the panel's own Escape; the month select answers its own
-  useEscapeCapture(customOpen && !monthOpen, () => {
+  // capture phase, to beat the panel's own Escape; the month select and until calendar answer their own
+  useEscapeCapture(customOpen && !monthOpen && !untilOpen, () => {
     closeCustom();
     anchorRef.current?.focus();
   });
@@ -314,6 +316,8 @@ export function RRuleBuilder({
 
   const end = endOf(current);
   const setEnd = (next: RRuleEnd) => commit(withEnd(current, next));
+  const untilDate = dateFromInputValue(untilInputValue(current)) ?? undefined;
+  const untilLabel = untilDate?.toLocaleDateString(undefined, { dateStyle: "medium" }) ?? "Pick a date";
 
   // nothing is written until a control changes or Done confirms the default
   const openCustom = () => {
@@ -483,18 +487,30 @@ export function RRuleBuilder({
 
       {end.type === "until" ? (
         <Row>
-          <Input
-            type="date"
-            size="xs"
-            aria-label="Repeat until"
-            min={untilInputValue({ ...current, until: untilFromDate(date) })}
-            value={untilInputValue(current)}
-            onChange={(e) => {
-              const picked = dateFromInputValue(e.target.value);
-              if (!picked) return;
-              setEnd({ type: "until", until: untilFromDate(picked) });
-            }}
-          />
+          <Popover open={untilOpen} onOpenChange={setUntilOpen}>
+            <PopoverTrigger
+              aria-label={`Repeat until ${untilLabel}`}
+              render={
+                <Button variant="outline" size="xs" className="w-full justify-start font-normal" />
+              }
+            >
+              <CalendarDays aria-hidden="true" />
+              {untilLabel}
+            </PopoverTrigger>
+            <PopoverPopup>
+              <LazyCalendar
+                mode="single"
+                required
+                defaultMonth={untilDate}
+                selected={untilDate}
+                disabled={{ before: date }}
+                onSelect={(picked: Date) => {
+                  setEnd({ type: "until", until: untilFromDate(picked) });
+                  setUntilOpen(false);
+                }}
+              />
+            </PopoverPopup>
+          </Popover>
         </Row>
       ) : null}
 
