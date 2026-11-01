@@ -767,12 +767,15 @@ isn't shown. Email lines are opened from their sealed note only when you look.
 
 **Flows** (Account → Email)
 
-1. **Connect Cloudflare:** account ID, send-from address, API token (`api.email.connect`).
+1. **Connect Cloudflare:** account ID, your address, API token (`api.email.connect`).
    The app checks the token and the domain, then seals both. The token can't be viewed
    again: "Locked. Added <date>. It can't be viewed or copied, only replaced." 10 tries
-   an hour.
+   an hour. Email Sending is optional, since it needs Cloudflare's paid Workers plan and
+   Email Routing doesn't.
 2. **Switches, all off at first** (`api.email.setAllow`):
-   - Send email: test emails, workflow emails and mail you write from an application.
+   - Send email: test emails, workflow emails and mail you write. Off, **New email** and
+     **Reply** are hidden and incoming mail still works. It can't turn on, and saving turns it
+     off, when Cloudflare says Email Sending isn't on for the domain.
    - Set up Cloudflare for you.
    - Keep incoming mail.
    - Let Jev read your mail.
