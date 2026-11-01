@@ -31,7 +31,7 @@ export const vEvidence = v.object({
   link: v.union(vCompanyLink, v.null()),
   yc: v.union(vYc, v.null()),
   registeredAt: v.union(v.number(), v.null()),
-  // Roles open at this company. Null for a board of many companies, until the counts are filled.
+  // Roles open at this company. Null once its board is gone.
   open: v.union(v.number(), v.null()),
   // A board of many companies, so all of its roles aren't this company's.
   pooled: v.boolean(),
@@ -73,7 +73,7 @@ export const JobBoard = type({
   // How this board reached its company's site: its postings live there, or only its name matches.
   "companyLink?": "'postings' | 'name'",
   "researchedAt?": "number",
-  // Its roles are in the catalog's counts, which from then on keep `jobs` exact.
+  // No longer written or read: `api/migrations:clearOldCounts` takes it off older rows.
   "counted?": "boolean",
 })
 

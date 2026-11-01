@@ -1,6 +1,8 @@
 // @vitest-environment edge-runtime
 /// <reference types="vite/client" />
+import aggregate from "@convex-dev/aggregate/test"
 import rateLimiter from "@convex-dev/rate-limiter/test"
+import shardedCounter from "@convex-dev/sharded-counter/test"
 import workpool from "@convex-dev/workpool/test"
 import { convexTest } from "convex-test"
 import { afterEach, describe, expect, it, vi } from "vite-plus/test"
@@ -8,6 +10,7 @@ import { afterEach, describe, expect, it, vi } from "vite-plus/test"
 import { api, internal } from "../../_generated/api"
 import type { Doc, Id } from "../../_generated/dataModel"
 import schema from "../../schema"
+import { insertJob } from "./counts"
 
 const modules = import.meta.glob([
   "../../**/*.ts",
@@ -24,6 +27,9 @@ afterEach(() => {
 const setup = () => {
   const t = convexTest(schema, modules)
   rateLimiter.register(t)
+  aggregate.register(t, "jobRoleCounts")
+  aggregate.register(t, "jobDomainCounts")
+  shardedCounter.register(t)
   return t
 }
 
@@ -40,7 +46,7 @@ const addBoard = (t: T, slug: string, urls: string[], extra: Partial<Doc<"jobBoa
       ...extra,
     })
     for (const url of urls)
-      await ctx.db.insert("jobs", {
+      await insertJob(ctx, {
         boardId,
         url,
         urlKey: url,

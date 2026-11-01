@@ -8,6 +8,7 @@ import { afterEach, describe, expect, it, vi } from "vite-plus/test"
 import { api, internal } from "../../_generated/api"
 import type { Id } from "../../_generated/dataModel"
 import schema from "../../schema"
+import { insertJob, recount } from "./counts"
 import { countCatalog } from "./utils"
 
 const modules = import.meta.glob([
@@ -46,32 +47,15 @@ describe("the job catalog's totals", () => {
       for (let n = 0; n < 1001; n++) await ctx.db.insert("jobBoards", board(n, 2))
       await countCatalog(ctx, {})
     })
-    expect(await as.query(api.api.jobs.stats, {})).toEqual({ boards: 1001, jobs: 2002 })
+    expect(await as.query(api.api.jobs.stats, {})).toMatchObject({ boards: 1001 })
   })
 
-  it("follows a fetch, a failed fetch and a new board", async () => {
+  it("counts a new board once, and what's there when the first change comes", async () => {
     const { t, as } = await setup()
-    const boardId: Id<"jobBoards"> = await t.run(async (ctx) => {
-      const id = await ctx.db.insert("jobBoards", board(1, 5))
-      await countCatalog(ctx, {})
-      return id
-    })
-    const fetched = { boardId }
-    await t.mutation(internal.api.jobs.boardFetched, { ...fetched, jobs: 8 })
-    expect(await as.query(api.api.jobs.stats, {})).toEqual({ boards: 1, jobs: 8 })
-    // A failed fetch keeps what the board had.
-    await t.mutation(internal.api.jobs.boardFetched, { ...fetched, jobs: 0, error: "Down" })
-    expect(await as.query(api.api.jobs.stats, {})).toEqual({ boards: 1, jobs: 8 })
+    await t.run((ctx) => ctx.db.insert("jobBoards", board(1, 5)))
     await t.mutation(internal.api.jobs.ensureBoard, { kind: "lever", slug: "hooli" })
     await t.mutation(internal.api.jobs.ensureBoard, { kind: "lever", slug: "hooli" })
-    expect(await as.query(api.api.jobs.stats, {})).toEqual({ boards: 2, jobs: 8 })
-  })
-
-  it("counts what's there when the first change comes, once", async () => {
-    const { t, as } = await setup()
-    const boardId = await t.run((ctx) => ctx.db.insert("jobBoards", board(1, 5)))
-    await t.mutation(internal.api.jobs.boardFetched, { boardId, jobs: 9 })
-    expect(await as.query(api.api.jobs.stats, {})).toEqual({ boards: 1, jobs: 9 })
+    expect(await as.query(api.api.jobs.stats, {})).toMatchObject({ boards: 2 })
   })
 })
 
@@ -247,7 +231,7 @@ describe("Arbeitsagentur searches", () => {
       slug: "lagerist|münchen",
       company: "Arbeitsagentur: Lagerist, München",
     })
-    expect(await as.query(api.api.jobs.stats, {})).toEqual({ boards: 1, jobs: 0 })
+    expect(await as.query(api.api.jobs.stats, {})).toMatchObject({ boards: 1, jobs: 0 })
     // A failed fetch doesn't count as none.
     await t.mutation(internal.api.jobs.boardFetched, {
       boardId: boardId!,
@@ -257,7 +241,7 @@ describe("Arbeitsagentur searches", () => {
     expect(await t.run((ctx) => ctx.db.get("jobBoards", boardId!))).not.toBeNull()
     await t.mutation(internal.api.jobs.boardFetched, { boardId: boardId!, jobs: 0 })
     expect(await t.run((ctx) => ctx.db.get("jobBoards", boardId!))).toBeNull()
-    expect(await as.query(api.api.jobs.stats, {})).toEqual({ boards: 0, jobs: 0 })
+    expect(await as.query(api.api.jobs.stats, {})).toMatchObject({ boards: 0, jobs: 0 })
   })
 })
 
@@ -444,12 +428,12 @@ describe("domains", () => {
           ? await ctx.db.insert("companies", { name: `Company ${n}`, domain })
           : undefined
         const boardId = await ctx.db.insert("jobBoards", {
-          ...board(n, jobs),
+          ...board(n, 0),
           companyId,
           companyLink: link,
         })
         for (let i = 0; i < jobs; i++)
-          await ctx.db.insert("jobs", {
+          await insertJob(ctx, {
             boardId,
             urlKey: `${n}/${i}`,
             url: `https://example.com/${n}/${i}`,
@@ -460,11 +444,12 @@ describe("domains", () => {
             postedAt: n * 100 + i,
             text: `Role ${n} engineer`,
           })
+        await recount(ctx, boardId)
       }
       await site(1, 3, "stripe.com", "postings")
       await site(2, 2, "hooli.ai", "name")
       await site(3, 1)
-      await ctx.db.insert("jobCatalog", { boards: 3, jobs: 6 })
+      await ctx.db.insert("jobCatalog", { boards: 3 })
     })
     const titles = async (args: {
       proof?: "own" | "name" | "unverified"
@@ -526,43 +511,54 @@ describe("domains", () => {
     expect(next.isDone).toBe(true)
   })
 
-  it("counts a company's open roles, and none for a board of many companies", async () => {
+  it("counts a company's open roles across its boards, and its own on a board of many", async () => {
     const { t, as } = await withDomains()
     await t.run(async (ctx) => {
       const company = await ctx.db
         .query("companies")
         .withIndex("by_domain", (q) => q.eq("domain", "stripe.com"))
         .first()
-      await ctx.db.insert("jobBoards", { ...board(9, 40), companyId: company!._id })
-      const boardId = await ctx.db.insert("jobBoards", {
+      const role = {
+        title: "Other role",
+        company: "Wren",
+        location: "",
+        remote: false,
+        postedAt: 1,
+        text: "Other role",
+      }
+      const second = await ctx.db.insert("jobBoards", { ...board(9, 0), companyId: company!._id })
+      await insertJob(ctx, { ...role, boardId: second, urlKey: "b", url: "https://example.com/b" })
+      await recount(ctx, second)
+      const pooled = await ctx.db.insert("jobBoards", {
         kind: "remoteok",
         slug: "all",
         company: "Remote OK",
         addedAt: 0,
-        jobs: 900,
+        jobs: 0,
       })
-      await ctx.db.insert("jobs", {
-        boardId,
-        urlKey: "remote",
-        url: "https://example.com/remote",
-        title: "Remote role",
-        company: "Wren",
-        location: "",
-        remote: true,
-        postedAt: 9999,
-        text: "Remote role",
-      })
+      for (const company of ["Wren", "Marlow"])
+        await insertJob(ctx, {
+          ...role,
+          title: "Remote role",
+          company,
+          boardId: pooled,
+          urlKey: `remote-${company}`,
+          url: `https://example.com/remote-${company}`,
+          postedAt: 9999,
+        })
+      await recount(ctx, pooled)
     })
     const { page } = await as.query(api.api.jobs.search, { paginationOpts: opts })
-    expect(page.find((j) => j.title === "Remote role")?.evidence.open).toBeNull()
-    expect(page.find((j) => j.title === "Role 1")?.evidence.open).toBe(43)
+    expect(page.find((j) => j.company === "Wren")?.evidence).toMatchObject({
+      open: 1,
+      pooled: true,
+    })
+    expect(page.find((j) => j.title === "Role 1")?.evidence.open).toBe(4)
     expect(page.find((j) => j.title === "Role 3")?.evidence.open).toBe(1)
   })
 
-  it("keeps a summary of the catalog, and writes only when it changes", async () => {
+  it("sums up the catalog by proof and ending", async () => {
     const { t } = await withDomains()
-    expect((await t.query(api.api.jobs.stats, {}))?.summary).toBeUndefined()
-    await t.mutation(internal.api.jobs.summarizeCatalog, {})
     expect((await t.query(api.api.jobs.stats, {}))?.summary).toEqual({
       domains: 2,
       own: 3,
@@ -573,10 +569,6 @@ describe("domains", () => {
         { ending: ".ai", jobs: 2 },
       ],
     })
-    const written = await t.run(async (ctx) => (await ctx.db.query("jobCatalog").first())!)
-    await t.mutation(internal.api.jobs.summarizeCatalog, {})
-    const again = await t.run(async (ctx) => (await ctx.db.query("jobCatalog").first())!)
-    expect(again).toEqual(written)
   })
 
   it("names each board's domain in the filter", async () => {

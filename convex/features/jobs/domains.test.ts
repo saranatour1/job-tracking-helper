@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vite-plus/test"
 
-import { domainSaysName, endingOf, groupDomains, proofOf, summarize } from "./domains"
+import { domainSaysName, endingOf, groupDomains, proofOf } from "./domains"
 
 describe("a role's proof", () => {
   it("needs a site, and says how the board reached it", () => {
@@ -53,35 +53,5 @@ describe("grouping roles by domain", () => {
   it("keeps one name on two boards apart, since each has its own count", () => {
     const groups = groupDomains([job("Wren", null, "a"), job("Wren", null, "b")])
     expect(groups.map((g) => g.length)).toEqual([1, 1])
-  })
-})
-
-describe("the catalog's summary", () => {
-  it("adds up roles by proof and ending, and counts each domain once", () => {
-    expect(
-      summarize([
-        { jobs: 10, domain: "stripe.com", link: "postings" },
-        { jobs: 5, domain: "stripe.com", link: "postings" },
-        { jobs: 3, domain: "hooli.ai", link: "name" },
-        { jobs: 2 },
-      ])
-    ).toEqual({
-      domains: 2,
-      own: 15,
-      name: 3,
-      unverified: 2,
-      endings: [
-        { ending: ".com", jobs: 15 },
-        { ending: ".ai", jobs: 3 },
-      ],
-    })
-  })
-
-  it("orders equal endings by name", () => {
-    const { endings } = summarize([
-      { jobs: 1, domain: "b.io" },
-      { jobs: 1, domain: "a.ai" },
-    ])
-    expect(endings.map((e) => e.ending)).toEqual([".ai", ".io"])
   })
 })
