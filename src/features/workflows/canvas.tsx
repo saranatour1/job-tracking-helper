@@ -30,7 +30,7 @@ import {
   useViewport,
 } from "@xyflow/react"
 
-import { EVENT_COLORS } from "@/components/kloq"
+import { EVENT_COLORS } from "@/components/kloq/lib/event-palette"
 import { Button } from "@/components/ui/button"
 import {
   Menu,

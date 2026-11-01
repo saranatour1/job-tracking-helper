@@ -3,7 +3,7 @@ import { HugeiconsIcon } from "@hugeicons/react"
 import { Link } from "@tanstack/react-router"
 
 import { applicationText } from "@/lib/route-ids"
-import { EVENT_COLORS } from "@/components/kloq"
+import { EVENT_COLORS } from "@/components/kloq/lib/event-palette"
 import type { CalEvent } from "@/components/kloq/lib/event-types"
 import type { ApplicationCard } from "@/features/tracker/data"
 import { cn } from "@/lib/utils"

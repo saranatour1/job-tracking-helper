@@ -33,7 +33,13 @@ import { cn } from "@/lib/utils"
 import type { EditorHandle } from "./editor"
 import { type View, views } from "./search"
 
-const MailEditor = lazy(() => import("./editor"))
+// Left out of the Worker: this page is only a skeleton on the server. If it ever draws there,
+// the rejection makes React show the fallback and draw it in the browser.
+const MailEditor = lazy(() =>
+  import.meta.env.SSR
+    ? Promise.reject(new Error("The editor draws in the browser"))
+    : import("./editor")
+)
 
 const pageSize = 25
 

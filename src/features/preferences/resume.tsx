@@ -7,8 +7,12 @@ import { PageHeader } from "@/features/shell/page-header"
 
 import { ResumeTab } from "./preferences"
 
-// pdf.js is loaded only on this page, and only in the browser.
-const PdfViewer = lazy(() => import("./pdf-viewer").then((m) => ({ default: m.PdfViewer })))
+// pdf.js is loaded only on this page, and only in the browser, which keeps it out of the Worker.
+const PdfViewer = lazy(() =>
+  import.meta.env.SSR
+    ? Promise.reject(new Error("The PDF viewer draws in the browser"))
+    : import("./pdf-viewer").then((m) => ({ default: m.PdfViewer }))
+)
 
 // The Resume page: the file and a review of it on the left, the PDF itself on the right
 // where there's room. Same shell as Preferences.
