@@ -46,6 +46,8 @@ Fill in the template. If people can see the change, add before and after screens
 
 ## License
 
-This project is under the [Apache License 2.0](LICENSE). Anything you contribute is under the same license, as section 5 of the license says.
+This project is under the [PolyForm Noncommercial License 1.0.0](LICENSE). It's free for noncommercial use, and commercial use needs the owner's permission.
+
+By opening a pull request, you confirm the work is yours to contribute. You also grant the project owner a perpetual, worldwide, royalty-free, irrevocable, non-exclusive copyright and patent license to use, change, sublicense and relicense it, including commercially. You keep your copyright, and everyone else gets your contribution under the project's license.
 
 Taking part means following the [code of conduct](CODE_OF_CONDUCT.md).

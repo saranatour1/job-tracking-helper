@@ -108,4 +108,4 @@ See [CONTRIBUTING.md](CONTRIBUTING.md). Report security bugs through [SECURITY.m
 
 ## License
 
-[Apache License 2.0](LICENSE). `src/components/kloq` is MIT, under [its own license](src/components/kloq/LICENSE).
+[PolyForm Noncommercial License 1.0.0](LICENSE). It's free for noncommercial use, and commercial use needs the owner's permission. `src/components/kloq` is MIT, under [its own license](src/components/kloq/LICENSE).
