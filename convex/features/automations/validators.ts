@@ -1,7 +1,7 @@
 import { v, type Infer } from "convex/values"
 import { statuses } from "../applications/validators"
-import { fromWall, wallOf } from "../booking/slots"
 import { kinds as mailKinds } from "../email/match"
+import { fromWall, wallOf } from "./time"
 
 const vStatus = v.union(...statuses.map((s) => v.literal(s)))
 const vMailKind = v.union(...mailKinds.map((k) => v.literal(k)))
@@ -88,21 +88,16 @@ export const vTrigger = v.union(
   }),
   v.object({ kind: v.literal("mail"), kinds: v.array(vMailKind) }),
   v.object({ kind: v.literal("status"), to: v.array(vStatus) }),
-  v.object({ kind: v.literal("booking") }),
   v.object({ kind: v.literal("goal"), goals: v.array(v.id("goals")) })
 )
 export type Trigger = Infer<typeof vTrigger>
 
 export const triggerHasApplication = (trigger: Trigger) =>
-  trigger.kind === "mail" ||
-  trigger.kind === "status" ||
-  trigger.kind === "booking" ||
-  trigger.kind === "goal"
+  trigger.kind === "mail" || trigger.kind === "status" || trigger.kind === "goal"
 
 export const vRunContext = v.object({
   applicationId: v.optional(v.id("applications")),
   mailEventId: v.optional(v.id("mailEvents")),
-  bookingId: v.optional(v.id("calendarEvents")),
   from: v.optional(vStatus),
   to: v.optional(vStatus),
   goalId: v.optional(v.id("goals")),
@@ -149,7 +144,6 @@ export const onlyIfFacts = [
   "email.subject",
   "email.from",
   "email.kind",
-  "booking.title",
   "loop.name",
   "roles.judged",
   "roles.fits",
@@ -198,7 +192,7 @@ const blockProblem = (step: Block, trigger: Trigger) => {
     !step.applicationId &&
     !triggerHasApplication(trigger)
   )
-    return "Pick an application, or start the workflow from an email, a status change, a booking or a goal."
+    return "Pick an application, or start the workflow from an email, a status change or a goal."
   if (step.kind === "putOnGoal" && !step.goalId) return "Pick a goal to put it on."
   if (step.kind === "findRoles" && !step.loopId) return "Pick a loop to find roles with."
   if (step.kind === "onlyIf") {
@@ -324,11 +318,6 @@ export const vAutomationEvent = v.union(
     from: v.union(...statuses.map((s) => v.literal(s))),
     to: v.union(...statuses.map((s) => v.literal(s))),
     applicationId: v.id("applications"),
-  }),
-  v.object({
-    kind: v.literal("booking"),
-    bookingId: v.id("calendarEvents"),
-    applicationId: v.optional(v.id("applications")),
   }),
   v.object({
     kind: v.literal("goal"),

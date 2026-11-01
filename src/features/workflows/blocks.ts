@@ -10,7 +10,6 @@ import {
   AiBrain01Icon,
   Calendar03Icon,
   CalendarAdd01Icon,
-  CalendarCheckIn01Icon,
   FilterIcon,
   GitForkIcon,
   HourglassIcon,
@@ -226,7 +225,6 @@ export const triggerKinds = {
   schedule: "On a schedule",
   mail: "An email comes in",
   status: "An application moves",
-  booking: "Someone books time",
   goal: "An application joins a goal",
 } satisfies Record<Trigger["kind"], string>
 
@@ -266,8 +264,6 @@ export const triggerInfo = (trigger: Trigger) => {
         )}`,
         icon: ArrowMoveUpRightIcon,
       }
-    case "booking":
-      return { label, summary: "When someone books time with you", icon: CalendarCheckIn01Icon }
     case "goal":
       return {
         label,
@@ -300,8 +296,6 @@ export const placeholdersFor = (trigger: Trigger, steps: Step[], picked = false)
       return [...base, "{email.subject}", "{email.from}", "{email.kind}", ...application]
     case "status":
       return [...base, "{status.from}", "{status.to}", ...application]
-    case "booking":
-      return [...base, "{booking.title}", "{booking.when}", ...application]
     case "goal":
       return [...base, "{goal.name}", ...application]
     default:

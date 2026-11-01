@@ -8,13 +8,7 @@ export const vInboxLines = v.array(
     message: v.string(),
     at: v.number(),
     unread: v.boolean(),
-    link: v.union(
-      v.literal("/pipeline"),
-      v.literal("/loops"),
-      v.literal("/calendar"),
-      v.literal("/prefilled"),
-      v.null()
-    ),
+    link: v.union(v.literal("/pipeline"), v.literal("/loops"), v.literal("/prefilled"), v.null()),
     company: v.optional(v.string()),
     status: v.optional(v.union(...statuses.map((s) => v.literal(s)))),
     run: v.optional(

@@ -200,11 +200,6 @@ const TriggerSettings = ({
           onChange={(picked) => onChange({ ...trigger, goals: picked })}
         />
       )}
-      {trigger.kind === "booking" && (
-        <p className="text-muted-foreground text-xs">
-          Runs when someone books time on any of your booking pages.
-        </p>
-      )}
       {trigger.kind === "schedule" && (
         <>
           <Field label="At">

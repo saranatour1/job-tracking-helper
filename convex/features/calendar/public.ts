@@ -71,11 +71,7 @@ const save = arkMutation({
       kind: event.kind ?? (existing?.title === title ? existing.kind : kindOf(title)),
     }
     if (existing) {
-      await ctx.db.replace("calendarEvents", existing._id, {
-        ...row,
-        userId: ctx.userId,
-        bookingPageId: existing.bookingPageId,
-      })
+      await ctx.db.replace("calendarEvents", existing._id, { ...row, userId: ctx.userId })
       await logEdit(ctx, ctx.userId, "calendar.save", "Changed a calendar event")
       return null
     }

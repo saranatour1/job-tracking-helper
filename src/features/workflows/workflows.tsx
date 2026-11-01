@@ -211,7 +211,7 @@ export const Workflows = () => {
         <main className={cn(pageBody, "max-w-3xl gap-8")}>
           <PageIntro
             title="Workflows"
-            description="Steps that run for you: on a schedule, when an email or a booking comes in, when an application moves, or when you press Run now. Build one from blocks, or start from a template; it never runs code."
+            description="Steps that run for you: on a schedule, when an email comes in, when an application moves, or when you press Run now. Build one from blocks, or start from a template; it never runs code."
           />
           <Describe />
           {automations && (

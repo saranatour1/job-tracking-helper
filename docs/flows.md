@@ -34,11 +34,10 @@ Workflows have their own page, [workflows.md](workflows.md).
 13. [Email page](#email-page)
 14. [Contacts](#contacts)
 15. [Calendar](#calendar)
-16. [Booking pages](#booking-pages)
-17. [Account](#account)
-18. [Connected agents](#connected-agents)
-19. [Workflows](#workflows)
-20. [Known gaps](#known-gaps)
+16. [Account](#account)
+17. [Connected agents](#connected-agents)
+18. [Workflows](#workflows)
+19. [Known gaps](#known-gaps)
 
 ## Across the app
 
@@ -72,7 +71,6 @@ A repeat gets a number (`-2`), and a real id still finds its row, so old links w
 | Actor                         | What it does                                                                                                                                                                                                                 | Where                                                                                                                                               |
 | ----------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------- |
 | You                           | Everything in the pages below                                                                                                                                                                                                | `src/features/*`                                                                                                                                    |
-| A guest on a booking page     | Books time with you, signed in or not                                                                                                                                                                                        | `/book/$slug`                                                                                                                                       |
 | Crons                         | Start due loops (every 15 minutes), start due workflows (every 5 minutes), refresh job boards (hourly), research companies (hourly), sweep the Archive, Trash and Activity (daily), restart stuck workers (every 15 minutes) | `convex/crons.ts`                                                                                                                                   |
 | The inbound email hook        | Takes mail your Cloudflare Worker forwards                                                                                                                                                                                   | `POST /email/inbound/<id>`, `convex/http.ts`                                                                                                        |
 | Jev                           | Judges roles for loops and pasted links, sorts mail, reviews resumes, re-evaluates goals, picks saved answers for forms, answers Ask Jev, drafts workflows from a sentence                                                   | `convex/features/workflows/judge.ts`, `email/jev.ts`, `preferences/resume.ts`, `goals/actions.ts`, `prefilled/actions.ts`, `automations/actions.ts` |
@@ -87,7 +85,6 @@ A repeat gets a number (`-2`), and a real id still finds its row, so old links w
 
 - the sorter files an email (`internal.api.email.record`), except imported mail;
 - an application changes status (`changeStatus`), except a move a workflow made;
-- someone books time (`api.booking.book`);
 - an application joins a goal (`api.applications.setGoal`, `api.loops.track`).
 
 It only schedules a check when you have an active workflow with that kind of trigger.
@@ -120,8 +117,7 @@ company sites for Jobs, and preparing applications needs it.
    made-up applications that moves on its own, or holds still with reduced motion on. The header
    switches between light and dark. Signed-in people go on to `/pipeline`, keeping any search
    like `?app=app-4`.
-2. **Legal.** `/privacy` and `/terms` are linked from the footer and sign-in. Booking
-   forms link to `/privacy`.
+2. **Legal.** `/privacy` and `/terms` are linked from the footer and sign-in.
 3. **Crawlers.** `public/robots.txt` lists every private route, and `public/llms.txt` and
    `public/sitemap.xml` list the public ones. All pages render on the server, so crawlers don't
    need JavaScript.
@@ -130,8 +126,7 @@ company sites for Jobs, and preparing applications needs it.
    `wrangler.jsonc` runs the Worker first for `.txt` files, so reads of `llms.txt` count too.
 
 **Rules:** every route is `noindex` unless it uses `publicHead` (`src/lib/seo.ts`). A test
-fails if a new route isn't public and isn't in `robots.txt`. Booking pages load no analytics
-and are left out of AI crawler tracking.
+fails if a new route isn't public and isn't in `robots.txt`.
 When a data flow changes, `/privacy` changes with it.
 
 ## Signing in
@@ -338,7 +333,7 @@ of 50 fields, with no names twice.
     the board into the **Archived** tab (`api.applications.archive`); "Back to the board"
     undoes it.
 11. **Delete one:** Move to Trash (or the bin icon in its panel) puts it in the **Trash**
-    tab, out of everything else: the board, mail matching, bookings and workflows
+    tab, out of everything else: the board, mail matching and workflows
     (`api.applications.trash`). In the Trash, Restore puts it back on the board, Delete
     forever removes it now, and Empty the Trash removes them all, through the batch worker.
 
@@ -622,9 +617,9 @@ posting stays in the catalog, since each has its own link.
 6. **Activity** (`/activity`) has three views, with what's showing in the URL:
    - **Everything** (`api.activity.page`): your account since you joined, newest first, 30 at
      a time, with **Open** to go to it. What the app did: loop runs, prepared and sent
-     applications, the live browser, email in and out, workflow runs and bookings. What you
+     applications, the live browser, email in and out and workflow runs. What you
      changed: preferences, saved answers, your resume, profile and settings, applications and
-     their notes, goals, loops, workflows, views, contacts, calendar events, booking pages,
+     their notes, goals, loops, workflows, views, contacts, calendar events,
      email folders, labels, drafts and templates. **You joined** is the last line, read off
      the account, so it never ages out. Sign-ins aren't listed. Each row comes from that work's evlog event (`keepLog`), so
      the Convex logs and this page say the same thing. Mail rows name the company only,
@@ -730,7 +725,7 @@ day; links 10 a day; a source moves on at 90% of its monthly credits.
 **Stories**
 
 - As a job seeker, I want one list of what happened (mail about my applications, mail to
-  file, bookings, workflow messages, new roles, messages from agents I connected), each opening
+  file, workflow messages, new roles, messages from agents I connected), each opening
   where I act on it.
 - As anyone, I want to turn off kinds I don't care about.
 
@@ -752,7 +747,6 @@ day; links 10 a day; a source moves on at 90% of its monthly credits.
 | `mail.rejection`    | Rejections                   | The email sorter              |
 | `mail.update`       | Other company mail           | The email sorter              |
 | `mail.unsorted`     | Mail that needs filing       | The email sorter              |
-| `booking.new`       | New bookings                 | A booking                     |
 | `automation.notify` | Messages from your workflows | A Notify me step              |
 | `loop.found`        | New roles from loops         | A loop run                    |
 | `prefill.ready`     | Applications ready for you   | Preparing one, the first time |
@@ -980,42 +974,6 @@ so a recruiter at two companies shows under the latest one.
 
 **Files:** `src/features/calendar/`, `convex/features/calendar/`.
 
-## Booking pages
-
-**Stories**
-
-- As a job seeker, I want a link recruiters can book time with, showing only when I'm
-  free.
-- As a recruiter or anyone I send it to, I want to pick a time in my own zone and get it
-  on my calendar.
-- As a job seeker, I want the booking on my calendar, linked to the right application.
-
-**Flows (yours, Account → Booking pages)**
-
-1. New booking page: title, length, hours, days, notice, how far ahead it opens, which
-   application (or "By the guest's email"), and where (`api.booking.savePage`). Up to 20.
-2. Open or close it, Copy link, Edit, or Delete ("Its link stops working.").
-
-**Flows (the guest, `/book/<slug>`)**
-
-1. The page shows free times in the guest's zone, with yours beside it. Busy times come
-   from your events and interview times read from your mail. It shows your name and nothing
-   else about you.
-2. The guest picks a time (`?at=`), adds their name, email and a note, and books
-   (`api.booking.book`). The server checks the time again: "That time isn't open any
-   more. Pick another."
-3. "You're booked." with "Add to your calendar" and "Book another time".
-
-**By itself:** a booking becomes an interview on your calendar, linked to the page's
-application or one matched by the guest's email domain. It adds a line in Updates
-(`booking.new`) and fires the `booking` event for workflows.
-
-**Rules:** one upcoming booking per guest email per page; 50 upcoming per page; times on
-the quarter hour.
-
-**Files:** `src/features/booking/`, `src/routes/book.$slug.tsx`,
-`convex/features/booking/`.
-
 ## Account
 
 **Stories**
@@ -1024,7 +982,7 @@ the quarter hour.
 - As anyone, I want to choose which Updates kinds I get.
 - As anyone, I want to delete my account and everything in it.
 
-**Flows** (`/account`: Profile, Email, Notifications, Connected agents, Calendar, Booking pages, Applications,
+**Flows** (`/account`: Profile, Email, Notifications, Connected agents, Calendar, Applications,
 Prefilled applications, Interface and theme, Account)
 
 1. **Profile** fields save when you leave them (`api.users.updateProfile`). A picture is
@@ -1037,7 +995,7 @@ Prefilled applications, Interface and theme, Account)
    [Prefilled applications and Activity](#prefilled-applications-and-activity).
 5. **Delete account:** confirm, then everything goes: applications, Preferences and
    resume, loops and their runs and roles, email connection and mail, notifications,
-   views, goals, prefilled applications, calendar, booking pages and workflows. Your username is
+   views, goals, prefilled applications, calendar and workflows. Your username is
    freed. Your profile, files, mail connection and connected agents go at once, and the rest follows in batches moments later.
 
 **Files:** `src/features/account/`, `convex/features/users/`.
@@ -1122,9 +1080,9 @@ reads toward 120 a minute. A new loop starts paused, and you can keep 3.
 
 ## Workflows
 
-Steps you build from blocks that run for you: on a schedule, when an email or a booking
+Steps you build from blocks that run for you: on a schedule, when an email
 comes in, when an application moves or joins a goal, or when you press Run now. Start from scratch,
-from one of eleven templates (job search, follow-ups, each kind of email, bookings), or
+from one of ten templates (job search, follow-ups, each kind of email), or
 describe it in a sentence and let Jev draft it. The full story is in
 [workflows.md](workflows.md).
 
@@ -1135,4 +1093,3 @@ describe it in a sentence and let Jev draft it. The full story is in
 - Deleting an account doesn't stop a loop run that's in progress; it finds nothing to
   save and stops.
 - A guest with no Calendar time zone gets workflow calendar events in UTC.
-- A repeating event only blocks its first time on a booking page.

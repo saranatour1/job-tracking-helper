@@ -61,7 +61,6 @@ export const SaveEvent = EventFields.narrow((event, ctx) => {
 export const CalendarEvent = EventFields.omit("kind").and({
   userId: arkId("users"),
   kind: type.enumerated(...eventKinds),
-  "bookingPageId?": arkId("bookingPages"),
 })
 
 export const CalendarSettings = type({

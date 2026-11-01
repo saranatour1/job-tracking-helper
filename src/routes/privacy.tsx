@@ -34,8 +34,7 @@ const PrivacyPage = () => (
           token, your messages and drafts, and the people you write to.
         </li>
         <li>
-          <strong>Calendar and booking.</strong> Your events and attendees. Guests who book through
-          your pages give their name, email and a note.
+          <strong>Calendar.</strong> Your events and attendees.
         </li>
         <li>
           <strong>Activity.</strong> A record of what you changed, what the app did for you and what
@@ -50,14 +49,14 @@ const PrivacyPage = () => (
           <strong>Analytics.</strong> Page views, page speed, clicks on links that leave the site
           and session replays. On Jobs, also the words you search for and which roles you open.
           These go to Databuddy under its anonymous visitor ID, not your account. Separately, our
-          server tells Databuddy when an AI crawler or AI agent requests a page, except booking
-          pages: the path, host, user agent, accept header, referrer and the format asked for. An AI
-          browser acting for you can be counted this way, and browser privacy signals don't stop it,
-          because it doesn't run in your browser.
+          server tells Databuddy when an AI crawler or AI agent requests a page: the path, host,
+          user agent, accept header, referrer and the format asked for. An AI browser acting for you
+          can be counted this way, and browser privacy signals don't stop it, because it doesn't run
+          in your browser.
         </li>
       </ul>
       <p>
-        Some of this is about other people, like your contacts and booking guests. Please only add
+        Some of this is about other people, like your contacts and event attendees. Please only add
         it if you have the right to.
       </p>
     </LegalSection>

@@ -38,7 +38,10 @@ const run = workflow.define({
       }
       await step.runMutation(internal.api.automations.startBranch, { runId, at, kind: branch.kind })
       if (branch.kind === "decide") {
-        const { path, error } = await step.runAction(internal.api.automationActions.askJev, { runId, at })
+        const { path, error } = await step.runAction(internal.api.automationActions.askJev, {
+          runId,
+          at,
+        })
         if (error || path === null) throw new Error(error ?? "Jev didn't answer.")
         for (let j = 0; j < (branch.lengths[path] ?? 0); j++) {
           const done = await runBlock(step, runId, `${i}.${path}.${j}`)
@@ -326,7 +329,6 @@ const onEvent = internalMutation({
       await startRun(ctx, automation, "event", {
         ...("applicationId" in rest && rest.applicationId && { applicationId: rest.applicationId }),
         ...("mailEventId" in rest && { mailEventId: rest.mailEventId }),
-        ...("bookingId" in rest && { bookingId: rest.bookingId }),
         ...("from" in rest && { from: rest.from, to: rest.to }),
         ...("goalId" in rest && { goalId: rest.goalId }),
       })

@@ -26,7 +26,6 @@ import { Route as AppPreferencesRouteImport } from './routes/_app/preferences'
 import { Route as AppResumeRouteImport } from './routes/_app/resume'
 import { Route as AuthSignInRouteImport } from './routes/_auth/sign-in'
 import { Route as AuthSignUpRouteImport } from './routes/_auth/sign-up'
-import { Route as BookSlugRouteImport } from './routes/book.$slug'
 import { Route as AppGoalsIndexRouteImport } from './routes/_app/goals/index'
 import { Route as AppGoalsIdRouteImport } from './routes/_app/goals/$id'
 import { Route as AppJobsIndexRouteImport } from './routes/_app/jobs/index'
@@ -123,11 +122,6 @@ const AuthSignUpRoute = AuthSignUpRouteImport.update({
   path: '/sign-up',
   getParentRoute: () => AuthRoute,
 } as any)
-const BookSlugRoute = BookSlugRouteImport.update({
-  id: '/book/$slug',
-  path: '/book/$slug',
-  getParentRoute: () => rootRouteImport,
-} as any)
 const AppGoalsIndexRoute = AppGoalsIndexRouteImport.update({
   id: '/goals/',
   path: '/goals/',
@@ -205,7 +199,6 @@ export interface FileRoutesByFullPath {
   '/resume': typeof AppResumeRoute
   '/sign-in': typeof AuthSignInRoute
   '/sign-up': typeof AuthSignUpRoute
-  '/book/$slug': typeof BookSlugRoute
   '/goals/$id': typeof AppGoalsIdRoute
   '/jobs/$id': typeof AppJobsIdRoute
   '/pipeline/$id': typeof AppPipelineIdRoute
@@ -235,7 +228,6 @@ export interface FileRoutesByTo {
   '/resume': typeof AppResumeRoute
   '/sign-in': typeof AuthSignInRoute
   '/sign-up': typeof AuthSignUpRoute
-  '/book/$slug': typeof BookSlugRoute
   '/goals/$id': typeof AppGoalsIdRoute
   '/jobs/$id': typeof AppJobsIdRoute
   '/pipeline/$id': typeof AppPipelineIdRoute
@@ -268,7 +260,6 @@ export interface FileRoutesById {
   '/_app/resume': typeof AppResumeRoute
   '/_auth/sign-in': typeof AuthSignInRoute
   '/_auth/sign-up': typeof AuthSignUpRoute
-  '/book/$slug': typeof BookSlugRoute
   '/_app/goals/$id': typeof AppGoalsIdRoute
   '/_app/jobs/$id': typeof AppJobsIdRoute
   '/_app/pipeline/$id': typeof AppPipelineIdRoute
@@ -300,7 +291,6 @@ export interface FileRouteTypes {
     | '/resume'
     | '/sign-in'
     | '/sign-up'
-    | '/book/$slug'
     | '/goals/$id'
     | '/jobs/$id'
     | '/pipeline/$id'
@@ -330,7 +320,6 @@ export interface FileRouteTypes {
     | '/resume'
     | '/sign-in'
     | '/sign-up'
-    | '/book/$slug'
     | '/goals/$id'
     | '/jobs/$id'
     | '/pipeline/$id'
@@ -362,7 +351,6 @@ export interface FileRouteTypes {
     | '/_app/resume'
     | '/_auth/sign-in'
     | '/_auth/sign-up'
-    | '/book/$slug'
     | '/_app/goals/$id'
     | '/_app/jobs/$id'
     | '/_app/pipeline/$id'
@@ -384,7 +372,6 @@ export interface RootRouteChildren {
   ConnectRoute: typeof ConnectRoute
   PrivacyRoute: typeof PrivacyRoute
   TermsRoute: typeof TermsRoute
-  BookSlugRoute: typeof BookSlugRoute
 }
 
 declare module '@tanstack/react-router' {
@@ -507,13 +494,6 @@ declare module '@tanstack/react-router' {
       fullPath: '/sign-up'
       preLoaderRoute: typeof AuthSignUpRouteImport
       parentRoute: typeof AuthRoute
-    }
-    '/book/$slug': {
-      id: '/book/$slug'
-      path: '/book/$slug'
-      fullPath: '/book/$slug'
-      preLoaderRoute: typeof BookSlugRouteImport
-      parentRoute: typeof rootRouteImport
     }
     '/_app/goals/': {
       id: '/_app/goals/'
@@ -671,7 +651,6 @@ const rootRouteChildren: RootRouteChildren = {
   ConnectRoute: ConnectRoute,
   PrivacyRoute: PrivacyRoute,
   TermsRoute: TermsRoute,
-  BookSlugRoute: BookSlugRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)

@@ -189,19 +189,6 @@ export const templates = {
       ],
     }),
   },
-  booking: {
-    label: "New booking",
-    hint: "Tell me everywhere, and note it on its application",
-    group: "Bookings",
-    make: () => ({
-      trigger: { kind: "booking" },
-      steps: [
-        notify("{booking.title}, {booking.when}", "both"),
-        matched,
-        { kind: "addNote", text: "Booked: {booking.title}, {booking.when}" },
-      ],
-    }),
-  },
 } satisfies Record<string, Template>
 
 export type TemplateName = keyof typeof templates

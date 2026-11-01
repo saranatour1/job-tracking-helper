@@ -34,12 +34,6 @@ describe("server entry", () => {
     expect(await response.text()).toBe("asset")
   })
 
-  it("leaves booking pages out", async () => {
-    await server.fetch(get("/book/my-link"), env, ctx)
-    expect(mocks.trackAgents).not.toHaveBeenCalled()
-    expect(mocks.app).toHaveBeenCalledOnce()
-  })
-
   it("does nothing extra in local dev, where only the request is passed", async () => {
     const response = await server.fetch(get("/llms.txt"))
     expect(mocks.trackAgents).not.toHaveBeenCalled()

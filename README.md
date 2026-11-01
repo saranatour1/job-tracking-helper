@@ -9,7 +9,7 @@ A job search app. It finds roles that fit what you asked for, fills in their app
 - **Prefilled applications.** On Greenhouse, Lever, Ashby and Personio, the app reads a posting's form, matches your saved answers and drafts the job-specific questions. The real form then opens beside your answers for you to check and submit.
 - **Applications, Views and Goals.** A board or list by status, with one timeline per application, saved views, and milestones.
 - **Mail and Contacts.** Connect your own Cloudflare account to send from your domain and receive replies. Each company can have its own address, so mail lands on the right application.
-- **Calendar and Booking pages.** Application dates, interviews read from email and your own events, plus links a recruiter can book from.
+- **Calendar.** Application dates, interviews read from email and your own events.
 - **Workflows and Activity.** A trigger and up to 20 steps built on a canvas, and a record of everything the app did for you and why anything failed.
 - **Connected agents.** An MCP server, so Claude, ChatGPT, Cursor or Claude Code can do much of this for you, plus the public documents agents use to find it. Agents draft and you submit.
 - **No account?** [skills/job-search-no-account](skills/job-search-no-account/SKILL.md) is a skill for your own agent. It searches the same public feeds, judges roles, drafts answers and tracks everything in local files, with no sign-up. In Claude Code:
@@ -28,7 +28,7 @@ Your resume file only gets attached to applications until you press Review on th
 
 Demographic questions are skipped by their wording, and job-site passwords are never stored. Pasted tokens, connection details, mail, contacts and drafts are encrypted with AES-256-GCM, under a key only the server holds. Resumes, saved answers and applications don't get that extra layer.
 
-The site sends page views, web vitals, outgoing link clicks and session replays to Databuddy, except on booking pages. Replays mask text. On Jobs it also sends the words searched for and which roles get opened. [src/server.ts](src/server.ts) also reports AI crawler and agent requests to Databuddy from the server. [/privacy](src/routes/privacy.tsx) lists all of this, and it has to stay true when any of it changes.
+The site sends page views, web vitals, outgoing link clicks and session replays to Databuddy. Replays mask text. On Jobs it also sends the words searched for and which roles get opened. [src/server.ts](src/server.ts) also reports AI crawler and agent requests to Databuddy from the server. [/privacy](src/routes/privacy.tsx) lists all of this, and it has to stay true when any of it changes.
 
 ## How to run
 
@@ -65,7 +65,7 @@ convex/
   components/           local components: cloudflareEmail and notifications
   lib/                  arktype to Convex, signed-in function builders, secrets, logging, request signing
 src/
-  routes/               pages. /, /jobs, /jobs/$id, /privacy, /terms and /book/$slug are public
+  routes/               pages. /, /jobs, /jobs/$id, /privacy and /terms are public
   server.ts             the Worker's entry: reports AI crawlers, serves agent discovery and posting images
   features/<feature>/   a feature's components. Applications, Views and Goals are in tracker/
   components/ui/        shadcn and coss components, managed by the shadcn CLI

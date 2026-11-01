@@ -11,10 +11,7 @@ export default {
   // Local dev runs in Node, which passes only the request and serves public/ itself.
   fetch: (request: Request, env?: Env, ctx?: Context) => {
     const { pathname } = new URL(request.url)
-    // Booking guests never agreed to analytics, so their pages stay out of it.
-    if (!pathname.startsWith("/book/")) {
-      ctx?.waitUntil(trackAgents(request, { websiteId: site.databuddyId }))
-    }
+    ctx?.waitUntil(trackAgents(request, { websiteId: site.databuddyId }))
     const reading = request.method === "GET" || request.method === "HEAD"
     const document = reading ? discovery[pathname] : null
     if (document) return document()
