@@ -93,6 +93,7 @@ docs/
 | Frontend      | React 19, TanStack Start, Router and Form, Tiptap                     |
 | UI            | Tailwind CSS v4, shadcn CLI with coss ui, Hugeicons, kloq, React Flow |
 | Backend       | Convex, Convex Auth v2, convex-helpers, batch worker for big deletes  |
+| Counts        | `@convex-dev/aggregate`, `@convex-dev/sharded-counter`                |
 | Agents        | `@convex-dev/mcp`                                                     |
 | AI            | Jev and Claude Haiku, through the Convex AI gateway and the AI SDK    |
 | Forms and web | Firecrawl, RDAP, the community YC list                                |

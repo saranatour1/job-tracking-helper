@@ -1,10 +1,12 @@
+import { defineBatchWorkerValidators, ping } from "@convex-dev/batch-worker"
 import { v } from "convex/values"
-import { internal } from "../_generated/api"
+import { components, internal } from "../_generated/api"
 import { internalMutation, internalQuery } from "../_generated/server"
 import { fitOf } from "../features/applications/utils"
 import { syncMailSummary } from "../features/email/utils"
 import { companyOf, nonTechStarters, techFeeds } from "../features/jobs/boards"
 import { isCompanyBoard } from "../features/jobs/boards"
+import { deleteJob, fillBoard, markCounted, recount, roleCounts } from "../features/jobs/counts"
 import { countCatalog } from "../features/jobs/utils"
 import { roleKey, urlKey } from "../features/workflows/fit"
 
@@ -62,8 +64,10 @@ export const fillPostingKeys = internalMutation({
         const key = urlKey(job.url)
         if (key === job.urlKey) continue
         // A refresh got there first and saved it under the new key. Leads move over below.
-        if (await jobByKey(key)) await ctx.db.delete("jobs", job._id)
-        else await ctx.db.patch("jobs", job._id, { urlKey: key })
+        if (await jobByKey(key)) {
+          await deleteJob(ctx, job)
+          await recount(ctx, job.boardId)
+        } else await ctx.db.patch("jobs", job._id, { urlKey: key })
       }
     } else if (table === "jobLeads") {
       page = await ctx.db.query("jobLeads").paginate(opts)
@@ -173,10 +177,87 @@ export const addNewStarters = internalMutation({
         company: companyOf(b.slug),
         addedAt: Date.now(),
         jobs: 0,
+        counted: true,
       })
       added++
     }
     if (added) await countCatalog(ctx, { boards: added })
     return added
+  },
+})
+
+const jobCountsWorker = "jobCounts"
+
+const counting = defineBatchWorkerValidators({
+  batch: {
+    jobIds: v.array(v.id("jobs")),
+    boardId: v.optional(v.id("jobBoards")),
+    finish: v.boolean(),
+  },
+  cursor: v.string(),
+})
+
+// One-off: counts every role, then rolls each board up from those counts, then switches Jobs over
+// in the same mutation as the last step, so a reader sees the old numbers or exact ones and never
+// half a fill. Writes keep what's filled right while it runs. Safe to run again. Run it right after
+// deploying, on each deployment:
+//   npx convex run api/migrations:fillJobCounts
+//   npx convex run api/migrations:jobCountsLeft
+// Delete it, and everything it leaves unused, once that's done everywhere.
+export const fillJobCounts = internalMutation({
+  args: {},
+  returns: v.null(),
+  handler: async (ctx) => {
+    await ping(ctx, components.batchWorker, {
+      name: jobCountsWorker,
+      workQuery: internal.api.migrations.nextJobCounts,
+      workerMutation: internal.api.migrations.addJobCounts,
+    })
+    return null
+  },
+})
+
+export const nextJobCounts = internalQuery({
+  args: counting.vQueryArgs,
+  returns: counting.vQueryReturns,
+  handler: async (ctx, { cursor }) => {
+    if ((await ctx.db.query("jobCatalog").first())?.countsReady) return { kind: "idle" as const }
+    if (cursor !== "boards") {
+      const page = await ctx.db.query("jobs").paginate({ numItems: 100, cursor: cursor ?? null })
+      return {
+        batch: { jobIds: page.page.map((j) => j._id), finish: false },
+        cursor: page.isDone ? "boards" : page.continueCursor,
+      }
+    }
+    const board = await ctx.db
+      .query("jobBoards")
+      .filter((q) => q.neq(q.field("counted"), true))
+      .first()
+    return { batch: { jobIds: [], boardId: board?._id, finish: !board }, cursor }
+  },
+})
+
+export const addJobCounts = internalMutation({
+  args: counting.vMutationArgs,
+  returns: counting.vMutationReturns,
+  handler: async (ctx, { jobIds, boardId, finish }) => {
+    for (const jobId of jobIds) {
+      const job = await ctx.db.get("jobs", jobId)
+      if (job) await roleCounts.insertIfDoesNotExist(ctx, job)
+    }
+    if (boardId) await fillBoard(ctx, boardId)
+    if (finish) await markCounted(ctx)
+  },
+})
+
+// Boards not rolled up yet, and whether Jobs has switched over. Done at zero and true.
+export const jobCountsLeft = internalQuery({
+  args: {},
+  returns: v.object({ boards: v.number(), ready: v.boolean() }),
+  handler: async (ctx) => {
+    let boards = 0
+    for await (const board of ctx.db.query("jobBoards")) if (!board.counted) boards++
+    const ready = (await ctx.db.query("jobCatalog").first())?.countsReady ?? false
+    return { boards, ready }
   },
 })

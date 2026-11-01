@@ -6,6 +6,7 @@ import { query, type QueryCtx } from "../../_generated/server"
 import { authedQuery, sessionMutation } from "../../lib/functions"
 import { limits } from "../workflows/manager"
 import { evidenceOf } from "./companies"
+import { catalogCounts } from "./counts"
 import { vCatalogSummary, vJobRow, vJobSearchArgs } from "./validators"
 import { rowOf, searchJobs } from "./utils"
 
@@ -41,8 +42,8 @@ const search = query({
       user && !user.anonymous
         ? await searchJobs(ctx, user._id, args)
         : await browse(ctx, user, args)
-    const page = []
-    for (const row of found.page) page.push({ ...row, evidence: await evidenceOf(ctx, row._id) })
+    const evidence = await evidenceOf(ctx, found.page)
+    const page = found.page.map(({ boardId: _, ...row }, i) => ({ ...row, evidence: evidence[i]! }))
     return { ...found, page }
   },
 })
@@ -71,7 +72,9 @@ const posting = query({
     const jobId = ctx.db.normalizeId("jobs", id)
     const job = jobId && (await ctx.db.get("jobs", jobId))
     if (!job) return null
-    return { ...rowOf(job, null), text: job.text, evidence: await evidenceOf(ctx, job._id) }
+    const { boardId: _, ...row } = rowOf(job, null)
+    const [evidence] = await evidenceOf(ctx, [job])
+    return { ...row, text: job.text, evidence: evidence! }
   },
 })
 
@@ -115,6 +118,7 @@ const stats = query({
   ),
   handler: async (ctx) => {
     const row = await ctx.db.query("jobCatalog").first()
+    if (row?.countsReady) return { boards: row.boards, ...(await catalogCounts(ctx)) }
     return row && { boards: row.boards, jobs: row.jobs, summary: row.summary }
   },
 })

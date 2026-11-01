@@ -16,4 +16,6 @@ export const jobCatalogTable = defineTable({
   boards: v.number(),
   jobs: v.number(),
   summary: v.optional(vCatalogSummary),
+  // Set once the fill has counted every role. Until then, Jobs reads the stored numbers above.
+  countsReady: v.optional(v.boolean()),
 })

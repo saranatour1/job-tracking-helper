@@ -1,5 +1,7 @@
 // @vitest-environment edge-runtime
 /// <reference types="vite/client" />
+import aggregate from "@convex-dev/aggregate/test"
+import shardedCounter from "@convex-dev/sharded-counter/test"
 import { convexTest } from "convex-test"
 import { afterEach, describe, expect, it, vi } from "vite-plus/test"
 
@@ -25,6 +27,9 @@ const board = (n: number, jobs: number) => ({
 
 const setup = async () => {
   const t = convexTest(schema, modules)
+  aggregate.register(t, "jobRoleCounts")
+  aggregate.register(t, "jobDomainCounts")
+  shardedCounter.register(t)
   const userId = await t.run((ctx) => ctx.db.insert("users", { name: "Sam" }))
   return { t, as: t.withIdentity({ subject: userId }) }
 }
@@ -242,8 +247,7 @@ describe("Arbeitsagentur searches", () => {
       slug: "lagerist|münchen",
       company: "Arbeitsagentur: Lagerist, München",
     })
-    await t.mutation(internal.api.jobs.boardFetched, { boardId: boardId!, jobs: 3 })
-    expect(await as.query(api.api.jobs.stats, {})).toEqual({ boards: 1, jobs: 3 })
+    expect(await as.query(api.api.jobs.stats, {})).toEqual({ boards: 1, jobs: 0 })
     // A failed fetch doesn't count as none.
     await t.mutation(internal.api.jobs.boardFetched, {
       boardId: boardId!,

@@ -1,7 +1,8 @@
-import type { Id } from "../../_generated/dataModel"
+import type { Doc, Id } from "../../_generated/dataModel"
 import type { QueryCtx } from "../../_generated/server"
 import { record, text } from "../workflows/sources/source"
 import { isCompanyBoard } from "./boards"
+import { openRoles } from "./counts"
 
 export const researchEvery = 30 * 24 * 60 * 60 * 1000
 export const researchBatch = 25
@@ -110,25 +111,63 @@ export const registeredAtOf = (json: unknown) => {
   return null
 }
 
-/** What's known of a role's company. How the board reached that site belongs to the board. */
-export const evidenceOf = async (ctx: QueryCtx, jobId: Id<"jobs">) => {
-  const job = await ctx.db.get("jobs", jobId)
-  const board = job && (await ctx.db.get("jobBoards", job.boardId))
-  const company = board?.companyId ? await ctx.db.get("companies", board.companyId) : null
-  // Several boards can reach one site. Past 20 the count runs low, which nothing here relies on.
+/** What's known of each role's company. How the board reached that site belongs to the board. Each
+ * board is read once, and all the counts are one call, however many roles there are. */
+export const evidenceOf = async (
+  ctx: QueryCtx,
+  jobs: { boardId: Id<"jobBoards">; company: string }[]
+) => {
+  const ready = (await ctx.db.query("jobCatalog").first())?.countsReady
+  const read = async (boardId: Id<"jobBoards">) => {
+    const board = await ctx.db.get("jobBoards", boardId)
+    const company = board?.companyId ? await ctx.db.get("companies", board.companyId) : null
+    return { board, company }
+  }
+  const places = new Map<Id<"jobBoards">, ReturnType<typeof read>>()
+  const found = await Promise.all(
+    jobs.map(({ boardId }) => {
+      const known = places.get(boardId) ?? read(boardId)
+      places.set(boardId, known)
+      return known
+    })
+  )
+  const open = ready
+    ? await openRoles(
+        ctx,
+        found.map(({ board, company }, i) => ({
+          board,
+          domain: company?.domain,
+          company: jobs[i]!.company,
+        }))
+      )
+    : await Promise.all(
+        found.map(({ board, company }) =>
+          board && isCompanyBoard(board.kind) ? boardsTotal(ctx, board, company) : null
+        )
+      )
+  return found.map(({ board, company }, i) => ({
+    boardId: board?._id ?? null,
+    domain: company?.domain ?? null,
+    link: board?.companyLink ?? null,
+    yc: company?.yc ?? null,
+    registeredAt: company?.registeredAt ?? null,
+    open: open[i]!,
+    pooled: board ? !isCompanyBoard(board.kind) : false,
+  }))
+}
+
+// Several boards can reach one site. Past 20 the count runs low, which is why it's only for until
+// the counts are filled.
+const boardsTotal = async (
+  ctx: QueryCtx,
+  board: Doc<"jobBoards">,
+  company: Doc<"companies"> | null
+) => {
   const boards = company
     ? await ctx.db
         .query("jobBoards")
         .withIndex("by_companyId", (q) => q.eq("companyId", company._id))
         .take(20)
     : [board]
-  return {
-    boardId: board?._id ?? null,
-    domain: company?.domain ?? null,
-    link: board?.companyLink ?? null,
-    yc: company?.yc ?? null,
-    registeredAt: company?.registeredAt ?? null,
-    open:
-      board && isCompanyBoard(board.kind) ? boards.reduce((n, b) => n + (b?.jobs ?? 0), 0) : null,
-  }
+  return boards.reduce((n, b) => n + b.jobs, 0)
 }

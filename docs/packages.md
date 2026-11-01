@@ -17,15 +17,16 @@ Every direct dependency in `package.json`, 44 runtime and 15 dev, and why it's h
 
 ## Convex components
 
-| Package                    | Why                                                                                                                                  |
-| -------------------------- | ------------------------------------------------------------------------------------------------------------------------------------ |
-| `@convex-dev/auth`         | Username and password, guest, Google and GitHub sign-in. Its `auth` command also sets the keys.                                      |
-| `@convex-dev/workflow`     | Runs people's workflows as durable steps through `WorkflowManager`.                                                                  |
-| `@convex-dev/workpool`     | Two queues with different rules. `readPool` runs 8 at once with 3 tries. `applyPool` runs 2 at once and never retries.               |
-| `@convex-dev/batch-worker` | Big deletes and judged-job cleanup, which won't fit in one mutation.                                                                 |
-| `@convex-dev/aggregate`    | Counts workflow runs and choices without reading every row.                                                                          |
-| `@convex-dev/rate-limiter` | Limits in `workflows/manager.ts` and `email/utils.ts`, like 120 agent reads a minute, sharded so parallel agent calls don't collide. |
-| `@convex-dev/mcp`          | The MCP server in `convex/mcp.ts` that connected agents use.                                                                         |
+| Package                       | Why                                                                                                                                  |
+| ----------------------------- | ------------------------------------------------------------------------------------------------------------------------------------ |
+| `@convex-dev/auth`            | Username and password, guest, Google and GitHub sign-in. Its `auth` command also sets the keys.                                      |
+| `@convex-dev/workflow`        | Runs people's workflows as durable steps through `WorkflowManager`.                                                                  |
+| `@convex-dev/workpool`        | Two queues with different rules. `readPool` runs 8 at once with 3 tries. `applyPool` runs 2 at once and never retries.               |
+| `@convex-dev/batch-worker`    | Big deletes, judged-job cleanup and filling the job counts, which won't fit in one mutation.                                         |
+| `@convex-dev/aggregate`       | Counts workflow runs and choices, and roles per board and domain, without reading every row.                                         |
+| `@convex-dev/sharded-counter` | The job catalog's totals, which every refreshing board writes at once. Always read in full, never estimated.                         |
+| `@convex-dev/rate-limiter`    | Limits in `workflows/manager.ts` and `email/utils.ts`, like 120 agent reads a minute, sharded so parallel agent calls don't collide. |
+| `@convex-dev/mcp`             | The MCP server in `convex/mcp.ts` that connected agents use.                                                                         |
 
 ## AI, mail, documents
 
