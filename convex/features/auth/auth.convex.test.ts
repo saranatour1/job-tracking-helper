@@ -65,17 +65,16 @@ describe("anonymous accounts on production", () => {
     expect((await as.query(api.api.users.me, {})).allowedSearch).toBe("search 10")
   })
 
-  it("only search for what they've spent a search on", async () => {
-    const { t, as } = await visitor()
-    await t.run(async (ctx) => {
+  const addRoles = (t: ReturnType<typeof convexTest>, titles: string[]) =>
+    t.run(async (ctx) => {
       const boardId = await ctx.db.insert("jobBoards", {
         kind: "lever",
         slug: "hooli",
         company: "Hooli",
         addedAt: 0,
-        jobs: 2,
+        jobs: titles.length,
       })
-      for (const [n, text] of ["gardener", "pilot"].entries())
+      for (const [n, text] of titles.entries())
         await ctx.db.insert("jobs", {
           boardId,
           urlKey: text,
@@ -89,6 +88,48 @@ describe("anonymous accounts on production", () => {
           text,
         })
     })
+
+  it("stop being made past 100 an hour, for everyone", async () => {
+    const { t } = await visitor()
+    for (let n = 1; n < 100; n++)
+      await t.mutation(internal.api.auth.createUser, { provider: anonymous })
+    await expect(t.mutation(internal.api.auth.createUser, { provider: anonymous })).rejects.toThrow(
+      "Too many new visitors"
+    )
+    await t.mutation(internal.api.auth.createUser, { provider: github })
+  })
+
+  it("see one page of the catalog, and nobody sees more than 25 at once", async () => {
+    const { t, as } = await visitor()
+    await addRoles(
+      t,
+      Array.from({ length: 30 }, (_, n) => `role ${n}`)
+    )
+    const member = await t.run((ctx) => ctx.db.insert("users", { name: "Sam" }))
+    const big = { numItems: 100, cursor: null }
+
+    for (const reader of [t, as]) {
+      const first = await reader.query(api.api.jobs.search, { paginationOpts: big })
+      expect(first).toMatchObject({ isDone: true, continueCursor: "" })
+      expect(first.page).toHaveLength(25)
+    }
+    const forged = await as.query(api.api.jobs.search, {
+      paginationOpts: { numItems: 25, cursor: "from a member" },
+    })
+    expect(forged.page).toEqual([])
+
+    const asMember = t.withIdentity({ subject: member })
+    const first = await asMember.query(api.api.jobs.search, { paginationOpts: big })
+    expect(first.page).toHaveLength(25)
+    const rest = await asMember.query(api.api.jobs.search, {
+      paginationOpts: { numItems: 25, cursor: first.continueCursor },
+    })
+    expect(rest.page).toHaveLength(5)
+  })
+
+  it("only search for what they've spent a search on", async () => {
+    const { t, as } = await visitor()
+    await addRoles(t, ["gardener", "pilot"])
     const titles = async (q: string) =>
       (
         await as.query(api.api.jobs.search, { q, paginationOpts: { numItems: 25, cursor: null } })

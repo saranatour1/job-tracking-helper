@@ -892,6 +892,15 @@ export const Jobs = () => {
                     {groupRoles(domain).map(nestedRow)}
                   </Domain>
                 ))}
+            {!signedIn && jobs.results.length >= 25 && (
+              <p className="text-muted-foreground px-2.5 py-2 text-xs">
+                That's the first 25.{" "}
+                <Link to="/sign-in" className="underline">
+                  Sign in
+                </Link>{" "}
+                to see the rest.
+              </p>
+            )}
             {jobs.status === "CanLoadMore" && (
               <Button
                 size="sm"

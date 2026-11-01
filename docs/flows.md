@@ -466,20 +466,28 @@ and loops can be picked, edited or deleted.
 
 1. `/jobs` and role pages are open to anyone, and to crawlers. "Jobs" on the home page links here.
    There are no filters, verdicts, "Try" chips or Prepare, and the server ignores filters sent
-   anyway (`api.jobs.search`, at most 25 at a time).
+   anyway. `api.jobs.search` gives only the first 25 roles and no cursor for more, so there's no
+   "Show more": past 25 it says to sign in. Members can't ask for more than 25 at a time either.
 2. The first search or "More like this" makes an anonymous account, not the page load, so crawlers
    don't make any. Each new search spends one of 10 a day (`api.jobs.allowSearch`, rate limit
-   `anonymousSearch`); running the same one again or "Show more" doesn't. Past 10: "That's 10
-   searches today. Sign in to keep searching."
-3. Queries can't count anything, so `allowSearch` keeps the last search on the account
+   `anonymousSearch`); running the same one again doesn't. Past 10: "That's 10 searches today. Sign
+   in to keep searching." Everyone shares 100 new anonymous accounts an hour (`anonymousAccount`).
+   Past that, searching without an account fails until the bucket refills, and the rest still works.
+3. A role page or its preview image takes 100 requests a minute per IP (`ROLE_PAGES` in
+   `wrangler.jsonc`, checked in `src/server.ts`), then answers 429.
+4. Queries can't count anything, so `allowSearch` keeps the last search on the account
    (`users.allowedSearch`), and `api.jobs.search` answers only that one. Otherwise, as with a
    shared `/jobs?q=` link, it shows the newest roles and leaves the words in the box.
-4. Databuddy gets `job_search`, `job_search_refused`, `job_opened`, `job_more_like_this`,
+5. Databuddy gets `job_search`, `job_search_refused`, `job_opened`, `job_more_like_this`,
    `job_apply_link` and `job_show_more`, with the words searched for or the role and company. These
    fire for everyone on Jobs, under Databuddy's own visitor ID, never the account.
 
 **Known limits:** clearing browser storage makes a new anonymous account with 10 more searches.
-Anonymous accounts aren't removed, and signing in later starts a separate account.
+Anonymous accounts aren't removed, and signing in later starts a separate account. Someone using all
+100 new accounts an hour stops other visitors searching, since Convex functions never see an IP.
+Calling `api.jobs.posting` directly skips the per-IP limit, because crawlers and link previews
+need it open, but its ids can't be guessed, only found by searching. A member's searches and pages
+aren't counted: a query can't count them, and a mutation per page would lose the live list.
 
 **By itself:** every hour (`internal.api.jobs.refreshDue`) up to 25 boards not fetched in 20
 hours go to the batch worker (`internal.api.jobs.fetchBoard`). It reads each public feed

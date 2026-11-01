@@ -2,6 +2,7 @@ import { ConvexError, v } from "convex/values"
 import { env, internalMutation } from "../../_generated/server"
 import { workLog } from "../../lib/log"
 import { maxNameLength, UserName } from "../users/validators"
+import { limits } from "../workflows/manager"
 import { vCreateUserArgs, vGithubSignInArgs } from "./validators"
 
 const createUser = internalMutation({
@@ -16,6 +17,10 @@ const createUser = internalMutation({
       provider.name !== "anonymous"
     ) {
       throw new ConvexError("Sign-ups are closed")
+    }
+    if (provider.name === "anonymous") {
+      const { ok } = await limits.limit(ctx, "anonymousAccount")
+      if (!ok) throw new ConvexError("Too many new visitors right now. Sign in to keep searching.")
     }
     const userId = await ctx.db.insert(
       "users",
