@@ -3,6 +3,7 @@ import { docOf } from "../../lib/docs"
 import { prefillsTable } from "./models"
 import { arkOutputToConvex } from "../../lib/ark"
 import { arkMutation, authedMutation, authedQuery } from "../../lib/functions"
+import { cut } from "../../lib/unmark"
 import { previewOf } from "../jobs/links"
 import { fieldOrder, rowLimits, sectionOfOrder } from "../preferences/rows"
 import { rowOf } from "../preferences/utils"
@@ -168,7 +169,7 @@ const get = authedQuery({
               ...(lead.location && { location: lead.location }),
             }
           : null,
-      preview: job ? previewOf(job.text) : (lead?.snippet ?? "").slice(0, 240),
+      preview: job ? previewOf(job.text) : cut(lead?.snippet ?? "", 240),
       canDraft: Boolean((await rowOf(ctx, ctx.userId))?.resumeText),
     }
   },

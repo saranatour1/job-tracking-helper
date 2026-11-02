@@ -1,4 +1,5 @@
 import { markdownOf } from "../../lib/markdown"
+import { cut } from "../../lib/unmark"
 
 export const boardKinds = [
   "greenhouse",
@@ -32,7 +33,7 @@ const hackerNews = "https://hn.algolia.com/api/v1"
 // An Arbeitsagentur board is one saved search, not one company, since it holds about a million
 // roles: "what|where", in lowercase. The rest of a board's life is the same as any other.
 export const searchSlug = (what: string, where: string) =>
-  [what, where].map((w) => w.replace(/\|/g, " ").trim().toLowerCase().slice(0, 80)).join("|")
+  [what, where].map((w) => cut(w.replace(/\|/g, " ").trim().toLowerCase(), 80)).join("|")
 const searchOf = (slug: string) => {
   const [what = "", where = ""] = slug.split("|")
   return { what, where }
@@ -146,7 +147,7 @@ export const plainText = (html: string) =>
     .trim()
 
 const textOf = (title: string, company: string, location: string, description: string) =>
-  `${title}\n${company} · ${location}\n\n${description}`.slice(0, maxText)
+  cut(`${title}\n${company} · ${location}\n\n${description}`, maxText)
 
 const escapeHtml = (s: string) =>
   s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;")
@@ -258,15 +259,15 @@ export const parseFeed = (
               String.fromCodePoint(parseInt(hex, 16))
             )
         )
-        const company = top.split(/\s[|—–-]\s/)[0]!.slice(0, 120)
+        const company = cut(top.split(/\s[|—–-]\s/)[0]!, 120)
         return {
           url: `https://news.ycombinator.com/item?id=${str(String(c.id))}`,
-          title: top.slice(0, 160),
+          title: cut(top, 160),
           company,
           location: "",
           remote: isRemote(top),
           postedAt: timeOf(Number(c.created_at_i) * 1000, now),
-          text: textOf(top.slice(0, 160), company, "", describe(str(c.text), "")),
+          text: textOf(cut(top, 160), company, "", describe(str(c.text), "")),
         }
       })
   }

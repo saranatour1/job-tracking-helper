@@ -2,6 +2,7 @@ import { ConvexError, type Infer } from "convex/values"
 import { internal } from "../../_generated/api"
 import type { Doc, Id } from "../../_generated/dataModel"
 import type { ActionCtx } from "../../_generated/server"
+import { cut } from "../../lib/unmark"
 import { companyOf, maxText } from "../jobs/boards"
 import { boardOf, isClosedSite, previewOf } from "../jobs/links"
 import { apiKeyOf } from "../workflows/sources"
@@ -29,7 +30,7 @@ export const scrape = async (url: string) => {
       )
     ).data
   )
-  const page = text(data.markdown).slice(0, maxText)
+  const page = cut(text(data.markdown), maxText)
   if (!page) throw new ConvexError("That page has no text we could read.")
   const host = new URL(url).hostname.replace(/^(www|jobs|careers)\./, "")
   return {
@@ -43,12 +44,12 @@ export const scrape = async (url: string) => {
 
 // What someone pasted from a page the app can't read. The link is only kept, never fetched.
 export const pastedPosting = (url: string, pasted: string, company: string) => {
-  const text = pasted.trim().slice(0, maxText)
+  const text = cut(pasted.trim(), maxText)
   if (text.length < 40) throw new ConvexError("Paste the whole posting, so Jev has enough to read.")
   const host = new URL(url).hostname.replace(/^(www|jobs|careers|de)\./, "")
   return {
-    title: text.split("\n")[0]!.trim().slice(0, 160),
-    company: company.trim().slice(0, 120) || companyOf(host.split(".")[0] ?? host),
+    title: cut(text.split("\n")[0]!.trim(), 160),
+    company: cut(company.trim(), 120) || companyOf(host.split(".")[0] ?? host),
     location: "",
     remote: /remote|home.?office/i.test(text.slice(0, 1500)),
     text,
@@ -72,7 +73,7 @@ export const judgePasted = async (
       title: page.title,
       company: page.company,
       location: page.location,
-      snippet: page.text.slice(page.title.length).replace(/\s+/g, " ").trim().slice(0, 300),
+      snippet: cut(page.text.slice(page.title.length).replace(/\s+/g, " ").trim(), 300),
       text: page.text,
       ...verdict,
     },
