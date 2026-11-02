@@ -422,6 +422,7 @@ export declare const components: {
   workflow: import("@convex-dev/workflow/_generated/component.js").ComponentApi<"workflow">;
   readPool: import("@convex-dev/workpool/_generated/component.js").ComponentApi<"readPool">;
   applyPool: import("@convex-dev/workpool/_generated/component.js").ComponentApi<"applyPool">;
+  catalogPool: import("@convex-dev/workpool/_generated/component.js").ComponentApi<"catalogPool">;
   rateLimiter: import("@convex-dev/rate-limiter/_generated/component.js").ComponentApi<"rateLimiter">;
   batchWorker: import("@convex-dev/batch-worker/_generated/component.js").ComponentApi<"batchWorker">;
   automationRunCounts: import("@convex-dev/aggregate/_generated/component.js").ComponentApi<"automationRunCounts">;

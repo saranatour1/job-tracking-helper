@@ -16,6 +16,8 @@ export const {
   boardPostings,
   closeJobs,
   boardFetched,
+  rollUpBoard,
+  countBoards,
   researchDue,
   researchInputs,
   saveResearch,

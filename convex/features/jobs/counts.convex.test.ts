@@ -2,8 +2,9 @@
 /// <reference types="vite/client" />
 import aggregate from "@convex-dev/aggregate/test"
 import shardedCounter from "@convex-dev/sharded-counter/test"
+import workpool from "@convex-dev/workpool/test"
 import { convexTest } from "convex-test"
-import { describe, expect, it } from "vite-plus/test"
+import { afterEach, beforeEach, describe, expect, it, vi } from "vite-plus/test"
 
 import { api, internal } from "../../_generated/api"
 import type { Id } from "../../_generated/dataModel"
@@ -22,10 +23,14 @@ const setup = () => {
   aggregate.register(t, "jobRoleCounts")
   aggregate.register(t, "jobDomainCounts")
   shardedCounter.register(t)
+  workpool.register(t, "catalogPool")
   return t
 }
 
 type T = ReturnType<typeof setup>
+
+beforeEach(() => void vi.useFakeTimers())
+afterEach(() => void vi.useRealTimers())
 
 const feedJob = (n: number, company = "Stripe") => ({
   url: `https://example.com/jobs/${n}`,
@@ -58,6 +63,7 @@ const research = (t: T, boardId: Id<"jobBoards">, domain?: string, link?: "posti
   })
 
 const summary = async (t: T) => {
+  await t.finishAllScheduledFunctions(vi.runAllTimers)
   const stats = await t.query(api.api.jobs.stats, {})
   return { jobs: stats?.jobs, ...stats?.summary }
 }
@@ -89,6 +95,22 @@ describe("the catalog's counts", () => {
       endings: [{ ending: ".com", jobs: 3 }],
     })
     expect((await t.run((ctx) => ctx.db.get("jobBoards", boardId)))?.jobs).toBe(3)
+  })
+
+  it("leaves the shared totals to the queue, so saves side by side don't collide", async () => {
+    const t = setup()
+    await ready(t)
+    const boardId = await addBoard(t, "stripe")
+    await research(t, boardId, "stripe.com", "postings")
+    await t.finishAllScheduledFunctions(vi.runAllTimers)
+    await save(t, boardId, 0, 3)
+    // The board's own count and the role rows are already there; the totals aren't yet.
+    expect((await t.run((ctx) => ctx.db.get("jobBoards", boardId)))?.jobs).toBe(3)
+    expect(await t.query(api.api.jobs.stats, {})).toMatchObject({
+      jobs: 0,
+      summary: { domains: 0 },
+    })
+    expect(await summary(t)).toMatchObject({ jobs: 3, domains: 1, own: 3 })
   })
 
   it("takes out closed roles, and a domain once its last role goes", async () => {
@@ -186,6 +208,7 @@ describe("the catalog's counts", () => {
     await t.mutation(internal.api.jobs.closeJobs, { jobIds: await jobIdsOf(t, boardId) })
     await t.mutation(internal.api.jobs.boardFetched, { boardId, jobs: 0 })
     expect(await t.run((ctx) => ctx.db.get("jobBoards", boardId))).toBeNull()
+    await t.finishAllScheduledFunctions(vi.runAllTimers)
     expect(await t.query(api.api.jobs.stats, {})).toMatchObject({ boards: 0, jobs: 0 })
   })
 
@@ -214,7 +237,7 @@ describe("moving postings to their new keys", () => {
     })
     expect(await summary(t)).toMatchObject({ jobs: 110, own: 110 })
     await t.mutation(internal.api.migrations.fillPostingKeys, {})
-    await t.finishAllScheduledFunctions(() => {})
+    await t.finishAllScheduledFunctions(vi.runAllTimers)
     expect(await summary(t)).toMatchObject({ jobs: 60, own: 60, domains: 1 })
     expect((await t.run((ctx) => ctx.db.get("jobBoards", boardId)))?.jobs).toBe(60)
   })

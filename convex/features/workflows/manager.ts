@@ -43,3 +43,7 @@ export const applyPool = new Workpool(components.applyPool, {
   maxParallelism: 2,
   retryActionsByDefault: false,
 })
+
+// One at a time: every board's counts end up in the same few rows, so their writes wait in line
+// here rather than collide while boards refresh side by side.
+export const catalogPool = new Workpool(components.catalogPool, { maxParallelism: 1 })

@@ -1,8 +1,10 @@
 import { stream } from "convex-helpers/server/stream"
 import type { ObjectType } from "convex/values"
+import { internal } from "../../_generated/api"
 import type { Doc, Id } from "../../_generated/dataModel"
 import type { MutationCtx, QueryCtx } from "../../_generated/server"
 import schema from "../../schema"
+import { catalogPool } from "../workflows/manager"
 import { endingOf, proofOf } from "./domains"
 import { previewOf } from "./links"
 import type { vJobSearchArgs } from "./validators"
@@ -163,15 +165,7 @@ export const searchJobs = async (
 
 export const refreshEvery = 20 * 60 * 60 * 1000
 
-/** Keeps the catalog's number of boards, after a write to `jobBoards`, in the same mutation. The
- * first time, there's nothing to add to, so it counts what's there. */
-export const countCatalog = async (ctx: MutationCtx, change: { boards?: number }) => {
-  const row = await ctx.db.query("jobCatalog").first()
-  if (row) {
-    await ctx.db.patch("jobCatalog", row._id, { boards: row.boards + (change.boards ?? 0) })
-    return
-  }
-  let boards = 0
-  for await (const _ of ctx.db.query("jobBoards")) boards++
-  await ctx.db.insert("jobCatalog", { boards })
-}
+/** Queues a change to the catalog's number of boards, after a write to `jobBoards`, in the same
+ * mutation. Read nothing here: looking at the row would collide with the queue writing it. */
+export const countCatalog = (ctx: MutationCtx, change: { boards?: number }) =>
+  catalogPool.enqueueMutation(ctx, internal.api.jobs.countBoards, change)

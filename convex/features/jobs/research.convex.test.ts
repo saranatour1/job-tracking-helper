@@ -5,7 +5,7 @@ import rateLimiter from "@convex-dev/rate-limiter/test"
 import shardedCounter from "@convex-dev/sharded-counter/test"
 import workpool from "@convex-dev/workpool/test"
 import { convexTest } from "convex-test"
-import { afterEach, describe, expect, it, vi } from "vite-plus/test"
+import { afterEach, beforeEach, describe, expect, it, vi } from "vite-plus/test"
 
 import { api, internal } from "../../_generated/api"
 import type { Doc, Id } from "../../_generated/dataModel"
@@ -19,7 +19,9 @@ const modules = import.meta.glob([
   "!../../**/*.test.ts",
 ])
 
+beforeEach(() => void vi.useFakeTimers())
 afterEach(() => {
+  vi.useRealTimers()
   vi.unstubAllGlobals()
   vi.unstubAllEnvs()
 })
@@ -30,6 +32,7 @@ const setup = () => {
   aggregate.register(t, "jobRoleCounts")
   aggregate.register(t, "jobDomainCounts")
   shardedCounter.register(t)
+  workpool.register(t, "catalogPool")
   return t
 }
 

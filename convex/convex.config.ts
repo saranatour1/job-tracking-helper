@@ -62,6 +62,7 @@ app.use(authGithub, {
 app.use(workflow)
 app.use(workpool, { name: "readPool" })
 app.use(workpool, { name: "applyPool" })
+app.use(workpool, { name: "catalogPool" })
 app.use(rateLimiter)
 app.use(batchWorker)
 
