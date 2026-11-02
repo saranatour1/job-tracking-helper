@@ -2,6 +2,7 @@ import { v } from "convex/values"
 import { internal } from "../../_generated/api"
 import type { Id } from "../../_generated/dataModel"
 import { internalMutation, internalQuery } from "../../_generated/server"
+import { cut } from "../../lib/unmark"
 import { switchAt } from "../loops/catalog"
 import { addUsage, usageOf } from "../loops/usage"
 import { roleKey, urlKey } from "../workflows/fit"
@@ -97,7 +98,7 @@ const addSearches = internalMutation({
         await ctx.db.insert("jobBoards", {
           kind: "arbeitsagentur",
           slug,
-          company: `Arbeitsagentur: ${what.trim().slice(0, 80)}, ${where.trim().slice(0, 80)}`,
+          company: `Arbeitsagentur: ${cut(what.trim(), 80)}, ${cut(where.trim(), 80)}`,
           addedAt: Date.now(),
           jobs: 0,
         })
@@ -186,7 +187,7 @@ const boardFetched = internalMutation({
       await ctx.db.patch("jobBoards", boardId, {
         fetchedAt: Date.now(),
         error,
-        ...(company?.trim() && { company: company.trim().slice(0, 120) }),
+        ...(company?.trim() && { company: cut(company.trim(), 120) }),
       })
     return null
   },

@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vite-plus/test"
 
-import { detailUrls, feedUrl, parseFeed, plainText, searchSlug } from "./boards"
+import { detailUrls, feedUrl, maxText, parseFeed, plainText, searchSlug } from "./boards"
 import { boardOf, canPrepare, formUrlOf, isClosedSite, previewOf } from "./links"
 
 const now = Date.parse("2026-10-28T08:00:00Z")
@@ -350,5 +350,40 @@ describe("plainText and previewOf", () => {
   it("turns HTML into lines and previews the description without the title", () => {
     expect(plainText("<h2>About</h2><p>We build<br>tools</p>")).toBe("About\nWe build\ntools")
     expect(previewOf("Engineer\nAcme · Remote\n\nWe build tools.")).toBe("We build tools.")
+  })
+})
+
+// Half an emoji can't cross into or out of a Convex function: the whole call fails.
+describe("cutting text to length", () => {
+  const halfEmoji = /[\uD800-\uDBFF]$/
+
+  it("keeps a role's text whole wherever the limit lands", () => {
+    for (const title of ["T", "TT"]) {
+      const [job] = parseFeed(
+        "lever",
+        "acme",
+        [
+          {
+            text: title,
+            hostedUrl: "https://jobs.lever.co/acme/1",
+            categories: { location: "Berlin" },
+            descriptionPlain: "🙂".repeat(maxText),
+            createdAt: now,
+          },
+        ],
+        now
+      )
+      expect(job?.text).not.toMatch(halfEmoji)
+      expect(job?.text.length).toBeGreaterThanOrEqual(maxText - 1)
+    }
+  })
+
+  it("keeps a preview whole wherever the limit lands", () => {
+    expect(previewOf(`Engineer\n\n${"a".repeat(239)}🙂`)).toBe("a".repeat(239))
+    expect(previewOf(`Engineer\n\n${"a".repeat(238)}🙂`)).toBe(`${"a".repeat(238)}🙂`)
+  })
+
+  it("keeps a search's name whole", () => {
+    expect(searchSlug(`${"a".repeat(79)}🙂`, "Berlin")).toBe(`${"a".repeat(79)}|berlin`)
   })
 })

@@ -1,4 +1,4 @@
-import { unmark } from "../../lib/unmark"
+import { cut, unmark } from "../../lib/unmark"
 import type { BoardKind } from "./boards"
 
 // Apart from boards.ts so what only reads a link or a preview doesn't load the HTML parser.
@@ -46,6 +46,4 @@ export const isClosedSite = (url: string) =>
   URL.canParse(url) && closedSites.test(new URL(url).hostname.toLowerCase())
 
 export const previewOf = (text: string, length = 240) =>
-  unmark(text.split("\n\n").slice(1).join(" ") || text)
-    .replace(/\s+/g, " ")
-    .slice(0, length)
+  cut(unmark(text.split("\n\n").slice(1).join(" ") || text).replace(/\s+/g, " "), length)
