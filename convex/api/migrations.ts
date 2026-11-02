@@ -2,8 +2,7 @@ import { v } from "convex/values"
 import { internal } from "../_generated/api"
 import type { Id } from "../_generated/dataModel"
 import { internalMutation, internalQuery } from "../_generated/server"
-import { fitOf, syncSend } from "../features/applications/utils"
-import { isSent } from "../features/applications/validators"
+import { fitOf } from "../features/applications/utils"
 import { syncMailSummary } from "../features/email/utils"
 import { companyOf, nonTechStarters, techFeeds } from "../features/jobs/boards"
 import { isCompanyBoard } from "../features/jobs/boards"
@@ -185,57 +184,5 @@ export const addNewStarters = internalMutation({
     }
     if (added) await countCatalog(ctx, { boards: added })
     return added
-  },
-})
-
-// One-off: records every sent application, including what's in the Trash, from its history. Safe
-// to run again. Run it on each deployment:
-//   npx convex run api/migrations:fillSends
-//   npx convex run api/migrations:sendsLeft
-// Delete it once that's done everywhere.
-export const fillSends = internalMutation({
-  args: { cursor: v.optional(v.union(v.string(), v.null())) },
-  returns: v.null(),
-  handler: async (ctx, { cursor }) => {
-    const page = await ctx.db
-      .query("applications")
-      .paginate({ cursor: cursor ?? null, numItems: 100 })
-    for (const application of page.page) {
-      if (application.status === "saved") continue
-      const sent = application.history.find((e) => isSent(e.status))
-      if (sent || isSent(application.status))
-        await syncSend(
-          ctx,
-          application.userId,
-          application._id,
-          "applied",
-          sent?.at ?? application._creationTime
-        )
-    }
-    if (!page.isDone)
-      await ctx.scheduler.runAfter(0, internal.api.migrations.fillSends, {
-        cursor: page.continueCursor,
-      })
-    return null
-  },
-})
-
-// Sent applications with no row. Zero once the fill has finished.
-export const sendsLeft = internalQuery({
-  args: {},
-  returns: v.number(),
-  handler: async (ctx) => {
-    let left = 0
-    for await (const application of ctx.db.query("applications")) {
-      if (application.status === "saved") continue
-      if (!application.history.some((e) => isSent(e.status)) && !isSent(application.status))
-        continue
-      const send = await ctx.db
-        .query("applicationSends")
-        .withIndex("by_applicationId", (q) => q.eq("applicationId", application._id))
-        .unique()
-      if (!send) left++
-    }
-    return left
   },
 })

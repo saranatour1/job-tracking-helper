@@ -92,6 +92,7 @@ describe("deleting an account", () => {
         failed: false,
         outcome: "done",
       })
+      await ctx.db.insert("applicationSends", { userId: me, applicationId: theirs, at: 1 })
     })
     vi.advanceTimersByTime(1000)
     await t.run((ctx) => startDelete(ctx, { kind: "account", userId: me, before: Date.now() }))
@@ -100,11 +101,13 @@ describe("deleting an account", () => {
       applications: await ctx.db.query("applications").collect(),
       goals: await ctx.db.query("goals").collect(),
       activity: await ctx.db.query("activityEvents").collect(),
+      sends: await ctx.db.query("applicationSends").collect(),
       jobs: await ctx.db.query("deleteJobs").collect(),
     }))
     expect(left.applications.map((a) => a._id)).toEqual([theirs])
     expect(left.goals).toEqual([])
     expect(left.activity).toEqual([])
+    expect(left.sends).toEqual([])
     expect(left.jobs).toEqual([])
   })
 

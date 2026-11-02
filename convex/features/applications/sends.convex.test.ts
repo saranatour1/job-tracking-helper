@@ -6,8 +6,7 @@ import workpool from "@convex-dev/workpool/test"
 import { convexTest } from "convex-test"
 import { afterEach, beforeEach, describe, expect, it, vi } from "vite-plus/test"
 
-import { api, internal } from "../../_generated/api"
-import type { Id } from "../../_generated/dataModel"
+import { api } from "../../_generated/api"
 import cloudflareSchema from "../../components/cloudflareEmail/schema"
 import notificationsSchema from "../../components/notifications/schema"
 import schema from "../../schema"
@@ -93,33 +92,5 @@ describe("what counts as sent", () => {
     const other = await t.run((ctx) => ctx.db.insert("users", { name: "Alex" }))
     const theirs = t.withIdentity({ subject: other })
     expect(await theirs.query(api.api.applications.sends, {})).toEqual([])
-  })
-})
-
-describe("filling in old applications", () => {
-  const row = (userId: Id<"users">, status: "saved" | "applied" | "withdrawn", at: number) => ({
-    userId,
-    company: "Hooli",
-    role: "Engineer",
-    status,
-    number: 1,
-    history: [
-      { status: "saved" as const, at: at - 5 },
-      ...(status === "saved" ? [] : [{ status, at }]),
-    ],
-  })
-
-  it("uses the first sent event, includes the Trash, skips what wasn't sent, and can run again", async () => {
-    const { t, userId, sends } = await setup()
-    await t.run(async (ctx) => {
-      await ctx.db.insert("applications", row(userId, "applied", 100))
-      await ctx.db.insert("applications", { ...row(userId, "applied", 200), trashedAt: 300 })
-      await ctx.db.insert("applications", row(userId, "saved", 400))
-      await ctx.db.insert("applications", row(userId, "withdrawn", 500))
-    })
-    await t.mutation(internal.api.migrations.fillSends, {})
-    await t.mutation(internal.api.migrations.fillSends, {})
-    expect(await sends()).toEqual([200, 100])
-    expect(await t.query(internal.api.migrations.sendsLeft, {})).toBe(0)
   })
 })
