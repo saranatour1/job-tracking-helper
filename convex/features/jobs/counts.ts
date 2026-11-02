@@ -1,8 +1,9 @@
 import { DirectAggregate, TableAggregate } from "@convex-dev/aggregate"
 import { ShardedCounter } from "@convex-dev/sharded-counter"
-import { components } from "../../_generated/api"
+import { components, internal } from "../../_generated/api"
 import type { DataModel, Doc, Id } from "../../_generated/dataModel"
 import type { MutationCtx, QueryCtx } from "../../_generated/server"
+import { catalogPool } from "../workflows/manager"
 import { isCompanyBoard } from "./boards"
 import { endingOf, type Proof, proofOf, proofs } from "./domains"
 
@@ -50,7 +51,13 @@ export const placeOf = async (ctx: QueryCtx, board: Doc<"jobBoards">): Promise<P
 const domainTotal = (ctx: QueryCtx, domain: string) =>
   domainCounts.sum(ctx, { namespace: endingOf(domain), bounds: { prefix: [domain] } })
 
-const rollUp = async (ctx: MutationCtx, boardId: Id<"jobBoards">, was: Place, now: Place) => {
+/** Only ever on catalogPool, so it's the one writer of these trees and totals. */
+export const rollUp = async (
+  ctx: MutationCtx,
+  boardId: Id<"jobBoards">,
+  was: Place,
+  now: Place
+) => {
   const domains = [...new Set([was.domain, now.domain])].filter((d) => d !== null)
   const before = await Promise.all(domains.map((d) => domainTotal(ctx, d)))
   if (was.domain)
@@ -73,8 +80,11 @@ const rollUp = async (ctx: MutationCtx, boardId: Id<"jobBoards">, was: Place, no
   await add(ctx, now.proof, now.jobs)
 }
 
+// ponytail: a change is carried as before and after, so one that fails is lost from the totals
+// until a backfill. Store what each board last rolled up if they ever drift.
 /** After a write to `jobs`, or to where a board's roles are counted, in the same mutation: brings
- * the board's count and all that's rolled up from it to what its roles now say. */
+ * the board's count to what its roles now say, and queues what's rolled up from it, so those totals
+ * follow a moment later. */
 export const recount = async (ctx: MutationCtx, boardId: Id<"jobBoards">, placed?: Place) => {
   const board = await ctx.db.get("jobBoards", boardId)
   if (!board) return
@@ -83,7 +93,7 @@ export const recount = async (ctx: MutationCtx, boardId: Id<"jobBoards">, placed
   const now = { ...(await placeOf(ctx, board)), jobs }
   if (jobs !== board.jobs) await ctx.db.patch("jobBoards", boardId, { jobs })
   if (was.proof !== now.proof || was.domain !== now.domain || was.jobs !== now.jobs)
-    await rollUp(ctx, boardId, was, now)
+    await catalogPool.enqueueMutation(ctx, internal.api.jobs.rollUpBoard, { boardId, was, now })
 }
 
 export const insertJob = async (

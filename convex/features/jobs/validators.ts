@@ -39,6 +39,12 @@ export const vEvidence = v.object({
 
 export const vProof = v.union(...proofs.map((p) => v.literal(p)))
 
+export const vPlace = v.object({
+  proof: vProof,
+  domain: v.union(v.string(), v.null()),
+  jobs: v.number(),
+})
+
 export const vCatalogSummary = v.object({
   domains: v.number(),
   own: v.number(),

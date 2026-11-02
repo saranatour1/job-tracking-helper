@@ -156,7 +156,7 @@ A company row holds what's true of a domain. How a board reached that domain is 
 | `@convex-dev/auth`            | accounts and sessions                                                                       | `users`                                            |
 | `@convex-dev/batch-worker`    | the loops that run big deletes and add finished judgments to their run, one batch at a time | `deleteJobs`, `judgedReads`                        |
 | `@convex-dev/workflow`        | each run's steps, retries and results                                                       | `loopRuns.workflowId`, `automationRuns.workflowId` |
-| `@convex-dev/workpool`        | `readPool` (fetches, judgments) and `applyPool` (prepares)                                  | `loopRuns.readWorkIds`                             |
+| `@convex-dev/workpool`        | `readPool` (fetches, judgments), `applyPool` (prepares) and `catalogPool` (catalog totals)  | `loopRuns.readWorkIds`                             |
 | `@convex-dev/rate-limiter`    | per-source and per-person budgets                                                           | nothing                                            |
 | `@convex-dev/aggregate`       | run and answer counts for workflows; roles per board and company; roles per domain          | nothing                                            |
 | `@convex-dev/sharded-counter` | the catalog's totals: domains, and roles by proof                                           | nothing                                            |
@@ -380,6 +380,8 @@ The workflow, workpool and rate limiter components bring their own tables. The a
 
 `readPool` is the batch worker. The hourly refresh hands it the boards that are due, and a run hands it all its roles in one `enqueueActionBatch` call. It runs 8 at a time across everything, and each job retries twice. A judgment's `onComplete` leaves a row in `judgedReads`, because 8 workers writing to one run would conflict. One batch worker adds those rows to the run's tally on `loopRuns` (`readsLeft`, `candidates`, cost, failures), up to 25 at a time, and sends the workflow a `judged` event after the last one. The workflow waits for that with `step.awaitEvent` before saving every verdict.
 
+`catalogPool` is the only writer of `jobCatalog`, `jobDomainCounts` and the totals in the sharded counter. Every board's counts end up in those few rows, so boards refreshing side by side collided there. A save still writes its roles, `jobRoleCounts` and `jobBoards.jobs` itself, then queues the change with the board's count before and after. It runs one at a time, in order, so those totals follow a moment after the roles.
+
 Jev needs no key: `@convex-dev/ai-sdk-provider` signs gateway calls with the deployment's own token, and the gateway bills the Convex team. Search sources' monthly credits come from the Convex env (`FIRECRAWL_MONTHLY_CREDITS`, `CONTEXT_DEV_MONTHLY_CREDITS`) and default to the free plans: 500 for Firecrawl and 1,000 for context.dev.
 
 ### One run
@@ -421,14 +423,14 @@ convex/features/jobs/           the shared catalog
   validators.ts, utils.ts            shapes; a row for the Jobs page
   public.ts, internal.ts, actions.ts search for the Jobs page; refresh, save, pick; fetchBoard
 convex/features/workflows/      what runs a loop
-  manager.ts                         WorkflowManager, readPool and the rate limits
+  manager.ts                         WorkflowManager, the worker pools and the rate limits
   findJobs.ts                        the run, step by step
   actions.ts, utils.ts               search (one batch) and judgeOne (one role, on readPool); judge, turn
   judge.ts                           the profile, Jev's questions, the breakdown and the verdict rules
   fit.ts                             search words, posting and role keys
   sources/                           firecrawl.ts, contextDev.ts, index.ts (keys and credits)
 convex/crons.ts                      start due loops and workflows, refresh boards, sweeps, restart stuck workers
-convex/convex.config.ts              the components: workflow, readPool, applyPool, rate limiter, batch worker, aggregates
+convex/convex.config.ts              the components: workflow, readPool, applyPool, catalogPool, rate limiter, batch worker, aggregates
 convex/lib/log.ts                    evlog wide events; features/activity/utils.ts keeps them for their owner
 ```
 

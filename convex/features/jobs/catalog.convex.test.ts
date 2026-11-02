@@ -2,8 +2,9 @@
 /// <reference types="vite/client" />
 import aggregate from "@convex-dev/aggregate/test"
 import shardedCounter from "@convex-dev/sharded-counter/test"
+import workpool from "@convex-dev/workpool/test"
 import { convexTest } from "convex-test"
-import { afterEach, describe, expect, it, vi } from "vite-plus/test"
+import { afterEach, beforeEach, describe, expect, it, vi } from "vite-plus/test"
 
 import { api, internal } from "../../_generated/api"
 import type { Id } from "../../_generated/dataModel"
@@ -26,11 +27,15 @@ const board = (n: number, jobs: number) => ({
   jobs,
 })
 
+beforeEach(() => void vi.useFakeTimers())
+afterEach(() => void vi.useRealTimers())
+
 const setup = async () => {
   const t = convexTest(schema, modules)
   aggregate.register(t, "jobRoleCounts")
   aggregate.register(t, "jobDomainCounts")
   shardedCounter.register(t)
+  workpool.register(t, "catalogPool")
   const userId = await t.run((ctx) => ctx.db.insert("users", { name: "Sam" }))
   return { t, as: t.withIdentity({ subject: userId }) }
 }
@@ -47,6 +52,7 @@ describe("the job catalog's totals", () => {
       for (let n = 0; n < 1001; n++) await ctx.db.insert("jobBoards", board(n, 2))
       await countCatalog(ctx, {})
     })
+    await t.finishAllScheduledFunctions(vi.runAllTimers)
     expect(await as.query(api.api.jobs.stats, {})).toMatchObject({ boards: 1001 })
   })
 
@@ -55,6 +61,7 @@ describe("the job catalog's totals", () => {
     await t.run((ctx) => ctx.db.insert("jobBoards", board(1, 5)))
     await t.mutation(internal.api.jobs.ensureBoard, { kind: "lever", slug: "hooli" })
     await t.mutation(internal.api.jobs.ensureBoard, { kind: "lever", slug: "hooli" })
+    await t.finishAllScheduledFunctions(vi.runAllTimers)
     expect(await as.query(api.api.jobs.stats, {})).toMatchObject({ boards: 2 })
   })
 })
@@ -231,6 +238,7 @@ describe("Arbeitsagentur searches", () => {
       slug: "lagerist|münchen",
       company: "Arbeitsagentur: Lagerist, München",
     })
+    await t.finishAllScheduledFunctions(vi.runAllTimers)
     expect(await as.query(api.api.jobs.stats, {})).toMatchObject({ boards: 1, jobs: 0 })
     // A failed fetch doesn't count as none.
     await t.mutation(internal.api.jobs.boardFetched, {
@@ -241,6 +249,7 @@ describe("Arbeitsagentur searches", () => {
     expect(await t.run((ctx) => ctx.db.get("jobBoards", boardId!))).not.toBeNull()
     await t.mutation(internal.api.jobs.boardFetched, { boardId: boardId!, jobs: 0 })
     expect(await t.run((ctx) => ctx.db.get("jobBoards", boardId!))).toBeNull()
+    await t.finishAllScheduledFunctions(vi.runAllTimers)
     expect(await as.query(api.api.jobs.stats, {})).toMatchObject({ boards: 0, jobs: 0 })
   })
 })
@@ -397,7 +406,7 @@ describe("duplicates", () => {
 
     expect(await t.query(internal.api.migrations.postingKeysLeft, {})).toBe(2)
     await t.mutation(internal.api.migrations.fillPostingKeys, {})
-    await t.finishAllScheduledFunctions(() => undefined)
+    await t.finishAllScheduledFunctions(vi.runAllTimers)
 
     expect(await t.query(internal.api.migrations.postingKeysLeft, {})).toBe(0)
     const { kept, gone, moved, prefill } = await t.run(async (ctx) => ({
@@ -548,6 +557,7 @@ describe("domains", () => {
         })
       await recount(ctx, pooled)
     })
+    await t.finishAllScheduledFunctions(vi.runAllTimers)
     const { page } = await as.query(api.api.jobs.search, { paginationOpts: opts })
     expect(page.find((j) => j.company === "Wren")?.evidence).toMatchObject({
       open: 1,
@@ -559,6 +569,7 @@ describe("domains", () => {
 
   it("sums up the catalog by proof and ending", async () => {
     const { t } = await withDomains()
+    await t.finishAllScheduledFunctions(vi.runAllTimers)
     expect((await t.query(api.api.jobs.stats, {}))?.summary).toEqual({
       domains: 2,
       own: 3,

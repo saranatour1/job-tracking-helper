@@ -10,10 +10,16 @@ import { readPool } from "../workflows/manager"
 import { apiKeyOf, monthlyCredits, monthOf } from "../workflows/sources"
 import { boardKinds, companyOf, isCompanyBoard, searchSlug, starterBoards } from "./boards"
 import { researchBatch, researchEvery } from "./companies"
-import { deleteJob, insertJob, placeOf, recount, roleCounts } from "./counts"
+import { deleteJob, insertJob, placeOf, recount, roleCounts, rollUp } from "./counts"
 import { leadOf } from "./leads"
 import { boardOf } from "./links"
-import { vFeedJob, vBoardFetchedArgs, vCandidatesArgs, vSaveResearchArgs } from "./validators"
+import {
+  vFeedJob,
+  vBoardFetchedArgs,
+  vCandidatesArgs,
+  vPlace,
+  vSaveResearchArgs,
+} from "./validators"
 import { countCatalog, refreshEvery } from "./utils"
 
 const refreshDue = internalMutation({
@@ -189,6 +195,34 @@ const boardFetched = internalMutation({
         error,
         ...(company?.trim() && { company: cut(company.trim(), 120) }),
       })
+    return null
+  },
+})
+
+const rollUpBoard = internalMutation({
+  args: { boardId: v.id("jobBoards"), was: vPlace, now: vPlace },
+  returns: v.null(),
+  handler: async (ctx, { boardId, was, now }) => {
+    await rollUp(ctx, boardId, was, now)
+    return null
+  },
+})
+
+// The first time, there's nothing to add to, so it counts what's there.
+// ponytail: boards added while that first count waits in line are counted twice, which only a
+// brand new deployment could see. Deleting the row recounts.
+const countBoards = internalMutation({
+  args: { boards: v.optional(v.number()) },
+  returns: v.null(),
+  handler: async (ctx, { boards: change }) => {
+    const row = await ctx.db.query("jobCatalog").first()
+    if (row) {
+      await ctx.db.patch("jobCatalog", row._id, { boards: row.boards + (change ?? 0) })
+      return null
+    }
+    let boards = 0
+    for await (const _ of ctx.db.query("jobBoards")) boards++
+    await ctx.db.insert("jobCatalog", { boards })
     return null
   },
 })
@@ -403,6 +437,8 @@ export const internalApi = {
   boardPostings,
   closeJobs,
   boardFetched,
+  rollUpBoard,
+  countBoards,
   researchDue,
   researchInputs,
   saveResearch,

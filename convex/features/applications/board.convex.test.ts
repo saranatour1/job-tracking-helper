@@ -1,7 +1,8 @@
 // @vitest-environment edge-runtime
 /// <reference types="vite/client" />
+import workpool from "@convex-dev/workpool/test"
 import { convexTest } from "convex-test"
-import { describe, expect, it } from "vite-plus/test"
+import { afterEach, beforeEach, describe, expect, it, vi } from "vite-plus/test"
 
 import { api, internal } from "../../_generated/api"
 import type { Id } from "../../_generated/dataModel"
@@ -15,8 +16,12 @@ const modules = import.meta.glob([
   "!../../**/*.test.ts",
 ])
 
+beforeEach(() => void vi.useFakeTimers())
+afterEach(() => void vi.useRealTimers())
+
 const setup = async () => {
   const t = convexTest(schema, modules)
+  workpool.register(t, "catalogPool")
   const userId = await t.run((ctx) => ctx.db.insert("users", { name: "Sam" }))
   return { t, userId, as: t.withIdentity({ subject: userId }) }
 }
@@ -142,7 +147,7 @@ describe("fit on the board", () => {
       }
     })
     await t.mutation(internal.api.migrations.fillBoardFields, {})
-    await t.finishAllScheduledFunctions(() => undefined)
+    await t.finishAllScheduledFunctions(vi.runAllTimers)
     const cards = await as.query(api.api.applications.list, {})
     expect(cards.filter((c) => c.fit === 80 && c.isFit === false)).toHaveLength(1001)
   })
@@ -225,6 +230,7 @@ describe("the fill for existing applications", () => {
       at: 2,
       kind: "offer",
     })
+    await t.finishAllScheduledFunctions(vi.runAllTimers)
     expect(await t.run((ctx) => ctx.db.query("jobCatalog").first())).toMatchObject({
       boards: 1,
     })
