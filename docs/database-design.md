@@ -89,6 +89,7 @@ These have no owner. Deleting an account leaves them.
 | `jobBoards`   | one feed the catalog reads, usually a company's board, and its count | 2, 3             | `by_kind_and_slug`, `by_fetchedAt`, `by_jobs`, `by_researchedAt`, `by_companyId`                  |
 | `jobCatalog`  | one row: how many boards the catalog has                             | 3                | none                                                                                              |
 | `jobs`        | one open role from a board's feed, with its text for search          | 1, 3, 4          | `by_urlKey`, `by_boardId_and_postedAt`, `by_postedAt`, `by_remote_and_postedAt`, search on `text` |
+| `jobTrends`   | new roles in one week for one country, place or job title            | 2, 3             | `by_dimension_and_key_and_week`, `by_dimension_and_week_and_roles`                                |
 | `sourceUsage` | credits each search source used this month                           | 3                | `by_provider_and_month`                                                                           |
 
 A company row holds what's true of a domain. How a board reached that domain is on the board (`companyLink`): `postings` when its postings live on that site, `name` when only a domain matching its name turned up. Anyone can open a board under a copied name, so a copycat of a known company shares the real row but keeps `name`, and never reads as posting on that site. A board with no site found has a row of its own, since a name alone can't say two boards are one company.
@@ -151,18 +152,18 @@ A company row holds what's true of a domain. How a board reached that domain is 
 
 ### What the components keep
 
-| Component                     | Keeps                                                                                       | The app keeps                                      |
-| ----------------------------- | ------------------------------------------------------------------------------------------- | -------------------------------------------------- |
-| `@convex-dev/auth`            | accounts and sessions                                                                       | `users`                                            |
-| `@convex-dev/batch-worker`    | the loops that run big deletes and add finished judgments to their run, one batch at a time | `deleteJobs`, `judgedReads`                        |
-| `@convex-dev/workflow`        | each run's steps, retries and results                                                       | `loopRuns.workflowId`, `automationRuns.workflowId` |
-| `@convex-dev/workpool`        | `readPool` (fetches, judgments), `applyPool` (prepares) and `catalogPool` (catalog totals)  | `loopRuns.readWorkIds`                             |
-| `@convex-dev/rate-limiter`    | per-source and per-person budgets                                                           | nothing                                            |
-| `@convex-dev/aggregate`       | run and answer counts for workflows; roles per board and company; roles per domain          | nothing                                            |
-| `@convex-dev/sharded-counter` | the catalog's totals: domains, and roles by proof                                           | nothing                                            |
-| `@convex-dev/mcp`             | connected agents, API keys and tokens, stored hashed                                        | the `userId` of whoever approved                   |
-| `cloudflareEmail` (local)     | sealed emails                                                                               | `mailEvents.emailId`                               |
-| `notifications` (local)       | each person's Updates lines and muted kinds                                                 | a `ref` on each line, or an agent's `message`      |
+| Component                     | Keeps                                                                                      | The app keeps                                      |
+| ----------------------------- | ------------------------------------------------------------------------------------------ | -------------------------------------------------- |
+| `@convex-dev/auth`            | accounts and sessions                                                                      | `users`                                            |
+| `@convex-dev/batch-worker`    | the loops that run big deletes, add finished judgments to their run and count job trends   | `deleteJobs`, `judgedReads`, `jobTrends`           |
+| `@convex-dev/workflow`        | each run's steps, retries and results                                                      | `loopRuns.workflowId`, `automationRuns.workflowId` |
+| `@convex-dev/workpool`        | `readPool` (fetches, judgments), `applyPool` (prepares) and `catalogPool` (catalog totals) | `loopRuns.readWorkIds`                             |
+| `@convex-dev/rate-limiter`    | per-source and per-person budgets                                                          | nothing                                            |
+| `@convex-dev/aggregate`       | run and answer counts for workflows; roles per board and company; roles per domain         | nothing                                            |
+| `@convex-dev/sharded-counter` | the catalog's totals: domains, and roles by proof                                          | nothing                                            |
+| `@convex-dev/mcp`             | connected agents, API keys and tokens, stored hashed                                       | the `userId` of whoever approved                   |
+| `cloudflareEmail` (local)     | sealed emails                                                                              | `mailEvents.emailId`                               |
+| `notifications` (local)       | each person's Updates lines and muted kinds                                                | a `ref` on each line, or an agent's `message`      |
 
 ## What happens when something is deleted
 
@@ -193,6 +194,7 @@ Copying isn't always a normalization mistake. These stay, because the copy must 
 | `applications.mail`                                      | `mailEvents`           | every card shows it, and reading it there would mean reading and opening mail. `syncMailSummary` recounts on each write that files, moves or deletes mail |
 | `applications.fit`, `isFit`                              | `jobLeads`             | every card shows it, and a lead's fit doesn't change once it's linked                                                                                     |
 | `applicationSends.at`                                    | `applications.history` | archived applications get deleted by the Trash, and a streak has to outlive them                                                                          |
+| `jobTrends`                                              | `jobs`                 | boards drop closed roles, and a trend has to outlive them. Plain rows, since an aggregate or sharded counter can't list the top values                    |
 
 ## How much each read takes
 
@@ -220,6 +222,7 @@ No query reads a table without a limit. Convex refuses a function that reads too
 | Researching companies                       | 25 boards a batch, 20 postings from each                                            | A full batch starts the next. A board's site is read from its 20 newest postings                                                                                                                                                                                                 |
 | Proof or ending filter on Jobs              | 500 roles read a page                                                               | A rare one can come back short, and Show more carries on. On a search, only the page's matches are kept                                                                                                                                                                          |
 | Catalog counts (`jobs.stats`)               | 4 sharded counters and one sum per domain ending, no roles or boards                | Exact, whatever the catalog's size                                                                                                                                                                                                                                               |
+| Job trends (`jobs.trends`)                  | 20 values, 13 weeks each                                                            | The rest aren't shown, and a value with no roles last full week drops off the list                                                                                                                                                                                               |
 
 Everything else stops at a limit a write already enforces (goals, views, loops, workflows), or is a batch that picks up the rest on its next run (due loops, due boards, closed roles, the Trash sweep, pruning a workflow's old runs).
 

@@ -465,12 +465,18 @@ it doesn't.
 
 4. "More like this" searches by a role's title; the link icon opens the posting.
    Applications link here too.
-5. A role's title opens its own page, `/jobs/<words>-<id>`, with its full text. Sharing that link
+5. **Trends** on `/jobs` opens `/jobs/trends`, open to anyone: the 20 countries, locations or job
+   titles (`?by=place`, `?by=title`) with the most new roles last full week, each with its last 13
+   weeks and a link to search them (`api.jobs.trends`). See "By itself" for where the counts come
+   from. A week is Monday to Sunday in UTC, by the date the feed gives a role. Change, the last 4
+   full weeks against the 4 before them, stays hidden until 4 January 2027: weeks before counting
+   began lack roles that had already closed, so it would show growth that may not be real.
+6. A role's title opens its own page, `/jobs/<words>-<id>`, with its full text. Sharing that link
    shows a preview image with its title, company, place and logo (`/jobs/<id>/og.png`, drawn by
    the Worker and cached for a day, `src/features/jobs/og.tsx`). Remote-first and culture tags,
    like Flexible hours, appear only when the posting says so in its own words. A YC tag appears
    only when the board's postings live on that company's site. A role that's gone is a 404.
-6. **Prepare** makes the role a prefilled application (`api.prefilled.prepare`); see
+7. **Prepare** makes the role a prefilled application (`api.prefilled.prepare`); see
    [Prefilled applications and Activity](#prefilled-applications-and-activity). A role
    already prepared shows its status, which opens it. Only roles on Greenhouse, Lever, Ashby
    and Personio show it (`canPrepare`); you apply to the others on their own page.
@@ -494,7 +500,14 @@ it doesn't.
 **Known limits:** clearing browser storage makes a new anonymous account with 10 more searches.
 Anonymous accounts aren't removed, and signing in later starts a separate account.
 
-**By itself:** every hour (`internal.api.jobs.refreshDue`) up to 25 boards not fetched in 20
+**By itself:** every hour, `internal.api.jobs.countTrends` wakes a batch worker that reads roles
+it hasn't counted, 200 at a time and oldest saved first, and adds them to `jobTrends`
+(`features/jobs/trends.ts`). Its cursor commits with the counts, so a role counts once, and its first
+run counts every open role. A closed role stays counted. Feeds write locations as free text, so one the rules can't read
+adds nothing to a country or place (`features/jobs/dimensions.ts`). Changing those rules doesn't
+recount old rows.
+
+Also every hour (`internal.api.jobs.refreshDue`), up to 25 boards not fetched in 20
 hours go to the batch worker (`internal.api.jobs.fetchBoard`). It reads each public feed
 (Greenhouse, Lever, Ashby, Personio, SmartRecruiters, Workable, Remote OK, Hacker News's latest
 Who is hiring thread, and Arbeitsagentur searches), saves new and changed roles, leaves

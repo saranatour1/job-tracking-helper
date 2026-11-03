@@ -1,5 +1,6 @@
 import { v } from "convex/values"
 import { vVerdict } from "../workflows/validators"
+import { dimensions } from "./dimensions"
 import { proofs } from "./domains"
 import { type } from "arktype"
 import { boardKinds } from "./boards"
@@ -36,6 +37,8 @@ export const vEvidence = v.object({
   // A board of many companies, so all of its roles aren't this company's.
   pooled: v.boolean(),
 })
+
+export const vDimension = v.union(...dimensions.map((d) => v.literal(d)))
 
 export const vProof = v.union(...proofs.map((p) => v.literal(p)))
 
