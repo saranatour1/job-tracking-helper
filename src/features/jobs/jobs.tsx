@@ -14,7 +14,7 @@ import {
 import { HugeiconsIcon } from "@hugeicons/react"
 import { useSignInAnonymously } from "@convex-dev/auth/methods/anonymous/react"
 import { track } from "@databuddy/sdk"
-import { Link, useNavigate, useSearch } from "@tanstack/react-router"
+import { Link, useLoaderData, useNavigate, useSearch } from "@tanstack/react-router"
 import { useConvexAuth, useMutation } from "convex/react"
 import { usePaginatedQuery, useQuery } from "convex-helpers/react/cache/hooks"
 import { startTransition, useActionState, useMemo } from "react"
@@ -520,7 +520,9 @@ export const Jobs = () => {
     { q, remoteOnly: remote, boardId: board, since, fits, proof, ending },
     { initialNumItems: 25 }
   )
+  const served = useLoaderData({ from: "/_app/jobs/" })
   const filtered = Boolean(q || remote || posted || board || fits || proof || ending)
+  const rows = jobs.status === "LoadingFirstPage" && !filtered ? served : jobs.results
   const heading = fits
     ? "Roles that fit you, best first"
     : q
@@ -836,7 +838,7 @@ export const Jobs = () => {
             className="gap-0 p-1.5"
             actions={
               !view &&
-              jobs.results.length > 0 && (
+              rows.length > 0 && (
                 <Button
                   size="xs"
                   variant="ghost"
@@ -847,7 +849,7 @@ export const Jobs = () => {
               )
             }
           >
-            {jobs.status === "LoadingFirstPage" && <RowSkeletons />}
+            {jobs.status === "LoadingFirstPage" && rows.length === 0 && <RowSkeletons />}
             {/* Only once every page is read: a filter can empty one page with more behind it. */}
             {jobs.status === "Exhausted" && jobs.results.length === 0 && (
               <p className="text-muted-foreground px-2.5 py-3 text-[13px]">
@@ -860,7 +862,7 @@ export const Jobs = () => {
                     : "No roles yet. The catalog fills as boards are fetched."}
               </p>
             )}
-            {!view && jobs.results.length > 0 && (
+            {!view && rows.length > 0 && (
               <div
                 className={cn(
                   "text-muted-foreground hidden items-center gap-x-3 px-2.5 pt-2 pb-1 text-xs md:grid",
@@ -877,11 +879,11 @@ export const Jobs = () => {
               </div>
             )}
             {view
-              ? groupRoles(jobs.results).map(roleRow)
+              ? groupRoles(rows).map(roleRow)
               : /* ponytail: groups the roles loaded so far, so a domain and "13 openings" can both
                    grow on Show more. A stored newest role per domain would need updating on every
                    feed refresh. */
-                groupDomains(jobs.results).map((domain) => (
+                groupDomains(rows).map((domain) => (
                   <Domain
                     key={`${domain[0]!.evidence.domain ?? `${domain[0]!.evidence.boardId}/${domain[0]!.company}`}${collapsed}`}
                     jobs={domain}

@@ -21,9 +21,9 @@ const AppLayout = () => {
   const path = useRouterState({ select: (s) => s.location.pathname })
   const open = path === "/jobs" || path.startsWith("/jobs/")
   // The server renders this too, so a page shows something before its scripts load. It can't be the
-  // real frame yet: that depends on who this is. A role's page goes ahead in the visitor's frame,
-  // since it's the same for everyone and crawlers read it from here. Members get their sidebar next.
-  if (loading && !path.startsWith("/jobs/"))
+  // real frame yet: that depends on who this is. Jobs and a role's page go ahead in the visitor's
+  // frame, since crawlers read them from here. Members get their sidebar next.
+  if (loading && !open)
     return (
       <div aria-busy="true" className={pageBody}>
         <RowSkeletons />
