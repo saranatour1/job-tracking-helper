@@ -1,4 +1,9 @@
+import { type Dimension, dimensions } from "@convex/features/jobs/dimensions"
 import { type Proof, proofs } from "@convex/features/jobs/domains"
+
+export const trendsSearch = (search: Record<string, unknown>): { by?: Dimension } => ({
+  by: dimensions.includes(search.by as Dimension) ? (search.by as Dimension) : undefined,
+})
 
 export const postedWithin = { day: 1, week: 7, month: 30 } as const
 export type Posted = keyof typeof postedWithin

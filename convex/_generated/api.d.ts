@@ -104,6 +104,7 @@ import type * as features_jobs_actions from "../features/jobs/actions.js";
 import type * as features_jobs_boards from "../features/jobs/boards.js";
 import type * as features_jobs_companies from "../features/jobs/companies.js";
 import type * as features_jobs_counts from "../features/jobs/counts.js";
+import type * as features_jobs_dimensions from "../features/jobs/dimensions.js";
 import type * as features_jobs_domains from "../features/jobs/domains.js";
 import type * as features_jobs_index from "../features/jobs/index.js";
 import type * as features_jobs_internal from "../features/jobs/internal.js";
@@ -113,6 +114,7 @@ import type * as features_jobs_models_boards from "../features/jobs/models/board
 import type * as features_jobs_models_index from "../features/jobs/models/index.js";
 import type * as features_jobs_models_jobs from "../features/jobs/models/jobs.js";
 import type * as features_jobs_public from "../features/jobs/public.js";
+import type * as features_jobs_trends from "../features/jobs/trends.js";
 import type * as features_jobs_utils from "../features/jobs/utils.js";
 import type * as features_jobs_validators from "../features/jobs/validators.js";
 import type * as features_loops_catalog from "../features/loops/catalog.js";
@@ -296,6 +298,7 @@ declare const fullApi: ApiFromModules<{
   "features/jobs/boards": typeof features_jobs_boards;
   "features/jobs/companies": typeof features_jobs_companies;
   "features/jobs/counts": typeof features_jobs_counts;
+  "features/jobs/dimensions": typeof features_jobs_dimensions;
   "features/jobs/domains": typeof features_jobs_domains;
   "features/jobs/index": typeof features_jobs_index;
   "features/jobs/internal": typeof features_jobs_internal;
@@ -305,6 +308,7 @@ declare const fullApi: ApiFromModules<{
   "features/jobs/models/index": typeof features_jobs_models_index;
   "features/jobs/models/jobs": typeof features_jobs_models_jobs;
   "features/jobs/public": typeof features_jobs_public;
+  "features/jobs/trends": typeof features_jobs_trends;
   "features/jobs/utils": typeof features_jobs_utils;
   "features/jobs/validators": typeof features_jobs_validators;
   "features/loops/catalog": typeof features_loops_catalog;

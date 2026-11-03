@@ -8,6 +8,7 @@ crons.interval("start due workflows", { minutes: 5 }, internal.api.automations.s
 
 crons.interval("refresh job boards", { hours: 1 }, internal.api.jobs.refreshDue, {})
 crons.interval("research companies", { hours: 1 }, internal.api.jobs.researchDue, {})
+crons.interval("count job trends", { hours: 1 }, internal.api.jobs.countTrends, {})
 
 crons.daily(
   "sweep archive and trash",

@@ -8,7 +8,15 @@ const routes = Object.keys(import.meta.glob("../routes/**/*.tsx")).map((file) =>
   file.replace("../routes/", "").replace(".tsx", "")
 )
 const isPublic = (route: string) =>
-  ["index", "privacy", "terms", "__root", "_app/jobs/index", "_app/jobs/$id"].includes(route)
+  [
+    "index",
+    "privacy",
+    "terms",
+    "__root",
+    "_app/jobs/index",
+    "_app/jobs/$id",
+    "_app/jobs/trends",
+  ].includes(route)
 
 // The first URL segment of a route file, leaving out pathless folders like _app.
 const pathOf = (route: string) => {
@@ -32,6 +40,7 @@ describe("robots.txt", () => {
     expect(disallowed).not.toContain("/")
     for (const path of [
       "/jobs",
+      "/jobs/trends",
       "/privacy",
       "/terms",
       "/llms.txt",

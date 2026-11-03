@@ -685,7 +685,11 @@ export const Jobs = () => {
                 ? `${stats.jobs.toLocaleString("en")} open roles across ${stats.summary.domains} company domains, refreshed daily${signedIn ? " and shared by everyone. Your loops pick from these, and Jev judges which fit you." : "."}`
                 : "Open roles from job boards, refreshed daily."
             }
-          />
+          >
+            <Button size="sm" variant="outline" render={<Link to="/jobs/trends" />}>
+              Trends
+            </Button>
+          </PageIntro>
 
           <div className="flex flex-col gap-3">
             <form

@@ -30,6 +30,7 @@ import { Route as AppGoalsIndexRouteImport } from './routes/_app/goals/index'
 import { Route as AppGoalsIdRouteImport } from './routes/_app/goals/$id'
 import { Route as AppJobsIndexRouteImport } from './routes/_app/jobs/index'
 import { Route as AppJobsIdRouteImport } from './routes/_app/jobs/$id'
+import { Route as AppJobsTrendsRouteImport } from './routes/_app/jobs/trends'
 import { Route as AppPipelineIndexRouteImport } from './routes/_app/pipeline/index'
 import { Route as AppPipelineIdRouteImport } from './routes/_app/pipeline/$id'
 import { Route as AppPrefilledIndexRouteImport } from './routes/_app/prefilled/index'
@@ -142,6 +143,11 @@ const AppJobsIdRoute = AppJobsIdRouteImport.update({
   path: '/jobs/$id',
   getParentRoute: () => AppRoute,
 } as any)
+const AppJobsTrendsRoute = AppJobsTrendsRouteImport.update({
+  id: '/jobs/trends',
+  path: '/jobs/trends',
+  getParentRoute: () => AppRoute,
+} as any)
 const AppPipelineIndexRoute = AppPipelineIndexRouteImport.update({
   id: '/pipeline/',
   path: '/pipeline/',
@@ -201,6 +207,7 @@ export interface FileRoutesByFullPath {
   '/sign-up': typeof AuthSignUpRoute
   '/goals/$id': typeof AppGoalsIdRoute
   '/jobs/$id': typeof AppJobsIdRoute
+  '/jobs/trends': typeof AppJobsTrendsRoute
   '/pipeline/$id': typeof AppPipelineIdRoute
   '/prefilled/$id': typeof AppPrefilledIdRoute
   '/views/new': typeof AppViewsNewRoute
@@ -230,6 +237,7 @@ export interface FileRoutesByTo {
   '/sign-up': typeof AuthSignUpRoute
   '/goals/$id': typeof AppGoalsIdRoute
   '/jobs/$id': typeof AppJobsIdRoute
+  '/jobs/trends': typeof AppJobsTrendsRoute
   '/pipeline/$id': typeof AppPipelineIdRoute
   '/prefilled/$id': typeof AppPrefilledIdRoute
   '/views/new': typeof AppViewsNewRoute
@@ -262,6 +270,7 @@ export interface FileRoutesById {
   '/_auth/sign-up': typeof AuthSignUpRoute
   '/_app/goals/$id': typeof AppGoalsIdRoute
   '/_app/jobs/$id': typeof AppJobsIdRoute
+  '/_app/jobs/trends': typeof AppJobsTrendsRoute
   '/_app/pipeline/$id': typeof AppPipelineIdRoute
   '/_app/prefilled/$id': typeof AppPrefilledIdRoute
   '/_app/views/new': typeof AppViewsNewRoute
@@ -293,6 +302,7 @@ export interface FileRouteTypes {
     | '/sign-up'
     | '/goals/$id'
     | '/jobs/$id'
+    | '/jobs/trends'
     | '/pipeline/$id'
     | '/prefilled/$id'
     | '/views/new'
@@ -322,6 +332,7 @@ export interface FileRouteTypes {
     | '/sign-up'
     | '/goals/$id'
     | '/jobs/$id'
+    | '/jobs/trends'
     | '/pipeline/$id'
     | '/prefilled/$id'
     | '/views/new'
@@ -353,6 +364,7 @@ export interface FileRouteTypes {
     | '/_auth/sign-up'
     | '/_app/goals/$id'
     | '/_app/jobs/$id'
+    | '/_app/jobs/trends'
     | '/_app/pipeline/$id'
     | '/_app/prefilled/$id'
     | '/_app/views/new'
@@ -523,6 +535,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AppJobsIdRouteImport
       parentRoute: typeof AppRoute
     }
+    '/_app/jobs/trends': {
+      id: '/_app/jobs/trends'
+      path: '/jobs/trends'
+      fullPath: '/jobs/trends'
+      preLoaderRoute: typeof AppJobsTrendsRouteImport
+      parentRoute: typeof AppRoute
+    }
     '/_app/pipeline/': {
       id: '/_app/pipeline/'
       path: '/pipeline'
@@ -594,6 +613,7 @@ interface AppRouteChildren {
   AppResumeRoute: typeof AppResumeRoute
   AppGoalsIdRoute: typeof AppGoalsIdRoute
   AppJobsIdRoute: typeof AppJobsIdRoute
+  AppJobsTrendsRoute: typeof AppJobsTrendsRoute
   AppPipelineIdRoute: typeof AppPipelineIdRoute
   AppPrefilledIdRoute: typeof AppPrefilledIdRoute
   AppViewsNewRoute: typeof AppViewsNewRoute
@@ -618,6 +638,7 @@ const AppRouteChildren: AppRouteChildren = {
   AppResumeRoute: AppResumeRoute,
   AppGoalsIdRoute: AppGoalsIdRoute,
   AppJobsIdRoute: AppJobsIdRoute,
+  AppJobsTrendsRoute: AppJobsTrendsRoute,
   AppPipelineIdRoute: AppPipelineIdRoute,
   AppPrefilledIdRoute: AppPrefilledIdRoute,
   AppViewsNewRoute: AppViewsNewRoute,
