@@ -47,11 +47,19 @@ const addBoard = (t: T, slug: string, kind: "greenhouse" | "remoteok" = "greenho
 
 const ready = (t: T) => t.run((ctx) => ctx.db.insert("jobCatalog", { boards: 0 }))
 
-const save = (t: T, boardId: Id<"jobBoards">, from: number, to: number, company?: string) =>
-  t.mutation(internal.api.jobs.saveJobs, {
+// A fetch saves, then ends with boardFetched, which brings the board's count up to date.
+const save = async (t: T, boardId: Id<"jobBoards">, from: number, to: number, company?: string) => {
+  await t.mutation(internal.api.jobs.saveJobs, {
     boardId,
     jobs: Array.from({ length: to - from }, (_, i) => feedJob(from + i, company)),
   })
+  await t.mutation(internal.api.jobs.boardFetched, { boardId, jobs: to - from })
+}
+
+const close = async (t: T, boardId: Id<"jobBoards">, jobIds: Id<"jobs">[]) => {
+  await t.mutation(internal.api.jobs.closeJobs, { jobIds })
+  await t.mutation(internal.api.jobs.boardFetched, { boardId, jobs: 0 })
+}
 
 const research = (t: T, boardId: Id<"jobBoards">, domain?: string, link?: "postings" | "name") =>
   t.mutation(internal.api.jobs.saveResearch, {
@@ -113,6 +121,17 @@ describe("the catalog's counts", () => {
     expect(await summary(t)).toMatchObject({ jobs: 3, domains: 1, own: 3 })
   })
 
+  it("counts a board once a fetch, at its end, so long saves don't queue anything", async () => {
+    const t = setup()
+    await ready(t)
+    const boardId = await addBoard(t, "stripe")
+    await t.mutation(internal.api.jobs.saveJobs, { boardId, jobs: [feedJob(0), feedJob(1)] })
+    expect((await t.run((ctx) => ctx.db.get("jobBoards", boardId)))?.jobs).toBe(0)
+    await t.mutation(internal.api.jobs.boardFetched, { boardId, jobs: 2 })
+    expect((await t.run((ctx) => ctx.db.get("jobBoards", boardId)))?.jobs).toBe(2)
+    expect(await summary(t)).toMatchObject({ jobs: 2, unverified: 2 })
+  })
+
   it("takes out closed roles, and a domain once its last role goes", async () => {
     const t = setup()
     await ready(t)
@@ -120,9 +139,9 @@ describe("the catalog's counts", () => {
     await research(t, boardId, "stripe.com", "postings")
     await save(t, boardId, 0, 2)
     const jobIds = await jobIdsOf(t, boardId)
-    await t.mutation(internal.api.jobs.closeJobs, { jobIds: jobIds.slice(0, 1) })
+    await close(t, boardId, jobIds.slice(0, 1))
     expect(await summary(t)).toMatchObject({ jobs: 1, own: 1, domains: 1 })
-    await t.mutation(internal.api.jobs.closeJobs, { jobIds })
+    await close(t, boardId, jobIds)
     expect(await summary(t)).toEqual({
       jobs: 0,
       domains: 0,
@@ -205,8 +224,7 @@ describe("the catalog's counts", () => {
       })
     )
     await save(t, boardId, 0, 2, "Wren")
-    await t.mutation(internal.api.jobs.closeJobs, { jobIds: await jobIdsOf(t, boardId) })
-    await t.mutation(internal.api.jobs.boardFetched, { boardId, jobs: 0 })
+    await close(t, boardId, await jobIdsOf(t, boardId))
     expect(await t.run((ctx) => ctx.db.get("jobBoards", boardId))).toBeNull()
     await t.finishAllScheduledFunctions(vi.runAllTimers)
     expect(await t.query(api.api.jobs.stats, {})).toMatchObject({ boards: 0, jobs: 0 })

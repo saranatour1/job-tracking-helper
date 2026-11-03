@@ -119,7 +119,6 @@ const saveJobs = internalMutation({
   args: { boardId: v.id("jobBoards"), jobs: v.array(vFeedJob) },
   returns: v.null(),
   handler: async (ctx, { boardId, jobs }) => {
-    let added = false
     for (const job of jobs) {
       const key = urlKey(job.url)
       const known = await ctx.db
@@ -128,7 +127,6 @@ const saveJobs = internalMutation({
         .first()
       if (!known) {
         await insertJob(ctx, { ...job, boardId, urlKey: key })
-        added = true
       }
       // A write reindexes the role's text and reruns every open search that read it, so a
       // role the feed didn't change stays as it is.
@@ -138,7 +136,6 @@ const saveJobs = internalMutation({
           await roleCounts.replaceOrInsert(ctx, known, { ...known, ...job })
       }
     }
-    if (added) await recount(ctx, boardId)
     return null
   },
 })
@@ -163,14 +160,10 @@ const closeJobs = internalMutation({
   args: { jobIds: v.array(v.id("jobs")) },
   returns: v.null(),
   handler: async (ctx, { jobIds }) => {
-    const boards = new Set<Id<"jobBoards">>()
     for (const jobId of jobIds) {
       const job = await ctx.db.get("jobs", jobId)
-      if (!job) continue
-      await deleteJob(ctx, job)
-      boards.add(job.boardId)
+      if (job) await deleteJob(ctx, job)
     }
-    for (const boardId of boards) await recount(ctx, boardId)
     return null
   },
 })
@@ -179,6 +172,10 @@ const boardFetched = internalMutation({
   args: vBoardFetchedArgs,
   returns: v.null(),
   handler: async (ctx, { boardId, jobs, error, company }) => {
+    // Saves and closes leave the board's count to here, once a fetch, so a long save never holds
+    // catalogPool's queue open: boards finishing side by side collided there and redid the save.
+    // ponytail: a fetch that fails partway leaves `jobs` behind until the board's next fetch.
+    await recount(ctx, boardId)
     const b = await ctx.db.get("jobBoards", boardId)
     // A search with no roles, often a place outside Germany, isn't worth refreshing. The next
     // run asks again.
