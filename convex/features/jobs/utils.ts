@@ -5,9 +5,20 @@ import type { Doc, Id } from "../../_generated/dataModel"
 import type { MutationCtx, QueryCtx } from "../../_generated/server"
 import schema from "../../schema"
 import { catalogPool } from "../workflows/manager"
+import { countriesOf, keyOf, placesOf, spacedLocation } from "./dimensions"
 import { endingOf, proofOf } from "./domains"
 import { previewOf } from "./links"
 import type { vJobSearchArgs } from "./validators"
+
+// Where a role is, for its pills: its cities, its countries and Remote, at most three.
+export const placesOfJob = (location: string, remote: boolean) => {
+  const spaced = spacedLocation(location)
+  return [
+    ...new Map(
+      [...placesOf(spaced, remote), ...countriesOf(spaced)].map((p) => [keyOf(p), p])
+    ).values(),
+  ].slice(0, 3)
+}
 
 export const rowOf = (job: Doc<"jobs">, lead: Doc<"jobLeads"> | null) => ({
   _id: job._id,
@@ -19,6 +30,8 @@ export const rowOf = (job: Doc<"jobs">, lead: Doc<"jobLeads"> | null) => ({
   remote: job.remote,
   postedAt: job.postedAt,
   preview: previewOf(job.text),
+  summary: job.summary ?? null,
+  places: placesOfJob(job.location, job.remote),
   fit: lead?.fit ?? null,
   verdict: lead?.verdict ?? null,
 })
@@ -50,9 +63,10 @@ const domainFilter = (
 // limits. Past it, the page comes back short and Show more carries on.
 const domainFilterScan = 500
 
+/** Without a `userId`, nobody's verdicts: no Fits me, and no verdict on a row. */
 export const searchJobs = async (
   ctx: QueryCtx,
-  userId: Id<"users">,
+  userId: Id<"users"> | null,
   {
     q,
     remoteOnly,
@@ -73,7 +87,7 @@ export const searchJobs = async (
     (since === undefined || job.postedAt >= since)
   const onDomain = domainFilter(ctx, proof, ending)
 
-  if (fits) {
+  if (fits && userId) {
     const page = await ctx.db
       .query("jobLeads")
       .withIndex("by_userId_and_verdict_and_fit", (i) =>
@@ -154,11 +168,13 @@ export const searchJobs = async (
   for (const job of page.page) {
     // The search index can't see a role's board, so a search keeps what's on its page.
     if (words && !(await onDomain(job))) continue
-    const lead = await ctx.db
-      .query("jobLeads")
-      .withIndex("by_userId_and_urlKey", (i) => i.eq("userId", userId).eq("urlKey", job.urlKey))
-      .first()
-    rows.push(rowOf(job, lead))
+    const lead =
+      userId &&
+      (await ctx.db
+        .query("jobLeads")
+        .withIndex("by_userId_and_urlKey", (i) => i.eq("userId", userId).eq("urlKey", job.urlKey))
+        .first())
+    rows.push(rowOf(job, lead ?? null))
   }
   return { ...page, page: rows }
 }

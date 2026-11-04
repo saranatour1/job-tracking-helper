@@ -76,6 +76,7 @@ A repeat gets a number (`-2`), and a real id still finds its row, so old links w
 | Jev                               | Judges roles for loops and pasted links, sorts mail, reviews resumes, re-evaluates goals, picks saved answers for forms, answers Ask Jev, drafts workflows from a sentence                                                   | `convex/features/workflows/judge.ts`, `email/jev.ts`, `preferences/resume.ts`, `goals/actions.ts`, `prefilled/actions.ts`, `automations/actions.ts` |
 | The batch worker (`readPool`)     | Fetches job boards, researches companies and runs Jev's judgments, 8 at a time, with up to 3 attempts each                                                                                                                   | `convex/features/workflows/manager.ts`                                                                                                              |
 | The catalog queue (`catalogPool`) | Keeps the catalog totals, one write at a time, a moment after each board's fetch ends                                                                                                                                        | `convex/features/workflows/manager.ts`, `convex/features/jobs/counts.ts`                                                                            |
+| The summary queue (`summaryPool`) | Asks Claude Haiku what each role is, 4 at a time with up to 3 attempts, apart from `readPool` so a backfill never holds up loops                                                                                             | `convex/features/workflows/manager.ts`, `convex/features/jobs/summaries.ts`                                                                         |
 | Workflows                         | Runs the steps people build                                                                                                                                                                                                  | `convex/features/automations/engine.ts`                                                                                                             |
 | An agent you connect              | Calls the tools you allowed, as you                                                                                                                                                                                          | `POST /mcp`, `convex/mcp.ts`                                                                                                                        |
 | An agent looking at the site      | Reads what the app offers and how to connect, without an account                                                                                                                                                             | `src/lib/discovery.ts`, `src/lib/web-mcp.ts`                                                                                                        |
@@ -424,36 +425,52 @@ it doesn't.
 - As a job seeker, I want to see which roles a loop already judged for me.
 - As a job seeker, I want to see what's publicly known about a company, so I can judge for
   myself whether it's real before I apply.
-- As a job seeker, I want to look through companies, not one posting at a time, so one big
-  employer doesn't bury the rest.
+- As a job seeker, I want to tell what a role is from the list, without opening the posting.
 - As anyone, I want to look through open roles and share one without making an account.
 
 **Flows**
 
-1. `/jobs` says how many roles are in the shared catalog, across how many company domains
-   (`api.jobs.stats`). Two tiles sum up the catalog: how roles tie to a company (Own site, Name
-   only, Unverified) and each domain's ending (`.com`, `.ai`). Unverified roles have no domain, so
-   the endings add up to Own site and Name only. These are exact and current: every write to a role
-   updates them in the same mutation (`features/jobs/counts.ts`), and nothing reads the roles to
-   show them. Signed in, each one is a filter (`?proof=`, `?ending=`).
-2. Search by words (`?q=`), or pick a "Try" chip from your Preferences (interests,
-   places, companies). Narrow it down with Remote only, Fits me (only roles Jev said fit
-   you, best first), Posted (past day, week or month) and a domain (`api.jobs.companies`,
-   the boards with the most roles). Every filter is in the address, so a link opens the
-   same list; Clear filters resets them (`api.jobs.search`, 25 at a time). Show more adds a page
-   (`?pages=`, up to 20). A proof or ending filter on a search only keeps matches from the page
-   it read, so Show more may find more.
-3. Roles group under their company's domain, in the order of their first role. A company with no
-   site found goes under its name, per board. A domain's row has lanes for how it ties to the company, when
-   it was registered, its YC batch, how many roles it has open and its newest role, in blue while
-   that's under two days old. Over 250 open roles, it starts closed and lists the titles on one
-   line. Collapse all (`?collapsed=true`) closes every domain, and Show N more opens all of a
-   board's roles. Hovering a role swaps where it is for its actions; on a touch screen they stay.
-   **Roles** (`?view=roles`) lists each role with its preview and these badges instead:
-   Jev's verdict for you ("Fits you · 69%", "Not a fit"), New (posted in the last two
-   days) and Remote.
-   Both show what was found about the company, never a verdict: most real employers
-   aren't in YC, and a scammer can copy a real name.
+1. `/jobs` is one line on how many roles the catalog has (`api.jobs.stats`), a search box and
+   three filters: Remote, Posted (past day, week or month) and Company (`api.jobs.companies`, the
+   boards with the most roles). Members also get Fits me (only roles Jev said fit you, best
+   first). Every filter is in the address, so a link opens the same list; Clear resets them
+   (`api.jobs.search`, 25 at a time). Show more adds a page (`?pages=`, up to 20).
+2. Each role is one row: its title, company and how long ago it was posted (in blue under two
+   days), then one sentence on what the job is, then pills for where it is (cities, countries,
+   Remote; `placesOfJob`) and Jev's verdict for you. A role posted several times shows "3
+   openings" once. Prepare, More like this and the link out sit on the right.
+3. **Summaries.** Every few minutes, `internal.api.jobs.summarizeDue` takes up to 100 roles
+   without one, newest first, and asks Claude Haiku 5.5 through the Convex gateway for one
+   sentence on what the job is, plus the facts the posting states: level, team, who it reports
+   to, work mode, travel, type and pay (`features/jobs/summaries.ts`, `summaryPool`, 4 at a
+   time). A fact that doesn't fit its field is dropped on its own. A
+   reply that reads like a refusal, runs long or stops mid-sentence is dropped, and the row shows
+   the posting's opening lines instead. When a feed changes a role's text, its summary is cleared
+   and asked for again. The posting is someone else's text, so the prompt says to ignore any
+   instructions in it. After changing the prompt, `internal.api.jobs.askAgain` marks every
+   summary due again, 200 at a time; rows keep the old one until the new one lands.
+
+4. "More like this" searches by a role's title; the link icon opens the posting.
+   Applications link here too.
+5. **Trends** on `/jobs` opens `/jobs/trends`, open to anyone. Two tiles sum up the catalog: how
+   roles tie to a company (Own site, Name only, Unverified) and each domain's ending (`.com`,
+   `.ai`). These are exact and current: every write to a role updates them in the same mutation
+   (`features/jobs/counts.ts`). Below them are the 20 countries, locations or job
+   titles (`?by=place`, `?by=title`) with the most new roles last full week, each with its last 13
+   weeks and a link to search them (`api.jobs.trends`). See "By itself" for where the counts come
+   from. A week is Monday to Sunday in UTC, by the date the feed gives a role. Change, the last 4
+   full weeks against the 4 before them, stays hidden until 4 January 2027: weeks before counting
+   began lack roles that had already closed, so it would show growth that may not be real.
+6. A role's title opens its own page, `/jobs/<words>-<id>`, with its summary, its facts, where it
+   is, what was found about its company, and its full text. The server renders all of it over
+   HTTP, with schema.org `JobPosting` data so Google can list it in its job search
+   (`features/jobs/structured.ts`). Sharing that link
+   shows a preview image with its title, company, place and logo (`/jobs/<id>/og.png`, drawn by
+   the Worker and cached for a day, `src/features/jobs/og.tsx`). Remote-first and culture tags,
+   like Flexible hours, appear only when the posting says so in its own words. A YC tag appears
+   only when the board's postings live on that company's site. A role that's gone is a 404.
+   What was found about the company is never a verdict: most real employers aren't in YC, and a
+   scammer can copy a real name.
    - **On stripe.com:** the board's postings live on the company's own site.
    - **Name matches hooli.xyz:** only the name led there. The badges after it are about that
      site, and a copied name would match too.
@@ -462,21 +479,6 @@ it doesn't.
    - **Domain 31 years:** when the site was registered, marked under a year old.
    - **Unverified:** no site found, not researched yet, or a role from a board of many
      companies (Arbeitsagentur, Remote OK, Hacker News), which isn't researched.
-   - **LinkedIn:** a search link. Nothing is read from LinkedIn.
-
-4. "More like this" searches by a role's title; the link icon opens the posting.
-   Applications link here too.
-5. **Trends** on `/jobs` opens `/jobs/trends`, open to anyone: the 20 countries, locations or job
-   titles (`?by=place`, `?by=title`) with the most new roles last full week, each with its last 13
-   weeks and a link to search them (`api.jobs.trends`). See "By itself" for where the counts come
-   from. A week is Monday to Sunday in UTC, by the date the feed gives a role. Change, the last 4
-   full weeks against the 4 before them, stays hidden until 4 January 2027: weeks before counting
-   began lack roles that had already closed, so it would show growth that may not be real.
-6. A role's title opens its own page, `/jobs/<words>-<id>`, with its full text. Sharing that link
-   shows a preview image with its title, company, place and logo (`/jobs/<id>/og.png`, drawn by
-   the Worker and cached for a day, `src/features/jobs/og.tsx`). Remote-first and culture tags,
-   like Flexible hours, appear only when the posting says so in its own words. A YC tag appears
-   only when the board's postings live on that company's site. A role that's gone is a 404.
 7. **Prepare** makes the role a prefilled application (`api.prefilled.prepare`); see
    [Prefilled applications and Activity](#prefilled-applications-and-activity). A role
    already prepared shows its status, which opens it. Only roles on Greenhouse, Lever, Ashby
@@ -485,8 +487,8 @@ it doesn't.
 **Without an account:**
 
 1. `/jobs` and role pages are open to anyone, and to crawlers. "Jobs" on the home page links here.
-   There are no filters, verdicts, "Try" chips or Prepare, and the server ignores filters sent
-   anyway (`api.jobs.search`, at most 25 at a time).
+   They get the same filters, but no Fits me, verdicts or Prepare (`api.jobs.search`, at most 25
+   at a time).
 2. The first search or "More like this" makes an anonymous account, not the page load, so crawlers
    don't make any. Each new search spends one of 10 a day (`api.jobs.allowSearch`, rate limit
    `anonymousSearch`); running the same one again or "Show more" doesn't. Past 10: "That's 10
@@ -509,7 +511,8 @@ loads.
 
 **Known limits:** clearing browser storage makes a new anonymous account with 10 more searches.
 A prepared role's badge doesn't move from Preparing on its own; it changes the next time the page
-reads. Show more reads every page again, one request per page shown.
+reads. Show more reads every page again, one request per page shown. A summary that fails all 3
+attempts stays at `summarizedAt: 0` and isn't asked for again until the role's text changes.
 Anonymous accounts aren't removed, and signing in later starts a separate account.
 
 **By itself:** every hour, `internal.api.jobs.countTrends` wakes a batch worker that reads roles

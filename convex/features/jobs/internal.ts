@@ -131,7 +131,11 @@ const saveJobs = internalMutation({
       // A write reindexes the role's text and reruns every open search that read it, so a
       // role the feed didn't change stays as it is.
       else if ((Object.keys(job) as (keyof typeof job)[]).some((k) => job[k] !== known[k])) {
-        await ctx.db.patch("jobs", known._id, job)
+        // New words mean a new summary, which the next summarizeDue asks for.
+        await ctx.db.patch("jobs", known._id, {
+          ...job,
+          ...(job.text !== known.text && { summary: undefined, summarizedAt: undefined }),
+        })
         if (job.company !== known.company)
           await roleCounts.replaceOrInsert(ctx, known, { ...known, ...job })
       }

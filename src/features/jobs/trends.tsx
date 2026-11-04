@@ -69,6 +69,69 @@ const Weeks = ({ label, weeks }: { label: string; weeks: { week: number; roles: 
   )
 }
 
+const endingsShown = 6
+
+// The whole catalog at a glance: how its roles tie to a company, and the endings of their domains.
+const Catalog = () => {
+  const stats = useQuery(api.jobs.stats)
+  if (!stats) return null
+  const { summary } = stats
+  const parts = [
+    { key: "own", label: "Own site", bar: "bg-success", text: "text-success-foreground" },
+    {
+      key: "name",
+      label: "Name only",
+      bar: "bg-muted-foreground/50",
+      text: "text-muted-foreground",
+    },
+    { key: "unverified", label: "Unverified", bar: "bg-warning", text: "text-warning-foreground" },
+  ] as const
+  const shown = summary.endings.slice(0, endingsShown)
+  const other = summary.endings.slice(endingsShown).reduce((n, e) => n + e.jobs, 0)
+  return (
+    <div className="grid gap-3 md:grid-cols-[5fr_4fr]">
+      <Tile title="How roles tie to a company" className="gap-3">
+        <div aria-hidden className="flex h-2 gap-0.5 px-1">
+          {parts.map((p) => (
+            <div
+              key={p.key}
+              className={cn("rounded-[2px]", p.bar)}
+              style={{ flexGrow: summary[p.key] }}
+            />
+          ))}
+        </div>
+        <div className="grid grid-cols-3 gap-2 px-1">
+          {parts.map((p) => (
+            <div key={p.key} className="flex flex-col gap-0.5">
+              <span className="font-heading text-xl font-semibold tabular-nums">
+                {summary[p.key].toLocaleString("en")}
+              </span>
+              <span className={cn("text-xs", p.text)}>{p.label}</span>
+            </div>
+          ))}
+        </div>
+      </Tile>
+      <Tile title={`Domain ending, across ${summary.domains} domains`} className="gap-3">
+        <div className="flex flex-wrap items-center gap-x-3 gap-y-1.5 px-1 text-[13px]">
+          {shown.map((e) => (
+            <span key={e.ending}>
+              {e.ending}{" "}
+              <span className="text-muted-foreground tabular-nums">
+                {e.jobs.toLocaleString("en")}
+              </span>
+            </span>
+          ))}
+          {other > 0 && (
+            <span className="text-muted-foreground tabular-nums">
+              Other {other.toLocaleString("en")}
+            </span>
+          )}
+        </div>
+      </Tile>
+    </div>
+  )
+}
+
 // New roles a week for each country, place or kind of job, from what's rolled up in `jobTrends`.
 export const Trends = () => {
   const { member: signedIn } = useAccess()
@@ -90,6 +153,7 @@ export const Trends = () => {
             title="Job trends"
             description="New roles posted each week, across the boards this app reads. Roles stay counted after they close, but counting began in November 2026, so older weeks only have roles that were still open then, and look smaller than they were. Comparing weeks starts in January 2027. A board added later adds its roles to the weeks they were posted."
           />
+          <Catalog />
           <ToggleGroup
             size="sm"
             variant="outline"

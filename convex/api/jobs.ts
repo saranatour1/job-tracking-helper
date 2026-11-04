@@ -30,4 +30,9 @@ export const {
   get,
   fetchBoard,
   researchBoards,
+  summarizeDue,
+  summaryInput,
+  saveSummary,
+  summarize,
+  askAgain,
 } = jobsApi

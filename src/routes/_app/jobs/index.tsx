@@ -1,8 +1,7 @@
 import { createFileRoute } from "@tanstack/react-router"
-import { rowLimits } from "@convex/features/preferences/rows"
 
 import { Jobs } from "@/features/jobs/jobs"
-import { jobsSearch, readsOf, sinceOnTheHour } from "@/features/jobs/search"
+import { jobsSearch, sinceOnTheHour } from "@/features/jobs/search"
 import { api } from "@/lib/api"
 import { httpClient } from "@/lib/convex"
 import { publicHead, site } from "@/lib/seo"
@@ -12,9 +11,9 @@ const pageSize = 25
 export const Route = createFileRoute("/_app/jobs/")({
   component: Jobs,
   validateSearch: jobsSearch,
-  loaderDeps: ({ search }) => readsOf(search),
+  loaderDeps: ({ search }) => search,
   staleTime: Number.POSITIVE_INFINITY,
-  loader: async ({ deps: { q, remote, board, posted, fits, proof, ending, pages = 1 } }) => {
+  loader: async ({ deps: { q, remote, board, posted, fits, pages = 1 } }) => {
     const { http, signedIn } = await httpClient()
     const me = signedIn ? http.query(api.users.me, {}) : Promise.resolve(null)
     const member = me.then((m) => Boolean(m && !m.anonymous))
@@ -24,8 +23,6 @@ export const Route = createFileRoute("/_app/jobs/")({
       boardId: board,
       since: sinceOnTheHour(posted),
       fits,
-      proof,
-      ending,
     }
     const read = (cursor: string | null) =>
       http.query(api.jobs.search, { ...args, paginationOpts: { numItems: pageSize, cursor } })
@@ -37,27 +34,14 @@ export const Route = createFileRoute("/_app/jobs/")({
       }
       return { page: found.page, isDone: found.isDone }
     }
-    const ifMember = <T,>(load: () => Promise<T>) => member.then((yes) => (yes ? load() : null))
-    const [who, found, stats, companies, prepared, tags] = await Promise.all([
+    const [who, found, stats, companies, prepared] = await Promise.all([
       me,
       jobs(),
       http.query(api.jobs.stats, {}),
-      ifMember(() => http.query(api.jobs.companies, {})),
-      ifMember(() => http.query(api.prefilled.list, {})),
-      ifMember(() =>
-        http.query(api.preferences.tags, {
-          paginationOpts: { numItems: rowLimits.tags, cursor: null },
-        })
-      ),
+      http.query(api.jobs.companies, {}),
+      member.then((yes) => (yes ? http.query(api.prefilled.list, {}) : [])),
     ])
-    return {
-      allowedSearch: who?.allowedSearch ?? null,
-      jobs: found,
-      stats,
-      companies: companies ?? [],
-      prepared: prepared ?? [],
-      tags: tags?.page ?? [],
-    }
+    return { allowedSearch: who?.allowedSearch ?? null, jobs: found, stats, companies, prepared }
   },
   head: () =>
     publicHead({

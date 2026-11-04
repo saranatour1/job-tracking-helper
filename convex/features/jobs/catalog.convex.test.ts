@@ -128,11 +128,11 @@ describe("the public catalog", () => {
     expect(await t.query(api.api.jobs.posting, { id: "nonsense" })).toBeNull()
   })
 
-  it("keeps filters and companies for people signed in", async () => {
-    const { t, as } = await withLead()
-    await expect(t.query(api.api.jobs.companies, {})).rejects.toThrow("Not signed in")
+  it("gives anyone the companies and the remote filter", async () => {
+    const { t } = await withLead()
+    expect(await t.query(api.api.jobs.companies, {})).toHaveLength(1)
     expect(
-      (await as.query(api.api.jobs.search, { paginationOpts: opts, remoteOnly: true })).page
+      (await t.query(api.api.jobs.search, { paginationOpts: opts, remoteOnly: true })).page
     ).toEqual([])
   })
 })

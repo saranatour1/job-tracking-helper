@@ -63,6 +63,7 @@ app.use(workflow)
 app.use(workpool, { name: "readPool" })
 app.use(workpool, { name: "applyPool" })
 app.use(workpool, { name: "catalogPool" })
+app.use(workpool, { name: "summaryPool" })
 app.use(rateLimiter)
 app.use(batchWorker)
 

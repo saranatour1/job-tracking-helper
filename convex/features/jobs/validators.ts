@@ -4,7 +4,7 @@ import { dimensions } from "./dimensions"
 import { proofs } from "./domains"
 import { type } from "arktype"
 import { boardKinds } from "./boards"
-import { arkId } from "../../lib/ark"
+import { arkId, arkOutputToConvex } from "../../lib/ark"
 import { paginationOptsValidator } from "convex/server"
 
 export const vFeedJob = v.object({
@@ -65,6 +65,8 @@ export const vJobRow = v.object({
   remote: v.boolean(),
   postedAt: v.number(),
   preview: v.string(),
+  summary: v.union(v.string(), v.null()),
+  places: v.array(v.string()),
   fit: v.union(v.null(), v.number()),
   verdict: v.union(v.null(), vVerdict),
   evidence: vEvidence,
@@ -91,6 +93,28 @@ export const Company = type({
   "yc?": { batch: "string", status: "string", url: "string", "teamSize?": "number" },
 })
 
+export const workModes = ["Remote", "Hybrid", "On site"] as const
+export const employments = [
+  "Full-time",
+  "Part-time",
+  "Contract",
+  "Internship",
+  "Temporary",
+] as const
+
+// What a posting says about the role, read with its summary. Only what it states.
+export const Facts = type({
+  "level?": "string <= 80",
+  "team?": "string <= 80",
+  "reportsTo?": "string <= 80",
+  "workMode?": type.enumerated(...workModes),
+  "travel?": "string <= 80",
+  "employment?": type.enumerated(...employments),
+  "pay?": "string <= 80",
+})
+export type Facts = typeof Facts.infer
+export const vFacts = arkOutputToConvex(Facts)
+
 export const Job = type({
   boardId: arkId("jobBoards"),
   urlKey: "string",
@@ -103,6 +127,10 @@ export const Job = type({
   // No longer written or read: older rows still have it.
   "seenAt?": "number",
   text: "string",
+  // What the role is, in a sentence or two from Claude Haiku. 0 while it waits in summaryPool.
+  "summary?": "string",
+  "facts?": Facts,
+  "summarizedAt?": "number",
 })
 
 export const vBoardFetchedArgs = {

@@ -2,6 +2,7 @@ import { createFileRoute, notFound } from "@tanstack/react-router"
 import { ConvexHttpClient } from "convex/browser"
 
 import { Posting } from "@/features/jobs/posting"
+import { jobPostingData, scriptJson } from "@/features/jobs/structured"
 import { api } from "@/lib/api"
 import { postingId, postingText } from "@/lib/route-ids"
 import { publicHead, site } from "@/lib/seo"
@@ -20,13 +21,21 @@ export const Route = createFileRoute("/_app/jobs/$id")({
   },
   head: ({ loaderData: job }) =>
     job
-      ? publicHead({
-          title: `${job.title} at ${job.company} | ${site.name}`,
-          description: job.preview || `${job.title} at ${job.company}.`,
-          path: `/jobs/${postingText(job)}`,
-          image: `${site.url}/jobs/${job._id}/og.png`,
-          imageAlt: `${job.title} at ${job.company}`,
-        })
+      ? {
+          ...publicHead({
+            title: `${job.title} at ${job.company} | ${site.name}`,
+            description: job.summary || job.preview || `${job.title} at ${job.company}.`,
+            path: `/jobs/${postingText(job)}`,
+            image: `${site.url}/jobs/${job._id}/og.png`,
+            imageAlt: `${job.title} at ${job.company}`,
+          }),
+          scripts: [
+            {
+              type: "application/ld+json",
+              children: scriptJson(jobPostingData(job, `${site.url}/jobs/${postingText(job)}`)),
+            },
+          ],
+        }
       : {},
   component: Page,
 })

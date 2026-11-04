@@ -1,5 +1,4 @@
 import { type Dimension, dimensions } from "@convex/features/jobs/dimensions"
-import { type Proof, proofs } from "@convex/features/jobs/domains"
 import type { AnyRouter } from "@tanstack/react-router"
 
 export const trendsSearch = (search: Record<string, unknown>): { by?: Dimension } => ({
@@ -12,16 +11,10 @@ export type Posted = keyof typeof postedWithin
 export type JobsSearch = {
   q?: string
   remote?: boolean
-  // Roles one after another, instead of under their domains.
-  view?: "roles"
-  collapsed?: boolean
   posted?: Posted
   // A board id; the server finds nothing for one that isn't.
   board?: string
   fits?: boolean
-  proof?: Proof
-  // A domain ending, like ".ai"; the server finds nothing for one that isn't.
-  ending?: string
   pages?: number
 }
 
@@ -36,39 +29,17 @@ export const sinceOnTheHour = (posted: Posted | undefined) =>
 export const jobsSearch = (search: Record<string, unknown>): JobsSearch => ({
   q: typeof search.q === "string" && search.q.trim() ? search.q.slice(0, 200) : undefined,
   remote: search.remote === true ? true : undefined,
-  view: search.view === "roles" ? "roles" : undefined,
-  collapsed: search.collapsed === true ? true : undefined,
   posted:
     typeof search.posted === "string" && search.posted in postedWithin
       ? (search.posted as Posted)
       : undefined,
   board: typeof search.board === "string" && search.board ? search.board : undefined,
   fits: search.fits === true ? true : undefined,
-  proof: proofs.includes(search.proof as Proof) ? (search.proof as Proof) : undefined,
-  ending:
-    typeof search.ending === "string" && /^\.[a-z0-9-]{1,63}$/.test(search.ending)
-      ? search.ending
-      : undefined,
   pages:
     typeof search.pages === "number" && Number.isInteger(search.pages) && search.pages > 1
       ? Math.min(search.pages, maxPages)
       : undefined,
 })
-
-export const readKeys = [
-  "q",
-  "remote",
-  "board",
-  "posted",
-  "fits",
-  "proof",
-  "ending",
-  "pages",
-] as const
-export type JobsReads = Pick<JobsSearch, (typeof readKeys)[number]>
-
-export const readsOf = (search: JobsSearch) =>
-  Object.fromEntries(readKeys.map((k) => [k, search[k]])) as JobsReads
 
 export const refreshJobs = (router: AnyRouter, q?: string) =>
   router.invalidate({

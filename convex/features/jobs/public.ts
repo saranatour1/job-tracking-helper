@@ -2,12 +2,12 @@ import { getAuthUserId } from "@convex-dev/auth/server"
 import { paginationResultValidator } from "convex/server"
 import { ConvexError, type ObjectType, v } from "convex/values"
 import type { Doc } from "../../_generated/dataModel"
-import { query, type QueryCtx } from "../../_generated/server"
-import { authedQuery, sessionMutation } from "../../lib/functions"
+import { query } from "../../_generated/server"
+import { sessionMutation } from "../../lib/functions"
 import { limits } from "../workflows/manager"
 import { evidenceOf } from "./companies"
 import { catalogCounts } from "./counts"
-import { vCatalogSummary, vJobRow, vJobSearchArgs } from "./validators"
+import { vCatalogSummary, vFacts, vJobRow, vJobSearchArgs } from "./validators"
 import { rowOf, searchJobs } from "./utils"
 
 // The page size the app asks for. Signed out, nobody can ask for more.
@@ -15,21 +15,20 @@ const publicPage = 25
 
 const wordsOf = (q: string | undefined) => q?.trim().slice(0, 200)
 
-// The catalog for anyone without a real account: the newest roles, or the one search they've
-// spent a daily search on (allowSearch). It never reads anyone's verdicts.
-const browse = async (
-  ctx: QueryCtx,
+// Anyone without a real account gets the same filters, but no verdicts, 25 at a time, and words
+// only once they've spent a daily search on them (allowSearch).
+const visitorArgs = (
   user: Doc<"users"> | null,
-  { q, paginationOpts }: ObjectType<typeof vJobSearchArgs>
+  { q, remoteOnly, boardId, since, paginationOpts }: ObjectType<typeof vJobSearchArgs>
 ) => {
   const words = wordsOf(q)
-  const opts = { ...paginationOpts, numItems: Math.min(paginationOpts.numItems, publicPage) }
-  const jobs = ctx.db.query("jobs")
-  const found =
-    words && words === user?.allowedSearch
-      ? await jobs.withSearchIndex("search_text", (s) => s.search("text", words)).paginate(opts)
-      : await jobs.withIndex("by_postedAt").order("desc").paginate(opts)
-  return { ...found, page: found.page.map((job) => rowOf(job, null)) }
+  return {
+    q: words && words === user?.allowedSearch ? words : undefined,
+    remoteOnly,
+    boardId,
+    since,
+    paginationOpts: { ...paginationOpts, numItems: Math.min(paginationOpts.numItems, publicPage) },
+  }
 }
 
 const search = query({
@@ -41,7 +40,7 @@ const search = query({
     const found =
       user && !user.anonymous
         ? await searchJobs(ctx, user._id, args)
-        : await browse(ctx, user, args)
+        : await searchJobs(ctx, null, visitorArgs(user || null, args))
     const evidence = await evidenceOf(ctx, found.page)
     const page = found.page.map(({ boardId: _, ...row }, i) => ({ ...row, evidence: evidence[i]! }))
     return { ...found, page }
@@ -67,18 +66,21 @@ const allowSearch = sessionMutation({
 // One role for its public page and link preview, so never anyone's verdict. Null once it's gone.
 const posting = query({
   args: { id: v.string() },
-  returns: v.union(vJobRow.extend({ text: v.string() }), v.null()),
+  returns: v.union(
+    vJobRow.extend({ text: v.string(), facts: v.union(vFacts, v.null()) }),
+    v.null()
+  ),
   handler: async (ctx, { id }) => {
     const jobId = ctx.db.normalizeId("jobs", id)
     const job = jobId && (await ctx.db.get("jobs", jobId))
     if (!job) return null
     const { boardId: _, ...row } = rowOf(job, null)
     const [evidence] = await evidenceOf(ctx, [job])
-    return { ...row, text: job.text, evidence: evidence! }
+    return { ...row, text: job.text, facts: job.facts ?? null, evidence: evidence! }
   },
 })
 
-const companies = authedQuery({
+const companies = query({
   args: {},
   returns: v.array(
     v.object({

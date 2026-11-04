@@ -157,6 +157,10 @@ const countryOfPart = (segments: string[]) => {
   return undefined
 }
 
+/** A location with "Belgium-Remote" written as "Belgium - Remote", which feeds do as often. */
+export const spacedLocation = (location: string) =>
+  location.replace(/(\p{L})[-–](remote|hybrid)\b/giu, "$1 - $2")
+
 /** Every country a location names, or `fallback` if it names none. */
 export const countriesOf = (location: string, fallback?: string) => {
   const found = new Set(partsOf(location).flatMap((part) => countryOfPart(part) ?? []))
