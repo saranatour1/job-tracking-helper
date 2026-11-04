@@ -166,7 +166,11 @@ const Row = ({ contact, main }: { contact: Contact; main: boolean }) => {
     <TableRow>
       <TableCell className="font-medium">
         {contact.applicationId ? (
-          <Link to="/pipeline" search={{ app: application }} className="hover:underline underline-offset-2">
+          <Link
+            to="/pipeline"
+            search={{ app: application }}
+            className="hover:underline underline-offset-2"
+          >
             {contact.company}
           </Link>
         ) : (

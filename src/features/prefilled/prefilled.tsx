@@ -2,7 +2,9 @@ import { useApplicationText, usePrefillRoutes } from "@/lib/route-ids"
 import { api } from "@/lib/api"
 import type { Doc, Id } from "@convex/_generated/dataModel"
 import { isEmailQuestion } from "@convex/features/prefilled/match"
-import { Link } from "@tanstack/react-router"
+import { Link, useRouter } from "@tanstack/react-router"
+
+import { refreshJobs } from "@/features/jobs/search"
 import { useAction, useMutation } from "convex/react"
 import { useQuery } from "convex-helpers/react/cache/hooks"
 import { startTransition, useActionState, useRef } from "react"
@@ -80,11 +82,12 @@ export const PrepareButton = ({
   prefillId?: Id<"prefills">
 }) => {
   const prepare = useMutation(api.prefilled.prepare)
+  const router = useRouter()
   const routes = usePrefillRoutes()
   const [error, add] = useActionState(
     () =>
       prepare({ ...(jobId && { jobId }), ...(leadId && { leadId }) }).then(
-        () => undefined,
+        () => refreshJobs(router).then(() => undefined),
         messageOf
       ),
     undefined

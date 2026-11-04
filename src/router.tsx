@@ -1,4 +1,6 @@
 import { createRouter as createTanStackRouter } from "@tanstack/react-router"
+import { refreshJobs } from "@/features/jobs/search"
+import { onAuthChange } from "@/lib/convex"
 import { registerSiteTools } from "@/lib/web-mcp"
 import { routeTree } from "@/routeTree.gen"
 
@@ -10,7 +12,10 @@ export const getRouter = () => {
     defaultPreloadStaleTime: 0,
   })
   // The server builds a router per request. Only a page in a browser has tools to offer.
-  if (typeof document !== "undefined") void registerSiteTools(router.history.push)
+  if (typeof document !== "undefined") {
+    void registerSiteTools(router.history.push)
+    onAuthChange(() => void refreshJobs(router))
+  }
   return router
 }
 

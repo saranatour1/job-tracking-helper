@@ -8,18 +8,13 @@ import {
 
 import { ConvexAuthProvider } from "@convex-dev/auth/react"
 import { Databuddy } from "@databuddy/sdk/react"
-import { ConvexReactClient } from "convex/react"
 import { ConvexQueryCacheProvider } from "convex-helpers/react/cache/provider"
 import { api } from "@/lib/api"
+import { convex } from "@/lib/convex"
 import { themeScript } from "@/features/shell/theme"
 import { site } from "@/lib/seo"
 import appCss from "@/styles.css?url"
 
-const convexUrl: string | undefined = import.meta.env.VITE_CONVEX_URL
-if (!convexUrl) {
-  throw new Error("VITE_CONVEX_URL is not set. Run `npx convex dev` to write it to .env.local.")
-}
-const convex = new ConvexReactClient(convexUrl)
 const authApi = { refreshSession: api.auth.refreshSession, signOut: api.auth.signOut }
 const queryCacheMs = 60 * 60 * 1000
 

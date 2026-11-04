@@ -122,7 +122,11 @@ const RunTile = ({ run }: { run: Run }) => {
           Open the posting
         </Button>
         {run.applicationId && (
-          <Button size="xs" variant="ghost" render={<Link to="/pipeline" search={{ app: application }} />}>
+          <Button
+            size="xs"
+            variant="ghost"
+            render={<Link to="/pipeline" search={{ app: application }} />}
+          >
             Open the application
           </Button>
         )}
