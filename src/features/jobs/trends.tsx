@@ -22,7 +22,7 @@ import {
 } from "@/components/ui/table"
 import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group"
 import { PageIntro, pageBody, RowSkeletons, Tile } from "@/features/shell/page-body"
-import { PageHeader } from "@/features/shell/page-header"
+import { Breadcrumbs, PageHeader } from "@/features/shell/page-header"
 import { useAccess } from "@/hooks/use-access"
 import { ScrollArea } from "@/components/ui/scroll-area"
 import { cn } from "@/lib/utils"
@@ -139,15 +139,17 @@ export const Trends = () => {
   const week = weekOf(Date.now())
   const comparable = week >= comparableFrom
   const rows = useQuery(api.jobs.trends, { dimension: by, week })
+  const crumbs = [{ label: "Jobs", to: "/jobs" as const }, { label: "Trends" }]
   const allWeeks = Array.from(
     { length: weeksShown },
     (_, i) => week - (weeksShown - 1 - i) * weekMs
   )
   return (
     <div className="flex min-h-0 flex-1 flex-col">
-      {signedIn && <PageHeader crumbs={[{ label: "Jobs", to: "/jobs" }, { label: "Trends" }]} />}
+      {signedIn && <PageHeader crumbs={crumbs} />}
       <ScrollArea className="min-h-0 flex-1">
         <div className={pageBody}>
+          {!signedIn && <Breadcrumbs crumbs={crumbs} className="-mb-2" />}
           <PageIntro
             title="Job trends"
             description="New roles posted each week, across the boards this app reads. Roles stay counted after they close, but counting began in November 2026, so older weeks only have roles that were still open then, and look smaller than they were. Comparing weeks starts in January 2027. A board added later adds its roles to the weeks they were posted."

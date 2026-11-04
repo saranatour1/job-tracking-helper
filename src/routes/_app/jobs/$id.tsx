@@ -19,23 +19,21 @@ export const Route = createFileRoute("/_app/jobs/$id")({
     if (!job) throw notFound()
     return job
   },
-  head: ({ loaderData: job }) =>
-    job
-      ? {
-          ...publicHead({
-            title: `${job.title} at ${job.company} | ${site.name}`,
-            description: job.summary || job.preview || `${job.title} at ${job.company}.`,
-            path: `/jobs/${postingText(job)}`,
-            image: `${site.url}/jobs/${job._id}/og.png`,
-            imageAlt: `${job.title} at ${job.company}`,
-          }),
-          scripts: [
-            {
-              type: "application/ld+json",
-              children: scriptJson(jobPostingData(job, `${site.url}/jobs/${postingText(job)}`)),
-            },
-          ],
-        }
-      : {},
+  head: ({ loaderData: job }) => {
+    if (!job) return {}
+    const page = `${site.url}/jobs/${postingText(job)}`
+    const head = publicHead({
+      title: `${job.title} at ${job.company} | ${site.name}`,
+      description: job.summary || job.preview || `${job.title} at ${job.company}.`,
+      path: `/jobs/${postingText(job)}`,
+      image: `${site.url}/jobs/${job._id}/og.png`,
+      imageAlt: `${job.title} at ${job.company}`,
+    })
+    return {
+      ...head,
+      links: [...head.links, { rel: "alternate", type: "text/markdown", href: `${page}/llms.txt` }],
+      scripts: [{ type: "application/ld+json", children: scriptJson(jobPostingData(job, page)) }],
+    }
+  },
   component: Page,
 })

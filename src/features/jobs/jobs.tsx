@@ -8,6 +8,8 @@ import {
   Cancel01Icon,
   LinkSquare02Icon,
   Search01Icon,
+  TaskAdd01Icon,
+  TaskDone01Icon,
 } from "@hugeicons/core-free-icons"
 import { HugeiconsIcon } from "@hugeicons/react"
 import { useSignInAnonymously } from "@convex-dev/auth/methods/anonymous/react"
@@ -20,7 +22,7 @@ import {
   useRouterState,
   useSearch,
 } from "@tanstack/react-router"
-import { useConvexAuth, useMutation } from "convex/react"
+import { useAction, useConvexAuth, useMutation } from "convex/react"
 import { startTransition, useActionState } from "react"
 
 import { Badge } from "@/components/ui/badge"
@@ -38,7 +40,7 @@ import { ScrollArea } from "@/components/ui/scroll-area"
 import { Select, SelectItem, SelectPopup, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Toggle } from "@/components/ui/toggle"
 import { PageIntro, pageBody } from "@/features/shell/page-body"
-import { PageHeader } from "@/features/shell/page-header"
+import { Breadcrumbs, type Crumb, PageHeader } from "@/features/shell/page-header"
 import { messageOf } from "@/features/account/settings"
 import { useAccess } from "@/hooks/use-access"
 import { postingText } from "@/lib/route-ids"
@@ -81,6 +83,8 @@ export type Row = {
   places: string[]
   fit: number | null
   verdict: "fit" | "notFit" | null
+  applicationId: Id<"applications"> | null
+  reasons: string[]
   evidence: {
     boardId: Id<"jobBoards"> | null
     domain: string | null
@@ -273,6 +277,131 @@ const FactList = ({ facts }: { facts: Facts }) => (
   </dl>
 )
 
+/** An action that needs an account, for someone without one: it signs them in and comes back. */
+export const SignInFor = ({
+  label,
+  why,
+  size = "sm",
+}: {
+  label: string
+  why: string
+  size?: "xs" | "sm"
+}) => {
+  const here = useRouterState({ select: (s) => s.location.href })
+  return (
+    <Button
+      size={size}
+      variant="outline"
+      title={why}
+      aria-label={`${label}: ${why}`}
+      render={<Link to="/sign-in" search={{ redirect: here }} />}
+    >
+      {label}
+    </Button>
+  )
+}
+
+export const TrackButton = ({
+  job,
+  size = "sm",
+}: {
+  job: Pick<Row, "_id" | "company" | "applicationId">
+  size?: "xs" | "sm"
+}) => {
+  const addRole = useMutation(api.jobs.track)
+  const router = useRouter()
+  const [state, add, adding] = useActionState(
+    () =>
+      addRole({ jobId: job._id }).then(
+        (applicationId) => {
+          track("job_track", { job: job._id, company: job.company })
+          void refreshJobs(router)
+          return { applicationId, error: undefined }
+        },
+        (cause: unknown) => ({ applicationId: undefined, error: messageOf(cause) })
+      ),
+    undefined
+  )
+  if (job.applicationId ?? state?.applicationId)
+    return (
+      <Button size={size} variant="ghost" render={<Link to="/pipeline" />}>
+        <HugeiconsIcon icon={TaskDone01Icon} />
+        In your tracker
+      </Button>
+    )
+  return (
+    <span className="flex flex-col">
+      <Button size={size} variant="outline" disabled={adding} onClick={() => startTransition(add)}>
+        <HugeiconsIcon icon={TaskAdd01Icon} />
+        Add to tracker
+      </Button>
+      {state?.error && (
+        <span role="alert" className="text-destructive max-w-56 text-xs">
+          {state.error}
+        </span>
+      )}
+    </span>
+  )
+}
+
+export type Match = { fit: number; verdict: "fit" | "notFit"; reasons: string[] } | null
+
+/** How a role matches someone signed in: Jev's verdict and why, or a way to ask. Nothing while
+ * that's still loading, so the button doesn't flash. */
+export const MatchYou = ({ jobId, match }: { jobId: Id<"jobs">; match: Match | undefined }) => {
+  const checkJob = useAction(api.loopActions.checkJob)
+  const router = useRouter()
+  const [error, check, checking] = useActionState(async () => {
+    try {
+      await checkJob({ jobId })
+      track("job_match_checked", { job: jobId })
+      await refreshJobs(router)
+      return undefined
+    } catch (cause) {
+      return messageOf(cause)
+    }
+  }, undefined)
+  if (match === undefined) return null
+  if (match)
+    return (
+      <div className="flex flex-col gap-1.5">
+        <Badge
+          variant={match.verdict === "fit" ? "success" : "outline"}
+          className="self-start font-normal"
+        >
+          {match.verdict === "fit" ? `Matches you · ${match.fit}%` : `Not a match · ${match.fit}%`}
+        </Badge>
+        {match.reasons.length > 0 && (
+          <ul className="text-muted-foreground list-disc space-y-0.5 ps-4 text-xs leading-relaxed">
+            {match.reasons.slice(0, 3).map((reason) => (
+              <li key={reason}>{reason}</li>
+            ))}
+          </ul>
+        )}
+      </div>
+    )
+  return (
+    <div className="flex flex-col items-start gap-1">
+      <Button
+        size="sm"
+        variant="outline"
+        disabled={checking}
+        onClick={() => startTransition(check)}
+      >
+        {checking ? "Checking…" : "Does it match you?"}
+      </Button>
+      <span className="text-muted-foreground text-xs">
+        Jev reads it against your Preferences, up to 10 roles a day.
+      </span>
+      {error && (
+        <span role="alert" className="text-destructive text-xs">
+          {error}
+        </span>
+      )}
+    </div>
+  )
+}
+
 const splitView = "(min-width: 1024px)"
 
 export const Jobs = () => {
@@ -326,6 +455,22 @@ export const Jobs = () => {
         ? rows.length
         : undefined
   const total = filtered ? exact : data.stats?.jobs
+  const crumbs: Crumb[] = filtered
+    ? [
+        { label: "Jobs", to: "/jobs" },
+        {
+          label: [
+            q && `“${q}”`,
+            remote && "Remote",
+            posted && postedLabels[posted],
+            company?.label,
+            fits && "Best fit for you",
+          ]
+            .filter(Boolean)
+            .join(" · "),
+        },
+      ]
+    : [{ label: "Jobs" }]
   const count =
     exact === undefined
       ? `${rows.length.toLocaleString("en")}+ matches`
@@ -344,6 +489,7 @@ export const Jobs = () => {
         <Link
           to="/jobs/$id"
           params={{ id: postingText(job) }}
+          state={{ jobs: search }}
           preload={false}
           aria-current={selected || undefined}
           onClick={(e) => {
@@ -455,9 +601,18 @@ export const Jobs = () => {
           </span>
         )}
         <p className="text-[14px] leading-relaxed">{job.summary ?? job.preview}</p>
+        {signedIn && (
+          <MatchYou
+            jobId={job._id}
+            match={
+              job.verdict && job.fit !== null
+                ? { fit: job.fit, verdict: job.verdict, reasons: job.reasons }
+                : null
+            }
+          />
+        )}
         {job.facts && <FactList facts={job.facts} />}
         <span className="flex flex-wrap gap-1 empty:hidden">
-          <Badges job={job} openings={role.length} now={now} nested />
           <Evidence job={job} now={now} short />
         </span>
         <div className="flex flex-wrap items-center gap-2">
@@ -469,9 +624,17 @@ export const Jobs = () => {
             <HugeiconsIcon icon={LinkSquare02Icon} />
             Apply
           </Button>
-          {signedIn && canPrepare(job.url) && (
-            <PrepareButton jobId={job._id} status={row?.status} prefillId={row?._id} />
+          {signedIn ? (
+            <TrackButton job={job} />
+          ) : (
+            <SignInFor label="Add to tracker" why="Sign in to keep this role on your board" />
           )}
+          {canPrepare(job.url) &&
+            (signedIn ? (
+              <PrepareButton jobId={job._id} status={row?.status} prefillId={row?._id} />
+            ) : (
+              <SignInFor label="Prepare" why="Sign in to have its application filled in for you" />
+            ))}
           {signedIn ? (
             <Button
               size="sm"
@@ -509,6 +672,7 @@ export const Jobs = () => {
         <Link
           to="/jobs/$id"
           params={{ id: postingText(job) }}
+          state={{ jobs: search }}
           className="text-muted-foreground text-xs hover:underline"
         >
           The full posting
@@ -519,9 +683,10 @@ export const Jobs = () => {
 
   return (
     <div className="flex min-h-0 flex-1 flex-col">
-      {signedIn && <PageHeader crumbs={[{ label: "Jobs" }]} />}
+      {signedIn && <PageHeader crumbs={crumbs} />}
       <ScrollArea className="min-h-0 flex-1">
         <div className={cn(pageBody, "max-w-6xl gap-4")}>
+          {!signedIn && filtered && <Breadcrumbs crumbs={crumbs} className="-mb-2" />}
           <PageIntro
             title="Jobs"
             description={

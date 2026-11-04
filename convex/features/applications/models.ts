@@ -34,6 +34,7 @@ export const applicationsTable = defineTable(arkOutputToConvex(Stored))
   .index("by_userId_and_goalId", ["userId", "goalId"])
   .index("by_userId_and_trashedAt", ["userId", "trashedAt"])
   .index("by_userId_and_number", ["userId", "number"])
+  .index("by_userId_and_url", ["userId", "url"])
   .index("by_archivedAt", ["archivedAt"])
   .index("by_purgeAt", ["purgeAt"])
 

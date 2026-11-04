@@ -91,6 +91,8 @@ export const vJobRow = v.object({
   places: v.array(v.string()),
   fit: v.union(v.null(), v.number()),
   verdict: v.union(v.null(), vVerdict),
+  applicationId: v.union(v.id("applications"), v.null()),
+  reasons: v.array(v.string()),
   evidence: vEvidence,
 })
 

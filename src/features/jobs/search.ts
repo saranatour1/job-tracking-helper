@@ -43,6 +43,13 @@ export const jobsSearch = (search: Record<string, unknown>): JobsSearch => ({
   role: typeof search.role === "string" && search.role ? search.role : undefined,
 })
 
+// The list a role was opened from rides along in history, so the role's breadcrumb goes back to it.
+declare module "@tanstack/react-router" {
+  interface HistoryState {
+    jobs?: JobsSearch
+  }
+}
+
 export const refreshJobs = (router: AnyRouter, q?: string) =>
   router.invalidate({
     filter: (m) =>

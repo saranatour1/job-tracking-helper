@@ -421,12 +421,30 @@ const saveResearch = internalMutation({
   },
 })
 
+// A role judged after it was already on the board points at that application.
+const linkTracked = internalMutation({
+  args: { leadId: v.id("jobLeads") },
+  returns: v.null(),
+  handler: async (ctx, { leadId }) => {
+    const lead = await ctx.db.get("jobLeads", leadId)
+    if (!lead || lead.applicationId) return null
+    const tracked = await ctx.db
+      .query("applications")
+      .withIndex("by_userId_and_url", (q) => q.eq("userId", lead.userId).eq("url", lead.url))
+      .first()
+    if (tracked)
+      await ctx.db.patch("jobLeads", leadId, { status: "applied", applicationId: tracked._id })
+    return null
+  },
+})
+
 const get = internalQuery({
   args: { jobId: v.id("jobs") },
   handler: (ctx, { jobId }) => ctx.db.get("jobs", jobId),
 })
 
 export const internalApi = {
+  linkTracked,
   refreshDue,
   board,
   addBoards,

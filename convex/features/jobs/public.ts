@@ -3,7 +3,12 @@ import { paginationResultValidator } from "convex/server"
 import { ConvexError, type ObjectType, v } from "convex/values"
 import type { Doc } from "../../_generated/dataModel"
 import { query } from "../../_generated/server"
-import { sessionMutation } from "../../lib/functions"
+import { authedMutation, authedQuery, sessionMutation } from "../../lib/functions"
+import { vVerdict } from "../workflows/validators"
+import { fitOf, logNewApplication, nextNumber } from "../applications/utils"
+import { priorityFor } from "../applications/validators"
+import { leadOf } from "./leads"
+import { previewOf } from "./links"
 import { limits } from "../workflows/manager"
 import { evidenceOf } from "./companies"
 import { catalogCounts } from "./counts"
@@ -147,4 +152,75 @@ const sitemap = query({
   },
 })
 
-export const publicApi = { search, allowSearch, posting, stats, companies, sitemap }
+// How a role matches the person, once Jev has judged it for them: from a loop, a pasted link or
+// checking it here. Null until then.
+const match = authedQuery({
+  args: { jobId: v.id("jobs") },
+  returns: v.union(
+    v.object({
+      fit: v.number(),
+      verdict: vVerdict,
+      reasons: v.array(v.string()),
+      applicationId: v.union(v.id("applications"), v.null()),
+    }),
+    v.null()
+  ),
+  handler: async (ctx, { jobId }) => {
+    const job = await ctx.db.get("jobs", jobId)
+    const lead = job && (await leadOf(ctx, ctx.userId, job))
+    return (
+      lead && {
+        fit: lead.fit,
+        verdict: lead.verdict,
+        reasons: lead.reasons,
+        applicationId: lead.applicationId ?? null,
+      }
+    )
+  },
+})
+
+// A catalog role onto the person's board as Saved. The same role again opens what's there, back
+// out of Archive or Trash, rather than adding it twice.
+const track = authedMutation({
+  args: { jobId: v.id("jobs") },
+  returns: v.id("applications"),
+  handler: async (ctx, { jobId }) => {
+    const job = await ctx.db.get("jobs", jobId)
+    if (!job) throw new ConvexError("That role has closed.")
+    const lead = await leadOf(ctx, ctx.userId, job)
+    const known =
+      (lead?.applicationId && (await ctx.db.get("applications", lead.applicationId))) ||
+      (await ctx.db
+        .query("applications")
+        .withIndex("by_userId_and_url", (q) => q.eq("userId", ctx.userId).eq("url", job.url))
+        .first())
+    if (known && known.userId === ctx.userId) {
+      if (known.trashedAt !== undefined || known.archivedAt !== undefined)
+        await ctx.db.patch("applications", known._id, {
+          trashedAt: undefined,
+          archivedAt: undefined,
+          purgeAt: undefined,
+        })
+      return known._id
+    }
+    const applicationId = await ctx.db.insert("applications", {
+      userId: ctx.userId,
+      company: job.company,
+      role: job.title,
+      status: "saved",
+      url: job.url,
+      number: await nextNumber(ctx, ctx.userId),
+      ...(job.location && { location: job.location }),
+      labels: job.remote ? ["Remote"] : [],
+      description: (job.summary ?? previewOf(job.text)).slice(0, 5000),
+      method: "Company site",
+      ...(lead && { priority: priorityFor(lead.fit), ...fitOf(lead) }),
+      history: [{ status: "saved", at: Date.now() }],
+    })
+    await logNewApplication(ctx, ctx.userId, applicationId, job.company)
+    if (lead) await ctx.db.patch("jobLeads", lead._id, { status: "applied", applicationId })
+    return applicationId
+  },
+})
+
+export const publicApi = { search, allowSearch, posting, stats, companies, sitemap, track, match }

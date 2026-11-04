@@ -53,6 +53,41 @@ const checkText = action({
   },
 })
 
+// A role from the catalog: its text is already here, so nothing is read again, only judged. It
+// counts against the same daily checks as a pasted link.
+const checkJob = action({
+  args: { jobId: v.id("jobs") },
+  returns: v.id("jobLeads"),
+  handler: async (ctx, { jobId }): Promise<Id<"jobLeads">> => {
+    const userId = await memberId(ctx)
+    if (!userId) throw new Error("Not signed in")
+    const job = await ctx.runQuery(internal.api.jobs.get, { jobId })
+    if (!job) throw new ConvexError("That role has closed.")
+    const known = await ctx.runQuery(internal.api.loops.leadByUrlKey, {
+      userId,
+      urlKey: job.urlKey,
+    })
+    if (known) {
+      await ctx.runMutation(internal.api.jobs.linkTracked, { leadId: known })
+      return known
+    }
+    const { ok } = await limits.limit(ctx, "checkLink", { key: userId })
+    if (!ok) throw new ConvexError("You've checked 10 roles today. Try again tomorrow.")
+    const page = {
+      ...pastedPosting(job.url, job.text, job.company),
+      title: job.title,
+      location: job.location,
+      remote: job.remote,
+    }
+    const leadId: Id<"jobLeads"> = await ctx.runMutation(internal.api.loops.savePasted, {
+      userId,
+      ...(await judgePasted(ctx, userId, job.url, job.urlKey, page)),
+    })
+    await ctx.runMutation(internal.api.jobs.linkTracked, { leadId })
+    return leadId
+  },
+})
+
 const checkLinkFor = internalAction({
   args: { userId: v.id("users"), url: v.string() },
   returns: v.id("jobLeads"),
@@ -95,4 +130,4 @@ const enrichApplication = internalAction({
   },
 })
 
-export const linkApi = { checkLink, checkText, checkLinkFor, enrichApplication }
+export const linkApi = { checkLink, checkText, checkJob, checkLinkFor, enrichApplication }

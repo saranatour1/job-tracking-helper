@@ -34,6 +34,8 @@ export const rowOf = (job: Doc<"jobs">, lead: Doc<"jobLeads"> | null) => ({
   places: placesOfJob(job.location, job.remote),
   fit: lead?.fit ?? null,
   verdict: lead?.verdict ?? null,
+  applicationId: lead?.applicationId ?? null,
+  reasons: lead?.reasons ?? [],
 })
 
 // A role's proof and domain ending belong to its board, so they're read once per board.

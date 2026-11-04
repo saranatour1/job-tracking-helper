@@ -152,3 +152,50 @@ describe("searching without an account", () => {
     ])
   })
 })
+
+describe("a catalog role on someone's board", () => {
+  it("adds it once as Saved, and brings it back from the Trash instead of adding it again", async () => {
+    const { t, boardId } = await setup()
+    const userId = await t.run((ctx) => ctx.db.insert("users", { name: "Sam" }))
+    const as = t.withIdentity({ subject: userId })
+    const jobId = await t.run((ctx) =>
+      ctx.db.insert("jobs", { ...role(1), boardId, summary: "Build the payments API." })
+    )
+    const first = await as.mutation(api.api.jobs.track, { jobId })
+    await t.run((ctx) => ctx.db.patch("applications", first, { trashedAt: 1 }))
+    expect(await as.mutation(api.api.jobs.track, { jobId })).toBe(first)
+    const apps = await t.run((ctx) => ctx.db.query("applications").take(5))
+    expect(apps).toHaveLength(1)
+    expect(apps[0]).toMatchObject({
+      status: "saved",
+      role: "Engineer 1",
+      company: "Acme",
+      description: "Build the payments API.",
+    })
+    expect(apps[0]!.trashedAt).toBeUndefined()
+    expect(await as.query(api.api.jobs.match, { jobId })).toBeNull()
+
+    // Judged afterwards, as "Does it match you?" does: the new lead points at the same row.
+    const leadId = await t.run((ctx) =>
+      ctx.db.insert("jobLeads", {
+        userId,
+        url: role(1).url,
+        urlKey: role(1).urlKey,
+        title: "Engineer 1",
+        company: "Acme",
+        snippet: "Engineer 1",
+        fit: 32,
+        reasons: ["The right field, but the wrong level."],
+        status: "new",
+        verdict: "notFit",
+      })
+    )
+    await t.mutation(internal.api.jobs.linkTracked, { leadId })
+    expect(await as.query(api.api.jobs.match, { jobId })).toEqual({
+      fit: 32,
+      verdict: "notFit",
+      reasons: ["The right field, but the wrong level."],
+      applicationId: first,
+    })
+  })
+})

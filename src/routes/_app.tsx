@@ -18,7 +18,12 @@ const FirstRun = () => {
 // Jobs sits under this layout so members keep their sidebar there, but it's open to anyone.
 const AppLayout = () => {
   const { loading, member, inApp } = useAccess()
-  const path = useRouterState({ select: (s) => s.location.pathname })
+  // Where this layout is, not where a navigation is going: leaving Jobs for Sign in still renders
+  // it for a moment, and judging by the new address it would send a visitor to sign in again,
+  // dropping where to come back to.
+  const path = useRouterState({
+    select: (s) => (s.resolvedLocation ?? s.location).pathname,
+  })
   const open = path === "/jobs" || path.startsWith("/jobs/")
   // The server renders this too, so a page shows something before its scripts load. It can't be the
   // real frame yet: that depends on who this is. Jobs and a role's page go ahead in the visitor's

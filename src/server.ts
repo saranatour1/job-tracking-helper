@@ -19,6 +19,11 @@ export default {
     // Imported here, so the image library only loads for the requests that draw one.
     if (posting)
       return import("@/features/jobs/og").then((og) => og.postingImage(request, posting[1], ctx))
+    const roleText = reading ? /^\/jobs\/([^/]+)\/llms\.txt$/.exec(pathname) : null
+    if (roleText)
+      return import("@/features/jobs/llms").then((l) => l.roleLlms(request, roleText[1]!, ctx))
+    if (reading && pathname === "/jobs/llms.txt")
+      return import("@/features/jobs/llms").then((l) => l.jobsLlms(request, ctx))
     if (reading && pathname === "/sitemap-jobs.xml")
       return import("@/features/jobs/sitemap").then((s) => s.jobsSitemap(request, ctx))
     const company = reading ? /^\/jobs\/logo\/([^/]+)$/.exec(pathname) : null
