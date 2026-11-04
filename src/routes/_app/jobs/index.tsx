@@ -11,7 +11,14 @@ const pageSize = 25
 export const Route = createFileRoute("/_app/jobs/")({
   component: Jobs,
   validateSearch: jobsSearch,
-  loaderDeps: ({ search }) => search,
+  loaderDeps: ({ search: { q, remote, posted, board, fits, pages } }) => ({
+    q,
+    remote,
+    posted,
+    board,
+    fits,
+    pages,
+  }),
   staleTime: Number.POSITIVE_INFINITY,
   loader: async ({ deps: { q, remote, board, posted, fits, pages = 1 } }) => {
     const { http, signedIn } = await httpClient()

@@ -3,7 +3,12 @@ import type { Id } from "@convex/_generated/dataModel"
 import { canPrepare } from "@convex/features/jobs/links"
 import { groupRoles } from "@convex/features/workflows/fit"
 import { PrepareButton } from "@/features/prefilled/prefilled"
-import { Cancel01Icon, LinkSquare02Icon, Search01Icon } from "@hugeicons/core-free-icons"
+import {
+  ArrowDown01Icon,
+  Cancel01Icon,
+  LinkSquare02Icon,
+  Search01Icon,
+} from "@hugeicons/core-free-icons"
 import { HugeiconsIcon } from "@hugeicons/react"
 import { useSignInAnonymously } from "@convex-dev/auth/methods/anonymous/react"
 import { track } from "@databuddy/sdk"
@@ -32,13 +37,16 @@ import { Input } from "@/components/ui/input"
 import { ScrollArea } from "@/components/ui/scroll-area"
 import { Select, SelectItem, SelectPopup, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Toggle } from "@/components/ui/toggle"
-import { PageIntro, pageBody, Tile } from "@/features/shell/page-body"
+import { PageIntro, pageBody } from "@/features/shell/page-body"
 import { PageHeader } from "@/features/shell/page-header"
 import { messageOf } from "@/features/account/settings"
 import { useAccess } from "@/hooks/use-access"
 import { postingText } from "@/lib/route-ids"
 import { cn } from "@/lib/utils"
 
+import type { Facts } from "@convex/features/jobs/validators"
+
+import { companyRuns } from "./group"
 import { type JobsSearch, maxPages, type Posted, refreshJobs } from "./search"
 
 const postedLabels: Record<Posted | "any", string> = {
@@ -69,6 +77,7 @@ export type Row = {
   postedAt: number
   preview: string
   summary: string | null
+  facts: Facts | null
   places: string[]
   fit: number | null
   verdict: "fit" | "notFit" | null
@@ -220,8 +229,57 @@ export const useVisitorSearch = () => {
   }, undefined)
 }
 
-// Every role in the shared catalog, newest first or by what was searched for, with what each one is
-// and where. Members also get Fits me, Jev's verdicts and Prepare.
+const factLabels: Record<keyof Facts, string> = {
+  level: "Level",
+  team: "Team",
+  reportsTo: "Reports to",
+  workMode: "Work mode",
+  travel: "Travel",
+  employment: "Type",
+  pay: "Pay",
+}
+
+/** The company's icon from its domain, served by the Worker, which sends a letter when there's no
+ * icon. Without a domain, its initial. */
+export const CompanyLogo = ({ job, className }: { job: Row; className?: string }) =>
+  job.evidence.domain ? (
+    <img
+      src={`/jobs/logo/${job.evidence.domain}`}
+      alt=""
+      loading="lazy"
+      className={cn("size-5 shrink-0 rounded object-contain", className)}
+    />
+  ) : (
+    <span
+      aria-hidden
+      className={cn(
+        "bg-muted text-foreground/80 flex size-5 shrink-0 items-center justify-center rounded text-[10px] font-semibold uppercase",
+        className
+      )}
+    >
+      {job.company.trim()[0] ?? "?"}
+    </span>
+  )
+
+const FactList = ({ facts }: { facts: Facts }) => (
+  <dl className="grid grid-cols-2 gap-x-4 gap-y-2.5">
+    {(Object.keys(factLabels) as (keyof Facts)[]).map(
+      (key) =>
+        facts[key] && (
+          <div key={key} className="flex flex-col gap-0.5">
+            <dt className="text-muted-foreground text-xs">{factLabels[key]}</dt>
+            <dd className="text-[13px]">{facts[key]}</dd>
+          </div>
+        )
+    )}
+  </dl>
+)
+
+const wide = "(min-width: 1024px)"
+
+// Every role in the shared catalog, newest first or by what was searched for. One line a role, and
+// a company that posted several at once is one line that opens. On a wide screen the role picked
+// shows beside the list; on a narrow one a role opens its own page.
 export const Jobs = () => {
   const data = useLoaderData({ from: "/_app/jobs/" })
   const { member: signedIn } = useAccess()
@@ -234,11 +292,17 @@ export const Jobs = () => {
     : { ...search, q: search.q === data.allowedSearch ? search.q : undefined, fits: undefined }
   const [refused, visitorSearch, searching] = useVisitorSearch()
   const navigate = useNavigate({ from: "/jobs/" })
-  const set = (patch: Partial<JobsSearch>) =>
+  const set = (patch: Partial<JobsSearch>) => {
+    const sameList = Object.keys(patch).every((k) => k === "pages" || k === "role")
     void navigate({
-      search: (prev) => ({ ...prev, ...(!("pages" in patch) && { pages: undefined }), ...patch }),
+      search: (prev) => ({
+        ...prev,
+        ...(!sameList && { pages: undefined, role: undefined }),
+        ...patch,
+      }),
       replace: true,
     })
+  }
   const find = (words: string) => {
     if (words && !signedIn) return startTransition(() => visitorSearch(words))
     if (words) track("job_search", { query: words, member: true })
@@ -255,75 +319,181 @@ export const Jobs = () => {
   const company = options.find((o) => o.value === board) ?? null
   const filtered = Boolean(q || remote || posted || board || fits)
   const rows = data.jobs.page
-  const heading = fits
-    ? "Roles that fit you, best first"
-    : q
-      ? `Best matches for “${q}”`
-      : "Newest first"
+  const roles = groupRoles(rows)
+  // A list of one company's roles is already grouped.
+  const runs = board ? roles.map((role) => [role]) : companyRuns(roles)
+  const lead = (role: Row[]) => role.find((p) => p.verdict) ?? role[0]!
+  const picked = roles.find((role) => role.some((p) => p._id === search.role)) ?? roles[0]
+  const exact = !filtered
+    ? undefined
+    : board && !q && !remote && !posted && !fits
+      ? company?.jobs
+      : data.jobs.isDone
+        ? rows.length
+        : undefined
+  const count =
+    exact === undefined
+      ? `${rows.length.toLocaleString("en")}+ matches`
+      : `${exact.toLocaleString("en")} ${exact === 1 ? "match" : "matches"}`
 
-  const roleRow = (postings: Row[]) => {
-    const job = postings.find((p) => p.verdict) ?? postings[0]!
-    const seen = { job: job._id, company: job.company }
-    const row = postings.map((p) => prepared.get(p.url)).find(Boolean)
+  const line = (role: Row[], nested = false) => {
+    const job = lead(role)
     const fresh = now - job.postedAt < newFor
+    const where = job.places
+      .filter((p) => p !== "Remote")
+      .slice(0, 2)
+      .join(", ")
+    const selected = picked?.[0]?._id === role[0]!._id
     return (
-      <li
-        key={job._id}
-        className="flex flex-col gap-2 border-t px-3 py-3.5 first:border-t-0 sm:flex-row sm:items-start sm:gap-4"
-      >
-        <div className="flex min-w-0 flex-1 flex-col gap-1.5">
-          <div className="flex min-w-0 flex-wrap items-baseline gap-x-2 gap-y-0.5">
-            <Link
-              to="/jobs/$id"
-              params={{ id: postingText(job) }}
-              onClick={() => track("job_opened", seen)}
-              className="font-heading text-[15px] font-semibold hover:underline"
-            >
-              {job.title}
-            </Link>
-            <span className="text-muted-foreground text-xs">
-              {job.company} ·{" "}
-              <span
-                className={cn("tabular-nums", fresh && "text-info-foreground")}
-                title={fresh ? "New: posted in the last two days" : undefined}
-              >
-                {ago(job.postedAt, now)} ago
-              </span>
-              {postings.length > 1 && ` · ${postings.length} openings`}
+      <li key={job._id}>
+        <Link
+          to="/jobs/$id"
+          params={{ id: postingText(job) }}
+          // A wide screen shows the role beside the list, so reading its page ahead would be wasted.
+          preload={false}
+          aria-current={selected || undefined}
+          onClick={(e) => {
+            track("job_opened", { job: job._id, company: job.company })
+            // Beside the list on a wide screen, instead of leaving it.
+            if (!window.matchMedia(wide).matches) return
+            e.preventDefault()
+            set({ role: job._id })
+          }}
+          className={cn(
+            "hover:bg-accent/40 flex min-h-10 items-center gap-2.5 rounded-md px-2.5 py-2 text-[13px] lg:aria-[current]:bg-accent",
+            nested && "ps-9"
+          )}
+        >
+          {!nested && <CompanyLogo job={job} />}
+          <span className="flex min-w-0 flex-1 flex-col gap-0.5 sm:flex-row sm:items-baseline sm:gap-2">
+            <span className="truncate font-medium">{job.title}</span>
+            <span className="text-muted-foreground truncate text-xs">
+              {[!nested && job.company, where].filter(Boolean).join(" · ")}
             </span>
-          </div>
-          <p className="text-foreground/80 line-clamp-2 max-w-prose text-[13px] leading-relaxed">
-            {job.summary ?? job.preview}
-          </p>
-          <div className="flex flex-wrap gap-1 empty:hidden">
-            {job.verdict && (
-              <Badge
-                variant={job.verdict === "fit" ? "success" : "outline"}
-                className="font-normal"
-              >
-                {job.verdict === "fit" ? `Fits you · ${job.fit}%` : "Not a fit"}
-              </Badge>
+          </span>
+          {role.length > 1 && (
+            <span className="text-muted-foreground shrink-0 text-xs tabular-nums">
+              ×{role.length}
+            </span>
+          )}
+          {job.verdict === "fit" && (
+            <Badge variant="success" className="shrink-0 font-normal">
+              {job.fit}%
+            </Badge>
+          )}
+          {job.remote && (
+            <Badge variant="outline" className="hidden shrink-0 font-normal sm:inline-flex">
+              Remote
+            </Badge>
+          )}
+          <span
+            className={cn(
+              "w-8 shrink-0 text-end text-xs tabular-nums",
+              fresh ? "text-info-foreground" : "text-muted-foreground"
             )}
+            title={fresh ? "New: posted in the last two days" : undefined}
+          >
+            {ago(job.postedAt, now)}
+          </span>
+        </Link>
+      </li>
+    )
+  }
+
+  const run = (group: Row[][]) => {
+    if (group.length === 1) return line(group[0]!)
+    const job = lead(group[0]!)
+    const places = [...new Set(group.flatMap((role) => lead(role).places))]
+    const shared = places.filter((p) => group.every((role) => lead(role).places.includes(p)))
+    return (
+      <li key={`run-${job._id}`}>
+        <details
+          className="group/run"
+          open={group.some((role) => role.some((p) => p._id === search.role))}
+        >
+          <summary className="hover:bg-accent/40 flex min-h-10 cursor-pointer list-none items-center gap-2.5 rounded-md px-2.5 py-2 text-[13px] [&::-webkit-details-marker]:hidden">
+            <CompanyLogo job={job} />
+            <span className="flex min-w-0 flex-1 flex-col gap-0.5 sm:flex-row sm:items-baseline sm:gap-2">
+              <span className="shrink-0 font-medium">
+                {job.company} · {group.length} roles
+                {shared.length > 0 &&
+                  ` in ${shared.filter((p) => p !== "Remote").join(", ") || "Remote"}`}
+              </span>
+              <span className="text-muted-foreground min-w-0 truncate text-xs group-open/run:hidden">
+                {group.map((role) => lead(role).title).join(", ")}
+              </span>
+            </span>
+            <HugeiconsIcon
+              icon={ArrowDown01Icon}
+              className="text-muted-foreground size-4 shrink-0 transition-transform group-open/run:rotate-180"
+            />
+            <span className="text-muted-foreground w-8 shrink-0 text-end text-xs tabular-nums">
+              {ago(Math.max(...group.map((role) => lead(role).postedAt)), now)}
+            </span>
+          </summary>
+          <ul>{group.map((role) => line(role, true))}</ul>
+        </details>
+      </li>
+    )
+  }
+
+  const panel = (role: Row[]) => {
+    const job = lead(role)
+    const row = role.map((p) => prepared.get(p.url)).find(Boolean)
+    const seen = { job: job._id, company: job.company }
+    return (
+      <aside
+        aria-label={job.title}
+        className="bg-card sticky top-20 hidden max-h-[calc(100svh-7rem)] flex-col gap-4 overflow-y-auto rounded-xl border p-5 lg:flex"
+      >
+        <div className="flex items-center gap-2 text-[13px]">
+          <CompanyLogo job={job} className="size-6" />
+          <span className="font-medium">{job.company}</span>
+          <span className="text-muted-foreground">· {ago(job.postedAt, now)} ago</span>
+        </div>
+        <h2 className="font-heading text-lg leading-snug font-semibold">{job.title}</h2>
+        {job.places.length > 0 && (
+          <span className="flex flex-wrap gap-1">
             {job.places.map((place) => (
               <Badge key={place} variant="secondary" className="font-normal">
                 {place}
               </Badge>
             ))}
-          </div>
-        </div>
-        <div className="flex shrink-0 items-center gap-0.5">
+          </span>
+        )}
+        <p className="text-[14px] leading-relaxed">{job.summary ?? job.preview}</p>
+        {job.facts && <FactList facts={job.facts} />}
+        <span className="flex flex-wrap gap-1 empty:hidden">
+          <Badges job={job} openings={role.length} now={now} nested />
+          <Evidence job={job} now={now} short />
+        </span>
+        <div className="flex flex-wrap items-center gap-2">
+          <Button
+            size="sm"
+            onClick={() => track("job_apply_link", seen)}
+            render={<a href={job.url} {...external} />}
+          >
+            <HugeiconsIcon icon={LinkSquare02Icon} />
+            Apply
+          </Button>
           {signedIn && canPrepare(job.url) && (
             <PrepareButton jobId={job._id} status={row?.status} prefillId={row?._id} />
           )}
           {signedIn ? (
             <Button
-              size="xs"
+              size="sm"
               variant="ghost"
               onClick={() => track("job_more_like_this", seen)}
               render={
                 <Link
                   to="/jobs"
-                  search={{ ...search, q: job.title, fits: undefined, pages: undefined }}
+                  search={{
+                    ...search,
+                    q: job.title,
+                    fits: undefined,
+                    pages: undefined,
+                    role: undefined,
+                  }}
                 />
               }
             >
@@ -331,7 +501,7 @@ export const Jobs = () => {
             </Button>
           ) : (
             <Button
-              size="xs"
+              size="sm"
               variant="ghost"
               disabled={searching}
               onClick={() => {
@@ -342,17 +512,15 @@ export const Jobs = () => {
               More like this
             </Button>
           )}
-          <Button
-            size="icon-xs"
-            variant="ghost"
-            aria-label={`Open the ${job.title} posting`}
-            onClick={() => track("job_apply_link", seen)}
-            render={<a href={job.url} {...external} />}
-          >
-            <HugeiconsIcon icon={LinkSquare02Icon} />
-          </Button>
         </div>
-      </li>
+        <Link
+          to="/jobs/$id"
+          params={{ id: postingText(job) }}
+          className="text-muted-foreground text-xs hover:underline"
+        >
+          The full posting
+        </Link>
+      </aside>
     )
   }
 
@@ -360,7 +528,7 @@ export const Jobs = () => {
     <div className="flex min-h-0 flex-1 flex-col">
       {signedIn && <PageHeader crumbs={[{ label: "Jobs" }]} />}
       <ScrollArea className="min-h-0 flex-1">
-        <div className={pageBody}>
+        <div className={cn(pageBody, "max-w-6xl gap-4")}>
           <PageIntro
             title="Jobs"
             description={
@@ -374,40 +542,40 @@ export const Jobs = () => {
             </Button>
           </PageIntro>
 
-          <div className="flex flex-col gap-3">
-            <form
-              className="flex items-center gap-2"
-              onSubmit={(e) => {
-                e.preventDefault()
-                const said = new FormData(e.currentTarget).get("q")
-                find(typeof said === "string" ? said.trim() : "")
-              }}
-            >
-              <div className="relative max-w-xl flex-1">
-                <HugeiconsIcon
-                  icon={Search01Icon}
-                  className="text-muted-foreground pointer-events-none absolute start-2.5 top-1/2 size-4 -translate-y-1/2"
-                />
-                <Input
-                  key={search.q}
-                  name="q"
-                  type="search"
-                  aria-label="Search roles"
-                  placeholder="Search by title, skill or place"
-                  defaultValue={search.q}
-                  className="ps-8"
-                />
-              </div>
-              <Button type="submit" variant="outline" disabled={searching}>
-                Search
-              </Button>
-            </form>
-            {refused && (
-              <p role="alert" className="text-destructive text-[13px]">
-                {refused}
-              </p>
-            )}
+          <form
+            className="flex items-center gap-2"
+            onSubmit={(e) => {
+              e.preventDefault()
+              const said = new FormData(e.currentTarget).get("q")
+              find(typeof said === "string" ? said.trim() : "")
+            }}
+          >
+            <div className="relative max-w-xl flex-1">
+              <HugeiconsIcon
+                icon={Search01Icon}
+                className="text-muted-foreground pointer-events-none absolute start-2.5 top-1/2 size-4 -translate-y-1/2"
+              />
+              <Input
+                key={search.q}
+                name="q"
+                type="search"
+                aria-label="Search roles"
+                placeholder="Search by title, skill or place"
+                defaultValue={search.q}
+                className="ps-8"
+              />
+            </div>
+            <Button type="submit" variant="outline" disabled={searching}>
+              Search
+            </Button>
+          </form>
+          {refused && (
+            <p role="alert" className="text-destructive -mt-2 text-[13px]">
+              {refused}
+            </p>
+          )}
 
+          <div className="bg-background/95 supports-[backdrop-filter]:bg-background/80 z-10 -mx-2 flex flex-wrap md:sticky md:top-0 items-center gap-2 px-2 py-2 backdrop-blur">
             <div className="flex flex-wrap items-center gap-2" role="group" aria-label="Filters">
               <Toggle
                 size="sm"
@@ -466,16 +634,22 @@ export const Jobs = () => {
                   </ComboboxList>
                 </ComboboxPopup>
               </Combobox>
-              {signedIn && (
-                <Toggle
-                  size="sm"
-                  variant="outline"
-                  pressed={Boolean(fits)}
-                  onPressedChange={(on) => set({ fits: on || undefined })}
-                >
-                  Fits me
-                </Toggle>
-              )}
+              <Select
+                value={fits ? "fit" : "newest"}
+                items={[
+                  { value: "newest", label: q ? "Best match" : "Newest first" },
+                  ...(signedIn ? [{ value: "fit", label: "Best fit for you" }] : []),
+                ]}
+                onValueChange={(v) => set({ fits: v === "fit" || undefined })}
+              >
+                <SelectTrigger size="sm" aria-label="Sort" className="w-auto min-w-36">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectPopup>
+                  <SelectItem value="newest">{q ? "Best match" : "Newest first"}</SelectItem>
+                  {signedIn && <SelectItem value="fit">Best fit for you</SelectItem>}
+                </SelectPopup>
+              </Select>
               {filtered && (
                 <Button size="sm" variant="ghost" render={<Link to="/jobs" />}>
                   <HugeiconsIcon icon={Cancel01Icon} />
@@ -483,35 +657,43 @@ export const Jobs = () => {
                 </Button>
               )}
             </div>
+            {filtered && (
+              <span role="status" className="text-muted-foreground ms-auto text-xs tabular-nums">
+                {count}
+              </span>
+            )}
           </div>
 
-          <Tile title={heading} className="gap-0 p-1.5">
-            {/* Only once every page is read: a filter can empty one page with more behind it. */}
-            {data.jobs.isDone && rows.length === 0 && (
-              <p className="text-muted-foreground px-2.5 py-3 text-[13px]">
-                {fits
-                  ? "No roles marked as a fit yet. Your loops, and links you check, add them."
-                  : filtered
-                    ? "No roles match. Try fewer words, or clear a filter."
-                    : "No roles yet. The catalog fills as boards are fetched."}
-              </p>
-            )}
-            <ul className="flex flex-col">{groupRoles(rows).map(roleRow)}</ul>
-            {!data.jobs.isDone && (pages ?? 1) < maxPages && (
-              <Button
-                size="sm"
-                variant="ghost"
-                className="m-1 self-start"
-                disabled={loading}
-                onClick={() => {
-                  track("job_show_more")
-                  set({ pages: (pages ?? 1) + 1 })
-                }}
-              >
-                {loading ? "Loading more…" : "Show more"}
-              </Button>
-            )}
-          </Tile>
+          <div className="grid items-start gap-4 lg:grid-cols-[minmax(0,1fr)_24rem]">
+            <div className="flex min-w-0 flex-col">
+              {/* Only once every page is read: a filter can empty one page with more behind it. */}
+              {data.jobs.isDone && rows.length === 0 && (
+                <p className="text-muted-foreground px-2.5 py-3 text-[13px]">
+                  {fits
+                    ? "No roles marked as a fit yet. Your loops, and links you check, add them."
+                    : filtered
+                      ? "No roles match. Try fewer words, or clear a filter."
+                      : "No roles yet. The catalog fills as boards are fetched."}
+                </p>
+              )}
+              <ul className="flex flex-col">{runs.map(run)}</ul>
+              {!data.jobs.isDone && (pages ?? 1) < maxPages && (
+                <Button
+                  size="sm"
+                  variant="ghost"
+                  className="m-1 self-start"
+                  disabled={loading}
+                  onClick={() => {
+                    track("job_show_more")
+                    set({ pages: (pages ?? 1) + 1 })
+                  }}
+                >
+                  {loading ? "Loading more…" : "Show more"}
+                </Button>
+              )}
+            </div>
+            {picked && panel(picked)}
+          </div>
         </div>
       </ScrollArea>
     </div>

@@ -430,15 +430,23 @@ it doesn't.
 
 **Flows**
 
-1. `/jobs` is one line on how many roles the catalog has (`api.jobs.stats`), a search box and
-   three filters: Remote, Posted (past day, week or month) and Company (`api.jobs.companies`, the
-   boards with the most roles). Members also get Fits me (only roles Jev said fit you, best
-   first). Every filter is in the address, so a link opens the same list; Clear resets them
-   (`api.jobs.search`, 25 at a time). Show more adds a page (`?pages=`, up to 20).
-2. Each role is one row: its title, company and how long ago it was posted (in blue under two
-   days), then one sentence on what the job is, then pills for where it is (cities, countries,
-   Remote; `placesOfJob`) and Jev's verdict for you. A role posted several times shows "3
-   openings" once. Prepare, More like this and the link out sit on the right.
+1. `/jobs` is one line on how many roles the catalog has (`api.jobs.stats`), a search box and a
+   filter bar that stays in view from tablet width up: Remote, Posted (past day, week or month),
+   Company (`api.jobs.companies`, the boards with the most roles) and the order, Newest first or,
+   for members, Best fit for you (only roles Jev said fit you). Searched words order by Best
+   match. Every filter is in the address, so a link opens the same list; Clear resets them
+   (`api.jobs.search`, 25 at a time). Filtered, it says how many match: exact for a company alone
+   or once every page is read, otherwise "25+ matches". Show more adds a page (`?pages=`, up to
+   20).
+2. Each role is one line: the company's icon, the title, company and place, Remote, and how long
+   ago it was posted (in blue under two days). A role posted several times shows "×3". A company
+   with several roles in a row is one line, "Axon · 4 roles in Belgium", that opens to list them
+   (`companyRuns`). Icons come from `/jobs/logo/<domain>`: the Worker asks DuckDuckGo by domain
+   only, so a visitor's browser never asks a third party, keeps it for a week, and sends the
+   domain's first letter when there's no icon (`src/features/jobs/logo.ts`).
+   On a wide screen the role picked (`?role=`, the first one until then) shows beside the list:
+   its summary, facts and places, what was found about the company, Apply, Prepare, More like
+   this and a link to its page. On a narrow screen a role opens its own page instead.
 3. **Summaries.** Every few minutes, `internal.api.jobs.summarizeDue` takes up to 100 roles
    without one, newest first, and asks Claude Haiku 5.5 through the Convex gateway for one
    sentence on what the job is, plus the facts the posting states: level, team, who it reports

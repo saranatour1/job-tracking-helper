@@ -16,6 +16,8 @@ export type JobsSearch = {
   board?: string
   fits?: boolean
   pages?: number
+  // The role shown beside the list, on a wide screen. Not part of what the list reads.
+  role?: string
 }
 
 export const maxPages = 20
@@ -39,6 +41,7 @@ export const jobsSearch = (search: Record<string, unknown>): JobsSearch => ({
     typeof search.pages === "number" && Number.isInteger(search.pages) && search.pages > 1
       ? Math.min(search.pages, maxPages)
       : undefined,
+  role: typeof search.role === "string" && search.role ? search.role : undefined,
 })
 
 export const refreshJobs = (router: AnyRouter, q?: string) =>

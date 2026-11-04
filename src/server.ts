@@ -19,6 +19,9 @@ export default {
     // Imported here, so the image library only loads for the requests that draw one.
     if (posting)
       return import("@/features/jobs/og").then((og) => og.postingImage(request, posting[1], ctx))
+    const company = reading ? /^\/jobs\/logo\/([^/]+)$/.exec(pathname) : null
+    if (company)
+      return import("@/features/jobs/logo").then((l) => l.logo(request, company[1]!, ctx))
     // wrangler.jsonc runs the Worker first for .txt files, so reads of llms.txt get recorded.
     return env && pathname.endsWith(".txt") ? env.ASSETS.fetch(request) : handler.fetch(request)
   },

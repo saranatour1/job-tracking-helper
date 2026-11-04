@@ -56,6 +56,28 @@ export const vCatalogSummary = v.object({
   endings: v.array(v.object({ ending: v.string(), jobs: v.number() })),
 })
 
+export const workModes = ["Remote", "Hybrid", "On site"] as const
+export const employments = [
+  "Full-time",
+  "Part-time",
+  "Contract",
+  "Internship",
+  "Temporary",
+] as const
+
+// What a posting says about the role, read with its summary. Only what it states.
+export const Facts = type({
+  "level?": "string <= 80",
+  "team?": "string <= 80",
+  "reportsTo?": "string <= 80",
+  "workMode?": type.enumerated(...workModes),
+  "travel?": "string <= 80",
+  "employment?": type.enumerated(...employments),
+  "pay?": "string <= 80",
+})
+export type Facts = typeof Facts.infer
+export const vFacts = arkOutputToConvex(Facts)
+
 export const vJobRow = v.object({
   _id: v.id("jobs"),
   url: v.string(),
@@ -66,6 +88,7 @@ export const vJobRow = v.object({
   postedAt: v.number(),
   preview: v.string(),
   summary: v.union(v.string(), v.null()),
+  facts: v.union(vFacts, v.null()),
   places: v.array(v.string()),
   fit: v.union(v.null(), v.number()),
   verdict: v.union(v.null(), vVerdict),
@@ -92,28 +115,6 @@ export const Company = type({
   "registeredAt?": "number",
   "yc?": { batch: "string", status: "string", url: "string", "teamSize?": "number" },
 })
-
-export const workModes = ["Remote", "Hybrid", "On site"] as const
-export const employments = [
-  "Full-time",
-  "Part-time",
-  "Contract",
-  "Internship",
-  "Temporary",
-] as const
-
-// What a posting says about the role, read with its summary. Only what it states.
-export const Facts = type({
-  "level?": "string <= 80",
-  "team?": "string <= 80",
-  "reportsTo?": "string <= 80",
-  "workMode?": type.enumerated(...workModes),
-  "travel?": "string <= 80",
-  "employment?": type.enumerated(...employments),
-  "pay?": "string <= 80",
-})
-export type Facts = typeof Facts.infer
-export const vFacts = arkOutputToConvex(Facts)
 
 export const Job = type({
   boardId: arkId("jobBoards"),

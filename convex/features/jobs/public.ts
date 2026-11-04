@@ -7,7 +7,7 @@ import { sessionMutation } from "../../lib/functions"
 import { limits } from "../workflows/manager"
 import { evidenceOf } from "./companies"
 import { catalogCounts } from "./counts"
-import { vCatalogSummary, vFacts, vJobRow, vJobSearchArgs } from "./validators"
+import { vCatalogSummary, vJobRow, vJobSearchArgs } from "./validators"
 import { rowOf, searchJobs } from "./utils"
 
 // The page size the app asks for. Signed out, nobody can ask for more.
@@ -66,17 +66,14 @@ const allowSearch = sessionMutation({
 // One role for its public page and link preview, so never anyone's verdict. Null once it's gone.
 const posting = query({
   args: { id: v.string() },
-  returns: v.union(
-    vJobRow.extend({ text: v.string(), facts: v.union(vFacts, v.null()) }),
-    v.null()
-  ),
+  returns: v.union(vJobRow.extend({ text: v.string() }), v.null()),
   handler: async (ctx, { id }) => {
     const jobId = ctx.db.normalizeId("jobs", id)
     const job = jobId && (await ctx.db.get("jobs", jobId))
     if (!job) return null
     const { boardId: _, ...row } = rowOf(job, null)
     const [evidence] = await evidenceOf(ctx, [job])
-    return { ...row, text: job.text, facts: job.facts ?? null, evidence: evidence! }
+    return { ...row, text: job.text, evidence: evidence! }
   },
 })
 

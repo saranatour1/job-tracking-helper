@@ -31,6 +31,7 @@ export const rowOf = (job: Doc<"jobs">, lead: Doc<"jobLeads"> | null) => ({
   postedAt: job.postedAt,
   preview: previewOf(job.text),
   summary: job.summary ?? null,
+  facts: job.facts ?? null,
   places: placesOfJob(job.location, job.remote),
   fit: lead?.fit ?? null,
   verdict: lead?.verdict ?? null,
