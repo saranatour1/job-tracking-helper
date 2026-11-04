@@ -126,7 +126,8 @@ company sites for Jobs, and preparing applications needs it.
    `?pages=2`, then 3, so crawlers page through it; each page names itself as canonical and links
    back to the first. A filter, an order or a picked role makes a variation of the list, which is
    `noindex, follow`. `/sitemap-jobs.xml` lists every open role's page with the day it was posted,
-   built by the Worker from `api.jobs.sitemap` once a day (`src/features/jobs/sitemap.ts`).
+   built from a file a daily cron writes to Convex storage (`convex/features/jobs/sitemap.ts`),
+   because reading every role takes too long for a crawler to wait (`src/features/jobs/sitemap.ts`).
 4. **AI crawler tracking.** Crawlers don't run the Databuddy script, so the Worker
    (`src/server.ts`) reports each request from an AI agent to Databuddy in the background.
    `wrangler.jsonc` runs the Worker first for `.txt` files, so reads of `llms.txt` count too.

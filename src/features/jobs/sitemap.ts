@@ -30,18 +30,13 @@ ${roles
 
 export const jobsSitemap = (request: Request, ctx?: Context) =>
   cachedAt(request, "sitemaps", ctx, async () => {
-    const http = new ConvexHttpClient(String(import.meta.env.VITE_CONVEX_URL))
-    const roles: Role[] = []
-    let cursor: string | null = null
-    while (roles.length < maxRoles) {
-      const found: { page: Role[]; isDone: boolean; continueCursor: string } = await http.query(
-        api.jobs.sitemap,
-        { cursor }
-      )
-      roles.push(...found.page)
-      if (found.isDone) break
-      cursor = found.continueCursor
-    }
+    const file = await new ConvexHttpClient(String(import.meta.env.VITE_CONVEX_URL)).query(
+      api.jobs.sitemapFile,
+      {}
+    )
+    if (!file)
+      return new Response("Not written yet", { status: 503, headers: { "Retry-After": "3600" } })
+    const roles: Role[] = await (await fetch(file)).json()
     return new Response(sitemapXml(roles.slice(0, maxRoles)), {
       headers: { "Content-Type": "application/xml", "Cache-Control": `public, max-age=${dayS}` },
     })

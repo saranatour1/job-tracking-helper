@@ -14,4 +14,5 @@ export const companiesTable = defineTable(arkOutputToConvex(Company)).index("by_
 
 export const jobCatalogTable = defineTable({
   boards: v.number(),
+  sitemap: v.optional(v.id("_storage")),
 })
