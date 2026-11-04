@@ -1,6 +1,7 @@
 import { actionsApi } from "./actions"
 import { internalApi } from "./internal"
 import { publicApi } from "./public"
+import { sitemapApi } from "./sitemap"
 import { summariesApi } from "./summaries"
 import { trendsApi } from "./trends"
 
@@ -10,4 +11,5 @@ export const jobsApi = {
   ...actionsApi,
   ...trendsApi,
   ...summariesApi,
+  ...sitemapApi,
 }
