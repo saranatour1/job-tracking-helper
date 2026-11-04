@@ -159,6 +159,7 @@ import type * as features_prefilled_draft from "../features/prefilled/draft.js";
 import type * as features_prefilled_firecrawl from "../features/prefilled/firecrawl.js";
 import type * as features_prefilled_index from "../features/prefilled/index.js";
 import type * as features_prefilled_internal from "../features/prefilled/internal.js";
+import type * as features_prefilled_limits from "../features/prefilled/limits.js";
 import type * as features_prefilled_match from "../features/prefilled/match.js";
 import type * as features_prefilled_models from "../features/prefilled/models.js";
 import type * as features_prefilled_public from "../features/prefilled/public.js";
@@ -354,6 +355,7 @@ declare const fullApi: ApiFromModules<{
   "features/prefilled/firecrawl": typeof features_prefilled_firecrawl;
   "features/prefilled/index": typeof features_prefilled_index;
   "features/prefilled/internal": typeof features_prefilled_internal;
+  "features/prefilled/limits": typeof features_prefilled_limits;
   "features/prefilled/match": typeof features_prefilled_match;
   "features/prefilled/models": typeof features_prefilled_models;
   "features/prefilled/public": typeof features_prefilled_public;

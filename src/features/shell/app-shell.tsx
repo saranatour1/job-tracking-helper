@@ -1,7 +1,15 @@
-import { SidebarInset, SidebarProvider } from "@/components/ui/sidebar"
+import { SidebarInset, SidebarProvider, SidebarTrigger } from "@/components/ui/sidebar"
 import { TooltipProvider } from "@/components/ui/tooltip"
 import { AppSidebar } from "@/features/shell/app-sidebar"
-import { PageBar } from "@/features/shell/page-header"
+import { barSlot } from "@/features/shell/page-header"
+
+/** The top bar of every page, kept by the layout: the sidebar toggle, then what the page puts in. */
+const PageBar = () => (
+  <header className="flex h-12 shrink-0 items-center gap-2 border-b px-3">
+    <SidebarTrigger />
+    <div ref={(el) => el?.append(barSlot())} className="contents" />
+  </header>
+)
 
 export const AppShell = ({ children }: { children: React.ReactNode }) => {
   return (

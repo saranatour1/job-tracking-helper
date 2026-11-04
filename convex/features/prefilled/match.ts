@@ -1,4 +1,5 @@
-import { maxFields, maxOptions, type PrefillField } from "./validators"
+import { maxFields, maxOptions } from "./limits"
+import type { PrefillField } from "./validators"
 
 export type FormField = {
   selector: string

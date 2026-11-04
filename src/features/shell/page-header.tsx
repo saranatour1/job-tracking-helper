@@ -4,7 +4,6 @@ import { Link, type LinkProps, useRouter } from "@tanstack/react-router"
 import { Fragment } from "react"
 import { createPortal } from "react-dom"
 
-import { SidebarTrigger } from "@/components/ui/sidebar"
 import { cn } from "@/lib/utils"
 
 export type Crumb = {
@@ -19,20 +18,12 @@ export type Crumb = {
 // A plain element rather than a ref, so a page can fill the bar on its first render instead
 // of showing an empty bar for a frame. Pages only render in the browser, behind sign-in.
 let slot: HTMLElement | undefined
-const barSlot = () => {
+export const barSlot = () => {
   slot ??= Object.assign(document.createElement("div"), {
     className: "flex min-w-0 flex-1 items-center gap-2",
   })
   return slot
 }
-
-/** The top bar of every page, kept by the layout: the sidebar toggle, then what the page puts in. */
-export const PageBar = () => (
-  <header className="flex h-12 shrink-0 items-center gap-2 border-b px-3">
-    <SidebarTrigger />
-    <div ref={(el) => el?.append(barSlot())} className="contents" />
-  </header>
-)
 
 /** The trail of pages up to this one, each a link but the last. In the bar the last is the page
  * heading; on a page with its own heading it's plain text. */

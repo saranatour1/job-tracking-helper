@@ -30,8 +30,7 @@ export const PrefillField = type({
 })
 export type PrefillField = typeof PrefillField.infer
 
-export const maxFields = 80
-export const maxOptions = 50
+export { maxFields, maxOptions } from "./limits"
 
 export const Prefill = type({
   userId: arkId("users"),
