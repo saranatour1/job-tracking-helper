@@ -170,3 +170,10 @@ export const vJobSearchArgs = {
   ending: v.optional(v.string()),
   paginationOpts: paginationOptsValidator,
 }
+
+export const vSitemapRole = v.object({
+  _id: v.id("jobs"),
+  title: v.string(),
+  company: v.string(),
+  postedAt: v.number(),
+})

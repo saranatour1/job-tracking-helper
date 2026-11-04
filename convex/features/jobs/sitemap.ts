@@ -1,56 +1,95 @@
+import { defineBatchWorkerValidators, ping } from "@convex-dev/batch-worker"
 import { v } from "convex/values"
-import { api, internal } from "../../_generated/api"
-import { internalAction, internalMutation, query } from "../../_generated/server"
+import { components, internal } from "../../_generated/api"
+import { internalMutation, internalQuery, query } from "../../_generated/server"
+import { vSitemapRole as vRole } from "./validators"
 
-type Role = { _id: string; title: string; company: string; postedAt: number }
+const worker = "jobsSitemap"
+const batchSize = 500
 
-// Reading every role takes over a dozen queries in a row, longer than a crawler waits, so the
-// sitemap's roles are written to a file ahead of time.
-const buildSitemap = internalAction({
-  args: {},
-  returns: v.null(),
-  handler: async (ctx) => {
-    const roles: Role[] = []
-    let cursor: string | null = null
-    for (;;) {
-      const found: { page: Role[]; isDone: boolean; continueCursor: string } = await ctx.runQuery(
-        api.api.jobs.sitemap,
-        { cursor }
-      )
-      roles.push(...found.page)
-      if (found.isDone) break
-      cursor = found.continueCursor
+const { vQueryArgs, vQueryReturns, vMutationArgs, vMutationReturns } = defineBatchWorkerValidators({
+  batch: { round: v.number(), roles: v.array(vRole), done: v.boolean() },
+  cursor: v.object({ round: v.number(), after: v.number() }),
+})
+
+// Reading every role takes more queries than a crawler waits for, so the sitemap's roles are
+// saved a batch at a time, in rounds. A round shows once its last batch is in.
+const nextSitemap = internalQuery({
+  args: vQueryArgs,
+  returns: vQueryReturns,
+  handler: async (ctx, { cursor }) => {
+    const row = await ctx.db.query("jobCatalog").first()
+    const round = row?.sitemapWanted
+    if (!round || round === row.sitemapRound) return { kind: "idle" as const }
+    const after = cursor?.round === round ? cursor.after : 0
+    const jobs = await ctx.db
+      .query("jobs")
+      .withIndex("by_creation_time", (q) => q.gt("_creationTime", after))
+      .take(batchSize)
+    return {
+      kind: "work" as const,
+      batch: {
+        round,
+        roles: jobs.map(({ _id, title, company, postedAt }) => ({ _id, title, company, postedAt })),
+        done: jobs.length < batchSize,
+      },
+      cursor: { round, after: jobs.at(-1)?._creationTime ?? after },
     }
-    const file = await ctx.storage.store(
-      new Blob([JSON.stringify(roles)], { type: "application/json" })
-    )
-    await ctx.runMutation(internal.api.jobs.saveSitemap, { file })
-    return null
   },
 })
 
-const saveSitemap = internalMutation({
-  args: { file: v.id("_storage") },
-  returns: v.null(),
-  handler: async (ctx, { file }) => {
+const addSitemap = internalMutation({
+  args: vMutationArgs,
+  returns: vMutationReturns,
+  handler: async (ctx, { round, roles, done }) => {
+    if (roles.length) await ctx.db.insert("sitemapPages", { round, roles })
+    if (!done) return
     const row = await ctx.db.query("jobCatalog").first()
-    if (!row) {
-      await ctx.storage.delete(file)
-      return null
-    }
+    if (!row) return
+    // ponytail: drop `sitemap` from jobCatalog once this has run on production.
     if (row.sitemap) await ctx.storage.delete(row.sitemap)
-    await ctx.db.patch("jobCatalog", row._id, { sitemap: file })
+    await ctx.db.patch("jobCatalog", row._id, { sitemapRound: round, sitemap: undefined })
+    // ponytail: a round is about 30 pages, so one mutation clears the last one.
+    const old = await ctx.db
+      .query("sitemapPages")
+      .withIndex("by_round", (q) => q.lt("round", round))
+      .take(200)
+    for (const page of old) await ctx.db.delete("sitemapPages", page._id)
+  },
+})
+
+// Kicked as well, like the trends worker (get-convex/batch-worker#12).
+const startSitemap = internalMutation({
+  args: {},
+  returns: v.null(),
+  handler: async (ctx) => {
+    const row = await ctx.db.query("jobCatalog").first()
+    if (!row) return null
+    await ctx.db.patch("jobCatalog", row._id, { sitemapWanted: Date.now() })
+    await ping(ctx, components.batchWorker, {
+      name: worker,
+      workQuery: internal.api.jobs.nextSitemap,
+      workerMutation: internal.api.jobs.addSitemap,
+    })
+    await ctx.runMutation(components.batchWorker.lib.kick, { name: worker })
     return null
   },
 })
 
-const sitemapFile = query({
+// By page, since an array holds at most 8,192 items.
+const sitemapRoles = query({
   args: {},
-  returns: v.union(v.string(), v.null()),
+  returns: v.array(v.array(vRole)),
   handler: async (ctx) => {
     const row = await ctx.db.query("jobCatalog").first()
-    return row?.sitemap ? await ctx.storage.getUrl(row.sitemap) : null
+    const round = row?.sitemapRound
+    if (!round) return []
+    const pages = await ctx.db
+      .query("sitemapPages")
+      .withIndex("by_round", (q) => q.eq("round", round))
+      .collect()
+    return pages.map((page) => page.roles)
   },
 })
 
-export const sitemapApi = { buildSitemap, saveSitemap, sitemapFile }
+export const sitemapApi = { nextSitemap, addSitemap, startSitemap, sitemapRoles }
