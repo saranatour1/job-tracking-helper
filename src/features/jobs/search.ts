@@ -16,7 +16,6 @@ export type JobsSearch = {
   board?: string
   fits?: boolean
   pages?: number
-  // The role shown beside the list, on a wide screen. Not part of what the list reads.
   role?: string
 }
 

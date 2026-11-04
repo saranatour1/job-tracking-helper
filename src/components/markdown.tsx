@@ -27,8 +27,9 @@ export const Markdown = ({ children, className }: { children: string; className?
 )
 
 /** A role's text without its first lines (title, company and place), which the page
- * already shows. Feeds often close bold right before a word ("**Travel:**up to"), which Markdown
- * leaves as asterisks, so those get a space. */
+ * already shows. CommonMark won't close bold after punctuation when a letter follows, as feeds
+ * write it ("**Travel:**up to"), so those get a space.
+ * https://spec.commonmark.org/0.31.2/#right-flanking-delimiter-run */
 export const bodyOf = (text: string) =>
   (text.split("\n\n").slice(1).join("\n\n") || text).replace(
     /([:.,;!?])\*\*(?=[\p{L}\d])/gu,

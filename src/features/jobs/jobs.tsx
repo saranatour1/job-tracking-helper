@@ -239,8 +239,6 @@ const factLabels: Record<keyof Facts, string> = {
   pay: "Pay",
 }
 
-/** The company's icon from its domain, served by the Worker, which sends a letter when there's no
- * icon. Without a domain, its initial. */
 export const CompanyLogo = ({ job, className }: { job: Row; className?: string }) =>
   job.evidence.domain ? (
     <img
@@ -275,21 +273,17 @@ const FactList = ({ facts }: { facts: Facts }) => (
   </dl>
 )
 
-const wide = "(min-width: 1024px)"
+const splitView = "(min-width: 1024px)"
 
-// Every role in the shared catalog, newest first or by what was searched for. One line a role, and
-// a company that posted several at once is one line that opens. On a wide screen the role picked
-// shows beside the list; on a narrow one a role opens its own page.
 export const Jobs = () => {
   const data = useLoaderData({ from: "/_app/jobs/" })
   const { member: signedIn } = useAccess()
   const loading = useRouterState({ select: (s) => s.isLoading })
   const search = useSearch({ from: "/_app/jobs/" })
-  // A shared link can carry words nobody has spent a search on yet. Those wait in the box until
-  // someone presses Search.
+  const visitorWords = search.q === data.allowedSearch ? search.q : undefined
   const { q, remote, posted, board, fits, pages }: JobsSearch = signedIn
     ? search
-    : { ...search, q: search.q === data.allowedSearch ? search.q : undefined, fits: undefined }
+    : { ...search, q: visitorWords, fits: undefined }
   const [refused, visitorSearch, searching] = useVisitorSearch()
   const navigate = useNavigate({ from: "/jobs/" })
   const set = (patch: Partial<JobsSearch>) => {
@@ -319,8 +313,8 @@ export const Jobs = () => {
   const company = options.find((o) => o.value === board) ?? null
   const filtered = Boolean(q || remote || posted || board || fits)
   const rows = data.jobs.page
+  const noneLeft = data.jobs.isDone && rows.length === 0
   const roles = groupRoles(rows)
-  // A list of one company's roles is already grouped.
   const runs = board ? roles.map((role) => [role]) : companyRuns(roles)
   const lead = (role: Row[]) => role.find((p) => p.verdict) ?? role[0]!
   const picked = roles.find((role) => role.some((p) => p._id === search.role)) ?? roles[0]
@@ -350,13 +344,11 @@ export const Jobs = () => {
         <Link
           to="/jobs/$id"
           params={{ id: postingText(job) }}
-          // A wide screen shows the role beside the list, so reading its page ahead would be wasted.
           preload={false}
           aria-current={selected || undefined}
           onClick={(e) => {
             track("job_opened", { job: job._id, company: job.company })
-            // Beside the list on a wide screen, instead of leaving it.
-            if (!window.matchMedia(wide).matches) return
+            if (!window.matchMedia(splitView).matches) return
             e.preventDefault()
             set({ role: job._id })
           }}
@@ -667,8 +659,7 @@ export const Jobs = () => {
 
           <div className="grid items-start gap-4 lg:grid-cols-[minmax(0,1fr)_24rem]">
             <div className="flex min-w-0 flex-col">
-              {/* Only once every page is read: a filter can empty one page with more behind it. */}
-              {data.jobs.isDone && rows.length === 0 && (
+              {noneLeft && (
                 <p className="text-muted-foreground px-2.5 py-3 text-[13px]">
                   {fits
                     ? "No roles marked as a fit yet. Your loops, and links you check, add them."

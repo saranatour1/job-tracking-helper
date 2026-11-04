@@ -1,6 +1,7 @@
 import { convexGateway } from "@convex-dev/ai-sdk-provider"
 import { generateText } from "ai"
 import { type } from "arktype"
+import { vOnCompleteArgs } from "@convex-dev/workpool"
 import { v } from "convex/values"
 import { internal } from "../../_generated/api"
 import { internalAction, internalMutation, internalQuery } from "../../_generated/server"
@@ -10,9 +11,9 @@ import { draftModel } from "../prefilled/draft"
 import { summaryPool } from "../workflows/manager"
 import { Facts, vFacts } from "./validators"
 
-// Enough of a posting to say what the job is; the rest is usually benefits and boilerplate.
 const maxPosting = 8000
 const maxWords = 40
+const queued = 0
 // ponytail: a fixed share every few minutes, about 1,200 an hour. Raise it, or give new roles
 // their own lane, if a big backfill keeps fresh roles waiting.
 const perRun = 100
@@ -48,7 +49,6 @@ ${cut(unmark(text), maxPosting)}
 const refusal =
   /^(i |i'm |sorry|as an ai)|i can(no|')t|not enough information|doesn't (say|describe)/i
 
-/** A summary as written for the list, or null if it doesn't read like one. */
 export const cleanSummary = (reply: string) => {
   const text = reply
     .replace(/^["'“”\s]+|["'“”\s]+$/g, "")
@@ -60,11 +60,8 @@ export const cleanSummary = (reply: string) => {
 }
 
 const factKeys = ["level", "team", "reportsTo", "workMode", "travel", "employment", "pay"] as const
-// What the model writes when told to leave a field out and it doesn't.
 const unstated = /^(not (stated|specified|mentioned|listed|given)|n\/?a|none|unknown|-)\.?$/i
 
-/** The model's JSON reply as a summary and the facts it found. A fact that doesn't fit its field is
- * dropped on its own; a reply without a usable summary keeps nothing. */
 export const readReply = (reply: string): { summary: string | null; facts: Facts | null } => {
   let found: Record<string, unknown> = {}
   try {
@@ -85,8 +82,6 @@ export const readReply = (reply: string): { summary: string | null; facts: Facts
   return { summary, facts: Object.keys(facts).length ? facts : null }
 }
 
-/** Queues roles that have no summary yet, newest first, since those are what Jobs shows first:
- * new ones, ones whose text changed, and the backfill. */
 const summarizeDue = internalMutation({
   args: {},
   returns: v.number(),
@@ -97,12 +92,15 @@ const summarizeDue = internalMutation({
       .order("desc")
       .take(perRun)
     if (!due.length) return 0
-    for (const job of due) await ctx.db.patch("jobs", job._id, { summarizedAt: 0 })
-    await summaryPool.enqueueActionBatch(
-      ctx,
-      internal.api.jobs.summarize,
-      due.map((job) => ({ jobId: job._id }))
-    )
+    for (const job of due) {
+      await ctx.db.patch("jobs", job._id, { summarizedAt: queued })
+      await summaryPool.enqueueAction(
+        ctx,
+        internal.api.jobs.summarize,
+        { jobId: job._id },
+        { onComplete: internal.api.jobs.summaryEnded, context: { jobId: job._id } }
+      )
+    }
     return due.length
   },
 })
@@ -119,23 +117,33 @@ const summaryInput = internalQuery({
   },
 })
 
-// A role whose text changed while it was being summarized waits for the next run instead.
 const saveSummary = internalMutation({
   args: {
     jobId: v.id("jobs"),
-    text: v.string(),
+    summarizedText: v.string(),
     summary: v.union(v.string(), v.null()),
     facts: v.union(vFacts, v.null()),
   },
   returns: v.null(),
-  handler: async (ctx, { jobId, text, summary, facts }) => {
+  handler: async (ctx, { jobId, summarizedText, summary, facts }) => {
     const job = await ctx.db.get("jobs", jobId)
-    if (!job || job.text !== text) return null
+    if (!job || job.text !== summarizedText) return null
     await ctx.db.patch("jobs", jobId, {
-      summary: summary ?? undefined,
-      facts: facts ?? undefined,
+      ...(summary && { summary, facts: facts ?? undefined }),
       summarizedAt: Date.now(),
     })
+    return null
+  },
+})
+
+// After its last attempt fails, a role is done without a summary, so it isn't left queued.
+const summaryEnded = internalMutation({
+  args: vOnCompleteArgs(v.object({ jobId: v.id("jobs") }), v.null()),
+  returns: v.null(),
+  handler: async (ctx, { result, context: { jobId } }) => {
+    const job = await ctx.db.get("jobs", jobId)
+    if (result.kind === "success" || job?.summarizedAt !== queued) return null
+    await ctx.db.patch("jobs", jobId, { summarizedAt: Date.now() })
     return null
   },
 })
@@ -159,14 +167,17 @@ const summarize = internalAction({
       kept: Boolean(summary),
       facts: Object.keys(facts ?? {}).length,
     })
-    await ctx.runMutation(internal.api.jobs.saveSummary, { jobId, text: job.text, summary, facts })
+    await ctx.runMutation(internal.api.jobs.saveSummary, {
+      jobId,
+      summarizedText: job.text,
+      summary,
+      facts,
+    })
     return null
   },
 })
 
-/** After the prompt changes: marks every finished summary as due, 200 at a time, newest first, and
- * summarizeDue redoes them. Rows keep their old summary until the new one lands. Run by hand. */
-const askAgain = internalMutation({
+const resummarizeAll = internalMutation({
   args: {},
   returns: v.null(),
   handler: async (ctx) => {
@@ -175,9 +186,16 @@ const askAgain = internalMutation({
       .withIndex("by_summarizedAt_and_postedAt", (q) => q.gt("summarizedAt", 0))
       .take(200)
     for (const job of done) await ctx.db.patch("jobs", job._id, { summarizedAt: undefined })
-    if (done.length === 200) await ctx.scheduler.runAfter(0, internal.api.jobs.askAgain, {})
+    if (done.length === 200) await ctx.scheduler.runAfter(0, internal.api.jobs.resummarizeAll, {})
     return null
   },
 })
 
-export const summariesApi = { summarizeDue, summaryInput, saveSummary, summarize, askAgain }
+export const summariesApi = {
+  summarizeDue,
+  summaryInput,
+  saveSummary,
+  summaryEnded,
+  summarize,
+  resummarizeAll,
+}

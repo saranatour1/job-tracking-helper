@@ -48,7 +48,6 @@ export const applyPool = new Workpool(components.applyPool, {
 // here rather than collide while boards refresh side by side.
 export const catalogPool = new Workpool(components.catalogPool, { maxParallelism: 1 })
 
-// Its own lane, so a backfill of summaries never holds up loops reading sources.
 export const summaryPool = new Workpool(components.summaryPool, {
   maxParallelism: 4,
   retryActionsByDefault: true,

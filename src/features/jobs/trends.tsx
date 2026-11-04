@@ -71,7 +71,6 @@ const Weeks = ({ label, weeks }: { label: string; weeks: { week: number; roles: 
 
 const endingsShown = 6
 
-// The whole catalog at a glance: how its roles tie to a company, and the endings of their domains.
 const Catalog = () => {
   const stats = useQuery(api.jobs.stats)
   if (!stats) return null

@@ -2,6 +2,7 @@
 /// <reference types="vite/client" />
 import aggregate from "@convex-dev/aggregate/test"
 import shardedCounter from "@convex-dev/sharded-counter/test"
+import type { WorkId } from "@convex-dev/workpool"
 import workpool from "@convex-dev/workpool/test"
 import { convexTest } from "convex-test"
 import { describe, expect, it } from "vite-plus/test"
@@ -82,14 +83,14 @@ describe("role summaries", () => {
     const jobId = await t.run((ctx) => ctx.db.insert("jobs", { ...role(1), boardId }))
     await t.mutation(internal.api.jobs.saveSummary, {
       jobId,
-      text: "older text",
+      summarizedText: "older text",
       summary: "Stale.",
       facts: null,
     })
     expect((await summariesOf(t))[0]!.summary).toBeUndefined()
     await t.mutation(internal.api.jobs.saveSummary, {
       jobId,
-      text: role(1).text,
+      summarizedText: role(1).text,
       summary: "Build the payments API.",
       facts: { level: "Senior", workMode: "Remote" },
     })
@@ -98,6 +99,21 @@ describe("role summaries", () => {
       level: "Senior",
       workMode: "Remote",
     })
+  })
+
+  it("leaves no role queued after its last attempt fails", async () => {
+    const { t, boardId } = await setup()
+    const jobId = await t.run((ctx) =>
+      ctx.db.insert("jobs", { ...role(1), boardId, summarizedAt: 0 })
+    )
+    await t.mutation(internal.api.jobs.summaryEnded, {
+      workId: "w" as WorkId,
+      context: { jobId },
+      result: { kind: "failed", error: "gateway down" },
+    })
+    const after = (await summariesOf(t))[0]!
+    expect(after.summary).toBeUndefined()
+    expect(after.summarizedAt).toBeGreaterThan(0)
   })
 
   it("asks again when a feed changes a role's text, and not when it doesn't", async () => {

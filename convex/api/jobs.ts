@@ -34,6 +34,7 @@ export const {
   summarizeDue,
   summaryInput,
   saveSummary,
+  summaryEnded,
   summarize,
-  askAgain,
+  resummarizeAll,
 } = jobsApi

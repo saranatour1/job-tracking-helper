@@ -458,8 +458,9 @@ it doesn't.
    reply that reads like a refusal, runs long or stops mid-sentence is dropped, and the row shows
    the posting's opening lines instead. When a feed changes a role's text, its summary is cleared
    and asked for again. The posting is someone else's text, so the prompt says to ignore any
-   instructions in it. After changing the prompt, `internal.api.jobs.askAgain` marks every
-   summary due again, 200 at a time; rows keep the old one until the new one lands.
+   instructions in it. After changing the prompt, `internal.api.jobs.resummarizeAll` marks
+   every summary due again, 200 at a time; a row keeps its old one unless the new reply is
+   usable.
 
 4. "More like this" searches by a role's title; the link icon opens the posting.
    Applications link here too.
@@ -523,7 +524,8 @@ loads.
 **Known limits:** clearing browser storage makes a new anonymous account with 10 more searches.
 A prepared role's badge doesn't move from Preparing on its own; it changes the next time the page
 reads. Show more reads every page again, one request per page shown. A summary that fails all 3
-attempts stays at `summarizedAt: 0` and isn't asked for again until the role's text changes.
+attempts is marked done without one (`summaryEnded`), and isn't asked for again until the role's
+text changes.
 Anonymous accounts aren't removed, and signing in later starts a separate account.
 
 **By itself:** every hour, `internal.api.jobs.countTrends` wakes a batch worker that reads roles

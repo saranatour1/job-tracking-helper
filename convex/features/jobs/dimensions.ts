@@ -157,7 +157,6 @@ const countryOfPart = (segments: string[]) => {
   return undefined
 }
 
-/** A location with "Belgium-Remote" written as "Belgium - Remote", which feeds do as often. */
 export const spacedLocation = (location: string) =>
   location.replace(/(\p{L})[-–](remote|hybrid)\b/giu, "$1 - $2")
 

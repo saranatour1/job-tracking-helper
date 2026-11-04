@@ -65,7 +65,6 @@ export const employments = [
   "Temporary",
 ] as const
 
-// What a posting says about the role, read with its summary. Only what it states.
 export const Facts = type({
   "level?": "string <= 80",
   "team?": "string <= 80",
@@ -128,7 +127,6 @@ export const Job = type({
   // No longer written or read: older rows still have it.
   "seenAt?": "number",
   text: "string",
-  // What the role is, in a sentence or two from Claude Haiku. 0 while it waits in summaryPool.
   "summary?": "string",
   "facts?": Facts,
   "summarizedAt?": "number",

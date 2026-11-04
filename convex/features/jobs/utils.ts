@@ -10,7 +10,6 @@ import { endingOf, proofOf } from "./domains"
 import { previewOf } from "./links"
 import type { vJobSearchArgs } from "./validators"
 
-// Where a role is, for its pills: its cities, its countries and Remote, at most three.
 export const placesOfJob = (location: string, remote: boolean) => {
   const spaced = spacedLocation(location)
   return [
@@ -64,7 +63,6 @@ const domainFilter = (
 // limits. Past it, the page comes back short and Show more carries on.
 const domainFilterScan = 500
 
-/** Without a `userId`, nobody's verdicts: no Fits me, and no verdict on a row. */
 export const searchJobs = async (
   ctx: QueryCtx,
   userId: Id<"users"> | null,

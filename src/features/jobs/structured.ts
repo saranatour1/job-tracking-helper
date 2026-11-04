@@ -24,8 +24,7 @@ type Posting = {
   evidence: { domain: string | null }
 }
 
-/** schema.org's JobPosting for a role's page, which is what Google reads to list it in its job
- * search. https://developers.google.com/search/docs/appearance/structured-data/job-posting */
+// https://developers.google.com/search/docs/appearance/structured-data/job-posting
 export const jobPostingData = (job: Posting, url: string) => {
   const location = spacedLocation(job.location)
   const countries = countriesOf(location)

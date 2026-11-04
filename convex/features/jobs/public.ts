@@ -15,9 +15,7 @@ const publicPage = 25
 
 const wordsOf = (q: string | undefined) => q?.trim().slice(0, 200)
 
-// Anyone without a real account gets the same filters, but no verdicts, 25 at a time, and words
-// only once they've spent a daily search on them (allowSearch).
-const visitorArgs = (
+const asVisitor = (
   user: Doc<"users"> | null,
   { q, remoteOnly, boardId, since, paginationOpts }: ObjectType<typeof vJobSearchArgs>
 ) => {
@@ -40,7 +38,7 @@ const search = query({
     const found =
       user && !user.anonymous
         ? await searchJobs(ctx, user._id, args)
-        : await searchJobs(ctx, null, visitorArgs(user || null, args))
+        : await searchJobs(ctx, null, asVisitor(user || null, args))
     const evidence = await evidenceOf(ctx, found.page)
     const page = found.page.map(({ boardId: _, ...row }, i) => ({ ...row, evidence: evidence[i]! }))
     return { ...found, page }
@@ -121,8 +119,6 @@ const stats = query({
   },
 })
 
-// Every open role's page, newest first, for the sitemap the Worker serves. Roles carry their whole
-// text, so a page stops early rather than read past a query's limits.
 const sitemap = query({
   args: { cursor: v.union(v.string(), v.null()) },
   returns: v.object({

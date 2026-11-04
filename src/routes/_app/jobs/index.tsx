@@ -50,8 +50,8 @@ export const Route = createFileRoute("/_app/jobs/")({
     ])
     return { allowedSearch: who?.allowedSearch ?? null, jobs: found, stats, companies, prepared }
   },
-  // Each page of the list is its own page to Google, with its own canonical. A filter, an order or
-  // a picked role is a variation of the same list, so it isn't indexed.
+  // Google wants each page of a list to be its own canonical, not page one.
+  // https://developers.google.com/search/docs/specialty/ecommerce/pagination-and-incremental-page-loading
   head: ({ match: { search } }) =>
     publicHead({
       title: `Open roles | ${site.name}`,

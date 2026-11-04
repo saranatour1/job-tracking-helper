@@ -32,8 +32,7 @@ export const publicHead = ({
   path: string
   image?: string
   imageAlt?: string
-  // False for a variation of a page, like a filtered list: crawlers follow its links but don't
-  // list it, and it names no canonical, since Google reads the two together as mixed signals.
+  // Google reads noindex beside a canonical as mixed signals, so a noindex page names none.
   index?: boolean
 }) => ({
   meta: [

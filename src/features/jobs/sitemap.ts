@@ -3,6 +3,7 @@ import { ConvexHttpClient } from "convex/browser"
 import { api } from "@/lib/api"
 import { postingText } from "@/lib/route-ids"
 import { site } from "@/lib/seo"
+import { cachedAt } from "@/lib/worker-cache"
 
 type Context = { waitUntil: (promise: Promise<void>) => void }
 
@@ -27,28 +28,21 @@ ${roles
 </urlset>
 `
 
-/** Every open role's page, so Google finds them without paging through /jobs. Built once a day. */
-export const jobsSitemap = async (request: Request, ctx?: Context) => {
-  const key = new Request(new URL(request.url).origin + new URL(request.url).pathname)
-  // Only Workers has this; local dev builds it every time.
-  const cache = ctx && (await caches.open("sitemaps"))
-  const hit = await cache?.match(key)
-  if (hit) return hit
-  const http = new ConvexHttpClient(String(import.meta.env.VITE_CONVEX_URL))
-  const roles: Role[] = []
-  let cursor: string | null = null
-  while (roles.length < maxRoles) {
-    const found: { page: Role[]; isDone: boolean; continueCursor: string } = await http.query(
-      api.jobs.sitemap,
-      { cursor }
-    )
-    roles.push(...found.page)
-    if (found.isDone) break
-    cursor = found.continueCursor
-  }
-  const response = new Response(sitemapXml(roles.slice(0, maxRoles)), {
-    headers: { "Content-Type": "application/xml", "Cache-Control": `public, max-age=${dayS}` },
+export const jobsSitemap = (request: Request, ctx?: Context) =>
+  cachedAt(request, "sitemaps", ctx, async () => {
+    const http = new ConvexHttpClient(String(import.meta.env.VITE_CONVEX_URL))
+    const roles: Role[] = []
+    let cursor: string | null = null
+    while (roles.length < maxRoles) {
+      const found: { page: Role[]; isDone: boolean; continueCursor: string } = await http.query(
+        api.jobs.sitemap,
+        { cursor }
+      )
+      roles.push(...found.page)
+      if (found.isDone) break
+      cursor = found.continueCursor
+    }
+    return new Response(sitemapXml(roles.slice(0, maxRoles)), {
+      headers: { "Content-Type": "application/xml", "Cache-Control": `public, max-age=${dayS}` },
+    })
   })
-  if (cache) ctx.waitUntil(cache.put(key, response.clone()))
-  return response
-}
