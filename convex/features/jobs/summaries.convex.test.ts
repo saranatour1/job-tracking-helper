@@ -131,8 +131,18 @@ describe("role summaries", () => {
     expect((await summariesOf(t))[0]).toEqual({
       title: "Engineer 1",
       summary: undefined,
-      summarizedAt: undefined,
+      summarizedAt: 0,
     })
+  })
+
+  it("queues a new role as it's saved, and leaves older roles without one alone", async () => {
+    const { t, boardId } = await setup()
+    await t.run((ctx) => insertJob(ctx, { ...role(1), boardId }))
+    await t.mutation(internal.api.jobs.saveJobs, { boardId, jobs: [feed(1), feed(2)] })
+    expect(await summariesOf(t)).toEqual([
+      { title: "Engineer 1", summary: undefined, summarizedAt: undefined },
+      { title: "Engineer 2", summary: undefined, summarizedAt: 0 },
+    ])
   })
 })
 

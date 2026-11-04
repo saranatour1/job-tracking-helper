@@ -12,6 +12,7 @@ import { boardKinds, companyOf, isCompanyBoard, searchSlug, starterBoards } from
 import { researchBatch, researchEvery } from "./companies"
 import { deleteJob, insertJob, placeOf, recount, roleCounts, rollUp, timeCounts } from "./counts"
 import { leadOf } from "./leads"
+import { queueSummaries } from "./summaries"
 import { boardOf } from "./links"
 import {
   vFeedJob,
@@ -21,6 +22,9 @@ import {
   vSaveResearchArgs,
 } from "./validators"
 import { countCatalog, refreshEvery } from "./utils"
+
+// The cron runs every 12 hours, so each run takes what twelve hourly runs of 25 used to.
+const refreshBatch = 25 * 12
 
 const refreshDue = internalMutation({
   args: {},
@@ -40,7 +44,7 @@ const refreshDue = internalMutation({
     const due = await ctx.db
       .query("jobBoards")
       .withIndex("by_fetchedAt", (q) => q.lt("fetchedAt", now - refreshEvery))
-      .take(25)
+      .take(refreshBatch)
     if (!due.length) return 0
     await readPool.enqueueActionBatch(
       ctx,
@@ -119,6 +123,7 @@ const saveJobs = internalMutation({
   args: { boardId: v.id("jobBoards"), jobs: v.array(vFeedJob) },
   returns: v.null(),
   handler: async (ctx, { boardId, jobs }) => {
+    const toSummarize: Id<"jobs">[] = []
     for (const job of jobs) {
       const key = urlKey(job.url)
       const known = await ctx.db
@@ -126,21 +131,23 @@ const saveJobs = internalMutation({
         .withIndex("by_urlKey", (q) => q.eq("urlKey", key))
         .first()
       if (!known) {
-        await insertJob(ctx, { ...job, boardId, urlKey: key })
+        toSummarize.push(await insertJob(ctx, { ...job, boardId, urlKey: key }))
       }
       // A write reindexes the role's text and reruns every open search that read it, so a
       // role the feed didn't change stays as it is.
       else if ((Object.keys(job) as (keyof typeof job)[]).some((k) => job[k] !== known[k])) {
         await ctx.db.patch("jobs", known._id, {
           ...job,
-          ...(job.text !== known.text && { summary: undefined, summarizedAt: undefined }),
+          ...(job.text !== known.text && { summary: undefined }),
         })
+        if (job.text !== known.text) toSummarize.push(known._id)
         if (job.company !== known.company)
           await roleCounts.replaceOrInsert(ctx, known, { ...known, ...job })
         if (job.remote !== known.remote || job.postedAt !== known.postedAt)
           await timeCounts.replaceOrInsert(ctx, known, { ...known, ...job })
       }
     }
+    await queueSummaries(ctx, toSummarize)
     return null
   },
 })

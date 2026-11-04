@@ -35,6 +35,14 @@ export const rowOf = (loop: typeof NewLoop.infer) => {
   }
 }
 
+// Starts the loop at its own time, not the 12-hourly cron's. A stale wake finds nothing due.
+export const wakeLoopAt = async (
+  ctx: MutationCtx,
+  { active, nextRunAt }: { active: boolean; nextRunAt: number }
+) => {
+  if (active) await ctx.scheduler.runAt(nextRunAt, internal.api.loops.startDue, {})
+}
+
 export const createLoop = async (
   ctx: MutationCtx,
   userId: Id<"users">,
@@ -48,7 +56,9 @@ export const createLoop = async (
   ).length
   if (count >= maxLoops)
     throw new ConvexError(`You can have ${maxLoops} loops. Remove one to start another.`)
-  return ctx.db.insert("loops", { ...rowOf(loop), userId })
+  const row = rowOf(loop)
+  await wakeLoopAt(ctx, row)
+  return ctx.db.insert("loops", { ...row, userId })
 }
 
 export const lastRunOf = (ctx: QueryCtx, loopId: Id<"loops">) =>

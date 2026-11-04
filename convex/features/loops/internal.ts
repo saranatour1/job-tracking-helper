@@ -13,7 +13,7 @@ import { vProfile, providerIds } from "../workflows/validators"
 import { blankTemplate, type Provider, switchAt } from "./catalog"
 import { nextRunAt } from "./schedule"
 import { addUsage, usageOf } from "./usage"
-import { startRun, profileFor, fillShortlist } from "./utils"
+import { startRun, profileFor, fillShortlist, wakeLoopAt } from "./utils"
 import { vRunPlan, vSavePastedArgs, vFinishRunArgs, vRunEndedArgs } from "./validators"
 
 const startDue = internalMutation({
@@ -27,8 +27,11 @@ const startDue = internalMutation({
       .take(25)
     for (const loop of due) {
       await startRun(ctx, loop)
-      await ctx.db.patch("loops", loop._id, { nextRunAt: nextRunAt(now, loop.at, loop.timeZone) })
+      const row = { active: true, nextRunAt: nextRunAt(now, loop.at, loop.timeZone) }
+      await ctx.db.patch("loops", loop._id, row)
+      await wakeLoopAt(ctx, row)
     }
+    if (due.length === 25) await ctx.scheduler.runAfter(0, internal.api.loops.startDue, {})
     return due.length
   },
 })

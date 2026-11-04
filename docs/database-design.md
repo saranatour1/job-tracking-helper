@@ -381,7 +381,7 @@ The workflow, workpool and rate limiter components bring their own tables. The a
 | `@convex-dev/workpool`     | `readPool`: every board fetch and every Jev judgment, with its batch worker       | the run's judging tally on `loopRuns` |
 | `@convex-dev/rate-limiter` | per-source call buckets shared by everyone, and 3 runs by hand per person per day | nothing                               |
 
-`readPool` is the batch worker. The hourly refresh hands it the boards that are due, and a run hands it all its roles in one `enqueueActionBatch` call. It runs 8 at a time across everything, and each job retries twice. A judgment's `onComplete` leaves a row in `judgedReads`, because 8 workers writing to one run would conflict. One batch worker adds those rows to the run's tally on `loopRuns` (`readsLeft`, `candidates`, cost, failures), up to 25 at a time, and sends the workflow a `judged` event after the last one. The workflow waits for that with `step.awaitEvent` before saving every verdict.
+`readPool` is the batch worker. The 12-hourly refresh hands it the boards that are due, and a run hands it all its roles in one `enqueueActionBatch` call. It runs 8 at a time across everything, and each job retries twice. A judgment's `onComplete` leaves a row in `judgedReads`, because 8 workers writing to one run would conflict. One batch worker adds those rows to the run's tally on `loopRuns` (`readsLeft`, `candidates`, cost, failures), up to 25 at a time, and sends the workflow a `judged` event after the last one. The workflow waits for that with `step.awaitEvent` before saving every verdict.
 
 `catalogPool` is the only writer of `jobCatalog`, `jobDomainCounts` and the totals in the sharded counter. Every board's counts end up in those few rows, so boards refreshing side by side collided there. A save still writes its roles, `jobRoleCounts` and `jobTimeCounts` itself. `jobTimeCounts` keeps each board's roles by remote and posted date, one tree a board like `jobRoleCounts`, so `/jobs` can say how many roles its filters match. `boardFetched`, at the end of each fetch, brings `jobBoards.jobs` up to date and queues the change with the board's count before and after, once a fetch. Queuing from the long saves made boards finishing together collide on the queue and redo the whole save. It runs one at a time, in order, so those totals follow a moment after the roles.
 
@@ -391,7 +391,7 @@ Jev needs no key: `@convex-dev/ai-sdk-provider` signs gateway calls with the dep
 
 ```mermaid
 flowchart LR
-    C[cron, every 15 min] --> D[start due loops: insert loopRuns, workflow.start, set nextRunAt]
+    C[scheduled at nextRunAt, cron every 12 hours] --> D[start due loops: insert loopRuns, workflow.start, set nextRunAt]
     D --> P[plan: loop, prompt and Preferences to search words]
     P --> S[search for new boards, rate limited, first source with credits]
     S --> B[add jobBoards, fetch new ones]
@@ -400,7 +400,7 @@ flowchart LR
     R --> V[save every verdict: fits wait, the rest are unfit; add credits to sourceUsage]
     V --> L[fill the shortlist up to the loop's size, best first]
     V --> O[onComplete: mark failed runs, log each run with evlog]
-    H[cron, hourly] --> F[readPool: fetch boards due, save jobs, drop closed roles]
+    H[cron, every 12 hours] --> F[readPool: fetch boards due, save jobs, drop closed roles]
 ```
 
 A run looks for boards with Firecrawl, then context.dev. It moves on once a source has used 90% of its monthly credits (`switchAt` in the catalog), or as soon as the source says it's out: Firecrawl answers 402 and context.dev answers 401 `USAGE_EXCEEDED`. That sets `exhaustedAt` until the month resets. With every source out, the run still judges roles from the boards the catalog already has.

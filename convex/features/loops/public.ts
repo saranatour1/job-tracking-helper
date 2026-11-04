@@ -14,6 +14,7 @@ import {
   stopRunNow,
   ownLoop,
   rowOf,
+  wakeLoopAt,
   lastRunOf,
   ownLead,
   countOnRun,
@@ -51,7 +52,9 @@ const update = arkMutation({
   returns: v.null(),
   handler: async (ctx, { loopId, ...loop }) => {
     await ownLoop(ctx, ctx.userId, loopId)
-    await ctx.db.patch("loops", loopId, rowOf(loop))
+    const row = rowOf(loop)
+    await ctx.db.patch("loops", loopId, row)
+    await wakeLoopAt(ctx, row)
     await logEdit(ctx, ctx.userId, "loop.update", `Changed the loop ${loop.name}`)
     return null
   },
@@ -62,10 +65,12 @@ const setActive = authedMutation({
   returns: v.null(),
   handler: async (ctx, { loopId, active }) => {
     const loop = await ownLoop(ctx, ctx.userId, loopId)
-    await ctx.db.patch("loops", loopId, {
+    const row = {
       active,
       nextRunAt: active ? nextRunAt(Date.now(), loop.at, loop.timeZone) : loop.nextRunAt,
-    })
+    }
+    await ctx.db.patch("loops", loopId, row)
+    await wakeLoopAt(ctx, row)
     await logEdit(
       ctx,
       ctx.userId,

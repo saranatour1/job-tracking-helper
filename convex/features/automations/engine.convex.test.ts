@@ -305,6 +305,11 @@ describe("a workflow run", () => {
     expect(runs.map((r) => r.trigger)).toEqual(["schedule"])
     const after = await t.run((ctx) => ctx.db.get("automations", due))
     expect(after?.nextRunAt).toBeGreaterThan(Date.now())
+    // It wakes itself at the next run's exact time, not at the cron's next pass.
+    const wakes = await t.run((ctx) => ctx.db.system.query("_scheduled_functions").collect())
+    expect(wakes.filter((f) => f.name.includes("startDue")).map((f) => f.scheduledTime)).toContain(
+      after?.nextRunAt
+    )
   })
 
   it("stops a run whose workflow already ended without a word back", async () => {

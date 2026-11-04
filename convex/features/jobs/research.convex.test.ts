@@ -34,6 +34,7 @@ const setup = () => {
   aggregate.register(t, "jobDomainCounts")
   shardedCounter.register(t)
   workpool.register(t, "catalogPool")
+  workpool.register(t, "summaryPool")
   return t
 }
 

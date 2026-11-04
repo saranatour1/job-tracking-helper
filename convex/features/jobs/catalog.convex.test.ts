@@ -37,6 +37,7 @@ const setup = async () => {
   aggregate.register(t, "jobDomainCounts")
   shardedCounter.register(t)
   workpool.register(t, "catalogPool")
+  workpool.register(t, "summaryPool")
   const userId = await t.run((ctx) => ctx.db.insert("users", { name: "Sam" }))
   return { t, as: t.withIdentity({ subject: userId }) }
 }

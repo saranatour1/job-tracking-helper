@@ -22,7 +22,7 @@ import {
   vFoundRolesArgs,
   vEmailToSend,
 } from "./validators"
-import { runBlock, startRun, setLog, factsOf, doBlock, matches } from "./utils"
+import { runBlock, startRun, setLog, factsOf, doBlock, matches, wakeWorkflowAt } from "./utils"
 
 const run = workflow.define({
   args: { runId: v.id("automationRuns") },
@@ -363,10 +363,11 @@ const startDue = internalMutation({
     for (const automation of due) {
       if (automation.trigger.kind !== "schedule") continue
       await startRun(ctx, automation, "schedule")
-      await ctx.db.patch("automations", automation._id, {
-        nextRunAt: nextScheduledAt(now, automation.trigger),
-      })
+      const nextRunAt = nextScheduledAt(now, automation.trigger)
+      await ctx.db.patch("automations", automation._id, { nextRunAt })
+      await wakeWorkflowAt(ctx, nextRunAt)
     }
+    if (due.length === 50) await ctx.scheduler.runAfter(0, internal.api.automations.startDue, {})
     return due.length
   },
 })

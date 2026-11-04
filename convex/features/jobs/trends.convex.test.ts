@@ -26,6 +26,7 @@ const setup = () => {
   aggregate.register(t, "jobDomainCounts")
   shardedCounter.register(t)
   workpool.register(t, "catalogPool")
+  workpool.register(t, "summaryPool")
   batchWorker.register(t)
   return t
 }

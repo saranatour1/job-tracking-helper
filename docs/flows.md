@@ -47,7 +47,7 @@ Jev judges 8 roles at a time, and each one writing to the run directly fails wit
 
 ### Big deletes
 
-Anything that can touch many rows goes through one batch worker (`@convex-dev/batch-worker`, `convex/features/deletes/`): deleting an account, emptying the Trash, Trash past its date, and Activity past 90 days. Each is a row in `deleteJobs`. The worker finds the next rows in a query, deletes them in a mutation, and moves on, so no single mutation can hit Convex's limits. It rechecks each row first, so an application you restored after pressing Empty the Trash stays. If a job fails partway, it's logged as `delete.job` and dropped, so the jobs behind it still run. Every 15 minutes, a job waiting too long restarts the worker (`internal.api.deletes.restartIfStuck`).
+Anything that can touch many rows goes through one batch worker (`@convex-dev/batch-worker`, `convex/features/deletes/`): deleting an account, emptying the Trash, Trash past its date, and Activity past 90 days. Each is a row in `deleteJobs`. The worker finds the next rows in a query, deletes them in a mutation, and moves on, so no single mutation can hit Convex's limits. It rechecks each row first, so an application you restored after pressing Empty the Trash stays. If a job fails partway, it's logged as `delete.job` and dropped, so the jobs behind it still run. Every 12 hours, a job waiting too long restarts the worker (`internal.api.deletes.restartIfStuck`).
 
 ### Big reads
 
@@ -68,18 +68,18 @@ A repeat gets a number (`-2`), and a real id still finds its row, so old links w
 
 ### Who acts
 
-| Actor                             | What it does                                                                                                                                                                                                                 | Where                                                                                                                                               |
-| --------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------- |
-| You                               | Everything in the pages below                                                                                                                                                                                                | `src/features/*`                                                                                                                                    |
-| Crons                             | Start due loops (every 15 minutes), start due workflows (every 5 minutes), refresh job boards (hourly), research companies (hourly), sweep the Archive, Trash and Activity (daily), restart stuck workers (every 15 minutes) | `convex/crons.ts`                                                                                                                                   |
-| The inbound email hook            | Takes mail your Cloudflare Worker forwards                                                                                                                                                                                   | `POST /email/inbound/<id>`, `convex/http.ts`                                                                                                        |
-| Jev                               | Judges roles for loops and pasted links, sorts mail, reviews resumes, re-evaluates goals, picks saved answers for forms, answers Ask Jev, drafts workflows from a sentence                                                   | `convex/features/workflows/judge.ts`, `email/jev.ts`, `preferences/resume.ts`, `goals/actions.ts`, `prefilled/actions.ts`, `automations/actions.ts` |
-| The batch worker (`readPool`)     | Fetches job boards, researches companies and runs Jev's judgments, 8 at a time, with up to 3 attempts each                                                                                                                   | `convex/features/workflows/manager.ts`                                                                                                              |
-| The catalog queue (`catalogPool`) | Keeps the catalog totals, one write at a time, a moment after each board's fetch ends                                                                                                                                        | `convex/features/workflows/manager.ts`, `convex/features/jobs/counts.ts`                                                                            |
-| The summary queue (`summaryPool`) | Asks Claude Haiku what each role is, 4 at a time with up to 3 attempts, apart from `readPool` so a backfill never holds up loops                                                                                             | `convex/features/workflows/manager.ts`, `convex/features/jobs/summaries.ts`                                                                         |
-| Workflows                         | Runs the steps people build                                                                                                                                                                                                  | `convex/features/automations/engine.ts`                                                                                                             |
-| An agent you connect              | Calls the tools you allowed, as you                                                                                                                                                                                          | `POST /mcp`, `convex/mcp.ts`                                                                                                                        |
-| An agent looking at the site      | Reads what the app offers and how to connect, without an account                                                                                                                                                             | `src/lib/discovery.ts`, `src/lib/web-mcp.ts`                                                                                                        |
+| Actor                             | What it does                                                                                                                                                                                                     | Where                                                                                                                                               |
+| --------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------- |
+| You                               | Everything in the pages below                                                                                                                                                                                    | `src/features/*`                                                                                                                                    |
+| Crons                             | Start due loops, start due workflows, refresh job boards, research companies and restart stuck workers (every 12 hours); count job trends, write the jobs sitemap, sweep the Archive, Trash and Activity (daily) | `convex/crons.ts`                                                                                                                                   |
+| The inbound email hook            | Takes mail your Cloudflare Worker forwards                                                                                                                                                                       | `POST /email/inbound/<id>`, `convex/http.ts`                                                                                                        |
+| Jev                               | Judges roles for loops and pasted links, sorts mail, reviews resumes, re-evaluates goals, picks saved answers for forms, answers Ask Jev, drafts workflows from a sentence                                       | `convex/features/workflows/judge.ts`, `email/jev.ts`, `preferences/resume.ts`, `goals/actions.ts`, `prefilled/actions.ts`, `automations/actions.ts` |
+| The batch worker (`readPool`)     | Fetches job boards, researches companies and runs Jev's judgments, 8 at a time, with up to 3 attempts each                                                                                                       | `convex/features/workflows/manager.ts`                                                                                                              |
+| The catalog queue (`catalogPool`) | Keeps the catalog totals, one write at a time, a moment after each board's fetch ends                                                                                                                            | `convex/features/workflows/manager.ts`, `convex/features/jobs/counts.ts`                                                                            |
+| The summary queue (`summaryPool`) | Asks Claude Haiku what each role is, 4 at a time with up to 3 attempts, apart from `readPool` so a backfill never holds up loops                                                                                 | `convex/features/workflows/manager.ts`, `convex/features/jobs/summaries.ts`                                                                         |
+| Workflows                         | Runs the steps people build                                                                                                                                                                                      | `convex/features/automations/engine.ts`                                                                                                             |
+| An agent you connect              | Calls the tools you allowed, as you                                                                                                                                                                              | `POST /mcp`, `convex/mcp.ts`                                                                                                                        |
+| An agent looking at the site      | Reads what the app offers and how to connect, without an account                                                                                                                                                 | `src/lib/discovery.ts`, `src/lib/web-mcp.ts`                                                                                                        |
 
 ### Events that start workflows
 
@@ -460,16 +460,16 @@ it doesn't.
    (`api.loopActions.checkJob`, within the 10 link checks a day). **Add to tracker** puts the role
    on your board as Saved (`api.jobs.track`); the same role again brings back the one there, out
    of Archive or Trash, rather than adding a second.
-3. **Summaries.** Every few minutes, `internal.api.jobs.summarizeDue` takes up to 100 roles
-   without one, newest first, and asks Claude Haiku 5.5 through the Convex gateway for one
+3. **Summaries.** When a feed saves a new role, `saveJobs` queues its summary right away and asks Claude Haiku 5.5 through the Convex gateway for one
    sentence on what the job is, plus the facts the posting states: level, team, who it reports
    to, work mode, travel, type and pay (`features/jobs/summaries.ts`, `summaryPool`, 4 at a
    time). A fact that doesn't fit its field is dropped on its own. A
    reply that reads like a refusal, runs long or stops mid-sentence is dropped, and the row shows
    the posting's opening lines instead. When a feed changes a role's text, its summary is cleared
-   and asked for again. The posting is someone else's text, so the prompt says to ignore any
+   and asked for again. No cron goes back for older roles without one; run
+   `internal.api.jobs.summarizeDue` by hand to queue 100 of them, newest first. The posting is someone else's text, so the prompt says to ignore any
    instructions in it. After changing the prompt, `internal.api.jobs.resummarizeAll` marks
-   every summary due again, 200 at a time; a row keeps its old one unless the new reply is
+   every summary due again, 200 at a time, for `summarizeDue` to pick up; a row keeps its old one unless the new reply is
    usable.
 
 4. "More like this" searches by a role's title; the link icon opens the posting.
@@ -551,19 +551,19 @@ attempts is marked done without one (`summaryEnded`), and isn't asked for again 
 text changes.
 Anonymous accounts aren't removed, and signing in later starts a separate account.
 
-**By itself:** every hour, `internal.api.jobs.countTrends` wakes a batch worker that reads roles
+**By itself:** every day, `internal.api.jobs.countTrends` wakes a batch worker that reads roles
 it hasn't counted, 200 at a time and oldest saved first, and adds them to `jobTrends`
 (`features/jobs/trends.ts`). Its cursor commits with the counts, so a role counts once, and its first
 run counts every open role. A closed role stays counted. Feeds write locations as free text, so one the rules can't read
 adds nothing to a country or place (`features/jobs/dimensions.ts`). Changing those rules doesn't
 recount old rows.
 
-Also every hour (`internal.api.jobs.refreshDue`), up to 25 boards not fetched in 20
+Also every 12 hours (`internal.api.jobs.refreshDue`), up to 300 boards not fetched in 20
 hours go to the batch worker (`internal.api.jobs.fetchBoard`). It reads each public feed
 (Greenhouse, Lever, Ashby, Personio, SmartRecruiters, Workable, Remote OK, Hacker News's latest
 Who is hiring thread, and Arbeitsagentur searches), saves new and changed roles, leaves
 unchanged ones alone, and drops ones the board no longer lists. A board that answers 4xx is
-noted with no immediate retry, and comes due again 20 hours later. Loops and pasted links add
+noted with no immediate retry, and comes due again at the first run 20 hours later. Loops and pasted links add
 new boards.
 
 SmartRecruiters and the Arbeitsagentur list roles without their text, so each role costs one
@@ -572,10 +572,10 @@ its first 50. An Arbeitsagentur board is one saved search ("what" and "where"), 
 `Arbeitsagentur: what, where` in the company filter. One with no roles is removed, and the next
 run asks again. Remote OK's roles say "via Remote OK", as its terms ask.
 
-**Researching companies:** every hour, and as soon as the cron is first deployed
+**Researching companies:** every 12 hours, and as soon as the cron is first deployed
 (`internal.api.jobs.researchDue`), up to 25 boards that have roles and were never researched,
 or not for 30 days, go to `internal.api.jobs.researchBoards`. A full batch starts the next,
-so a backfill doesn't wait for the hour. A new board shows Unverified for up to an hour after
+so a backfill doesn't wait for the next run. A new board shows Unverified for up to 12 hours after
 its first fetch.
 
 1. The site comes from where most of the board's 20 newest postings live, if that isn't a
@@ -771,8 +771,9 @@ call, `internal.ts` the row's steps, `utils.ts` starting one and preparing a loo
 
 **By itself**
 
-1. Every 15 minutes, loops whose morning has come start (`internal.api.loops.startDue`) and
-   move to the next morning.
+1. At each loop's morning, loops whose time has come start (`internal.api.loops.startDue`,
+   scheduled for that time on save and after each run, plus a 12-hourly cron) and move to the
+   next morning.
 2. A run (`internal.api.workflows.findJobs`):
    1. Builds searches from your Preferences.
    2. Searches for new job boards with the first source that has credits left, and

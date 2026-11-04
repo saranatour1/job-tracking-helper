@@ -145,6 +145,7 @@ export const insertJob = async (
   const saved = (await ctx.db.get("jobs", id))!
   await roleCounts.insert(ctx, saved)
   await timeCounts.insert(ctx, saved)
+  return id
 }
 
 export const deleteJob = async (ctx: MutationCtx, job: Doc<"jobs">) => {
