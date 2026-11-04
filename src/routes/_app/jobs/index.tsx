@@ -50,11 +50,16 @@ export const Route = createFileRoute("/_app/jobs/")({
     ])
     return { allowedSearch: who?.allowedSearch ?? null, jobs: found, stats, companies, prepared }
   },
-  head: () =>
+  // Each page of the list is its own page to Google, with its own canonical. A filter, an order or
+  // a picked role is a variation of the same list, so it isn't indexed.
+  head: ({ match: { search } }) =>
     publicHead({
       title: `Open roles | ${site.name}`,
       description:
         "Search open roles from company job boards on Greenhouse, Lever, Ashby, Personio and more, refreshed daily.",
-      path: "/jobs",
+      path: search.pages ? `/jobs?pages=${search.pages}` : "/jobs",
+      index: [search.q, search.remote, search.posted, search.board, search.fits, search.role].every(
+        (v) => v === undefined
+      ),
     }),
 })

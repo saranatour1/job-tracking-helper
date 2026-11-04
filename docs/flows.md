@@ -122,8 +122,11 @@ company sites for Jobs, and preparing applications needs it.
 2. **Legal.** `/privacy` and `/terms` are linked from the footer and sign-in.
 3. **Crawlers.** `public/robots.txt` lists every private route, and `public/llms.txt` and
    `public/sitemap.xml` list the public ones. Public pages render on the server, so crawlers don't
-   need JavaScript. `/jobs` renders all of itself on the server, so crawlers find role pages from
-   its links.
+   need JavaScript. `/jobs` renders all of itself on the server, and its Show more is a link to
+   `?pages=2`, then 3, so crawlers page through it; each page names itself as canonical and links
+   back to the first. A filter, an order or a picked role makes a variation of the list, which is
+   `noindex, follow`. `/sitemap-jobs.xml` lists every open role's page with the day it was posted,
+   built by the Worker from `api.jobs.sitemap` once a day (`src/features/jobs/sitemap.ts`).
 4. **AI crawler tracking.** Crawlers don't run the Databuddy script, so the Worker
    (`src/server.ts`) reports each request from an AI agent to Databuddy in the background.
    `wrangler.jsonc` runs the Worker first for `.txt` files, so reads of `llms.txt` count too.

@@ -25,17 +25,21 @@ export const publicHead = ({
   path,
   image = ogImage,
   imageAlt = "It finds the jobs and fills in the forms. You press Submit.",
+  index = true,
 }: {
   title: string
   description: string
   path: string
   image?: string
   imageAlt?: string
+  // False for a variation of a page, like a filtered list: crawlers follow its links but don't
+  // list it, and it names no canonical, since Google reads the two together as mixed signals.
+  index?: boolean
 }) => ({
   meta: [
     { title },
     { name: "description", content: description },
-    { name: "robots", content: "index, follow" },
+    { name: "robots", content: index ? "index, follow" : "noindex, follow" },
     { property: "og:type", content: "website" },
     { property: "og:site_name", content: site.name },
     { property: "og:title", content: title },
@@ -50,5 +54,5 @@ export const publicHead = ({
     { name: "twitter:description", content: description },
     { name: "twitter:image", content: image },
   ],
-  links: [{ rel: "canonical", href: `${site.url}${path}` }],
+  links: index ? [{ rel: "canonical", href: `${site.url}${path}` }] : [],
 })

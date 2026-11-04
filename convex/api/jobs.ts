@@ -6,6 +6,7 @@ export const {
   posting,
   stats,
   companies,
+  sitemap,
   refreshDue,
   board,
   addBoards,

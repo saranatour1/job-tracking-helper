@@ -331,6 +331,7 @@ export const Jobs = () => {
       : data.jobs.isDone
         ? rows.length
         : undefined
+  const total = filtered ? exact : data.stats?.jobs
   const count =
     exact === undefined
       ? `${rows.length.toLocaleString("en")}+ matches`
@@ -677,20 +678,41 @@ export const Jobs = () => {
                 </p>
               )}
               <ul className="flex flex-col">{runs.map(run)}</ul>
-              {!data.jobs.isDone && (pages ?? 1) < maxPages && (
-                <Button
-                  size="sm"
-                  variant="ghost"
-                  className="m-1 self-start"
-                  disabled={loading}
-                  onClick={() => {
-                    track("job_show_more")
-                    set({ pages: (pages ?? 1) + 1 })
-                  }}
-                >
-                  {loading ? "Loading more…" : "Show more"}
-                </Button>
-              )}
+              <div className="text-muted-foreground flex flex-wrap items-center gap-x-3 gap-y-1 px-1 pt-2 text-xs empty:hidden">
+                {/* A link, not a button, so crawlers follow it to the next page of roles. */}
+                {!data.jobs.isDone && (pages ?? 1) < maxPages && (
+                  <Button
+                    size="sm"
+                    variant="ghost"
+                    aria-disabled={loading || undefined}
+                    onClick={() => track("job_show_more")}
+                    render={
+                      <Link
+                        to="/jobs"
+                        search={(prev) => ({ ...prev, pages: (pages ?? 1) + 1, role: undefined })}
+                        replace
+                        resetScroll={false}
+                      />
+                    }
+                  >
+                    {loading ? "Loading more…" : "Show more"}
+                  </Button>
+                )}
+                {rows.length > 0 && (total ?? 0) > rows.length && (
+                  <span className="tabular-nums">
+                    Showing {rows.length.toLocaleString("en")} of {total!.toLocaleString("en")}
+                  </span>
+                )}
+                {(pages ?? 1) > 1 && (
+                  <Link
+                    to="/jobs"
+                    search={{ ...search, pages: undefined }}
+                    className="hover:underline"
+                  >
+                    Back to the first page
+                  </Link>
+                )}
+              </div>
             </div>
             {picked && panel(picked)}
           </div>

@@ -45,6 +45,7 @@ describe("robots.txt", () => {
       "/terms",
       "/llms.txt",
       "/sitemap.xml",
+      "/sitemap-jobs.xml",
       "/assets/og.png",
     ]) {
       expect(disallowed.some((rule) => path.startsWith(rule))).toBe(false)

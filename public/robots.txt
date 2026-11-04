@@ -21,3 +21,4 @@ Disallow: /workflows
 Disallow: /_serverFn/
 
 Sitemap: https://ye.saranatour.dev/sitemap.xml
+Sitemap: https://ye.saranatour.dev/sitemap-jobs.xml
