@@ -18,6 +18,47 @@ export const roleCounts = new TableAggregate<{
   sortKey: (job) => job.company,
 })
 
+// Each board's roles by remote and when posted, so the list can say how many match its filters.
+// A tree per board, for the same reason as roleCounts.
+export const timeCounts = new TableAggregate<{
+  Namespace: Id<"jobBoards">
+  Key: [boolean, number]
+  DataModel: DataModel
+  TableName: "jobs"
+}>(components.jobTimeCounts, {
+  namespace: (job) => job.boardId,
+  sortKey: (job) => [job.remote, job.postedAt],
+})
+
+/** How many roles match these filters, exactly. */
+export const matchingCount = async (
+  ctx: QueryCtx,
+  { remoteOnly, board, since }: { remoteOnly?: boolean; board?: Id<"jobBoards">; since?: number }
+) => {
+  const boards: Id<"jobBoards">[] = []
+  if (board) boards.push(board)
+  else for await (const namespace of timeCounts.iterNamespaces(ctx)) boards.push(namespace)
+  const counts = await timeCounts.countBatch(
+    ctx,
+    boards.flatMap((namespace) =>
+      (remoteOnly ? [true] : [false, true]).map((remote) => ({
+        namespace,
+        bounds:
+          since === undefined
+            ? { prefix: [remote] as [boolean] }
+            : {
+                lower: { key: [remote, since] as [boolean, number], inclusive: true },
+                upper: {
+                  key: [remote, Number.MAX_SAFE_INTEGER] as [boolean, number],
+                  inclusive: true,
+                },
+              },
+      }))
+    )
+  )
+  return counts.reduce((sum, n) => sum + n, 0)
+}
+
 // One item per board with roles and a site, worth its roles, so a domain's count is a sum and a
 // board moving to another company moves one item, not all its roles. A tree per domain ending.
 const domainCounts = new DirectAggregate<{
@@ -101,12 +142,15 @@ export const insertJob = async (
   job: Omit<Doc<"jobs">, "_id" | "_creationTime">
 ) => {
   const id = await ctx.db.insert("jobs", job)
-  await roleCounts.insert(ctx, (await ctx.db.get("jobs", id))!)
+  const saved = (await ctx.db.get("jobs", id))!
+  await roleCounts.insert(ctx, saved)
+  await timeCounts.insert(ctx, saved)
 }
 
 export const deleteJob = async (ctx: MutationCtx, job: Doc<"jobs">) => {
   await ctx.db.delete("jobs", job._id)
   await roleCounts.deleteIfExists(ctx, job)
+  await timeCounts.deleteIfExists(ctx, job)
 }
 
 export const catalogCounts = async (ctx: QueryCtx) => {

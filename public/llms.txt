@@ -29,5 +29,7 @@ What it doesn't do:
 
 - [Home](https://ye.saranatour.dev/): what the app is and how to get started
 - [Jobs](https://ye.saranatour.dev/jobs): open roles from company job boards, to search and link to
+- [Job trends as Markdown](https://ye.saranatour.dev/jobs/trends/llms.txt): last week's most new roles by country, location and job title
+- [Jobs as Markdown](https://ye.saranatour.dev/jobs/llms.txt): the newest roles, each with its own Markdown at `/jobs/<role>/llms.txt`: summary, facts, where to apply and the full posting
 - [Privacy Policy](https://ye.saranatour.dev/privacy): what data the app handles and who it goes to
 - [Terms of Use](https://ye.saranatour.dev/terms): the rules for using the app

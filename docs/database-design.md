@@ -70,12 +70,12 @@ Built-in questions are a list in code (`preferences/rows.ts`), keyed so a label 
 
 ### Your search
 
-| Table              | Holds                                                                                                                                                                           | Why it's a table | Indexes                                                                                                               |
-| ------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ---------------- | --------------------------------------------------------------------------------------------------------------------- |
-| `applications`     | company, role, status, url, details, `goalId`, `number` (APP-1), its stored `fit` and `mail` summary, and capped arrays: `history` (100), `notes` (100), `tasks` (50), `labels` | 1, 4             | `by_userId`, `by_userId_and_goalId`, `by_userId_and_trashedAt`, `by_userId_and_number`, `by_archivedAt`, `by_purgeAt` |
-| `applicationSends` | one row per sent application: `applicationId` and `at`, for streaks                                                                                                             | 1, 3             | `by_userId_and_at`, `by_applicationId`                                                                                |
-| `goals`            | what the search is for, its dates, up to 20 milestones, an optional `loopId`                                                                                                    | 2                | `by_userId`                                                                                                           |
-| `views`            | a saved set of filters and display options                                                                                                                                      | 1                | `by_userId`                                                                                                           |
+| Table              | Holds                                                                                                                                                                           | Why it's a table | Indexes                                                                                                                                    |
+| ------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ---------------- | ------------------------------------------------------------------------------------------------------------------------------------------ |
+| `applications`     | company, role, status, url, details, `goalId`, `number` (APP-1), its stored `fit` and `mail` summary, and capped arrays: `history` (100), `notes` (100), `tasks` (50), `labels` | 1, 4             | `by_userId`, `by_userId_and_goalId`, `by_userId_and_trashedAt`, `by_userId_and_number`, `by_userId_and_url`, `by_archivedAt`, `by_purgeAt` |
+| `applicationSends` | one row per sent application: `applicationId` and `at`, for streaks                                                                                                             | 1, 3             | `by_userId_and_at`, `by_applicationId`                                                                                                     |
+| `goals`            | what the search is for, its dates, up to 20 milestones, an optional `loopId`                                                                                                    | 2                | `by_userId`                                                                                                                                |
+| `views`            | a saved set of filters and display options                                                                                                                                      | 1                | `by_userId`                                                                                                                                |
 
 `applications.history` is a capped array, not a table: a handful per application, only read with it. Every status change goes through `changeStatus`, so status and history always match.
 
@@ -83,14 +83,14 @@ Built-in questions are a list in code (`preferences/rows.ts`), keyed so a label 
 
 These have no owner. Deleting an account leaves them.
 
-| Table         | Holds                                                                | Why it's a table | Indexes                                                                                           |
-| ------------- | -------------------------------------------------------------------- | ---------------- | ------------------------------------------------------------------------------------------------- |
-| `companies`   | one per website domain: its registration date and YC details         | 1, 3             | `by_domain`                                                                                       |
-| `jobBoards`   | one feed the catalog reads, usually a company's board, and its count | 2, 3             | `by_kind_and_slug`, `by_fetchedAt`, `by_jobs`, `by_researchedAt`, `by_companyId`                  |
-| `jobCatalog`  | one row: how many boards the catalog has                             | 3                | none                                                                                              |
-| `jobs`        | one open role from a board's feed, with its text for search          | 1, 3, 4          | `by_urlKey`, `by_boardId_and_postedAt`, `by_postedAt`, `by_remote_and_postedAt`, search on `text` |
-| `jobTrends`   | new roles in one week for one country, place or job title            | 2, 3             | `by_dimension_and_key_and_week`, `by_dimension_and_week_and_roles`                                |
-| `sourceUsage` | credits each search source used this month                           | 3                | `by_provider_and_month`                                                                           |
+| Table         | Holds                                                                       | Why it's a table | Indexes                                                                                                                           |
+| ------------- | --------------------------------------------------------------------------- | ---------------- | --------------------------------------------------------------------------------------------------------------------------------- |
+| `companies`   | one per website domain: its registration date and YC details                | 1, 3             | `by_domain`                                                                                                                       |
+| `jobBoards`   | one feed the catalog reads, usually a company's board, and its count        | 2, 3             | `by_kind_and_slug`, `by_fetchedAt`, `by_jobs`, `by_researchedAt`, `by_companyId`                                                  |
+| `jobCatalog`  | one row: how many boards the catalog has                                    | 3                | none                                                                                                                              |
+| `jobs`        | one open role from a board's feed, with its text for search and its summary | 1, 3, 4          | `by_urlKey`, `by_boardId_and_postedAt`, `by_postedAt`, `by_remote_and_postedAt`, `by_summarizedAt_and_postedAt`, search on `text` |
+| `jobTrends`   | new roles in one week for one country, place or job title                   | 2, 3             | `by_dimension_and_key_and_week`, `by_dimension_and_week_and_roles`                                                                |
+| `sourceUsage` | credits each search source used this month                                  | 3                | `by_provider_and_month`                                                                                                           |
 
 A company row holds what's true of a domain. How a board reached that domain is on the board (`companyLink`): `postings` when its postings live on that site, `name` when only a domain matching its name turned up. Anyone can open a board under a copied name, so a copycat of a known company shares the real row but keeps `name`, and never reads as posting on that site. A board with no site found has a row of its own, since a name alone can't say two boards are one company.
 
@@ -152,18 +152,18 @@ A company row holds what's true of a domain. How a board reached that domain is 
 
 ### What the components keep
 
-| Component                     | Keeps                                                                                      | The app keeps                                      |
-| ----------------------------- | ------------------------------------------------------------------------------------------ | -------------------------------------------------- |
-| `@convex-dev/auth`            | accounts and sessions                                                                      | `users`                                            |
-| `@convex-dev/batch-worker`    | the loops that run big deletes, add finished judgments to their run and count job trends   | `deleteJobs`, `judgedReads`, `jobTrends`           |
-| `@convex-dev/workflow`        | each run's steps, retries and results                                                      | `loopRuns.workflowId`, `automationRuns.workflowId` |
-| `@convex-dev/workpool`        | `readPool` (fetches, judgments), `applyPool` (prepares) and `catalogPool` (catalog totals) | `loopRuns.readWorkIds`                             |
-| `@convex-dev/rate-limiter`    | per-source and per-person budgets                                                          | nothing                                            |
-| `@convex-dev/aggregate`       | run and answer counts for workflows; roles per board and company; roles per domain         | nothing                                            |
-| `@convex-dev/sharded-counter` | the catalog's totals: domains, and roles by proof                                          | nothing                                            |
-| `@convex-dev/mcp`             | connected agents, API keys and tokens, stored hashed                                       | the `userId` of whoever approved                   |
-| `cloudflareEmail` (local)     | sealed emails                                                                              | `mailEvents.emailId`                               |
-| `notifications` (local)       | each person's Updates lines and muted kinds                                                | a `ref` on each line, or an agent's `message`      |
+| Component                     | Keeps                                                                                                                      | The app keeps                                      |
+| ----------------------------- | -------------------------------------------------------------------------------------------------------------------------- | -------------------------------------------------- |
+| `@convex-dev/auth`            | accounts and sessions                                                                                                      | `users`                                            |
+| `@convex-dev/batch-worker`    | the loops that run big deletes, add finished judgments to their run and count job trends                                   | `deleteJobs`, `judgedReads`, `jobTrends`           |
+| `@convex-dev/workflow`        | each run's steps, retries and results                                                                                      | `loopRuns.workflowId`, `automationRuns.workflowId` |
+| `@convex-dev/workpool`        | `readPool` (fetches, judgments), `applyPool` (prepares), `catalogPool` (catalog totals) and `summaryPool` (role summaries) | `loopRuns.readWorkIds`                             |
+| `@convex-dev/rate-limiter`    | per-source and per-person budgets                                                                                          | nothing                                            |
+| `@convex-dev/aggregate`       | run and answer counts for workflows; roles per board and company; roles per domain                                         | nothing                                            |
+| `@convex-dev/sharded-counter` | the catalog's totals: domains, and roles by proof                                                                          | nothing                                            |
+| `@convex-dev/mcp`             | connected agents, API keys and tokens, stored hashed                                                                       | the `userId` of whoever approved                   |
+| `cloudflareEmail` (local)     | sealed emails                                                                                                              | `mailEvents.emailId`                               |
+| `notifications` (local)       | each person's Updates lines and muted kinds                                                                                | a `ref` on each line, or an agent's `message`      |
 
 ## What happens when something is deleted
 
@@ -356,16 +356,16 @@ erDiagram
     }
 ```
 
-| Table         | Passes rule                                                       | Indexes                                                                                                 |
-| ------------- | ----------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------- |
-| `loops`       | 4: the cron finds due loops across all users                      | `by_userId`, `by_active_and_nextRunAt`                                                                  |
-| `loopRuns`    | 1: one per loop per morning, kept for the Runs tab                | `by_loopId_and_startedAt`, `by_userId_and_startedAt`                                                    |
-| `jobLeads`    | 1 and 4: grows every morning, and "shown this role?" spans runs   | `by_userId_and_urlKey`, `by_applicationId`, `by_userId_and_status`, `by_userId_and_feedback`, more      |
-| `jobs`        | 3 and 4: shared by everyone, searched by every run                | `by_urlKey`, `by_boardId_and_postedAt`, `by_postedAt`, `by_remote_and_postedAt`, search index on `text` |
-| `jobBoards`   | 3: shared by everyone; the refresh finds the ones due             | `by_kind_and_slug`, `by_fetchedAt`, `by_jobs`, `by_researchedAt`, `by_companyId`                        |
-| `companies`   | 1 and 3: shared by everyone, several boards can reach one site    | `by_domain`                                                                                             |
-| `jobCatalog`  | 3: one row with the number of boards, so Jobs needn't add them up | none                                                                                                    |
-| `sourceUsage` | 3: shared by everyone, one row per source per month               | `by_provider_and_month`                                                                                 |
+| Table         | Passes rule                                                       | Indexes                                                                                                                                 |
+| ------------- | ----------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------- |
+| `loops`       | 4: the cron finds due loops across all users                      | `by_userId`, `by_active_and_nextRunAt`                                                                                                  |
+| `loopRuns`    | 1: one per loop per morning, kept for the Runs tab                | `by_loopId_and_startedAt`, `by_userId_and_startedAt`                                                                                    |
+| `jobLeads`    | 1 and 4: grows every morning, and "shown this role?" spans runs   | `by_userId_and_urlKey`, `by_applicationId`, `by_userId_and_status`, `by_userId_and_feedback`, more                                      |
+| `jobs`        | 3 and 4: shared by everyone, searched by every run                | `by_urlKey`, `by_boardId_and_postedAt`, `by_postedAt`, `by_remote_and_postedAt`, `by_summarizedAt_and_postedAt`, search index on `text` |
+| `jobBoards`   | 3: shared by everyone; the refresh finds the ones due             | `by_kind_and_slug`, `by_fetchedAt`, `by_jobs`, `by_researchedAt`, `by_companyId`                                                        |
+| `companies`   | 1 and 3: shared by everyone, several boards can reach one site    | `by_domain`                                                                                                                             |
+| `jobCatalog`  | 3: one row with the number of boards, so Jobs needn't add them up | none                                                                                                                                    |
+| `sourceUsage` | 3: shared by everyone, one row per source per month               | `by_provider_and_month`                                                                                                                 |
 
 A judged role is saved for a person whether or not it fits, so it never comes back. Jev answers one question per thing they asked for: where they want to work (their places and work mode, or the loop's "where"), each interest, the skills they're building, each thing to avoid, the pay they need and their visa situation. Each answer is "the posting shows it holds", "shows it doesn't" or "doesn't say", which becomes a `checks` line under fits, doesn't fit or could fit. Red-flag companies are checked in code. A role is a fit only when it matches well overall, nothing they need or avoid fails, and the posting confirms where they'd work. `verdict` is Jev's call and never changes; `status` is where it stands for the person. `reasons` are sentences a person can read; `checks` and `judgment` keep the per-question answers with their confidence and the model, so an agent or a later check can filter on them. Older leads may have no checks.
 
@@ -383,7 +383,7 @@ The workflow, workpool and rate limiter components bring their own tables. The a
 
 `readPool` is the batch worker. The hourly refresh hands it the boards that are due, and a run hands it all its roles in one `enqueueActionBatch` call. It runs 8 at a time across everything, and each job retries twice. A judgment's `onComplete` leaves a row in `judgedReads`, because 8 workers writing to one run would conflict. One batch worker adds those rows to the run's tally on `loopRuns` (`readsLeft`, `candidates`, cost, failures), up to 25 at a time, and sends the workflow a `judged` event after the last one. The workflow waits for that with `step.awaitEvent` before saving every verdict.
 
-`catalogPool` is the only writer of `jobCatalog`, `jobDomainCounts` and the totals in the sharded counter. Every board's counts end up in those few rows, so boards refreshing side by side collided there. A save still writes its roles and `jobRoleCounts` itself. `boardFetched`, at the end of each fetch, brings `jobBoards.jobs` up to date and queues the change with the board's count before and after, once a fetch. Queuing from the long saves made boards finishing together collide on the queue and redo the whole save. It runs one at a time, in order, so those totals follow a moment after the roles.
+`catalogPool` is the only writer of `jobCatalog`, `jobDomainCounts` and the totals in the sharded counter. Every board's counts end up in those few rows, so boards refreshing side by side collided there. A save still writes its roles, `jobRoleCounts` and `jobTimeCounts` itself. `jobTimeCounts` keeps each board's roles by remote and posted date, one tree a board like `jobRoleCounts`, so `/jobs` can say how many roles its filters match. `boardFetched`, at the end of each fetch, brings `jobBoards.jobs` up to date and queues the change with the board's count before and after, once a fetch. Queuing from the long saves made boards finishing together collide on the queue and redo the whole save. It runs one at a time, in order, so those totals follow a moment after the roles.
 
 Jev needs no key: `@convex-dev/ai-sdk-provider` signs gateway calls with the deployment's own token, and the gateway bills the Convex team. Search sources' monthly credits come from the Convex env (`FIRECRAWL_MONTHLY_CREDITS`, `CONTEXT_DEV_MONTHLY_CREDITS`) and default to the free plans: 500 for Firecrawl and 1,000 for context.dev.
 
@@ -433,7 +433,7 @@ convex/features/workflows/      what runs a loop
   fit.ts                             search words, posting and role keys
   sources/                           firecrawl.ts, contextDev.ts, index.ts (keys and credits)
 convex/crons.ts                      start due loops and workflows, refresh boards, sweeps, restart stuck workers
-convex/convex.config.ts              the components: workflow, readPool, applyPool, catalogPool, rate limiter, batch worker, aggregates
+convex/convex.config.ts              the components: workflow, readPool, applyPool, catalogPool, summaryPool, rate limiter, batch worker, aggregates
 convex/lib/log.ts                    evlog wide events; features/activity/utils.ts keeps them for their owner
 ```
 

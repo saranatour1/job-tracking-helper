@@ -2,11 +2,16 @@ import { getAuthUserId } from "@convex-dev/auth/server"
 import { paginationResultValidator } from "convex/server"
 import { ConvexError, type ObjectType, v } from "convex/values"
 import type { Doc } from "../../_generated/dataModel"
-import { query, type QueryCtx } from "../../_generated/server"
-import { authedQuery, sessionMutation } from "../../lib/functions"
+import { query } from "../../_generated/server"
+import { authedMutation, authedQuery, sessionMutation } from "../../lib/functions"
+import { vVerdict } from "../workflows/validators"
+import { fitOf, logNewApplication, nextNumber } from "../applications/utils"
+import { priorityFor } from "../applications/validators"
+import { leadOf } from "./leads"
+import { previewOf } from "./links"
 import { limits } from "../workflows/manager"
 import { evidenceOf } from "./companies"
-import { catalogCounts } from "./counts"
+import { catalogCounts, matchingCount } from "./counts"
 import { vCatalogSummary, vJobRow, vJobSearchArgs } from "./validators"
 import { rowOf, searchJobs } from "./utils"
 
@@ -15,21 +20,18 @@ const publicPage = 25
 
 const wordsOf = (q: string | undefined) => q?.trim().slice(0, 200)
 
-// The catalog for anyone without a real account: the newest roles, or the one search they've
-// spent a daily search on (allowSearch). It never reads anyone's verdicts.
-const browse = async (
-  ctx: QueryCtx,
+const asVisitor = (
   user: Doc<"users"> | null,
-  { q, paginationOpts }: ObjectType<typeof vJobSearchArgs>
+  { q, remoteOnly, boardId, since, paginationOpts }: ObjectType<typeof vJobSearchArgs>
 ) => {
   const words = wordsOf(q)
-  const opts = { ...paginationOpts, numItems: Math.min(paginationOpts.numItems, publicPage) }
-  const jobs = ctx.db.query("jobs")
-  const found =
-    words && words === user?.allowedSearch
-      ? await jobs.withSearchIndex("search_text", (s) => s.search("text", words)).paginate(opts)
-      : await jobs.withIndex("by_postedAt").order("desc").paginate(opts)
-  return { ...found, page: found.page.map((job) => rowOf(job, null)) }
+  return {
+    q: words && words === user?.allowedSearch ? words : undefined,
+    remoteOnly,
+    boardId,
+    since,
+    paginationOpts: { ...paginationOpts, numItems: Math.min(paginationOpts.numItems, publicPage) },
+  }
 }
 
 const search = query({
@@ -41,7 +43,7 @@ const search = query({
     const found =
       user && !user.anonymous
         ? await searchJobs(ctx, user._id, args)
-        : await browse(ctx, user, args)
+        : await searchJobs(ctx, null, asVisitor(user || null, args))
     const evidence = await evidenceOf(ctx, found.page)
     const page = found.page.map(({ boardId: _, ...row }, i) => ({ ...row, evidence: evidence[i]! }))
     return { ...found, page }
@@ -78,7 +80,7 @@ const posting = query({
   },
 })
 
-const companies = authedQuery({
+const companies = query({
   args: {},
   returns: v.array(
     v.object({
@@ -122,4 +124,130 @@ const stats = query({
   },
 })
 
-export const publicApi = { search, allowSearch, posting, stats, companies }
+const sitemap = query({
+  args: { cursor: v.union(v.string(), v.null()) },
+  returns: v.object({
+    page: v.array(
+      v.object({ _id: v.id("jobs"), title: v.string(), company: v.string(), postedAt: v.number() })
+    ),
+    isDone: v.boolean(),
+    continueCursor: v.string(),
+  }),
+  handler: async (ctx, { cursor }) => {
+    const found = await ctx.db
+      .query("jobs")
+      .withIndex("by_postedAt")
+      .order("desc")
+      .paginate({ numItems: 1000, cursor, maximumBytesRead: 4_000_000 })
+    return {
+      page: found.page.map(({ _id, title, company, postedAt }) => ({
+        _id,
+        title,
+        company,
+        postedAt,
+      })),
+      isDone: found.isDone,
+      continueCursor: found.continueCursor,
+    }
+  },
+})
+
+// How a role matches the person, once Jev has judged it for them: from a loop, a pasted link or
+// checking it here. Null until then.
+const match = authedQuery({
+  args: { jobId: v.id("jobs") },
+  returns: v.union(
+    v.object({
+      fit: v.number(),
+      verdict: vVerdict,
+      reasons: v.array(v.string()),
+      applicationId: v.union(v.id("applications"), v.null()),
+    }),
+    v.null()
+  ),
+  handler: async (ctx, { jobId }) => {
+    const job = await ctx.db.get("jobs", jobId)
+    const lead = job && (await leadOf(ctx, ctx.userId, job))
+    return (
+      lead && {
+        fit: lead.fit,
+        verdict: lead.verdict,
+        reasons: lead.reasons,
+        applicationId: lead.applicationId ?? null,
+      }
+    )
+  },
+})
+
+// A catalog role onto the person's board as Saved. The same role again opens what's there, back
+// out of Archive or Trash, rather than adding it twice.
+const track = authedMutation({
+  args: { jobId: v.id("jobs") },
+  returns: v.id("applications"),
+  handler: async (ctx, { jobId }) => {
+    const job = await ctx.db.get("jobs", jobId)
+    if (!job) throw new ConvexError("That role has closed.")
+    const lead = await leadOf(ctx, ctx.userId, job)
+    const known =
+      (lead?.applicationId && (await ctx.db.get("applications", lead.applicationId))) ||
+      (await ctx.db
+        .query("applications")
+        .withIndex("by_userId_and_url", (q) => q.eq("userId", ctx.userId).eq("url", job.url))
+        .first())
+    if (known && known.userId === ctx.userId) {
+      if (known.trashedAt !== undefined || known.archivedAt !== undefined)
+        await ctx.db.patch("applications", known._id, {
+          trashedAt: undefined,
+          archivedAt: undefined,
+          purgeAt: undefined,
+        })
+      return known._id
+    }
+    const applicationId = await ctx.db.insert("applications", {
+      userId: ctx.userId,
+      company: job.company,
+      role: job.title,
+      status: "saved",
+      url: job.url,
+      number: await nextNumber(ctx, ctx.userId),
+      ...(job.location && { location: job.location }),
+      labels: job.remote ? ["Remote"] : [],
+      description: (job.summary ?? previewOf(job.text)).slice(0, 5000),
+      method: "Company site",
+      ...(lead && { priority: priorityFor(lead.fit), ...fitOf(lead) }),
+      history: [{ status: "saved", at: Date.now() }],
+    })
+    await logNewApplication(ctx, ctx.userId, applicationId, job.company)
+    if (lead) await ctx.db.patch("jobLeads", lead._id, { status: "applied", applicationId })
+    return applicationId
+  },
+})
+
+// Null for words, whose matches only the search index knows.
+const count = query({
+  args: {
+    q: v.optional(v.string()),
+    remoteOnly: v.optional(v.boolean()),
+    boardId: v.optional(v.string()),
+    since: v.optional(v.number()),
+  },
+  returns: v.union(v.number(), v.null()),
+  handler: async (ctx, { q, remoteOnly, boardId, since }) => {
+    if (wordsOf(q)) return null
+    const board = boardId ? ctx.db.normalizeId("jobBoards", boardId) : undefined
+    if (boardId && !board) return 0
+    return matchingCount(ctx, { remoteOnly, board: board ?? undefined, since })
+  },
+})
+
+export const publicApi = {
+  count,
+  search,
+  allowSearch,
+  posting,
+  stats,
+  companies,
+  sitemap,
+  track,
+  match,
+}

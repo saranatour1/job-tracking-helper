@@ -128,7 +128,12 @@ export const SignIn = ({ mode }: { mode: "signIn" | "signUp" }) => {
             </Button>
             <Button
               variant="link"
-              render={<Link to={mode === "signIn" ? "/sign-up" : "/sign-in"} />}
+              render={
+                <Link
+                  to={mode === "signIn" ? "/sign-up" : "/sign-in"}
+                  search={(prev) => ({ redirect: (prev as { redirect?: string }).redirect })}
+                />
+              }
             >
               {mode === "signIn" ? "Need an account? Sign up" : "Have an account? Sign in"}
             </Button>

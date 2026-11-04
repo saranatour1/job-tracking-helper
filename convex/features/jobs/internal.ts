@@ -10,7 +10,7 @@ import { readPool } from "../workflows/manager"
 import { apiKeyOf, monthlyCredits, monthOf } from "../workflows/sources"
 import { boardKinds, companyOf, isCompanyBoard, searchSlug, starterBoards } from "./boards"
 import { researchBatch, researchEvery } from "./companies"
-import { deleteJob, insertJob, placeOf, recount, roleCounts, rollUp } from "./counts"
+import { deleteJob, insertJob, placeOf, recount, roleCounts, rollUp, timeCounts } from "./counts"
 import { leadOf } from "./leads"
 import { boardOf } from "./links"
 import {
@@ -131,9 +131,14 @@ const saveJobs = internalMutation({
       // A write reindexes the role's text and reruns every open search that read it, so a
       // role the feed didn't change stays as it is.
       else if ((Object.keys(job) as (keyof typeof job)[]).some((k) => job[k] !== known[k])) {
-        await ctx.db.patch("jobs", known._id, job)
+        await ctx.db.patch("jobs", known._id, {
+          ...job,
+          ...(job.text !== known.text && { summary: undefined, summarizedAt: undefined }),
+        })
         if (job.company !== known.company)
           await roleCounts.replaceOrInsert(ctx, known, { ...known, ...job })
+        if (job.remote !== known.remote || job.postedAt !== known.postedAt)
+          await timeCounts.replaceOrInsert(ctx, known, { ...known, ...job })
       }
     }
     return null
@@ -418,12 +423,30 @@ const saveResearch = internalMutation({
   },
 })
 
+// A role judged after it was already on the board points at that application.
+const linkTracked = internalMutation({
+  args: { leadId: v.id("jobLeads") },
+  returns: v.null(),
+  handler: async (ctx, { leadId }) => {
+    const lead = await ctx.db.get("jobLeads", leadId)
+    if (!lead || lead.applicationId) return null
+    const tracked = await ctx.db
+      .query("applications")
+      .withIndex("by_userId_and_url", (q) => q.eq("userId", lead.userId).eq("url", lead.url))
+      .first()
+    if (tracked)
+      await ctx.db.patch("jobLeads", leadId, { status: "applied", applicationId: tracked._id })
+    return null
+  },
+})
+
 const get = internalQuery({
   args: { jobId: v.id("jobs") },
   handler: (ctx, { jobId }) => ctx.db.get("jobs", jobId),
 })
 
 export const internalApi = {
+  linkTracked,
   refreshDue,
   board,
   addBoards,

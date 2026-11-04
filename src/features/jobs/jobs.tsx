@@ -1,14 +1,15 @@
 import { api } from "@/lib/api"
 import type { Id } from "@convex/_generated/dataModel"
-import { domainSaysName, groupDomains, type Proof } from "@convex/features/jobs/domains"
 import { canPrepare } from "@convex/features/jobs/links"
 import { groupRoles } from "@convex/features/workflows/fit"
 import { PrepareButton } from "@/features/prefilled/prefilled"
 import {
-  ArrowRight01Icon,
+  ArrowDown01Icon,
   Cancel01Icon,
   LinkSquare02Icon,
   Search01Icon,
+  TaskAdd01Icon,
+  TaskDone01Icon,
 } from "@hugeicons/core-free-icons"
 import { HugeiconsIcon } from "@hugeicons/react"
 import { useSignInAnonymously } from "@convex-dev/auth/methods/anonymous/react"
@@ -21,7 +22,7 @@ import {
   useRouterState,
   useSearch,
 } from "@tanstack/react-router"
-import { useConvexAuth, useMutation } from "convex/react"
+import { useAction, useConvexAuth, useMutation } from "convex/react"
 import { startTransition, useActionState } from "react"
 
 import { Badge } from "@/components/ui/badge"
@@ -38,15 +39,17 @@ import { Input } from "@/components/ui/input"
 import { ScrollArea } from "@/components/ui/scroll-area"
 import { Select, SelectItem, SelectPopup, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Toggle } from "@/components/ui/toggle"
-import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group"
-import { PageIntro, pageBody, Tile } from "@/features/shell/page-body"
-import { PageHeader } from "@/features/shell/page-header"
+import { PageIntro, pageBody } from "@/features/shell/page-body"
+import { Breadcrumbs, type Crumb, PageHeader } from "@/features/shell/page-header"
 import { messageOf } from "@/features/account/settings"
 import { useAccess } from "@/hooks/use-access"
 import { postingText } from "@/lib/route-ids"
 import { cn } from "@/lib/utils"
 
-import { type JobsSearch, maxPages, type Posted, readKeys, refreshJobs } from "./search"
+import type { Facts } from "@convex/features/jobs/validators"
+
+import { companyRuns } from "./group"
+import { type JobsSearch, maxPages, type Posted, refreshJobs } from "./search"
 
 const postedLabels: Record<Posted | "any", string> = {
   any: "Any time",
@@ -66,13 +69,6 @@ export const ago = (ms: number, now: number) => {
   return days < 14 ? `${days}d` : `${Math.floor(days / 7)}w`
 }
 
-// The lanes a domain and its roles share: chevron and initial, name, postings, registered, YC, open
-// and newest.
-const laneColumns = "md:grid-cols-[3.5rem_minmax(0,1fr)_6rem_5.5rem_3.5rem_3.5rem_3rem]"
-
-// A company with more roles than this starts closed, showing their titles on one line.
-const closedFrom = 250
-
 export type Row = {
   _id: Id<"jobs">
   url: string
@@ -82,8 +78,13 @@ export type Row = {
   remote: boolean
   postedAt: number
   preview: string
+  summary: string | null
+  facts: Facts | null
+  places: string[]
   fit: number | null
   verdict: "fit" | "notFit" | null
+  applicationId: Id<"applications"> | null
+  reasons: string[]
   evidence: {
     boardId: Id<"jobBoards"> | null
     domain: string | null
@@ -97,7 +98,6 @@ export type Row = {
 
 const yearMs = 365.25 * dayMs
 const newFor = 2 * dayMs
-const endingsShown = 6
 
 // "9 months", "12 years".
 const ageOf = (ms: number, now: number) => {
@@ -210,240 +210,6 @@ export const Badges = ({
   </>
 )
 
-// How long ago a role was posted, in blue while it's new.
-const Posted = ({ at, now }: { at: number; now: number }) => (
-  <span
-    className={cn(
-      "text-end tabular-nums",
-      now - at < newFor ? "text-info-foreground" : "text-muted-foreground"
-    )}
-    title={now - at < newFor ? "New: posted in the last two days" : undefined}
-  >
-    {ago(at, now)}
-  </span>
-)
-
-// A link out only: LinkedIn's terms rule out reading it.
-const LinkedIn = ({ company }: { company: string }) => (
-  <a
-    href={`https://www.linkedin.com/search/results/companies/?keywords=${encodeURIComponent(company)}`}
-    {...external}
-    className="hover:underline"
-  >
-    LinkedIn
-  </a>
-)
-
-const Initial = ({ company }: { company: string }) => (
-  <span
-    aria-hidden
-    className="bg-muted text-foreground/80 flex size-8 shrink-0 items-center justify-center rounded-md text-xs font-semibold uppercase"
-  >
-    {company.trim()[0] ?? "?"}
-  </span>
-)
-
-// A domain's own row, and its roles when it's open. A native <details>, so opening one holds no
-// state and survives every rerender.
-const Domain = ({
-  jobs,
-  now,
-  collapsed,
-  canNarrow,
-  children,
-}: {
-  jobs: Row[]
-  now: number
-  collapsed: boolean
-  // A link to all of a board's roles means something only with the filters.
-  canNarrow: boolean
-  children: React.ReactNode
-}) => {
-  const first = jobs[0]!
-  const { boardId, domain, yc, registeredAt, open, pooled } = first.evidence
-  const count = open ?? jobs.length
-  // A link to a board of many companies would show the rest of them too.
-  const more = canNarrow && boardId && !pooled ? count - jobs.length : 0
-  return (
-    <details open={!collapsed && count <= closedFrom} className="group/domain border-t py-1.5">
-      <summary
-        className={cn(
-          "hover:bg-accent/30 grid min-h-11 cursor-pointer list-none grid-cols-[auto_minmax(0,1fr)_auto] items-center gap-x-3 rounded-md px-2.5 py-1.5 text-[13px] [&::-webkit-details-marker]:hidden",
-          laneColumns
-        )}
-      >
-        <span className="flex items-center gap-2">
-          <HugeiconsIcon
-            icon={ArrowRight01Icon}
-            className="text-muted-foreground size-4 shrink-0 transition-transform group-open/domain:rotate-90"
-          />
-          <Initial company={first.company} />
-        </span>
-        <span className="flex min-w-0 flex-col gap-0.5">
-          <span className="flex min-w-0 flex-wrap items-baseline gap-x-2">
-            {domain ? (
-              <a
-                href={`https://${domain}`}
-                {...external}
-                className="font-heading max-w-full truncate text-[15px] font-semibold hover:underline"
-              >
-                {domain}
-              </a>
-            ) : (
-              <span className="font-heading max-w-full truncate text-[15px] font-semibold">
-                {first.company}
-              </span>
-            )}
-            <span className="text-muted-foreground text-xs">
-              {domain
-                ? !domainSaysName(domain, first.company) && `${first.company} · `
-                : "No company site found · "}
-              <LinkedIn company={first.company} />
-            </span>
-          </span>
-          <span className="text-muted-foreground truncate text-xs group-open/domain:hidden">
-            {[...new Set(jobs.map((j) => j.title.trim()))].join(", ")}
-          </span>
-          <span className="text-muted-foreground flex flex-wrap items-center gap-1 pt-0.5 text-xs md:hidden">
-            <Evidence job={first} now={now} short />
-            <span className="tabular-nums">{count.toLocaleString("en")} open</span>
-          </span>
-        </span>
-        <span className="hidden md:flex">
-          <ProofBadge job={first} short />
-        </span>
-        <span className="text-muted-foreground hidden md:flex">
-          {registeredAt === null ? (
-            "—"
-          ) : now - registeredAt < yearMs ? (
-            <Badge variant="warning" className="font-normal">
-              {ageOf(registeredAt, now)}
-            </Badge>
-          ) : (
-            ageOf(registeredAt, now)
-          )}
-        </span>
-        <span className="hidden md:flex">
-          {yc && (
-            <Badge
-              variant="outline"
-              className="font-normal"
-              title={`YC ${yc.batch}${yc.status === "Active" ? "" : `, ${yc.status}`}`}
-              render={<a href={yc.url} {...external} />}
-            >
-              {`${yc.batch.startsWith("Spring") ? "X" : yc.batch[0]}${yc.batch.slice(-2)}`}
-            </Badge>
-          )}
-        </span>
-        <span className="hidden text-end font-medium tabular-nums md:block">
-          {count.toLocaleString("en")}
-        </span>
-        <Posted at={Math.max(...jobs.map((j) => j.postedAt))} now={now} />
-      </summary>
-      {children}
-      {more > 0 && (
-        <Button
-          size="xs"
-          variant="ghost"
-          className="text-muted-foreground ms-4 md:ms-19.5"
-          render={<Link to="/jobs" search={{ board: boardId ?? undefined }} />}
-        >
-          Show {more.toLocaleString("en")} more
-        </Button>
-      )}
-    </details>
-  )
-}
-
-// The whole catalog at a glance, and filters for anyone signed in.
-const Overview = ({
-  summary,
-  signedIn,
-  proof,
-  ending,
-  set,
-}: {
-  summary: {
-    own: number
-    name: number
-    unverified: number
-    endings: { ending: string; jobs: number }[]
-  }
-  signedIn: boolean
-  proof?: Proof
-  ending?: string
-  set: (patch: Partial<JobsSearch>) => void
-}) => {
-  const parts = [
-    { key: "own", label: "Own site", bar: "bg-success", text: "text-success-foreground" },
-    {
-      key: "name",
-      label: "Name only",
-      bar: "bg-muted-foreground/50",
-      text: "text-muted-foreground",
-    },
-    { key: "unverified", label: "Unverified", bar: "bg-warning", text: "text-warning-foreground" },
-  ] as const
-  const shown = summary.endings.slice(0, endingsShown)
-  const other = summary.endings.slice(endingsShown).reduce((n, e) => n + e.jobs, 0)
-  return (
-    <div className="grid gap-3 md:grid-cols-[5fr_4fr]">
-      <Tile title="How roles tie to a company" className="gap-3">
-        <div aria-hidden className="flex h-2 gap-0.5 px-1">
-          {parts.map((p) => (
-            <div
-              key={p.key}
-              className={cn("rounded-[2px]", p.bar)}
-              style={{ flexGrow: summary[p.key] }}
-            />
-          ))}
-        </div>
-        <div className="grid grid-cols-3 gap-2">
-          {parts.map((p) => (
-            <Toggle
-              key={p.key}
-              disabled={!signedIn}
-              pressed={proof === p.key}
-              onPressedChange={(on) => set({ proof: on ? p.key : undefined })}
-              className="h-auto flex-col items-start gap-0.5 rounded-md px-1 py-0.5 disabled:opacity-100 sm:h-auto"
-            >
-              <span className="font-heading text-xl font-semibold tabular-nums">
-                {summary[p.key].toLocaleString("en")}
-              </span>
-              <span className={cn("text-xs font-normal", p.text)}>{p.label}</span>
-            </Toggle>
-          ))}
-        </div>
-      </Tile>
-      <Tile title="Domain ending" className="gap-3">
-        <div className="flex flex-wrap items-center gap-1.5">
-          {shown.map((e) => (
-            <Toggle
-              key={e.ending}
-              size="sm"
-              variant="outline"
-              disabled={!signedIn}
-              pressed={ending === e.ending}
-              onPressedChange={(on) => set({ ending: on ? e.ending : undefined })}
-              className="disabled:opacity-100"
-            >
-              {e.ending}
-              <span className="text-muted-foreground font-normal tabular-nums">
-                {e.jobs.toLocaleString("en")}
-              </span>
-            </Toggle>
-          ))}
-          {other > 0 && (
-            <span className="text-muted-foreground px-1.5 text-[13px] tabular-nums">
-              Other {other.toLocaleString("en")}
-            </span>
-          )}
-        </div>
-      </Tile>
-    </div>
-  )
-}
-
 /** Searching without an account: makes the anonymous account on the first search, not on page
  * load, so crawlers don't make any, then spends one of its daily searches. */
 export const useVisitorSearch = () => {
@@ -467,34 +233,196 @@ export const useVisitorSearch = () => {
   }, undefined)
 }
 
-// Every role in the shared catalog, under its company's domain. Search it, narrow it down, and from
-// any role find more like it. Roles a loop or a pasted link judged show Jev's verdict for you. Signed out it's
-// the same list to search, without the filters or anything about you.
+const factLabels: Record<keyof Facts, string> = {
+  level: "Level",
+  team: "Team",
+  reportsTo: "Reports to",
+  workMode: "Work mode",
+  travel: "Travel",
+  employment: "Type",
+  pay: "Pay",
+}
+
+export const CompanyLogo = ({ job, className }: { job: Row; className?: string }) =>
+  job.evidence.domain ? (
+    <img
+      src={`/jobs/logo/${job.evidence.domain}`}
+      alt=""
+      loading="lazy"
+      className={cn("size-5 shrink-0 rounded object-contain", className)}
+    />
+  ) : (
+    <span
+      aria-hidden
+      className={cn(
+        "bg-muted text-foreground/80 flex size-5 shrink-0 items-center justify-center rounded text-[10px] font-semibold uppercase",
+        className
+      )}
+    >
+      {job.company.trim()[0] ?? "?"}
+    </span>
+  )
+
+const FactList = ({ facts }: { facts: Facts }) => (
+  <dl className="grid grid-cols-2 gap-x-4 gap-y-2.5">
+    {(Object.keys(factLabels) as (keyof Facts)[]).map(
+      (key) =>
+        facts[key] && (
+          <div key={key} className="flex flex-col gap-0.5">
+            <dt className="text-muted-foreground text-xs">{factLabels[key]}</dt>
+            <dd className="text-[13px]">{facts[key]}</dd>
+          </div>
+        )
+    )}
+  </dl>
+)
+
+/** An action that needs an account, for someone without one: it signs them in and comes back. */
+export const SignInFor = ({
+  label,
+  why,
+  size = "sm",
+}: {
+  label: string
+  why: string
+  size?: "xs" | "sm"
+}) => {
+  const here = useRouterState({ select: (s) => s.location.href })
+  return (
+    <Button
+      size={size}
+      variant="outline"
+      title={why}
+      aria-label={`${label}: ${why}`}
+      render={<Link to="/sign-in" search={{ redirect: here }} />}
+    >
+      {label}
+    </Button>
+  )
+}
+
+export const TrackButton = ({
+  job,
+  size = "sm",
+}: {
+  job: Pick<Row, "_id" | "company" | "applicationId">
+  size?: "xs" | "sm"
+}) => {
+  const addRole = useMutation(api.jobs.track)
+  const router = useRouter()
+  const [state, add, adding] = useActionState(
+    () =>
+      addRole({ jobId: job._id }).then(
+        (applicationId) => {
+          track("job_track", { job: job._id, company: job.company })
+          void refreshJobs(router)
+          return { applicationId, error: undefined }
+        },
+        (cause: unknown) => ({ applicationId: undefined, error: messageOf(cause) })
+      ),
+    undefined
+  )
+  if (job.applicationId ?? state?.applicationId)
+    return (
+      <Button size={size} variant="ghost" render={<Link to="/pipeline" />}>
+        <HugeiconsIcon icon={TaskDone01Icon} />
+        In your tracker
+      </Button>
+    )
+  return (
+    <span className="flex flex-col">
+      <Button size={size} variant="outline" disabled={adding} onClick={() => startTransition(add)}>
+        <HugeiconsIcon icon={TaskAdd01Icon} />
+        Add to tracker
+      </Button>
+      {state?.error && (
+        <span role="alert" className="text-destructive max-w-56 text-xs">
+          {state.error}
+        </span>
+      )}
+    </span>
+  )
+}
+
+export type Match = { fit: number; verdict: "fit" | "notFit"; reasons: string[] } | null
+
+/** How a role matches someone signed in: Jev's verdict and why, or a way to ask. Nothing while
+ * that's still loading, so the button doesn't flash. */
+export const MatchYou = ({ jobId, match }: { jobId: Id<"jobs">; match: Match | undefined }) => {
+  const checkJob = useAction(api.loopActions.checkJob)
+  const router = useRouter()
+  const [error, check, checking] = useActionState(async () => {
+    try {
+      await checkJob({ jobId })
+      track("job_match_checked", { job: jobId })
+      await refreshJobs(router)
+      return undefined
+    } catch (cause) {
+      return messageOf(cause)
+    }
+  }, undefined)
+  if (match === undefined) return null
+  if (match)
+    return (
+      <div className="flex flex-col gap-1.5">
+        <Badge
+          variant={match.verdict === "fit" ? "success" : "outline"}
+          className="self-start font-normal"
+        >
+          {match.verdict === "fit" ? `Matches you · ${match.fit}%` : `Not a match · ${match.fit}%`}
+        </Badge>
+        {match.reasons.length > 0 && (
+          <ul className="text-muted-foreground list-disc space-y-0.5 ps-4 text-xs leading-relaxed">
+            {match.reasons.slice(0, 3).map((reason) => (
+              <li key={reason}>{reason}</li>
+            ))}
+          </ul>
+        )}
+      </div>
+    )
+  return (
+    <div className="flex flex-col items-start gap-1">
+      <Button
+        size="sm"
+        variant="outline"
+        disabled={checking}
+        onClick={() => startTransition(check)}
+      >
+        {checking ? "Checking…" : "Does it match you?"}
+      </Button>
+      <span className="text-muted-foreground text-xs">
+        Jev reads it against your Preferences, up to 10 roles a day.
+      </span>
+      {error && (
+        <span role="alert" className="text-destructive text-xs">
+          {error}
+        </span>
+      )}
+    </div>
+  )
+}
+
+const splitView = "(min-width: 1024px)"
+
 export const Jobs = () => {
   const data = useLoaderData({ from: "/_app/jobs/" })
-  const { allowedSearch } = data
   const { member: signedIn } = useAccess()
   const loading = useRouterState({ select: (s) => s.isLoading })
   const search = useSearch({ from: "/_app/jobs/" })
-  // A shared link can carry filters, which mean nothing signed out, and words nobody has spent a
-  // search on yet. Those wait in the box until someone presses Search.
-  const { q, remote, view, collapsed, posted, board, fits, proof, ending, pages }: JobsSearch =
-    signedIn
-      ? search
-      : {
-          q: search.q === allowedSearch ? search.q : undefined,
-          view: search.view,
-          collapsed: search.collapsed,
-          pages: search.pages,
-        }
+  const visitorWords = search.q === data.allowedSearch ? search.q : undefined
+  const { q, remote, posted, board, fits, pages }: JobsSearch = signedIn
+    ? search
+    : { ...search, q: visitorWords, fits: undefined }
   const [refused, visitorSearch, searching] = useVisitorSearch()
   const navigate = useNavigate({ from: "/jobs/" })
   const set = (patch: Partial<JobsSearch>) => {
-    const keeps = Object.keys(patch).every(
-      (k) => k === "pages" || !readKeys.includes(k as (typeof readKeys)[number])
-    )
+    const sameList = Object.keys(patch).every((k) => k === "pages" || k === "role")
     void navigate({
-      search: (prev) => ({ ...prev, ...(!keeps && { pages: undefined }), ...patch }),
+      search: (prev) => ({
+        ...prev,
+        ...(!sameList && { pages: undefined, role: undefined }),
+        ...patch,
+      }),
       replace: true,
     })
   }
@@ -504,193 +432,263 @@ export const Jobs = () => {
     set({ q: words || undefined })
   }
   const now = Date.now()
-  const { stats } = data
-  // Roles already prepared, by posting, for their badge.
   const prepared = new Map(data.prepared.map((r) => [r.url, r]))
-  // Keyed by board, since two boards can share a company name.
   const options = data.companies.map((c) => ({
     value: c.boardId,
-    label: c.domain ? `${c.domain} · ${c.company}` : c.company,
+    label: c.company,
+    domain: c.domain,
     jobs: c.jobs,
   }))
   const company = options.find((o) => o.value === board) ?? null
-  const suggestions = [
-    ...new Set(
-      data.tags
-        .filter((t) => t.kind === "interest" || t.kind === "location" || t.kind === "company")
-        .map((t) => t.value)
-    ),
-  ].slice(0, 8)
-  const filtered = Boolean(q || remote || posted || board || fits || proof || ending)
+  const filtered = Boolean(q || remote || posted || board || fits)
   const rows = data.jobs.page
-  const heading = fits
-    ? "Roles that fit you, best first"
-    : q
-      ? `Best matches for “${q}”`
-      : "Newest first"
+  const noneLeft = data.jobs.isDone && rows.length === 0
+  const roles = groupRoles(rows)
+  const runs = board ? roles.map((role) => [role]) : companyRuns(roles)
+  const lead = (role: Row[]) => role.find((p) => p.verdict) ?? role[0]!
+  const picked = roles.find((role) => role.some((p) => p._id === search.role)) ?? roles[0]
+  const exact = !filtered
+    ? undefined
+    : (data.matching ?? (data.jobs.isDone ? rows.length : undefined))
+  const total = filtered ? exact : data.stats?.jobs
+  const crumbs: Crumb[] = filtered
+    ? [
+        { label: "Jobs", to: "/jobs" },
+        {
+          label: [
+            q && `“${q}”`,
+            remote && "Remote",
+            posted && postedLabels[posted],
+            company?.label,
+            fits && "Best fit for you",
+          ]
+            .filter(Boolean)
+            .join(" · "),
+        },
+      ]
+    : [{ label: "Jobs" }]
+  const count =
+    exact === undefined
+      ? `${rows.length.toLocaleString("en")}+ matches`
+      : `${exact.toLocaleString("en")} ${exact === 1 ? "match" : "matches"}`
 
-  const partsOf = (postings: Row[]) => {
-    const job = postings.find((p) => p.verdict) ?? postings[0]!
-    const where = job.location || "Location not listed"
-    const row = postings.map((p) => prepared.get(p.url)).find(Boolean)
-    const apply = signedIn && canPrepare(job.url) && (
-      <PrepareButton jobId={job._id} status={row?.status} prefillId={row?._id} />
+  const line = (role: Row[], nested = false) => {
+    const job = lead(role)
+    const fresh = now - job.postedAt < newFor
+    const where = job.places
+      .filter((p) => p !== "Remote")
+      .slice(0, 2)
+      .join(", ")
+    const selected = picked?.[0]?._id === role[0]!._id
+    return (
+      <li key={job._id}>
+        <Link
+          to="/jobs/$id"
+          params={{ id: postingText(job) }}
+          state={{ jobs: search }}
+          preload={false}
+          aria-current={selected || undefined}
+          onClick={(e) => {
+            track("job_opened", { job: job._id, company: job.company })
+            if (!window.matchMedia(splitView).matches) return
+            e.preventDefault()
+            set({ role: job._id })
+          }}
+          className={cn(
+            "hover:bg-accent/40 flex min-h-10 items-center gap-2.5 rounded-md px-2.5 py-2 text-[13px] lg:aria-[current]:bg-accent",
+            nested && "ps-9"
+          )}
+        >
+          {!nested && <CompanyLogo job={job} />}
+          <span className="flex min-w-0 flex-1 flex-col gap-0.5 sm:flex-row sm:items-baseline sm:gap-2">
+            <span className="truncate font-medium">{job.title}</span>
+            <span className="text-muted-foreground truncate text-xs">
+              {[!nested && job.company, where].filter(Boolean).join(" · ")}
+            </span>
+          </span>
+          {role.length > 1 && (
+            <span className="text-muted-foreground shrink-0 text-xs tabular-nums">
+              ×{role.length}
+            </span>
+          )}
+          {job.verdict === "fit" && (
+            <Badge variant="success" className="shrink-0 font-normal">
+              {job.fit}%
+            </Badge>
+          )}
+          {job.remote && (
+            <Badge variant="outline" className="hidden shrink-0 font-normal sm:inline-flex">
+              Remote
+            </Badge>
+          )}
+          <span
+            className={cn(
+              "w-8 shrink-0 text-end text-xs tabular-nums",
+              fresh ? "text-info-foreground" : "text-muted-foreground"
+            )}
+            title={fresh ? "New: posted in the last two days" : undefined}
+          >
+            {ago(job.postedAt, now)}
+          </span>
+        </Link>
+      </li>
     )
-    const seen = { job: job._id, company: job.company }
-    const more = signedIn ? (
-      <Button
-        size="xs"
-        variant="ghost"
-        onClick={() => track("job_more_like_this", seen)}
-        render={
-          <Link
-            to="/jobs"
-            search={{ ...search, q: job.title, fits: undefined, pages: undefined }}
-          />
-        }
-      >
-        More like this
-      </Button>
-    ) : (
-      <Button
-        size="xs"
-        variant="ghost"
-        disabled={searching}
-        onClick={() => {
-          track("job_more_like_this", seen)
-          find(job.title)
-        }}
-      >
-        More like this
-      </Button>
-    )
-    const open = (
-      <Button
-        size="icon-xs"
-        variant="ghost"
-        aria-label={`Open the ${job.title} posting`}
-        onClick={() => track("job_apply_link", seen)}
-        render={<a href={job.url} target="_blank" rel="noopener noreferrer" />}
-      >
-        <HugeiconsIcon icon={LinkSquare02Icon} />
-      </Button>
-    )
-    const title = (wrap: boolean) => (
-      <Link
-        to="/jobs/$id"
-        params={{ id: postingText(job) }}
-        onClick={() => track("job_opened", seen)}
-        className={cn(
-          "hover:underline",
-          wrap ? "min-w-0 font-medium sm:truncate" : "min-w-0 md:truncate"
-        )}
-      >
-        {job.title}
-      </Link>
-    )
-    return {
-      job,
-      where,
-      title,
-      apply,
-      more,
-      open,
-      actions: (
-        <>
-          {apply}
-          {more}
-          {open}
-        </>
-      ),
-    }
   }
 
-  const roleRow = (postings: Row[]) => {
-    const { job, where, title, actions } = partsOf(postings)
+  const run = (group: Row[][]) => {
+    if (group.length === 1) return line(group[0]!)
+    const job = lead(group[0]!)
+    const places = [...new Set(group.flatMap((role) => lead(role).places))]
+    const shared = places.filter((p) => group.every((role) => lead(role).places.includes(p)))
     return (
-      <div
-        key={job._id}
-        className="hover:bg-accent/30 grid grid-cols-[auto_minmax(0,1fr)] items-start gap-x-3 gap-y-1.5 rounded-md px-2.5 py-2.5 text-[13px] sm:grid-cols-[auto_minmax(0,1fr)_auto]"
-      >
-        <Initial company={job.company} />
-        <div className="flex min-w-0 flex-col gap-1">
-          <div className="flex min-w-0 items-baseline gap-2">
-            {title(true)}
-            <span className="text-muted-foreground shrink-0 text-xs tabular-nums">
-              {ago(job.postedAt, now)}
+      <li key={`run-${job._id}`}>
+        <details
+          className="group/run"
+          open={group.some((role) => role.some((p) => p._id === search.role))}
+        >
+          <summary className="hover:bg-accent/40 flex min-h-10 cursor-pointer list-none items-center gap-2.5 rounded-md px-2.5 py-2 text-[13px] [&::-webkit-details-marker]:hidden">
+            <CompanyLogo job={job} />
+            <span className="flex min-w-0 flex-1 flex-col gap-0.5 sm:flex-row sm:items-baseline sm:gap-2">
+              <span className="shrink-0 font-medium">
+                {job.company} · {group.length} roles
+                {shared.length > 0 &&
+                  ` in ${shared.filter((p) => p !== "Remote").join(", ") || "Remote"}`}
+              </span>
+              <span className="text-muted-foreground min-w-0 truncate text-xs group-open/run:hidden">
+                {group.map((role) => lead(role).title).join(", ")}
+              </span>
             </span>
-          </div>
-          <span className="text-muted-foreground truncate text-xs">
-            <span className="text-foreground/80">{job.company}</span> · {where} ·{" "}
-            <LinkedIn company={job.company} />
+            <HugeiconsIcon
+              icon={ArrowDown01Icon}
+              className="text-muted-foreground size-4 shrink-0 transition-transform group-open/run:rotate-180"
+            />
+            <span className="text-muted-foreground w-8 shrink-0 text-end text-xs tabular-nums">
+              {ago(Math.max(...group.map((role) => lead(role).postedAt)), now)}
+            </span>
+          </summary>
+          <ul>{group.map((role) => line(role, true))}</ul>
+        </details>
+      </li>
+    )
+  }
+
+  const panel = (role: Row[]) => {
+    const job = lead(role)
+    const row = role.map((p) => prepared.get(p.url)).find(Boolean)
+    const seen = { job: job._id, company: job.company }
+    return (
+      <aside
+        aria-label={job.title}
+        className="bg-card sticky top-20 hidden max-h-[calc(100svh-7rem)] flex-col gap-4 overflow-y-auto rounded-xl border p-5 lg:flex"
+      >
+        <div className="flex items-center gap-2 text-[13px]">
+          <CompanyLogo job={job} className="size-6" />
+          <span className="font-medium">{job.company}</span>
+          <span className="text-muted-foreground">· {ago(job.postedAt, now)} ago</span>
+        </div>
+        <h2 className="font-heading text-lg leading-snug font-semibold">{job.title}</h2>
+        {job.places.length > 0 && (
+          <span className="flex flex-wrap gap-1">
+            {job.places.map((place) => (
+              <Badge key={place} variant="secondary" className="font-normal">
+                {place}
+              </Badge>
+            ))}
           </span>
-          <span className="flex flex-wrap gap-1 empty:hidden">
-            <Badges job={job} openings={postings.length} now={now} />
-            <Evidence job={job} now={now} />
-          </span>
-          {job.preview && (
-            <p className="text-muted-foreground line-clamp-2 text-xs leading-relaxed">
-              {job.preview}
-            </p>
+        )}
+        <p className="text-[14px] leading-relaxed">{job.summary ?? job.preview}</p>
+        {signedIn && (
+          <MatchYou
+            jobId={job._id}
+            match={
+              job.verdict && job.fit !== null
+                ? { fit: job.fit, verdict: job.verdict, reasons: job.reasons }
+                : null
+            }
+          />
+        )}
+        {job.facts && <FactList facts={job.facts} />}
+        <span className="flex flex-wrap gap-1 empty:hidden">
+          <Evidence job={job} now={now} short />
+        </span>
+        <div className="flex flex-wrap items-center gap-2">
+          <Button
+            size="sm"
+            onClick={() => track("job_apply_link", seen)}
+            render={<a href={job.url} {...external} />}
+          >
+            <HugeiconsIcon icon={LinkSquare02Icon} />
+            Apply
+          </Button>
+          {signedIn ? (
+            <TrackButton job={job} />
+          ) : (
+            <SignInFor label="Add to tracker" why="Sign in to keep this role on your board" />
+          )}
+          {canPrepare(job.url) &&
+            (signedIn ? (
+              <PrepareButton jobId={job._id} status={row?.status} prefillId={row?._id} />
+            ) : (
+              <SignInFor label="Prepare" why="Sign in to have its application filled in for you" />
+            ))}
+          {signedIn ? (
+            <Button
+              size="sm"
+              variant="ghost"
+              onClick={() => track("job_more_like_this", seen)}
+              render={
+                <Link
+                  to="/jobs"
+                  search={{
+                    ...search,
+                    q: job.title,
+                    fits: undefined,
+                    pages: undefined,
+                    role: undefined,
+                  }}
+                />
+              }
+            >
+              More like this
+            </Button>
+          ) : (
+            <Button
+              size="sm"
+              variant="ghost"
+              disabled={searching}
+              onClick={() => {
+                track("job_more_like_this", seen)
+                find(job.title)
+              }}
+            >
+              More like this
+            </Button>
           )}
         </div>
-        <div className="col-start-2 flex flex-wrap items-center gap-0.5 sm:col-start-3">
-          {actions}
-        </div>
-      </div>
-    )
-  }
-
-  // One line under its domain, with the actions in place of where it is while hovered. A touch
-  // screen can't hover, so it shows both.
-  const nestedRow = (postings: Row[]) => {
-    const { job, where, title, apply, more, open } = partsOf(postings)
-    return (
-      <div
-        key={job._id}
-        className={cn(
-          "group/role hover:bg-accent/30 grid grid-cols-[minmax(0,1fr)_auto] items-center gap-x-3 rounded-md py-1.5 ps-4 pe-2.5 text-[13px] md:min-h-8 md:py-0 md:ps-2.5",
-          laneColumns
-        )}
-      >
-        <span className="flex min-w-0 flex-wrap items-center gap-x-2 md:col-start-2 md:flex-nowrap">
-          {title(false)}
-          <span className="flex shrink-0 gap-1 empty:hidden">
-            <Badges job={job} openings={postings.length} now={now} nested />
-          </span>
-        </span>
-        <div className="col-span-full row-start-2 flex flex-wrap items-center justify-between gap-x-2 md:col-span-4 md:row-start-auto">
-          <span className="text-muted-foreground md:pointer-coarse:flex flex min-w-0 items-center gap-1.5 md:group-focus-within/role:hidden md:group-hover/role:hidden">
-            <span className="truncate">{where}</span>
-            {job.remote && (
-              <Badge variant="outline" className="font-normal">
-                Remote
-              </Badge>
-            )}
-          </span>
-          <span className="md:pointer-coarse:flex flex items-center gap-0.5 md:ms-auto md:hidden md:group-focus-within/role:flex md:group-hover/role:flex">
-            {apply}
-            {/* On a phone the title needs the room, and Roles has this. */}
-            <span className="hidden md:contents">{more}</span>
-            {open}
-          </span>
-        </div>
-        <Posted at={job.postedAt} now={now} />
-      </div>
+        <Link
+          to="/jobs/$id"
+          params={{ id: postingText(job) }}
+          state={{ jobs: search }}
+          className="text-muted-foreground text-xs hover:underline"
+        >
+          The full posting
+        </Link>
+      </aside>
     )
   }
 
   return (
     <div className="flex min-h-0 flex-1 flex-col">
-      {signedIn && <PageHeader crumbs={[{ label: "Jobs" }]} />}
-      <ScrollArea className="min-h-0 flex-1">
-        <div className={pageBody}>
+      {signedIn && <PageHeader crumbs={crumbs} />}
+      <ScrollArea className="min-h-0 flex-1" restoreId="jobs">
+        <div id="jobs-top" className={cn(pageBody, "max-w-6xl gap-4")}>
+          {!signedIn && filtered && <Breadcrumbs crumbs={crumbs} className="-mb-2" />}
           <PageIntro
             title="Jobs"
             description={
-              stats
-                ? `${stats.jobs.toLocaleString("en")} open roles across ${stats.summary.domains} company domains, refreshed daily${signedIn ? " and shared by everyone. Your loops pick from these, and Jev judges which fit you." : "."}`
-                : "Open roles from job boards, refreshed daily."
+              data.stats
+                ? `${data.stats.jobs.toLocaleString("en")} open roles from company job boards, refreshed daily.`
+                : "Open roles from company job boards, refreshed daily."
             }
           >
             <Button size="sm" variant="outline" render={<Link to="/jobs/trends" />}>
@@ -698,225 +696,180 @@ export const Jobs = () => {
             </Button>
           </PageIntro>
 
-          <div className="flex flex-col gap-3">
-            <form
-              className="flex items-center gap-2"
-              onSubmit={(e) => {
-                e.preventDefault()
-                const said = new FormData(e.currentTarget).get("q")
-                find(typeof said === "string" ? said.trim() : "")
-              }}
-            >
-              <div className="relative max-w-xl flex-1">
-                <HugeiconsIcon
-                  icon={Search01Icon}
-                  className="text-muted-foreground pointer-events-none absolute start-2.5 top-1/2 size-4 -translate-y-1/2"
-                />
-                <Input
-                  key={search.q}
-                  name="q"
-                  type="search"
-                  aria-label="Search roles"
-                  placeholder="Search roles, skills, teams, companies or places"
-                  defaultValue={search.q}
-                  className="ps-8"
-                />
-              </div>
-              <Button type="submit" variant="outline" disabled={searching}>
-                Search
-              </Button>
-            </form>
-            {refused && (
-              <p role="alert" className="text-destructive text-[13px]">
-                {refused}
-              </p>
-            )}
-
-            {!q && suggestions.length > 0 && (
-              <div className="flex flex-wrap items-center gap-1.5 text-xs">
-                <span className="text-muted-foreground">Try</span>
-                {suggestions.map((s) => (
-                  <Button key={s} size="xs" variant="outline" onClick={() => set({ q: s })}>
-                    {s}
-                  </Button>
-                ))}
-              </div>
-            )}
-
-            <div className="flex flex-wrap items-center gap-2" role="group" aria-label="Filters">
-              {signedIn && (
-                <>
-                  <Toggle
-                    size="sm"
-                    variant="outline"
-                    pressed={Boolean(remote)}
-                    onPressedChange={(on) => set({ remote: on || undefined })}
-                  >
-                    Remote only
-                  </Toggle>
-                  <Toggle
-                    size="sm"
-                    variant="outline"
-                    pressed={Boolean(fits)}
-                    onPressedChange={(on) => set({ fits: on || undefined })}
-                  >
-                    Fits me
-                  </Toggle>
-                  <Select
-                    value={posted ?? "any"}
-                    items={Object.entries(postedLabels).map(([value, label]) => ({ value, label }))}
-                    onValueChange={(v) =>
-                      set({ posted: v === "any" || !v ? undefined : (v as Posted) })
-                    }
-                  >
-                    <SelectTrigger size="sm" aria-label="Posted" className="w-auto min-w-32">
-                      <SelectValue />
-                    </SelectTrigger>
-                    <SelectPopup>
-                      {Object.entries(postedLabels).map(([value, label]) => (
-                        <SelectItem key={value} value={value}>
-                          {label}
-                        </SelectItem>
-                      ))}
-                    </SelectPopup>
-                  </Select>
-                  <Combobox
-                    items={options}
-                    value={company}
-                    isItemEqualToValue={(a, b) => a.value === b.value}
-                    onValueChange={(picked) => set({ board: picked?.value })}
-                  >
-                    <ComboboxInput
-                      size="sm"
-                      className="w-56"
-                      aria-label="Domain"
-                      placeholder="Any domain"
-                    />
-                    <ComboboxPopup>
-                      <ComboboxEmpty>No company matches.</ComboboxEmpty>
-                      <ComboboxList>
-                        {(option: (typeof options)[number]) => (
-                          <ComboboxItem key={option.value} value={option}>
-                            {option.label}
-                            <span className="text-muted-foreground ms-auto ps-3 text-xs tabular-nums">
-                              {option.jobs}
-                            </span>
-                          </ComboboxItem>
-                        )}
-                      </ComboboxList>
-                    </ComboboxPopup>
-                  </Combobox>
-                  {filtered && (
-                    <Button
-                      size="sm"
-                      variant="ghost"
-                      render={<Link to="/jobs" search={{ view, collapsed }} />}
-                    >
-                      <HugeiconsIcon icon={Cancel01Icon} />
-                      Clear filters
-                    </Button>
-                  )}
-                </>
-              )}
-              <ToggleGroup
-                size="sm"
-                variant="outline"
-                aria-label="View"
-                className="ms-auto"
-                value={[view ?? "domains"]}
-                onValueChange={(v) => v[0] && set({ view: v[0] === "roles" ? "roles" : undefined })}
-              >
-                <ToggleGroupItem value="domains">Domains</ToggleGroupItem>
-                <ToggleGroupItem value="roles">Roles</ToggleGroupItem>
-              </ToggleGroup>
+          <form
+            className="flex items-center gap-2"
+            onSubmit={(e) => {
+              e.preventDefault()
+              const said = new FormData(e.currentTarget).get("q")
+              find(typeof said === "string" ? said.trim() : "")
+            }}
+          >
+            <div className="relative max-w-xl flex-1">
+              <HugeiconsIcon
+                icon={Search01Icon}
+                className="text-muted-foreground pointer-events-none absolute start-2.5 top-1/2 size-4 -translate-y-1/2"
+              />
+              <Input
+                key={search.q}
+                name="q"
+                type="search"
+                aria-label="Search roles"
+                placeholder="Search by title, skill or place"
+                defaultValue={search.q}
+                className="ps-8"
+              />
             </div>
-          </div>
-
-          {stats && (
-            <Overview
-              summary={stats.summary}
-              signedIn={signedIn}
-              proof={proof}
-              ending={ending}
-              set={set}
-            />
+            <Button type="submit" variant="outline" disabled={searching}>
+              Search
+            </Button>
+          </form>
+          {refused && (
+            <p role="alert" className="text-destructive -mt-2 text-[13px]">
+              {refused}
+            </p>
           )}
 
-          <Tile
-            title={heading}
-            className="gap-0 p-1.5"
-            actions={
-              !view &&
-              rows.length > 0 && (
-                <Button
-                  size="xs"
-                  variant="ghost"
-                  onClick={() => set({ collapsed: collapsed ? undefined : true })}
-                >
-                  {collapsed ? "Show roles" : "Collapse all"}
-                </Button>
-              )
-            }
-          >
-            {/* Only once every page is read: a filter can empty one page with more behind it. */}
-            {data.jobs.isDone && rows.length === 0 && (
-              <p className="text-muted-foreground px-2.5 py-3 text-[13px]">
-                {fits
-                  ? "No roles marked as a fit yet. Your loops, and links you check, add them."
-                  : filtered
-                    ? signedIn
-                      ? "No roles match these filters. Try fewer words, or clear a filter."
-                      : "No roles match. Try fewer words."
-                    : "No roles yet. The catalog fills as boards are fetched."}
-              </p>
-            )}
-            {!view && rows.length > 0 && (
-              <div
-                className={cn(
-                  "text-muted-foreground hidden items-center gap-x-3 px-2.5 pt-2 pb-1 text-xs md:grid",
-                  laneColumns
-                )}
-              >
-                <span />
-                <span>Domain</span>
-                <span>Postings</span>
-                <span>Registered</span>
-                <span>YC</span>
-                <span className="text-end">Open</span>
-                <span className="text-end">Newest</span>
-              </div>
-            )}
-            {view
-              ? groupRoles(rows).map(roleRow)
-              : /* ponytail: groups the roles loaded so far, so a domain and "13 openings" can both
-                   grow on Show more. A stored newest role per domain would need updating on every
-                   feed refresh. */
-                groupDomains(rows).map((domain) => (
-                  <Domain
-                    key={`${domain[0]!.evidence.domain ?? `${domain[0]!.evidence.boardId}/${domain[0]!.company}`}${collapsed}`}
-                    jobs={domain}
-                    now={now}
-                    collapsed={Boolean(collapsed)}
-                    canNarrow={signedIn && !board}
-                  >
-                    {groupRoles(domain).map(nestedRow)}
-                  </Domain>
-                ))}
-            {!data.jobs.isDone && (pages ?? 1) < maxPages && (
-              <Button
+          <div className="bg-background/95 supports-[backdrop-filter]:bg-background/80 z-10 -mx-2 flex flex-wrap md:sticky md:top-0 items-center gap-2 px-2 py-2 backdrop-blur">
+            <div className="flex flex-wrap items-center gap-2" role="group" aria-label="Filters">
+              <Toggle
                 size="sm"
-                variant="ghost"
-                className="m-1 self-start"
-                disabled={loading}
-                onClick={() => {
-                  track("job_show_more")
-                  set({ pages: (pages ?? 1) + 1 })
-                }}
+                variant="outline"
+                pressed={Boolean(remote)}
+                onPressedChange={(on) => set({ remote: on || undefined })}
               >
-                {loading ? "Loading more…" : "Show more"}
-              </Button>
+                Remote
+              </Toggle>
+              <Select
+                value={posted ?? "any"}
+                items={Object.entries(postedLabels).map(([value, label]) => ({ value, label }))}
+                onValueChange={(v) =>
+                  set({ posted: v === "any" || !v ? undefined : (v as Posted) })
+                }
+              >
+                <SelectTrigger size="sm" aria-label="Posted" className="w-auto min-w-32">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectPopup>
+                  {Object.entries(postedLabels).map(([value, label]) => (
+                    <SelectItem key={value} value={value}>
+                      {label}
+                    </SelectItem>
+                  ))}
+                </SelectPopup>
+              </Select>
+              <Combobox
+                items={options}
+                value={company}
+                isItemEqualToValue={(a, b) => a.value === b.value}
+                onValueChange={(picked) => set({ board: picked?.value })}
+              >
+                <ComboboxInput
+                  size="sm"
+                  className="w-52"
+                  aria-label="Company"
+                  placeholder="Any company"
+                />
+                <ComboboxPopup>
+                  <ComboboxEmpty>No company matches.</ComboboxEmpty>
+                  <ComboboxList>
+                    {(option: (typeof options)[number]) => (
+                      <ComboboxItem key={option.value} value={option}>
+                        <span className="truncate">{option.label}</span>
+                        {option.domain && (
+                          <span className="text-muted-foreground truncate text-xs">
+                            {option.domain}
+                          </span>
+                        )}
+                        <span className="text-muted-foreground ms-auto ps-3 text-xs tabular-nums">
+                          {option.jobs}
+                        </span>
+                      </ComboboxItem>
+                    )}
+                  </ComboboxList>
+                </ComboboxPopup>
+              </Combobox>
+              <Select
+                value={fits ? "fit" : "newest"}
+                items={[
+                  { value: "newest", label: q ? "Best match" : "Newest first" },
+                  ...(signedIn ? [{ value: "fit", label: "Best fit for you" }] : []),
+                ]}
+                onValueChange={(v) => set({ fits: v === "fit" || undefined })}
+              >
+                <SelectTrigger size="sm" aria-label="Sort" className="w-auto min-w-36">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectPopup>
+                  <SelectItem value="newest">{q ? "Best match" : "Newest first"}</SelectItem>
+                  {signedIn && <SelectItem value="fit">Best fit for you</SelectItem>}
+                </SelectPopup>
+              </Select>
+              {filtered && (
+                <Button size="sm" variant="ghost" render={<Link to="/jobs" />}>
+                  <HugeiconsIcon icon={Cancel01Icon} />
+                  Clear
+                </Button>
+              )}
+            </div>
+            {filtered && (
+              <span role="status" className="text-muted-foreground ms-auto text-xs tabular-nums">
+                {count}
+              </span>
             )}
-          </Tile>
+          </div>
+
+          <div className="grid items-start gap-4 lg:grid-cols-[minmax(0,1fr)_24rem]">
+            <div className="flex min-w-0 flex-col">
+              {noneLeft && (
+                <p className="text-muted-foreground px-2.5 py-3 text-[13px]">
+                  {fits
+                    ? "No roles marked as a fit yet. Your loops, and links you check, add them."
+                    : filtered
+                      ? "No roles match. Try fewer words, or clear a filter."
+                      : "No roles yet. The catalog fills as boards are fetched."}
+                </p>
+              )}
+              <ul className="flex flex-col">{runs.map(run)}</ul>
+              <div className="text-muted-foreground flex flex-wrap items-center gap-x-3 gap-y-1 px-1 pt-2 text-xs empty:hidden">
+                {/* A link, not a button, so crawlers follow it to the next page of roles. */}
+                {!data.jobs.isDone && (pages ?? 1) < maxPages && (
+                  <Button
+                    size="sm"
+                    variant="ghost"
+                    aria-disabled={loading || undefined}
+                    onClick={() => track("job_show_more")}
+                    render={
+                      <Link
+                        to="/jobs"
+                        search={(prev) => ({ ...prev, pages: (pages ?? 1) + 1, role: undefined })}
+                        replace
+                        resetScroll={false}
+                      />
+                    }
+                  >
+                    {loading ? "Loading more…" : "Show more"}
+                  </Button>
+                )}
+                {rows.length > 0 && (total ?? 0) > rows.length && (
+                  <span className="tabular-nums">
+                    Showing {rows.length.toLocaleString("en")} of {total!.toLocaleString("en")}
+                  </span>
+                )}
+                {(pages ?? 1) > 1 && (
+                  <button
+                    type="button"
+                    className="hover:underline"
+                    onClick={() =>
+                      document.getElementById("jobs-top")?.scrollIntoView({ behavior: "smooth" })
+                    }
+                  >
+                    Back to the top
+                  </button>
+                )}
+              </div>
+            </div>
+            {picked && panel(picked)}
+          </div>
         </div>
       </ScrollArea>
     </div>

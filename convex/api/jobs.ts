@@ -1,11 +1,16 @@
 import { jobsApi } from "../features/jobs"
 
 export const {
+  count,
   search,
   allowSearch,
   posting,
   stats,
   companies,
+  sitemap,
+  track,
+  match,
+  linkTracked,
   refreshDue,
   board,
   addBoards,
@@ -30,4 +35,10 @@ export const {
   get,
   fetchBoard,
   researchBoards,
+  summarizeDue,
+  summaryInput,
+  saveSummary,
+  summaryEnded,
+  summarize,
+  resummarizeAll,
 } = jobsApi

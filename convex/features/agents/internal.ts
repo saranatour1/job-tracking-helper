@@ -123,7 +123,18 @@ const searchJobsFor = internalQuery({
       // ponytail: fits are filtered after the page, so this looks through the best 100.
       paginationOpts: { numItems: fitsOnly ? 100 : limit, cursor: null },
     })
-    return page.slice(0, limit).map(({ _id, boardId: _, ...job }) => ({ id: _id, ...job }))
+    return page.slice(0, limit).map((job) => ({
+      id: job._id,
+      title: job.title,
+      company: job.company,
+      location: job.location,
+      remote: job.remote,
+      postedAt: job.postedAt,
+      url: job.url,
+      preview: job.preview,
+      fit: job.fit,
+      verdict: job.verdict,
+    }))
   },
 })
 

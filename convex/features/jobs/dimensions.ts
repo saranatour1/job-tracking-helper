@@ -157,6 +157,9 @@ const countryOfPart = (segments: string[]) => {
   return undefined
 }
 
+export const spacedLocation = (location: string) =>
+  location.replace(/(\p{L})[-–](remote|hybrid)\b/giu, "$1 - $2")
+
 /** Every country a location names, or `fallback` if it names none. */
 export const countriesOf = (location: string, fallback?: string) => {
   const found = new Set(partsOf(location).flatMap((part) => countryOfPart(part) ?? []))

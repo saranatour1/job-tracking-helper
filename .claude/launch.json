@@ -1,6 +1,12 @@
 {
   "version": "0.0.1",
   "configurations": [
-    { "name": "dev", "runtimeExecutable": "vp", "runtimeArgs": ["run", "dev"], "port": 3000 }
+    { "name": "dev", "runtimeExecutable": "vp", "runtimeArgs": ["run", "dev"], "port": 3000 },
+    {
+      "name": "build",
+      "runtimeExecutable": "pnpm",
+      "runtimeArgs": ["exec", "wrangler", "dev", "--port", "8787"],
+      "port": 8787
+    }
   ]
 }

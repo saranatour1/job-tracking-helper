@@ -25,17 +25,20 @@ export const publicHead = ({
   path,
   image = ogImage,
   imageAlt = "It finds the jobs and fills in the forms. You press Submit.",
+  index = true,
 }: {
   title: string
   description: string
   path: string
   image?: string
   imageAlt?: string
+  // Google reads noindex beside a canonical as mixed signals, so a noindex page names none.
+  index?: boolean
 }) => ({
   meta: [
     { title },
     { name: "description", content: description },
-    { name: "robots", content: "index, follow" },
+    { name: "robots", content: index ? "index, follow" : "noindex, follow" },
     { property: "og:type", content: "website" },
     { property: "og:site_name", content: site.name },
     { property: "og:title", content: title },
@@ -50,5 +53,5 @@ export const publicHead = ({
     { name: "twitter:description", content: description },
     { name: "twitter:image", content: image },
   ],
-  links: [{ rel: "canonical", href: `${site.url}${path}` }],
+  links: index ? [{ rel: "canonical", href: `${site.url}${path}` }] : [],
 })

@@ -21,6 +21,7 @@ const modules = import.meta.glob([
 const setup = () => {
   const t = convexTest(schema, modules)
   aggregate.register(t, "jobRoleCounts")
+  aggregate.register(t, "jobTimeCounts")
   aggregate.register(t, "jobDomainCounts")
   shardedCounter.register(t)
   workpool.register(t, "catalogPool")

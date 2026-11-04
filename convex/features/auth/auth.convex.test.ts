@@ -48,7 +48,7 @@ describe("anonymous accounts on production", () => {
 
   it("can't reach the app: not its queries, mutations or actions", async () => {
     const { as } = await visitor()
-    await expect(as.query(api.api.jobs.companies, {})).rejects.toThrow("Not signed in")
+    await expect(as.query(api.api.prefilled.list, {})).rejects.toThrow("Not signed in")
     await expect(as.mutation(api.api.users.deleteAccount, {})).rejects.toThrow("Not signed in")
     await expect(as.action(api.api.resume.review, {})).rejects.toThrow("Not signed in")
   })

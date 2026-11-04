@@ -114,6 +114,7 @@ import type * as features_jobs_models_boards from "../features/jobs/models/board
 import type * as features_jobs_models_index from "../features/jobs/models/index.js";
 import type * as features_jobs_models_jobs from "../features/jobs/models/jobs.js";
 import type * as features_jobs_public from "../features/jobs/public.js";
+import type * as features_jobs_summaries from "../features/jobs/summaries.js";
 import type * as features_jobs_trends from "../features/jobs/trends.js";
 import type * as features_jobs_utils from "../features/jobs/utils.js";
 import type * as features_jobs_validators from "../features/jobs/validators.js";
@@ -158,6 +159,7 @@ import type * as features_prefilled_draft from "../features/prefilled/draft.js";
 import type * as features_prefilled_firecrawl from "../features/prefilled/firecrawl.js";
 import type * as features_prefilled_index from "../features/prefilled/index.js";
 import type * as features_prefilled_internal from "../features/prefilled/internal.js";
+import type * as features_prefilled_limits from "../features/prefilled/limits.js";
 import type * as features_prefilled_match from "../features/prefilled/match.js";
 import type * as features_prefilled_models from "../features/prefilled/models.js";
 import type * as features_prefilled_public from "../features/prefilled/public.js";
@@ -308,6 +310,7 @@ declare const fullApi: ApiFromModules<{
   "features/jobs/models/index": typeof features_jobs_models_index;
   "features/jobs/models/jobs": typeof features_jobs_models_jobs;
   "features/jobs/public": typeof features_jobs_public;
+  "features/jobs/summaries": typeof features_jobs_summaries;
   "features/jobs/trends": typeof features_jobs_trends;
   "features/jobs/utils": typeof features_jobs_utils;
   "features/jobs/validators": typeof features_jobs_validators;
@@ -352,6 +355,7 @@ declare const fullApi: ApiFromModules<{
   "features/prefilled/firecrawl": typeof features_prefilled_firecrawl;
   "features/prefilled/index": typeof features_prefilled_index;
   "features/prefilled/internal": typeof features_prefilled_internal;
+  "features/prefilled/limits": typeof features_prefilled_limits;
   "features/prefilled/match": typeof features_prefilled_match;
   "features/prefilled/models": typeof features_prefilled_models;
   "features/prefilled/public": typeof features_prefilled_public;
@@ -427,11 +431,13 @@ export declare const components: {
   readPool: import("@convex-dev/workpool/_generated/component.js").ComponentApi<"readPool">;
   applyPool: import("@convex-dev/workpool/_generated/component.js").ComponentApi<"applyPool">;
   catalogPool: import("@convex-dev/workpool/_generated/component.js").ComponentApi<"catalogPool">;
+  summaryPool: import("@convex-dev/workpool/_generated/component.js").ComponentApi<"summaryPool">;
   rateLimiter: import("@convex-dev/rate-limiter/_generated/component.js").ComponentApi<"rateLimiter">;
   batchWorker: import("@convex-dev/batch-worker/_generated/component.js").ComponentApi<"batchWorker">;
   automationRunCounts: import("@convex-dev/aggregate/_generated/component.js").ComponentApi<"automationRunCounts">;
   automationChoices: import("@convex-dev/aggregate/_generated/component.js").ComponentApi<"automationChoices">;
   jobRoleCounts: import("@convex-dev/aggregate/_generated/component.js").ComponentApi<"jobRoleCounts">;
+  jobTimeCounts: import("@convex-dev/aggregate/_generated/component.js").ComponentApi<"jobTimeCounts">;
   jobDomainCounts: import("@convex-dev/aggregate/_generated/component.js").ComponentApi<"jobDomainCounts">;
   shardedCounter: import("@convex-dev/sharded-counter/_generated/component.js").ComponentApi<"shardedCounter">;
   cloudflareEmail: import("../components/cloudflareEmail/_generated/component.js").ComponentApi<"cloudflareEmail">;
