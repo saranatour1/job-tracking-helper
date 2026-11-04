@@ -70,6 +70,7 @@ app.use(batchWorker)
 app.use(aggregate, { name: "automationRunCounts" })
 app.use(aggregate, { name: "automationChoices" })
 app.use(aggregate, { name: "jobRoleCounts" })
+app.use(aggregate, { name: "jobTimeCounts" })
 app.use(aggregate, { name: "jobDomainCounts" })
 app.use(shardedCounter)
 

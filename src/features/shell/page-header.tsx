@@ -1,6 +1,6 @@
 import { ArrowRight01Icon } from "@hugeicons/core-free-icons"
 import { HugeiconsIcon } from "@hugeicons/react"
-import { Link, type LinkProps } from "@tanstack/react-router"
+import { Link, type LinkProps, useRouter } from "@tanstack/react-router"
 import { Fragment } from "react"
 import { createPortal } from "react-dom"
 
@@ -12,6 +12,8 @@ export type Crumb = {
   to?: LinkProps["to"]
   params?: LinkProps["params"]
   search?: LinkProps["search"]
+  // Back through history when there's somewhere to go back to, so that page keeps its scroll.
+  back?: boolean
 }
 
 // A plain element rather than a ref, so a page can fill the bar on its first render instead
@@ -42,39 +44,47 @@ export const Breadcrumbs = ({
   crumbs: Crumb[]
   heading?: boolean
   className?: string
-}) => (
-  <nav
-    aria-label="Breadcrumb"
-    className={cn("flex min-w-0 items-center gap-1.5 text-sm", className)}
-  >
-    {crumbs.map((crumb, i) => (
-      <Fragment key={crumb.label}>
-        {i > 0 && (
-          <HugeiconsIcon
-            icon={ArrowRight01Icon}
-            className="text-muted-foreground size-3.5 shrink-0"
-          />
-        )}
-        {i < crumbs.length - 1 ? (
-          <Link
-            to={crumb.to}
-            params={crumb.params}
-            search={crumb.search}
-            className="text-muted-foreground hover:text-foreground truncate"
-          >
-            {crumb.label}
-          </Link>
-        ) : heading ? (
-          <h1 className="truncate font-medium">{crumb.label}</h1>
-        ) : (
-          <span aria-current="page" className="truncate">
-            {crumb.label}
-          </span>
-        )}
-      </Fragment>
-    ))}
-  </nav>
-)
+}) => {
+  const router = useRouter()
+  return (
+    <nav
+      aria-label="Breadcrumb"
+      className={cn("flex min-w-0 items-center gap-1.5 text-sm", className)}
+    >
+      {crumbs.map((crumb, i) => (
+        <Fragment key={crumb.label}>
+          {i > 0 && (
+            <HugeiconsIcon
+              icon={ArrowRight01Icon}
+              className="text-muted-foreground size-3.5 shrink-0"
+            />
+          )}
+          {i < crumbs.length - 1 ? (
+            <Link
+              to={crumb.to}
+              params={crumb.params}
+              search={crumb.search}
+              onClick={(e) => {
+                if (!crumb.back || !router.history.canGoBack()) return
+                e.preventDefault()
+                router.history.back()
+              }}
+              className="text-muted-foreground hover:text-foreground truncate"
+            >
+              {crumb.label}
+            </Link>
+          ) : heading ? (
+            <h1 className="truncate font-medium">{crumb.label}</h1>
+          ) : (
+            <span aria-current="page" className="truncate">
+              {crumb.label}
+            </span>
+          )}
+        </Fragment>
+      ))}
+    </nav>
+  )
+}
 
 // What a page puts in the bar: the breadcrumb and the page actions. Through a portal, the
 // actions still see the page's context and events.

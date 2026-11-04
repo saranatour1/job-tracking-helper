@@ -6,7 +6,7 @@ import { fitOf } from "../features/applications/utils"
 import { syncMailSummary } from "../features/email/utils"
 import { companyOf, nonTechStarters, techFeeds } from "../features/jobs/boards"
 import { isCompanyBoard } from "../features/jobs/boards"
-import { deleteJob, recount } from "../features/jobs/counts"
+import { deleteJob, recount, timeCounts } from "../features/jobs/counts"
 import { countCatalog } from "../features/jobs/utils"
 import { roleKey, urlKey } from "../features/workflows/fit"
 
@@ -184,5 +184,24 @@ export const addNewStarters = internalMutation({
     }
     if (added) await countCatalog(ctx, { boards: added })
     return added
+  },
+})
+
+// One-off: counts the roles saved before jobTimeCounts existed, so filtered counts on /jobs are
+// right. New and closed roles keep it up to date on their own. Safe to run again:
+//   npx convex run api/migrations:fillTimeCounts
+// Delete it once that's done everywhere.
+export const fillTimeCounts = internalMutation({
+  args: { cursor: v.optional(v.union(v.string(), v.null())) },
+  returns: v.null(),
+  handler: async (ctx, { cursor }) => {
+    // Each insert is a call into the aggregate, so 200 at once ran out of time.
+    const page = await ctx.db.query("jobs").paginate({ cursor: cursor ?? null, numItems: 50 })
+    for (const job of page.page) await timeCounts.insertIfDoesNotExist(ctx, job)
+    if (!page.isDone)
+      await ctx.scheduler.runAfter(0, internal.api.migrations.fillTimeCounts, {
+        cursor: page.continueCursor,
+      })
+    return null
   },
 })

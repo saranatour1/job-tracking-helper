@@ -438,9 +438,12 @@ it doesn't.
    Company (`api.jobs.companies`, the boards with the most roles) and the order, Newest first or,
    for members, Best fit for you (only roles Jev said fit you). Searched words order by Best
    match. Every filter is in the address, so a link opens the same list; Clear resets them
-   (`api.jobs.search`, 25 at a time). Filtered, it says how many match: exact for a company alone
-   or once every page is read, otherwise "25+ matches". Show more adds a page (`?pages=`, up to
-   20).
+   (`api.jobs.search`, 25 at a time). Filtered, it says how many match (`api.jobs.count`, from
+   `jobTimeCounts`, each board's roles by remote and posted date): exact for any mix of Remote,
+   Posted and Company, and "25+ matches" with searched words or Best fit. Show more adds a page
+   (`?pages=`, up to 20) and says "Showing 50 of 11,238"; Back to the top scrolls up without
+   reading anything. Leaving and coming back through history, or a role's "Jobs" breadcrumb,
+   keeps the pages shown and where the list was scrolled to.
 2. Each role is one line: the company's icon, the title, company and place, Remote, and how long
    ago it was posted (in blue under two days). A role posted several times shows "×3". A company
    with several roles in a row is one line, "Axon · 4 roles in Belgium", that opens to list them
@@ -450,6 +453,11 @@ it doesn't.
    On a wide screen the role picked (`?role=`, the first one until then) shows beside the list:
    its summary, facts and places, what was found about the company, Apply, Prepare, More like
    this and a link to its page. On a narrow screen a role opens its own page instead.
+   Signed in, it also says how the role matches you: Jev's verdict and up to 3 reasons, or "Does it
+   match you?", which has Jev judge the stored text against your Preferences
+   (`api.loopActions.checkJob`, within the 10 link checks a day). **Add to tracker** puts the role
+   on your board as Saved (`api.jobs.track`); the same role again brings back the one there, out
+   of Archive or Trash, rather than adding a second.
 3. **Summaries.** Every few minutes, `internal.api.jobs.summarizeDue` takes up to 100 roles
    without one, newest first, and asks Claude Haiku 5.5 through the Convex gateway for one
    sentence on what the job is, plus the facts the posting states: level, team, who it reports
@@ -474,7 +482,8 @@ it doesn't.
    full weeks against the 4 before them, stays hidden until 4 January 2027: weeks before counting
    began lack roles that had already closed, so it would show growth that may not be real.
 6. A role's title opens its own page, `/jobs/<words>-<id>`, with its summary, its facts, where it
-   is, what was found about its company, and its full text. The server renders all of it over
+   is, what was found about its company, and its full text. Its breadcrumb goes back to the list
+   it was opened from, filters and all, and to its company's roles. The server renders all of it over
    HTTP, with schema.org `JobPosting` data so Google can list it in its job search
    (`features/jobs/structured.ts`). Sharing that link
    shows a preview image with its title, company, place and logo (`/jobs/<id>/og.png`, drawn by
@@ -499,8 +508,10 @@ it doesn't.
 **Without an account:**
 
 1. `/jobs` and role pages are open to anyone, and to crawlers. "Jobs" on the home page links here.
-   They get the same filters, but no Fits me, verdicts or Prepare (`api.jobs.search`, at most 25
-   at a time).
+   They get the same filters, but no Fits me or verdicts (`api.jobs.search`, at most 25 at a
+   time). Add to tracker and Prepare send them to sign in (`/sign-in?redirect=`), and back to the
+   role once they have; the redirect only takes a path on this site. Breadcrumbs show on the page,
+   since they have no top bar.
 2. The first search or "More like this" makes an anonymous account, not the page load, so crawlers
    don't make any. Each new search spends one of 10 a day (`api.jobs.allowSearch`, rate limit
    `anonymousSearch`); running the same one again or "Show more" doesn't. Past 10: "That's 10
@@ -512,12 +523,18 @@ it doesn't.
    `job_apply_link` and `job_show_more`, with the words searched for or the role and company. These
    fire for everyone on Jobs, under Databuddy's own visitor ID, never the account.
 
-**How it reads:** `/jobs` is the one page that doesn't use the WebSocket for its data. Its loader
+**For agents:** each role is Markdown at `/jobs/<words>-<id>/llms.txt` (its summary, facts, where
+to apply and the full posting). `/jobs/llms.txt` has the 10 newest in full and 190 more by title,
+and `/jobs/trends/llms.txt` last week's most new roles by country, location and job title. The
+pages link to them with `rel="alternate"` (`src/features/jobs/llms.ts`).
+
+**How it reads:** `/jobs` and `/jobs/trends` don't use the WebSocket for their data. The Jobs loader
 (`src/routes/_app/jobs/index.tsx`) asks Convex over HTTP, on the server for the first visit and
 in the browser after, and the router keeps the answer. It reads again only for new filters, a
 sign-in or sign-out (`onAuthChange` in `src/lib/convex.ts`), or after a mutation on the page
-(Prepare, a visitor's search), which calls `router.invalidate`. Switching Domains and Roles or
-Collapse all reads nothing. Sign-in lives in this browser's storage, so the server always renders
+(Prepare, Add to tracker, Does it match you?, a visitor's search), which calls
+`router.invalidate`. Picking a role reads nothing. Trends reads the same way and keeps its answer
+for 10 minutes, since its counts move once an hour. Sign-in lives in this browser's storage, so the server always renders
 what anyone sees, and a member's filters, verdicts and Prepare badges arrive just after the page
 loads.
 

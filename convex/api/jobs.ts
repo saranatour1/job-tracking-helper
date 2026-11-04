@@ -1,6 +1,7 @@
 import { jobsApi } from "../features/jobs"
 
 export const {
+  count,
   search,
   allowSearch,
   posting,

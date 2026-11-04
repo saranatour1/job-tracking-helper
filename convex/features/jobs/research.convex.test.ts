@@ -30,6 +30,7 @@ const setup = () => {
   const t = convexTest(schema, modules)
   rateLimiter.register(t)
   aggregate.register(t, "jobRoleCounts")
+  aggregate.register(t, "jobTimeCounts")
   aggregate.register(t, "jobDomainCounts")
   shardedCounter.register(t)
   workpool.register(t, "catalogPool")

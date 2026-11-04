@@ -10,7 +10,7 @@ import { readPool } from "../workflows/manager"
 import { apiKeyOf, monthlyCredits, monthOf } from "../workflows/sources"
 import { boardKinds, companyOf, isCompanyBoard, searchSlug, starterBoards } from "./boards"
 import { researchBatch, researchEvery } from "./companies"
-import { deleteJob, insertJob, placeOf, recount, roleCounts, rollUp } from "./counts"
+import { deleteJob, insertJob, placeOf, recount, roleCounts, rollUp, timeCounts } from "./counts"
 import { leadOf } from "./leads"
 import { boardOf } from "./links"
 import {
@@ -137,6 +137,8 @@ const saveJobs = internalMutation({
         })
         if (job.company !== known.company)
           await roleCounts.replaceOrInsert(ctx, known, { ...known, ...job })
+        if (job.remote !== known.remote || job.postedAt !== known.postedAt)
+          await timeCounts.replaceOrInsert(ctx, known, { ...known, ...job })
       }
     }
     return null

@@ -5,11 +5,10 @@ import {
   comparedWeeks,
   type Dimension,
   weekMs,
-  weekOf,
   weeksShown,
 } from "@convex/features/jobs/dimensions"
-import { Link, useNavigate, useSearch } from "@tanstack/react-router"
-import { useQuery } from "convex-helpers/react/cache/hooks"
+import { Link, useLoaderData, useNavigate, useSearch } from "@tanstack/react-router"
+import type { FunctionReturnType } from "convex/server"
 
 import {
   Table,
@@ -21,7 +20,7 @@ import {
   TableRow,
 } from "@/components/ui/table"
 import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group"
-import { PageIntro, pageBody, RowSkeletons, Tile } from "@/features/shell/page-body"
+import { PageIntro, pageBody, Tile } from "@/features/shell/page-body"
 import { Breadcrumbs, PageHeader } from "@/features/shell/page-header"
 import { useAccess } from "@/hooks/use-access"
 import { ScrollArea } from "@/components/ui/scroll-area"
@@ -71,8 +70,7 @@ const Weeks = ({ label, weeks }: { label: string; weeks: { week: number; roles: 
 
 const endingsShown = 6
 
-const Catalog = () => {
-  const stats = useQuery(api.jobs.stats)
+const Catalog = ({ stats }: { stats: FunctionReturnType<typeof api.jobs.stats> }) => {
   if (!stats) return null
   const { summary } = stats
   const parts = [
@@ -136,9 +134,8 @@ export const Trends = () => {
   const { member: signedIn } = useAccess()
   const { by = "country" } = useSearch({ from: "/_app/jobs/trends" })
   const navigate = useNavigate({ from: "/jobs/trends" })
-  const week = weekOf(Date.now())
+  const { week, rows, stats } = useLoaderData({ from: "/_app/jobs/trends" })
   const comparable = week >= comparableFrom
-  const rows = useQuery(api.jobs.trends, { dimension: by, week })
   const crumbs = [{ label: "Jobs", to: "/jobs" as const }, { label: "Trends" }]
   const allWeeks = Array.from(
     { length: weeksShown },
@@ -154,7 +151,7 @@ export const Trends = () => {
             title="Job trends"
             description="New roles posted each week, across the boards this app reads. Roles stay counted after they close, but counting began in November 2026, so older weeks only have roles that were still open then, and look smaller than they were. Comparing weeks starts in January 2027. A board added later adds its roles to the weeks they were posted."
           />
-          <Catalog />
+          <Catalog stats={stats} />
           <ToggleGroup
             size="sm"
             variant="outline"
@@ -175,13 +172,12 @@ export const Trends = () => {
             ))}
           </ToggleGroup>
           <Tile title={`Most new roles last week, by ${labels[by].toLowerCase()}`}>
-            {!rows && <RowSkeletons />}
-            {rows?.length === 0 && (
+            {rows.length === 0 && (
               <p className="text-muted-foreground px-2.5 py-3 text-[13px]">
                 Nothing counted yet. Roles are counted once an hour.
               </p>
             )}
-            {rows && rows.length > 0 && (
+            {rows.length > 0 && (
               <Table>
                 <TableCaption className="sr-only">
                   New roles a week by {labels[by].toLowerCase()}, for the last {weeksShown} weeks.

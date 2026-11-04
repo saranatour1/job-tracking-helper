@@ -11,7 +11,7 @@ import { leadOf } from "./leads"
 import { previewOf } from "./links"
 import { limits } from "../workflows/manager"
 import { evidenceOf } from "./companies"
-import { catalogCounts } from "./counts"
+import { catalogCounts, matchingCount } from "./counts"
 import { vCatalogSummary, vJobRow, vJobSearchArgs } from "./validators"
 import { rowOf, searchJobs } from "./utils"
 
@@ -223,4 +223,31 @@ const track = authedMutation({
   },
 })
 
-export const publicApi = { search, allowSearch, posting, stats, companies, sitemap, track, match }
+// Null for words, whose matches only the search index knows.
+const count = query({
+  args: {
+    q: v.optional(v.string()),
+    remoteOnly: v.optional(v.boolean()),
+    boardId: v.optional(v.string()),
+    since: v.optional(v.number()),
+  },
+  returns: v.union(v.number(), v.null()),
+  handler: async (ctx, { q, remoteOnly, boardId, since }) => {
+    if (wordsOf(q)) return null
+    const board = boardId ? ctx.db.normalizeId("jobBoards", boardId) : undefined
+    if (boardId && !board) return 0
+    return matchingCount(ctx, { remoteOnly, board: board ?? undefined, since })
+  },
+})
+
+export const publicApi = {
+  count,
+  search,
+  allowSearch,
+  posting,
+  stats,
+  companies,
+  sitemap,
+  track,
+  match,
+}

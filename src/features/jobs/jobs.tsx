@@ -449,11 +449,7 @@ export const Jobs = () => {
   const picked = roles.find((role) => role.some((p) => p._id === search.role)) ?? roles[0]
   const exact = !filtered
     ? undefined
-    : board && !q && !remote && !posted && !fits
-      ? company?.jobs
-      : data.jobs.isDone
-        ? rows.length
-        : undefined
+    : (data.matching ?? (data.jobs.isDone ? rows.length : undefined))
   const total = filtered ? exact : data.stats?.jobs
   const crumbs: Crumb[] = filtered
     ? [
@@ -684,8 +680,8 @@ export const Jobs = () => {
   return (
     <div className="flex min-h-0 flex-1 flex-col">
       {signedIn && <PageHeader crumbs={crumbs} />}
-      <ScrollArea className="min-h-0 flex-1">
-        <div className={cn(pageBody, "max-w-6xl gap-4")}>
+      <ScrollArea className="min-h-0 flex-1" restoreId="jobs">
+        <div id="jobs-top" className={cn(pageBody, "max-w-6xl gap-4")}>
           {!signedIn && filtered && <Breadcrumbs crumbs={crumbs} className="-mb-2" />}
           <PageIntro
             title="Jobs"
@@ -860,13 +856,15 @@ export const Jobs = () => {
                   </span>
                 )}
                 {(pages ?? 1) > 1 && (
-                  <Link
-                    to="/jobs"
-                    search={{ ...search, pages: undefined }}
+                  <button
+                    type="button"
                     className="hover:underline"
+                    onClick={() =>
+                      document.getElementById("jobs-top")?.scrollIntoView({ behavior: "smooth" })
+                    }
                   >
-                    Back to the first page
-                  </Link>
+                    Back to the top
+                  </button>
                 )}
               </div>
             </div>

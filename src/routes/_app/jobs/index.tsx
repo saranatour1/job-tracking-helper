@@ -41,19 +41,30 @@ export const Route = createFileRoute("/_app/jobs/")({
       }
       return { page: found.page, isDone: found.isDone }
     }
-    const [who, found, stats, companies, prepared] = await Promise.all([
+    const filtered = Boolean(remote || board || posted)
+    const [who, found, stats, companies, prepared, matching] = await Promise.all([
       me,
       jobs(),
       http.query(api.jobs.stats, {}),
       http.query(api.jobs.companies, {}),
       member.then((yes) => (yes ? http.query(api.prefilled.list, {}) : [])),
+      filtered && !q && !fits
+        ? http.query(api.jobs.count, { remoteOnly: remote, boardId: board, since: args.since })
+        : null,
     ])
-    return { allowedSearch: who?.allowedSearch ?? null, jobs: found, stats, companies, prepared }
+    return {
+      allowedSearch: who?.allowedSearch ?? null,
+      jobs: found,
+      stats,
+      companies,
+      prepared,
+      matching,
+    }
   },
   // Google wants each page of a list to be its own canonical, not page one.
   // https://developers.google.com/search/docs/specialty/ecommerce/pagination-and-incremental-page-loading
-  head: ({ match: { search } }) =>
-    publicHead({
+  head: ({ match: { search } }) => {
+    const head = publicHead({
       title: `Open roles | ${site.name}`,
       description:
         "Search open roles from company job boards on Greenhouse, Lever, Ashby, Personio and more, refreshed daily.",
@@ -61,5 +72,13 @@ export const Route = createFileRoute("/_app/jobs/")({
       index: [search.q, search.remote, search.posted, search.board, search.fits, search.role].every(
         (v) => v === undefined
       ),
-    }),
+    })
+    return {
+      ...head,
+      links: [
+        ...head.links,
+        { rel: "alternate", type: "text/markdown", href: `${site.url}/jobs/llms.txt` },
+      ],
+    }
+  },
 })

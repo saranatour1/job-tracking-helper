@@ -50,7 +50,7 @@ export const Posting = ({ job }: { job: Row & { text: string; facts: Facts | nul
   const from = useRouterState({ select: (s) => s.location.state.jobs })
   const { boardId, pooled } = job.evidence
   const crumbs: Crumb[] = [
-    { label: "Jobs", to: "/jobs", search: from ?? {} },
+    { label: "Jobs", to: "/jobs", search: from ?? {}, back: Boolean(from) },
     ...(boardId && !pooled
       ? [{ label: job.company, to: "/jobs" as const, search: { board: boardId } }]
       : []),

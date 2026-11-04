@@ -435,6 +435,7 @@ export declare const components: {
   automationRunCounts: import("@convex-dev/aggregate/_generated/component.js").ComponentApi<"automationRunCounts">;
   automationChoices: import("@convex-dev/aggregate/_generated/component.js").ComponentApi<"automationChoices">;
   jobRoleCounts: import("@convex-dev/aggregate/_generated/component.js").ComponentApi<"jobRoleCounts">;
+  jobTimeCounts: import("@convex-dev/aggregate/_generated/component.js").ComponentApi<"jobTimeCounts">;
   jobDomainCounts: import("@convex-dev/aggregate/_generated/component.js").ComponentApi<"jobDomainCounts">;
   shardedCounter: import("@convex-dev/sharded-counter/_generated/component.js").ComponentApi<"shardedCounter">;
   cloudflareEmail: import("../components/cloudflareEmail/_generated/component.js").ComponentApi<"cloudflareEmail">;

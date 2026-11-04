@@ -19,6 +19,8 @@ export default {
     // Imported here, so the image library only loads for the requests that draw one.
     if (posting)
       return import("@/features/jobs/og").then((og) => og.postingImage(request, posting[1], ctx))
+    if (reading && pathname === "/jobs/trends/llms.txt")
+      return import("@/features/jobs/llms").then((l) => l.trendsLlms(request, ctx))
     const roleText = reading ? /^\/jobs\/([^/]+)\/llms\.txt$/.exec(pathname) : null
     if (roleText)
       return import("@/features/jobs/llms").then((l) => l.roleLlms(request, roleText[1]!, ctx))

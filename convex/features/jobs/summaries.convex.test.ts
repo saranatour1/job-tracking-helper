@@ -38,6 +38,7 @@ const role = (n: number, extra: { remote?: boolean; summarizedAt?: number } = {}
 const setup = async () => {
   const t = convexTest(schema, modules)
   aggregate.register(t, "jobRoleCounts")
+  aggregate.register(t, "jobTimeCounts")
   aggregate.register(t, "jobDomainCounts")
   shardedCounter.register(t)
   workpool.register(t, "catalogPool")
@@ -197,5 +198,27 @@ describe("a catalog role on someone's board", () => {
       reasons: ["The right field, but the wrong level."],
       applicationId: first,
     })
+  })
+})
+
+describe("counting what the filters match", () => {
+  it("counts remote, posted-since and a board's roles exactly, and not words", async () => {
+    const { t, boardId } = await setup()
+    const other = await t.run((ctx) =>
+      ctx.db.insert("jobBoards", { kind: "lever", slug: "b", company: "B", addedAt: 0, jobs: 0 })
+    )
+    await t.run(async (ctx) => {
+      await insertJob(ctx, { ...role(1), boardId, postedAt: 100 })
+      await insertJob(ctx, { ...role(2, { remote: true }), boardId, postedAt: 200 })
+      await insertJob(ctx, { ...role(3, { remote: true }), boardId: other, postedAt: 300 })
+    })
+    const count = (args: { remoteOnly?: boolean; boardId?: string; since?: number; q?: string }) =>
+      t.query(api.api.jobs.count, args)
+    expect(await count({})).toBe(3)
+    expect(await count({ remoteOnly: true })).toBe(2)
+    expect(await count({ since: 200 })).toBe(2)
+    expect(await count({ remoteOnly: true, since: 250 })).toBe(1)
+    expect(await count({ boardId, remoteOnly: true })).toBe(1)
+    expect(await count({ q: "engineer" })).toBeNull()
   })
 })

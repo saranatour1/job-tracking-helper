@@ -33,6 +33,7 @@ afterEach(() => void vi.useRealTimers())
 const setup = async () => {
   const t = convexTest(schema, modules)
   aggregate.register(t, "jobRoleCounts")
+  aggregate.register(t, "jobTimeCounts")
   aggregate.register(t, "jobDomainCounts")
   shardedCounter.register(t)
   workpool.register(t, "catalogPool")
