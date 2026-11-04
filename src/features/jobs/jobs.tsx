@@ -2,7 +2,6 @@ import { api } from "@/lib/api"
 import type { Id } from "@convex/_generated/dataModel"
 import { domainSaysName, groupDomains, type Proof } from "@convex/features/jobs/domains"
 import { canPrepare } from "@convex/features/jobs/links"
-import { rowLimits } from "@convex/features/preferences/rows"
 import { groupRoles } from "@convex/features/workflows/fit"
 import { PrepareButton } from "@/features/prefilled/prefilled"
 import {
@@ -14,10 +13,16 @@ import {
 import { HugeiconsIcon } from "@hugeicons/react"
 import { useSignInAnonymously } from "@convex-dev/auth/methods/anonymous/react"
 import { track } from "@databuddy/sdk"
-import { Link, useLoaderData, useNavigate, useSearch } from "@tanstack/react-router"
+import {
+  Link,
+  useLoaderData,
+  useNavigate,
+  useRouter,
+  useRouterState,
+  useSearch,
+} from "@tanstack/react-router"
 import { useConvexAuth, useMutation } from "convex/react"
-import { usePaginatedQuery, useQuery } from "convex-helpers/react/cache/hooks"
-import { startTransition, useActionState, useMemo } from "react"
+import { startTransition, useActionState } from "react"
 
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
@@ -34,14 +39,14 @@ import { ScrollArea } from "@/components/ui/scroll-area"
 import { Select, SelectItem, SelectPopup, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Toggle } from "@/components/ui/toggle"
 import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group"
-import { PageIntro, pageBody, RowSkeletons, Tile } from "@/features/shell/page-body"
+import { PageIntro, pageBody, Tile } from "@/features/shell/page-body"
 import { PageHeader } from "@/features/shell/page-header"
 import { messageOf } from "@/features/account/settings"
 import { useAccess } from "@/hooks/use-access"
 import { postingText } from "@/lib/route-ids"
 import { cn } from "@/lib/utils"
 
-import { type JobsSearch, type Posted, postedWithin } from "./search"
+import { type JobsSearch, maxPages, type Posted } from "./search"
 
 const postedLabels: Record<Posted | "any", string> = {
   any: "Any time",
@@ -446,6 +451,7 @@ export const useVisitorSearch = () => {
   const { signIn } = useSignInAnonymously(api.auth)
   const allow = useMutation(api.jobs.allowSearch)
   const navigate = useNavigate()
+  const router = useRouter()
   return useActionState(async (_: string | undefined, words: string) => {
     try {
       if (!isAuthenticated) await signIn()
@@ -455,6 +461,11 @@ export const useVisitorSearch = () => {
       return messageOf(cause)
     }
     track("job_search", { query: words, member: false })
+    // Jobs reads over HTTP and keeps what it read, so a list for these words that was read before
+    // they were allowed reads again.
+    await router.invalidate({
+      filter: (m) => m.routeId === "/_app/jobs/" && (m.search as JobsSearch).q === words,
+    })
     await navigate({ to: "/jobs", search: { q: words } })
     return undefined
   }, undefined)
@@ -464,65 +475,63 @@ export const useVisitorSearch = () => {
 // any role find more like it. Roles a loop or a pasted link judged show Jev's verdict for you. Signed out it's
 // the same list to search, without the filters or anything about you.
 export const Jobs = () => {
-  const { member: signedIn, allowedSearch } = useAccess()
+  // Read over HTTP (see the route), so it changes only when it's asked for again.
+  const data = useLoaderData({ from: "/_app/jobs/" })
+  const { allowedSearch } = data
+  // The live session too: on sign-out it knows first, before the page is read again, and Prepare's
+  // own queries stop answering.
+  const live = useAccess()
+  const signedIn = data.member && live.member
+  const loading = useRouterState({ select: (s) => s.isLoading })
   const search = useSearch({ from: "/_app/jobs/" })
   // A shared link can carry filters, which mean nothing signed out, and words nobody has spent a
   // search on yet. Those wait in the box until someone presses Search.
-  const { q, remote, view, collapsed, posted, board, fits, proof, ending }: JobsSearch = signedIn
-    ? search
-    : {
-        q: search.q === allowedSearch ? search.q : undefined,
-        view: search.view,
-        collapsed: search.collapsed,
-      }
+  const { q, remote, view, collapsed, posted, board, fits, proof, ending, pages }: JobsSearch =
+    signedIn
+      ? search
+      : {
+          q: search.q === allowedSearch ? search.q : undefined,
+          view: search.view,
+          collapsed: search.collapsed,
+          pages: search.pages,
+        }
   const [refused, visitorSearch, searching] = useVisitorSearch()
   const navigate = useNavigate({ from: "/jobs/" })
-  const set = (patch: Partial<JobsSearch>) =>
-    void navigate({ search: (prev) => ({ ...prev, ...patch }), replace: true })
+  // New filters start again from the first page; how the list is shown keeps what's loaded.
+  const set = (patch: Partial<JobsSearch>) => {
+    const keeps = Object.keys(patch).every(
+      (k) => k === "view" || k === "collapsed" || k === "pages"
+    )
+    void navigate({
+      search: (prev) => ({ ...prev, ...(!keeps && { pages: undefined }), ...patch }),
+      replace: true,
+    })
+  }
   const find = (words: string) => {
     if (words && !signedIn) return startTransition(() => visitorSearch(words))
     if (words) track("job_search", { query: words, member: true })
     set({ q: words || undefined })
   }
   const now = Date.now()
-  // Fixed when the filter is picked, so a re-render past the hour doesn't reset the list;
-  // rounded to the hour so the same filters ask the same question for a while.
-  const since = useMemo(
-    () =>
-      posted ? Math.floor(Date.now() / hour) * hour - postedWithin[posted] * dayMs : undefined,
-    [posted]
-  )
-  const stats = useQuery(api.jobs.stats)
-  const companies = useQuery(api.jobs.companies, signedIn ? {} : "skip") ?? []
+  const { stats } = data
   // Roles already prepared, by posting, for their badge.
-  const prepared = new Map(
-    (useQuery(api.prefilled.list, signedIn ? {} : "skip") ?? []).map((r) => [r.url, r])
-  )
+  const prepared = new Map(data.prepared.map((r) => [r.url, r]))
   // Keyed by board, since two boards can share a company name.
-  const options = companies.map((c) => ({
+  const options = data.companies.map((c) => ({
     value: c.boardId,
     label: c.domain ? `${c.domain} · ${c.company}` : c.company,
     jobs: c.jobs,
   }))
   const company = options.find((o) => o.value === board) ?? null
-  const tags = usePaginatedQuery(api.preferences.tags, signedIn ? {} : "skip", {
-    initialNumItems: rowLimits.tags,
-  })
   const suggestions = [
     ...new Set(
-      tags.results
+      data.tags
         .filter((t) => t.kind === "interest" || t.kind === "location" || t.kind === "company")
         .map((t) => t.value)
     ),
   ].slice(0, 8)
-  const jobs = usePaginatedQuery(
-    api.jobs.search,
-    { q, remoteOnly: remote, boardId: board, since, fits, proof, ending },
-    { initialNumItems: 25 }
-  )
-  const served = useLoaderData({ from: "/_app/jobs/" })
   const filtered = Boolean(q || remote || posted || board || fits || proof || ending)
-  const rows = jobs.status === "LoadingFirstPage" && !filtered ? served : jobs.results
+  const rows = data.jobs.page
   const heading = fits
     ? "Roles that fit you, best first"
     : q
@@ -542,7 +551,12 @@ export const Jobs = () => {
         size="xs"
         variant="ghost"
         onClick={() => track("job_more_like_this", seen)}
-        render={<Link to="/jobs" search={{ ...search, q: job.title, fits: undefined }} />}
+        render={
+          <Link
+            to="/jobs"
+            search={{ ...search, q: job.title, fits: undefined, pages: undefined }}
+          />
+        }
       >
         More like this
       </Button>
@@ -853,9 +867,8 @@ export const Jobs = () => {
               )
             }
           >
-            {jobs.status === "LoadingFirstPage" && rows.length === 0 && <RowSkeletons />}
             {/* Only once every page is read: a filter can empty one page with more behind it. */}
-            {jobs.status === "Exhausted" && jobs.results.length === 0 && (
+            {data.jobs.isDone && rows.length === 0 && (
               <p className="text-muted-foreground px-2.5 py-3 text-[13px]">
                 {fits
                   ? "No roles marked as a fit yet. Your loops, and links you check, add them."
@@ -898,21 +911,19 @@ export const Jobs = () => {
                     {groupRoles(domain).map(nestedRow)}
                   </Domain>
                 ))}
-            {jobs.status === "CanLoadMore" && (
+            {!data.jobs.isDone && (pages ?? 1) < maxPages && (
               <Button
                 size="sm"
                 variant="ghost"
                 className="m-1 self-start"
+                disabled={loading}
                 onClick={() => {
                   track("job_show_more")
-                  jobs.loadMore(25)
+                  set({ pages: (pages ?? 1) + 1 })
                 }}
               >
-                Show more
+                {loading ? "Loading more…" : "Show more"}
               </Button>
-            )}
-            {jobs.status === "LoadingMore" && (
-              <p className="text-muted-foreground px-2.5 py-2 text-xs">Loading more…</p>
             )}
           </Tile>
         </div>

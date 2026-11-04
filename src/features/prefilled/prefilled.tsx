@@ -2,7 +2,7 @@ import { useApplicationText, usePrefillRoutes } from "@/lib/route-ids"
 import { api } from "@/lib/api"
 import type { Doc, Id } from "@convex/_generated/dataModel"
 import { isEmailQuestion } from "@convex/features/prefilled/match"
-import { Link } from "@tanstack/react-router"
+import { Link, useRouter } from "@tanstack/react-router"
 import { useAction, useMutation } from "convex/react"
 import { useQuery } from "convex-helpers/react/cache/hooks"
 import { startTransition, useActionState, useRef } from "react"
@@ -80,11 +80,14 @@ export const PrepareButton = ({
   prefillId?: Id<"prefills">
 }) => {
   const prepare = useMutation(api.prefilled.prepare)
+  const router = useRouter()
   const routes = usePrefillRoutes()
   const [error, add] = useActionState(
     () =>
       prepare({ ...(jobId && { jobId }), ...(leadId && { leadId }) }).then(
-        () => undefined,
+        // Jobs reads over HTTP, so it shows the new status only once asked again.
+        () =>
+          router.invalidate({ filter: (m) => m.routeId === "/_app/jobs/" }).then(() => undefined),
         messageOf
       ),
     undefined

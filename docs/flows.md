@@ -121,7 +121,8 @@ company sites for Jobs, and preparing applications needs it.
 2. **Legal.** `/privacy` and `/terms` are linked from the footer and sign-in.
 3. **Crawlers.** `public/robots.txt` lists every private route, and `public/llms.txt` and
    `public/sitemap.xml` list the public ones. Public pages render on the server, so crawlers don't
-   need JavaScript. `/jobs` sends the 25 newest roles, so crawlers find role pages from its links.
+   need JavaScript. `/jobs` renders all of itself on the server, so crawlers find role pages from
+   its links.
 4. **AI crawler tracking.** Crawlers don't run the Databuddy script, so the Worker
    (`src/server.ts`) reports each request from an AI agent to Databuddy in the background.
    `wrangler.jsonc` runs the Worker first for `.txt` files, so reads of `llms.txt` count too.
@@ -439,8 +440,9 @@ it doesn't.
    places, companies). Narrow it down with Remote only, Fits me (only roles Jev said fit
    you, best first), Posted (past day, week or month) and a domain (`api.jobs.companies`,
    the boards with the most roles). Every filter is in the address, so a link opens the
-   same list; Clear filters resets them (`api.jobs.search`, 25 at a time). A proof or ending
-   filter on a search only keeps matches from the page it read, so Show more may find more.
+   same list; Clear filters resets them (`api.jobs.search`, 25 at a time). Show more adds a page
+   (`?pages=`, up to 20). A proof or ending filter on a search only keeps matches from the page
+   it read, so Show more may find more.
 3. Roles group under their company's domain, in the order of their first role. A company with no
    site found goes under its name, per board. A domain's row has lanes for how it ties to the company, when
    it was registered, its YC batch, how many roles it has open and its newest role, in blue while
@@ -496,7 +498,18 @@ it doesn't.
    `job_apply_link` and `job_show_more`, with the words searched for or the role and company. These
    fire for everyone on Jobs, under Databuddy's own visitor ID, never the account.
 
+**How it reads:** `/jobs` is the one page that doesn't use the WebSocket for its data. Its loader
+(`src/routes/_app/jobs/index.tsx`) asks Convex over HTTP, on the server for the first visit and
+in the browser after, and the router keeps the answer. It reads again only for new filters, a
+sign-in or sign-out (`onAuthChange` in `src/lib/convex.ts`), or after a mutation on the page
+(Prepare, a visitor's search), which calls `router.invalidate`. Switching Domains and Roles or
+Collapse all reads nothing. Sign-in lives in this browser's storage, so the server always renders
+what anyone sees, and a member's filters, verdicts and Prepare badges arrive just after the page
+loads.
+
 **Known limits:** clearing browser storage makes a new anonymous account with 10 more searches.
+A prepared role's badge doesn't move from Preparing on its own; it changes the next time the page
+reads. Show more reads every page again, one request per page shown.
 Anonymous accounts aren't removed, and signing in later starts a separate account.
 
 **By itself:** every hour, `internal.api.jobs.countTrends` wakes a batch worker that reads roles

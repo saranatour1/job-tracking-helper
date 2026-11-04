@@ -21,7 +21,18 @@ export type JobsSearch = {
   proof?: Proof
   // A domain ending, like ".ai"; the server finds nothing for one that isn't.
   ending?: string
+  // How many pages of 25 are shown, past the first.
+  pages?: number
 }
+
+// Most pages Show more reaches, since each one is another request in a row.
+export const maxPages = 20
+
+const hour = 60 * 60 * 1000
+
+// Rounded to the hour, so the same filters ask the same question for a while.
+export const sinceOf = (posted: Posted | undefined) =>
+  posted ? Math.floor(Date.now() / hour) * hour - postedWithin[posted] * 24 * hour : undefined
 
 // Reads the page's filters from the address, dropping anything it doesn't know.
 export const jobsSearch = (search: Record<string, unknown>): JobsSearch => ({
@@ -39,5 +50,9 @@ export const jobsSearch = (search: Record<string, unknown>): JobsSearch => ({
   ending:
     typeof search.ending === "string" && /^\.[a-z0-9-]{1,63}$/.test(search.ending)
       ? search.ending
+      : undefined,
+  pages:
+    typeof search.pages === "number" && Number.isInteger(search.pages) && search.pages > 1
+      ? Math.min(search.pages, maxPages)
       : undefined,
 })
