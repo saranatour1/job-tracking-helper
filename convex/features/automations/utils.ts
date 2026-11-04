@@ -64,6 +64,7 @@ export const saveWorkflow = async (
       if (goal && goal.userId !== userId) throw new ConvexError("That goal isn't yours.")
     }
   const row = { ...automation, name, nextRunAt: nextRunOf(automation.trigger, automation.active) }
+  await wakeWorkflowAt(ctx, row.nextRunAt)
   if (id) {
     await own(ctx, userId, id)
     await ctx.db.replace("automations", id, { ...row, userId })
@@ -76,6 +77,13 @@ export const saveWorkflow = async (
   if (mine.length >= limits.automations)
     throw new ConvexError(`You can keep ${limits.automations} workflows.`)
   return ctx.db.insert("automations", { ...row, userId })
+}
+
+// Starts a scheduled workflow at its own time, not the 12-hourly cron's. A stale wake finds
+// nothing due.
+export const wakeWorkflowAt = async (ctx: MutationCtx, nextRunAt: number | undefined) => {
+  if (nextRunAt !== undefined)
+    await ctx.scheduler.runAt(nextRunAt, internal.api.automations.startDue, {})
 }
 
 export const runsOf = (ctx: MutationCtx, automationId: Id<"automations">) =>

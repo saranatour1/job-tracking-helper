@@ -18,7 +18,7 @@ The first stage ends at the filter, before any AI runs.
 
 ```mermaid
 flowchart TD
-    H["Hourly cron picks up to 25 boards not read in 20 hours"] --> F["Read each board's public feed"]
+    H["Cron every 12 hours picks up to 300 boards not read in 20 hours"] --> F["Read each board's public feed"]
     N["A loop run searches the web for new boards"] --> F
     F --> C[("Catalog, shared by everyone")]
     C --> P["Filter for one loop: search words, remote, listed companies, posted date"]
@@ -26,7 +26,7 @@ flowchart TD
     S --> J["Up to 25, 50 or 100 roles go to Jev"]
 ```
 
-1. Every hour, the `refresh job boards` cron (`internal.api.jobs.refreshDue`) picks up to 25 boards that weren't read in the last 20 hours.
+1. Every 12 hours, the `refresh job boards` cron (`internal.api.jobs.refreshDue`) picks up to 300 boards that weren't read in the last 20 hours.
 2. The batch worker reads each board's public feed, saves its roles, and drops the roles that the board no longer lists.
 3. A loop run adds to the same catalog. It searches the web for job boards the app doesn't know yet and reads them too. A run with no search source left skips this and uses the boards the catalog already has.
 4. The filter (`internal.api.jobs.candidates`) searches the catalog with words from your Preferences and the loop's prompt. It then applies whichever of the loop's rules are on: remote only, listed companies, and posted in the last 36 hours.
@@ -42,7 +42,7 @@ The second stage starts when you set up a loop.
 ```mermaid
 flowchart TD
     A["You set Preferences and start a loop"] --> B{"How does it run?"}
-    B -- "Every morning at 07:00, 08:00 or 09:00" --> C["A cron checks every 15 minutes and starts each loop that's due"]
+    B -- "Every morning at 07:00, 08:00 or 09:00" --> C["Starts at the time you picked, with a cron every 12 hours as a safety net"]
     B -- "Only by hand" --> D["You press Run now"]
     C --> E["The filter picks roles from the catalog"]
     D --> E
@@ -57,7 +57,7 @@ flowchart TD
 
 ### When a loop runs
 
-The `start due loops` cron wakes every 15 minutes and starts each loop whose time has come. With **Run by itself every morning** on, that's once a day at the time you picked. With it off, the loop runs only when you press **Run now**, 3 times a day at most. A workflow's **Find roles** step can also run a loop, whenever that workflow runs.
+Saving or resuming a loop schedules `start due loops` for its next morning, and each run schedules the next, so a loop starts at the time you picked. A cron also wakes every 12 hours as a safety net. With **Run by itself every morning** on, that's once a day at the time you picked. With it off, the loop runs only when you press **Run now**, 3 times a day at most. A workflow's **Find roles** step can also run a loop, whenever that workflow runs.
 
 ### What Jev is told
 

@@ -128,8 +128,9 @@ and the rules both go by. For the rest of the app, see [flows.md](flows.md).
 
 ### Starting runs
 
-- **Schedule:** a cron calls `internal.api.automations.startDue` every 5 minutes, so one set
-  for 09:00 starts by 09:05. It starts each workflow that's due and sets its next time.
+- **Schedule:** saving or turning on a workflow schedules
+  `internal.api.automations.startDue` for its next time, so one set for 09:00 starts at 09:00,
+  and each run schedules the one after. A cron calls it every 12 hours too, as a safety net. It starts each workflow that's due and sets its next time.
 - **Events:** four places call `fireEvent` (`convex/features/automations/fire.ts`):
   - the email sorter, after it files an email (`email/sort.ts`);
   - `changeStatus`, when an application moves (`applications/utils.ts`);

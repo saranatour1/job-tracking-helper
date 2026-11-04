@@ -5,7 +5,15 @@ import { automationsTable, automationRunsTable } from "./models"
 import { authedMutation, authedQuery } from "../../lib/functions"
 import { limits as rates } from "../workflows/manager"
 import { choicesOf, countsOf } from "./counts"
-import { cancelRun, startRun, own, nextRunOf, deleteWorkflow, saveWorkflow } from "./utils"
+import {
+  cancelRun,
+  startRun,
+  own,
+  nextRunOf,
+  deleteWorkflow,
+  saveWorkflow,
+  wakeWorkflowAt,
+} from "./utils"
 import { limits, vRunCounts, vSaveWorkflow } from "./validators"
 import { logEdit } from "../activity/utils"
 
@@ -83,10 +91,9 @@ const setActive = authedMutation({
   handler: async (ctx, { id, active }) => {
     const automation = await own(ctx, ctx.userId, id)
     if (active) mustBeReviewed(automation)
-    await ctx.db.patch("automations", id, {
-      active,
-      nextRunAt: nextRunOf(automation.trigger, active),
-    })
+    const nextRunAt = nextRunOf(automation.trigger, active)
+    await ctx.db.patch("automations", id, { active, nextRunAt })
+    await wakeWorkflowAt(ctx, nextRunAt)
     await logEdit(
       ctx,
       ctx.userId,

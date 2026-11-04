@@ -22,6 +22,7 @@ afterEach(() => void vi.useRealTimers())
 const setup = async () => {
   const t = convexTest(schema, modules)
   workpool.register(t, "catalogPool")
+  workpool.register(t, "summaryPool")
   const userId = await t.run((ctx) => ctx.db.insert("users", { name: "Sam" }))
   return { t, userId, as: t.withIdentity({ subject: userId }) }
 }

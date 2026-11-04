@@ -4,7 +4,13 @@ import { type } from "arktype"
 import { vOnCompleteArgs } from "@convex-dev/workpool"
 import { v } from "convex/values"
 import { internal } from "../../_generated/api"
-import { internalAction, internalMutation, internalQuery } from "../../_generated/server"
+import type { Id } from "../../_generated/dataModel"
+import {
+  internalAction,
+  internalMutation,
+  internalQuery,
+  type MutationCtx,
+} from "../../_generated/server"
 import { workLog } from "../../lib/log"
 import { cut, unmark } from "../../lib/unmark"
 import { draftModel } from "../prefilled/draft"
@@ -14,8 +20,6 @@ import { Facts, vFacts } from "./validators"
 const maxPosting = 8000
 const maxWords = 40
 const queued = 0
-// ponytail: a fixed share every few minutes, about 1,200 an hour. Raise it, or give new roles
-// their own lane, if a big backfill keeps fresh roles waiting.
 const perRun = 100
 
 export const summaryPrompt = ({
@@ -82,6 +86,21 @@ export const readReply = (reply: string): { summary: string | null; facts: Facts
   return { summary, facts: Object.keys(facts).length ? facts : null }
 }
 
+// Saving a new role, or one whose text changed, queues its summary right away.
+export const queueSummaries = async (ctx: MutationCtx, jobIds: Id<"jobs">[]) => {
+  for (const jobId of jobIds) {
+    await ctx.db.patch("jobs", jobId, { summarizedAt: queued })
+    await summaryPool.enqueueAction(
+      ctx,
+      internal.api.jobs.summarize,
+      { jobId },
+      { onComplete: internal.api.jobs.summaryEnded, context: { jobId } }
+    )
+  }
+}
+
+// No cron runs this: older roles without a summary stay that way. Run it by hand to backfill
+// one batch, for example after `resummarizeAll`.
 const summarizeDue = internalMutation({
   args: {},
   returns: v.number(),
@@ -91,16 +110,10 @@ const summarizeDue = internalMutation({
       .withIndex("by_summarizedAt_and_postedAt", (q) => q.eq("summarizedAt", undefined))
       .order("desc")
       .take(perRun)
-    if (!due.length) return 0
-    for (const job of due) {
-      await ctx.db.patch("jobs", job._id, { summarizedAt: queued })
-      await summaryPool.enqueueAction(
-        ctx,
-        internal.api.jobs.summarize,
-        { jobId: job._id },
-        { onComplete: internal.api.jobs.summaryEnded, context: { jobId: job._id } }
-      )
-    }
+    await queueSummaries(
+      ctx,
+      due.map((job) => job._id)
+    )
     return due.length
   },
 })

@@ -21,6 +21,7 @@ import {
   rowOf as loopRowOf,
   runLoopNow,
   shortlistOf,
+  wakeLoopAt,
 } from "../loops/utils"
 import { NewLoop } from "../loops/validators"
 import { formNow, rowOf, writeAnswers } from "../preferences/utils"
@@ -270,7 +271,9 @@ const saveLoop = internalMutation({
       await logEdit(ctx, userId, "loop.create", `A connected agent added the loop ${loop.name}`)
       return loopOut(ctx, (await ctx.db.get("loops", created))!)
     }
-    await ctx.db.patch("loops", known._id, loopRowOf(loop))
+    const row = loopRowOf(loop)
+    await ctx.db.patch("loops", known._id, row)
+    await wakeLoopAt(ctx, row)
     await logEdit(ctx, userId, "loop.update", `A connected agent changed the loop ${loop.name}`)
     return loopOut(ctx, (await ctx.db.get("loops", known._id))!)
   },
