@@ -124,7 +124,9 @@ export const ViewMenu = ({
         {children}
       </ContextMenuTrigger>
       <ContextMenuPopup className="min-w-48">
-        <ContextMenuLinkItem render={<Link to="/pipeline" search={{ view: routes.text(view.id) }} />}>
+        <ContextMenuLinkItem
+          render={<Link to="/pipeline" search={{ view: routes.text(view.id) }} />}
+        >
           Open
         </ContextMenuLinkItem>
         <ContextMenuLinkItem

@@ -1,4 +1,5 @@
 import { createRouter as createTanStackRouter } from "@tanstack/react-router"
+import { refreshJobs } from "@/features/jobs/search"
 import { onAuthChange } from "@/lib/convex"
 import { registerSiteTools } from "@/lib/web-mcp"
 import { routeTree } from "@/routeTree.gen"
@@ -13,8 +14,7 @@ export const getRouter = () => {
   // The server builds a router per request. Only a page in a browser has tools to offer.
   if (typeof document !== "undefined") {
     void registerSiteTools(router.history.push)
-    // Jobs reads over HTTP as whoever is signed in, so a new sign-in reads it again.
-    onAuthChange(() => void router.invalidate({ filter: (m) => m.routeId === "/_app/jobs/" }))
+    onAuthChange(() => void refreshJobs(router))
   }
   return router
 }

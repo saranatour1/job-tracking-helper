@@ -46,7 +46,7 @@ import { useAccess } from "@/hooks/use-access"
 import { postingText } from "@/lib/route-ids"
 import { cn } from "@/lib/utils"
 
-import { type JobsSearch, maxPages, type Posted } from "./search"
+import { type JobsSearch, maxPages, type Posted, readKeys, refreshJobs } from "./search"
 
 const postedLabels: Record<Posted | "any", string> = {
   any: "Any time",
@@ -461,11 +461,7 @@ export const useVisitorSearch = () => {
       return messageOf(cause)
     }
     track("job_search", { query: words, member: false })
-    // Jobs reads over HTTP and keeps what it read, so a list for these words that was read before
-    // they were allowed reads again.
-    await router.invalidate({
-      filter: (m) => m.routeId === "/_app/jobs/" && (m.search as JobsSearch).q === words,
-    })
+    await refreshJobs(router, words)
     await navigate({ to: "/jobs", search: { q: words } })
     return undefined
   }, undefined)
@@ -475,13 +471,9 @@ export const useVisitorSearch = () => {
 // any role find more like it. Roles a loop or a pasted link judged show Jev's verdict for you. Signed out it's
 // the same list to search, without the filters or anything about you.
 export const Jobs = () => {
-  // Read over HTTP (see the route), so it changes only when it's asked for again.
   const data = useLoaderData({ from: "/_app/jobs/" })
   const { allowedSearch } = data
-  // The live session too: on sign-out it knows first, before the page is read again, and Prepare's
-  // own queries stop answering.
-  const live = useAccess()
-  const signedIn = data.member && live.member
+  const { member: signedIn } = useAccess()
   const loading = useRouterState({ select: (s) => s.isLoading })
   const search = useSearch({ from: "/_app/jobs/" })
   // A shared link can carry filters, which mean nothing signed out, and words nobody has spent a
@@ -497,10 +489,9 @@ export const Jobs = () => {
         }
   const [refused, visitorSearch, searching] = useVisitorSearch()
   const navigate = useNavigate({ from: "/jobs/" })
-  // New filters start again from the first page; how the list is shown keeps what's loaded.
   const set = (patch: Partial<JobsSearch>) => {
     const keeps = Object.keys(patch).every(
-      (k) => k === "view" || k === "collapsed" || k === "pages"
+      (k) => k === "pages" || !readKeys.includes(k as (typeof readKeys)[number])
     )
     void navigate({
       search: (prev) => ({ ...prev, ...(!keeps && { pages: undefined }), ...patch }),

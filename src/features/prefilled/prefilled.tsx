@@ -3,6 +3,8 @@ import { api } from "@/lib/api"
 import type { Doc, Id } from "@convex/_generated/dataModel"
 import { isEmailQuestion } from "@convex/features/prefilled/match"
 import { Link, useRouter } from "@tanstack/react-router"
+
+import { refreshJobs } from "@/features/jobs/search"
 import { useAction, useMutation } from "convex/react"
 import { useQuery } from "convex-helpers/react/cache/hooks"
 import { startTransition, useActionState, useRef } from "react"
@@ -85,9 +87,7 @@ export const PrepareButton = ({
   const [error, add] = useActionState(
     () =>
       prepare({ ...(jobId && { jobId }), ...(leadId && { leadId }) }).then(
-        // Jobs reads over HTTP, so it shows the new status only once asked again.
-        () =>
-          router.invalidate({ filter: (m) => m.routeId === "/_app/jobs/" }).then(() => undefined),
+        () => refreshJobs(router).then(() => undefined),
         messageOf
       ),
     undefined

@@ -1,5 +1,6 @@
 import { type Dimension, dimensions } from "@convex/features/jobs/dimensions"
 import { type Proof, proofs } from "@convex/features/jobs/domains"
+import type { AnyRouter } from "@tanstack/react-router"
 
 export const trendsSearch = (search: Record<string, unknown>): { by?: Dimension } => ({
   by: dimensions.includes(search.by as Dimension) ? (search.by as Dimension) : undefined,
@@ -21,17 +22,14 @@ export type JobsSearch = {
   proof?: Proof
   // A domain ending, like ".ai"; the server finds nothing for one that isn't.
   ending?: string
-  // How many pages of 25 are shown, past the first.
   pages?: number
 }
 
-// Most pages Show more reaches, since each one is another request in a row.
 export const maxPages = 20
 
 const hour = 60 * 60 * 1000
 
-// Rounded to the hour, so the same filters ask the same question for a while.
-export const sinceOf = (posted: Posted | undefined) =>
+export const sinceOnTheHour = (posted: Posted | undefined) =>
   posted ? Math.floor(Date.now() / hour) * hour - postedWithin[posted] * 24 * hour : undefined
 
 // Reads the page's filters from the address, dropping anything it doesn't know.
@@ -56,3 +54,24 @@ export const jobsSearch = (search: Record<string, unknown>): JobsSearch => ({
       ? Math.min(search.pages, maxPages)
       : undefined,
 })
+
+export const readKeys = [
+  "q",
+  "remote",
+  "board",
+  "posted",
+  "fits",
+  "proof",
+  "ending",
+  "pages",
+] as const
+export type JobsReads = Pick<JobsSearch, (typeof readKeys)[number]>
+
+export const readsOf = (search: JobsSearch) =>
+  Object.fromEntries(readKeys.map((k) => [k, search[k]])) as JobsReads
+
+export const refreshJobs = (router: AnyRouter, q?: string) =>
+  router.invalidate({
+    filter: (m) =>
+      m.routeId === "/_app/jobs/" && (q === undefined || (m.search as JobsSearch).q === q),
+  })
