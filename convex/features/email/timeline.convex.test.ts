@@ -13,7 +13,6 @@ import { maxUnsortedCount } from "./validators"
 const modules = import.meta.glob([
   "../../**/*.ts",
   "!../../components/notifications/**",
-  "!../../components/cloudflareEmail/**",
   "!../../**/*.test.ts",
 ])
 

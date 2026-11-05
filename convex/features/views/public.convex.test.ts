@@ -9,7 +9,6 @@ import schema from "../../schema"
 const modules = import.meta.glob([
   "../../**/*.ts",
   "!../../components/notifications/**",
-  "!../../components/cloudflareEmail/**",
   "!../../**/*.test.ts",
 ])
 

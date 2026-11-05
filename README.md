@@ -64,7 +64,7 @@ vp test
 convex/
   api/<feature>.ts      registers each feature's functions, since a file's path is its API name
   features/<feature>/   a feature's tables, validators and functions
-  components/           local components: cloudflareEmail and notifications
+  components/           local component: notifications
   lib/                  arktype to Convex, signed-in function builders, secrets, logging, request signing
 src/
   routes/               pages. /, /jobs, /jobs/$id, /privacy and /terms are public; /jobs reads over HTTP
@@ -115,7 +115,7 @@ Written for this repo:
 - `convex/lib/ark.ts` turns arktype types into Convex validators, so tables and arguments are defined once.
 - `convex/lib/functions.ts` has function builders that require sign-in and check arguments with arktype.
 - `convex/lib/secrets.ts` encrypts pasted secrets, bound to their owner, with versioned keys for rotation.
-- `convex/components/cloudflareEmail` is the `@sarant/cloudflare-email` component, changed so each person sends with their own token and no scheduled call ever stores one.
+- `cloudflareEmail` comes from `@sarant/cloudflare-email-component`. Each person still sends with their own token, passed per call, so no scheduled call ever stores one.
 
 ## Contributing
 

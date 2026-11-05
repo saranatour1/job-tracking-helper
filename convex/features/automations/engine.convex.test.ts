@@ -28,7 +28,6 @@ const byPlace = <T extends { at: string }>(log: T[] | undefined) =>
 const modules = import.meta.glob([
   "../../**/*.ts",
   "!../../components/notifications/**",
-  "!../../components/cloudflareEmail/**",
   "!../../**/*.test.ts",
 ])
 

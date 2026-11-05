@@ -930,7 +930,7 @@ success. An email still "queued" after 15 minutes means its send died, so it's m
 failed, and Account says it couldn't confirm the email went out.
 
 **Files:** `src/features/account/email.tsx`, `convex/features/email/`,
-`convex/components/cloudflareEmail/`, `convex/lib/secrets.ts`.
+`@sarant/cloudflare-email-component`, `convex/lib/secrets.ts`.
 
 ## Email page
 

@@ -32,11 +32,11 @@ const connection = authedQuery({
     const details = k && (await openJson(k, row.details, aad.details(ctx.userId), Details))
     if (!k || !details) return null
     const photoUrl = row.signaturePhoto && (await ctx.storage.getUrl(row.signaturePhoto))
-    const [last] = await ctx.runQuery(components.cloudflareEmail.lib.list, {
+    const [last] = (await ctx.runQuery(components.cloudflareEmail.lib.list, {
       owner: ctx.userId,
       direction: "outbound",
-      limit: 1,
-    })
+      paginationOpts: { numItems: 1, cursor: null },
+    })).page
     const sent = last && (await openJson(k, last.payload, aad.email(ctx.userId), Sent))
     return {
       accountId: details.accountId,

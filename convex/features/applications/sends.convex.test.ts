@@ -7,14 +7,13 @@ import { convexTest } from "convex-test"
 import { afterEach, beforeEach, describe, expect, it, vi } from "vite-plus/test"
 
 import { api } from "../../_generated/api"
-import cloudflareSchema from "../../components/cloudflareEmail/schema"
+import cloudflareEmail from "@sarant/cloudflare-email-component/test"
 import notificationsSchema from "../../components/notifications/schema"
 import schema from "../../schema"
 
 const modules = import.meta.glob([
   "../../**/*.ts",
   "!../../components/notifications/**",
-  "!../../components/cloudflareEmail/**",
   "!../../**/*.test.ts",
 ])
 
@@ -37,11 +36,7 @@ const setup = async () => {
     notificationsSchema,
     import.meta.glob("../../components/notifications/**/*.ts")
   )
-  t.registerComponent(
-    "cloudflareEmail",
-    cloudflareSchema,
-    import.meta.glob("../../components/cloudflareEmail/**/*.ts")
-  )
+  cloudflareEmail.register(t)
   const userId = await t.run((ctx) => ctx.db.insert("users", { name: "Sam" }))
   const as = t.withIdentity({ subject: userId })
   const add = (status: "saved" | "applied") =>

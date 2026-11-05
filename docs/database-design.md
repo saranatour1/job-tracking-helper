@@ -162,7 +162,7 @@ A company row holds what's true of a domain. How a board reached that domain is 
 | `@convex-dev/aggregate`       | run and answer counts for workflows; roles per board and company; roles per domain                                         | nothing                                            |
 | `@convex-dev/sharded-counter` | the catalog's totals: domains, and roles by proof                                                                          | nothing                                            |
 | `@convex-dev/mcp`             | connected agents, API keys and tokens, stored hashed                                                                       | the `userId` of whoever approved                   |
-| `cloudflareEmail` (local)     | sealed emails                                                                                                              | `mailEvents.emailId`                               |
+| `cloudflareEmail` (npm)       | sealed emails                                                                                                              | `mailEvents.emailId`                               |
 | `notifications` (local)       | each person's Updates lines and muted kinds                                                                                | a `ref` on each line, or an agent's `message`      |
 
 ## What happens when something is deleted

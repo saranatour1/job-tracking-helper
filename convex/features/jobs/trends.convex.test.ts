@@ -15,7 +15,6 @@ import { weekMs, weekOf } from "./dimensions"
 const modules = import.meta.glob([
   "../../**/*.ts",
   "!../../components/notifications/**",
-  "!../../components/cloudflareEmail/**",
   "!../../**/*.test.ts",
 ])
 

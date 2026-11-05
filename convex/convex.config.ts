@@ -13,7 +13,7 @@ import shardedCounter from "@convex-dev/sharded-counter/convex.config.js"
 import workpool from "@convex-dev/workpool/convex.config.js"
 import batchWorker from "@convex-dev/batch-worker/convex.config.js"
 import mcp from "@convex-dev/mcp/convex.config.js"
-import cloudflareEmail from "./components/cloudflareEmail/convex.config"
+import cloudflareEmail from "@sarant/cloudflare-email-component/convex.config.js"
 import notifications from "./components/notifications/convex.config"
 
 const app = defineApp({

@@ -169,11 +169,11 @@ const recentMail = authedQuery({
   handler: async (ctx) => {
     const k = await keys().catch(() => null)
     if (!k) return []
-    const emails = await ctx.runQuery(components.cloudflareEmail.lib.list, {
+    const emails = (await ctx.runQuery(components.cloudflareEmail.lib.list, {
       owner: ctx.userId,
       direction: "inbound",
-      limit: 10,
-    })
+      paginationOpts: { numItems: 10, cursor: null },
+    })).page
     const opened = await Promise.all(
       emails.map(async (email) => {
         const mail = await openJson(k, email.payload, aad.email(ctx.userId), Received)
