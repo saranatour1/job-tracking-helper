@@ -442,7 +442,7 @@ export declare const components: {
   jobTimeCounts: import("@convex-dev/aggregate/_generated/component.js").ComponentApi<"jobTimeCounts">;
   jobDomainCounts: import("@convex-dev/aggregate/_generated/component.js").ComponentApi<"jobDomainCounts">;
   shardedCounter: import("@convex-dev/sharded-counter/_generated/component.js").ComponentApi<"shardedCounter">;
-  cloudflareEmail: import("../components/cloudflareEmail/_generated/component.js").ComponentApi<"cloudflareEmail">;
+  cloudflareEmail: import("@sarant/cloudflare-email-component/_generated/component.js").ComponentApi<"cloudflareEmail">;
   notifications: import("../components/notifications/_generated/component.js").ComponentApi<"notifications">;
   mcp: import("@convex-dev/mcp/_generated/component.js").ComponentApi<"mcp">;
 };

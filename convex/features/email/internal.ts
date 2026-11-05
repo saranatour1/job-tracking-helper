@@ -206,7 +206,9 @@ const resealAll = internalAction({
         page: { _id: string; owner: string; payload: string; error?: string }[]
         isDone: boolean
         continueCursor: string
-      } = await ctx.runQuery(components.cloudflareEmail.lib.page, { cursor })
+      } = await ctx.runQuery(components.cloudflareEmail.lib.page, {
+        paginationOpts: { cursor, numItems: 100 },
+      })
       for (const email of result.page) {
         if (!isStale(k, email.payload) && (!email.error || !isStale(k, email.error))) continue
         await ctx.runMutation(components.cloudflareEmail.lib.reseal, {

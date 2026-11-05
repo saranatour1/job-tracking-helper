@@ -10,7 +10,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vite-plus/test"
 
 import { api, components, internal } from "../../_generated/api"
 import type { Id } from "../../_generated/dataModel"
-import cloudflareSchema from "../../components/cloudflareEmail/schema"
+import cloudflareEmail from "@sarant/cloudflare-email-component/test"
 import notificationsSchema from "../../components/notifications/schema"
 import schema from "../../schema"
 import { startDelete } from "./utils"
@@ -18,7 +18,6 @@ import { startDelete } from "./utils"
 const modules = import.meta.glob([
   "../../**/*.ts",
   "!../../components/notifications/**",
-  "!../../components/cloudflareEmail/**",
   "!../../**/*.test.ts",
 ])
 
@@ -44,11 +43,7 @@ const setup = async () => {
     notificationsSchema,
     import.meta.glob("../../components/notifications/**/*.ts")
   )
-  t.registerComponent(
-    "cloudflareEmail",
-    cloudflareSchema,
-    import.meta.glob("../../components/cloudflareEmail/**/*.ts")
-  )
+  cloudflareEmail.register(t)
   const [me, other] = await t.run(async (ctx) => [
     await ctx.db.insert("users", { name: "Sam" }),
     await ctx.db.insert("users", { name: "Alex" }),

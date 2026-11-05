@@ -220,6 +220,9 @@ importers:
       '@hugeicons/react':
         specifier: ^1.1.10
         version: 1.1.10(react@19.3.1)
+      '@sarant/cloudflare-email-component':
+        specifier: ^0.2.2
+        version: 0.2.2(convex@1.49.0(react@19.3.1))
       '@tanstack/react-form':
         specifier: ^1.33.5
         version: 1.33.5(@tanstack/react-start@1.169.4(@voidzero-dev/vite-plus-core@1.4.0(@types/node@22.20.5)(esbuild@0.28.2)(jiti@2.7.0)(typescript@6.0.3))(esbuild@0.28.2)(react-dom@19.3.1(react@19.3.1))(react@19.3.1)(supports-color@10.2.2))(react-dom@19.3.1(react@19.3.1))(react@19.3.1)
@@ -1852,6 +1855,11 @@ packages:
 
   '@rolldown/pluginutils@1.0.1':
     resolution: {integrity: sha512-2j9bGt5Jh8hj+vPtgzPtl72j0yRxHAyumoo6TNfAjsLB04UtpSvPbPcDcBMxz7n+9CYB0c1GxQFxYRg2jimqGw==}
+
+  '@sarant/cloudflare-email-component@0.2.2':
+    resolution: {integrity: sha512-X6LUUOQ5uA1bAzY6Rys8579VBVw+XNT5anEn4MrxHM6Zdo2MDmgT+Nkk8H7NTkzaRwM2OPMMPsAn/9Pu2FenpQ==}
+    peerDependencies:
+      convex: ^1.49.0
 
   '@sec-ant/readable-stream@0.4.1':
     resolution: {integrity: sha512-831qok9r2t8AlxLko40y2ebgSDhenenCatLVeW/uBtnHPyhHOvG0C7TvfgecV+wHzIm5KUICgzmVpWS+IMEAeg==}
@@ -6310,6 +6318,10 @@ snapshots:
   '@resvg/resvg-wasm@2.6.2': {}
 
   '@rolldown/pluginutils@1.0.1': {}
+
+  '@sarant/cloudflare-email-component@0.2.2(convex@1.49.0(react@19.3.1))':
+    dependencies:
+      convex: 1.49.0(react@19.3.1)
 
   '@sec-ant/readable-stream@0.4.1': {}
 
