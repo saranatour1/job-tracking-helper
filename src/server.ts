@@ -19,6 +19,13 @@ const publicPages: [RegExp, number][] = [
   [/^\/jobs\/[^/]+$/, 5 * 60],
 ]
 
+// AI training crawlers that send their own user agent. robots.txt asks them to read each role's
+// llms.txt instead of its page, and this refuses the ones that still ask for the page, which
+// costs a render. Google-Extended and Applebot-Extended only exist in robots.txt.
+const trainer =
+  /GPTBot|ClaudeBot|anthropic-ai|CCBot|Bytespider|meta-externalagent|cohere-training-data-crawler/i
+const rolePage = /^\/jobs\/(?!trends$)[^/]+$/
+
 export default {
   // Local dev runs in Node, which passes only the request and serves public/ itself.
   fetch: (request: Request, env?: Env, ctx?: Context) => {
@@ -45,6 +52,8 @@ export default {
       return import("@/features/jobs/logo").then((l) => l.logo(request, company[1]!, ctx))
     // wrangler.jsonc runs the Worker first for .txt files, so reads of llms.txt get recorded.
     if (env && pathname.endsWith(".txt")) return env.ASSETS.fetch(request)
+    if (rolePage.test(pathname) && trainer.test(request.headers.get("user-agent") ?? ""))
+      return new Response("Read this role's llms.txt instead.", { status: 403 })
     const seconds =
       request.method === "GET" && publicPages.find(([path]) => path.test(pathname))?.[1]
     return seconds && env?.CF_VERSION_METADATA && ctx

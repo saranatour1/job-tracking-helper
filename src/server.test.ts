@@ -39,4 +39,13 @@ describe("server entry", () => {
     expect(mocks.trackAgents).not.toHaveBeenCalled()
     expect(await response.text()).toBe("app")
   })
+
+  it("refuses a role page to AI training crawlers, but not the rest of /jobs", async () => {
+    const asBot = (path: string) =>
+      new Request(`https://ye.saranatour.dev${path}`, { headers: { "user-agent": "GPTBot/1.2" } })
+    expect((await server.fetch(asBot("/jobs/engineer-acme-kn7"), env, ctx)).status).toBe(403)
+    expect(await (await server.fetch(asBot("/jobs/trends"), env, ctx)).text()).toBe("app")
+    expect(await (await server.fetch(asBot("/jobs"), env, ctx)).text()).toBe("app")
+    expect(await (await server.fetch(get("/jobs/engineer-acme-kn7"), env, ctx)).text()).toBe("app")
+  })
 })
