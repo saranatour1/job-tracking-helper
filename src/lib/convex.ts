@@ -51,3 +51,13 @@ export const onAuthChange = (listener: () => void) => {
   listeners.add(listener)
   return () => listeners.delete(listener)
 }
+
+// shortcut: Convex has no public pause, so this calls the socket's private stop and restart, the same
+// pair its own token refresh uses. Recheck after a Convex upgrade.
+type Socket = { stop: () => Promise<void>; tryRestart: () => void }
+/** Closes the connection, or opens it again. Queries and mutations wait and resend on reconnect. */
+export const setLive = (live: boolean) => {
+  const socket = (convex as unknown as { sync: { webSocketManager: Socket } }).sync.webSocketManager
+  if (live) socket.tryRestart()
+  else void socket.stop()
+}
