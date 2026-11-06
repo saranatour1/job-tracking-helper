@@ -5,7 +5,7 @@ import { type Box, maxUnreadCount } from "@convex/features/mailbox/validators"
 import { getRouteApi, Link, useNavigate } from "@tanstack/react-router"
 import { useAction, useMutation } from "convex/react"
 import type { FunctionReturnType } from "convex/server"
-import { usePaginatedQuery, useQuery } from "convex-helpers/react/cache/hooks"
+import { usePaginatedQuery, useQuery } from "@/hooks/use-queries"
 import { lazy, startTransition, Suspense, useActionState, useRef } from "react"
 
 import { Badge } from "@/components/ui/badge"

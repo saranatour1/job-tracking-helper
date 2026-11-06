@@ -36,7 +36,7 @@ import { HugeiconsIcon } from "@hugeicons/react"
 import { useForm, useStore } from "@tanstack/react-form"
 import { Link, useNavigate, useSearch } from "@tanstack/react-router"
 import { useMutation } from "convex/react"
-import { usePaginatedQuery, useQuery } from "convex-helpers/react/cache/hooks"
+import { usePaginatedQuery, useQuery } from "@/hooks/use-queries"
 import { startTransition, useActionState, useId } from "react"
 
 import { Badge } from "@/components/ui/badge"

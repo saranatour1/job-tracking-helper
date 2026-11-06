@@ -209,10 +209,13 @@ no form to sign in with there.
 
 **By itself:** after a minute with the tab hidden, or ten with no mouse, key or touch
 input, the app closes its Convex connection, so nothing reruns for a screen no one is
-watching. Showing the tab or any input reconnects, and every open page catches up
-(`usePauseWhenAway` in `src/hooks/use-away.ts`, mounted in `src/routes/_app.tsx`).
+watching. Every query also skips and keeps showing what it had, so a page doesn't fall
+back to loading. Showing the tab or any input reconnects and every open page catches up,
+though a list starts again from its first page (`usePauseWhenAway` in
+`src/hooks/use-away.ts`, mounted in `src/routes/_app.tsx`; the query hooks in
+`src/hooks/use-queries.ts`).
 
-**Files:** `src/features/shell/`, `src/hooks/use-away.ts`.
+**Files:** `src/features/shell/`, `src/hooks/use-away.ts`, `src/hooks/use-queries.ts`.
 
 ## Preferences
 

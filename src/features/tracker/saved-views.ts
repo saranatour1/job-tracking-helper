@@ -1,6 +1,6 @@
 import { api } from "@/lib/api"
 import { useMutation } from "convex/react"
-import { useQuery } from "convex-helpers/react/cache/hooks"
+import { useQuery } from "@/hooks/use-queries"
 
 import type { Filters, View } from "./data"
 import type { Display } from "./display-options"

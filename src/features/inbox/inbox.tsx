@@ -11,7 +11,7 @@ import { HugeiconsIcon } from "@hugeicons/react"
 import { Link, useNavigate, useSearch } from "@tanstack/react-router"
 import type { FunctionReturnType } from "convex/server"
 import { useMutation } from "convex/react"
-import { useQuery } from "convex-helpers/react/cache/hooks"
+import { useQuery } from "@/hooks/use-queries"
 
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"

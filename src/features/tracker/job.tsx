@@ -2,7 +2,7 @@ import { api } from "@/lib/api"
 import type { Id } from "@convex/_generated/dataModel"
 import { LinkSquare02Icon } from "@hugeicons/core-free-icons"
 import { HugeiconsIcon } from "@hugeicons/react"
-import { useQuery } from "convex-helpers/react/cache/hooks"
+import { useQuery } from "@/hooks/use-queries"
 
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"

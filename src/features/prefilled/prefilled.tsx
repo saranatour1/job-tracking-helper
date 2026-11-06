@@ -6,7 +6,7 @@ import { Link, useRouter } from "@tanstack/react-router"
 
 import { refreshJobs } from "@/features/jobs/search"
 import { useAction, useMutation } from "convex/react"
-import { useQuery } from "convex-helpers/react/cache/hooks"
+import { useQuery } from "@/hooks/use-queries"
 import { startTransition, useActionState, useRef } from "react"
 
 import { ArrowLeft01Icon, ArrowRight01Icon, MagicWand01Icon } from "@hugeicons/core-free-icons"

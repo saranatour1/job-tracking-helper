@@ -1,6 +1,6 @@
 import { api } from "@/lib/api"
 import { Link, Navigate, Outlet, createFileRoute, useRouterState } from "@tanstack/react-router"
-import { useQuery } from "convex-helpers/react/cache/hooks"
+import { useQuery } from "@/hooks/use-queries"
 
 import { Button } from "@/components/ui/button"
 import { SiteFooter, SiteHeader } from "@/features/landing/site-frame"

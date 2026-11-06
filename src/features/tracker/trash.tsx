@@ -4,7 +4,7 @@ import { ArrowTurnBackwardIcon, Delete02Icon } from "@hugeicons/core-free-icons"
 import { HugeiconsIcon } from "@hugeicons/react"
 import { Link } from "@tanstack/react-router"
 import { useMutation } from "convex/react"
-import { usePaginatedQuery, useQuery } from "convex-helpers/react/cache/hooks"
+import { usePaginatedQuery, useQuery } from "@/hooks/use-queries"
 import { startTransition, useActionState } from "react"
 
 import { Button } from "@/components/ui/button"

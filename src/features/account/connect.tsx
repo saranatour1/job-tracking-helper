@@ -1,5 +1,5 @@
 import { Authenticated, AuthLoading, Unauthenticated, useAction } from "convex/react"
-import { useQuery } from "convex-helpers/react/cache/hooks"
+import { useQuery } from "@/hooks/use-queries"
 import { startTransition, useActionState } from "react"
 
 import { Button } from "@/components/ui/button"
