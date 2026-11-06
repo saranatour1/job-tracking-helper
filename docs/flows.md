@@ -120,7 +120,9 @@ company sites for Jobs, and preparing applications needs it.
    switches between light and dark. Signed-in people go on to `/pipeline`, keeping any search
    like `?app=app-4`.
 2. **Legal.** `/privacy` and `/terms` are linked from the footer and sign-in.
-3. **Crawlers.** `public/robots.txt` lists every private route, and `public/llms.txt` and
+3. **Crawlers.** `public/robots.txt` lists every private route, and keeps AI training crawlers
+   (GPTBot, ClaudeBot and the like) off each role's page, which costs a render, while they can
+   still read its cached `llms.txt`; AI search crawlers read both. `public/llms.txt` and
    `public/sitemap.xml` list the public ones. Public pages render on the server, so crawlers don't
    need JavaScript. `/jobs` renders all of itself on the server, and its Show more is a link to
    `?pages=2`, then 3, so crawlers page through it; each page names itself as canonical and links
