@@ -22,11 +22,6 @@ export const useQueries: typeof cached.useQueries = (queries) => {
   return away ? last.current : result
 }
 
-// Coming back starts the list again from its first page, so pages loaded with loadMore are lost.
-export const usePaginatedQuery = ((query, args, options) => {
-  const away = useAway()
-  const last = useRef<ReturnType<typeof cached.usePaginatedQuery>>(undefined)
-  const result = cached.usePaginatedQuery(query, away ? "skip" : args, options)
-  if (!away) last.current = result
-  return away && last.current ? last.current : result
-}) as typeof cached.usePaginatedQuery
+// Not skipped: skipping a list starts it again from its first page, losing what loadMore added.
+// The closed connection already stops its updates.
+export const usePaginatedQuery = cached.usePaginatedQuery
