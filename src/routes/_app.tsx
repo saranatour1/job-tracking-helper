@@ -1,11 +1,12 @@
 import { api } from "@/lib/api"
 import { Link, Navigate, Outlet, createFileRoute, useRouterState } from "@tanstack/react-router"
-import { useQuery } from "convex-helpers/react/cache/hooks"
+import { useQuery } from "@/hooks/use-queries"
 
 import { Button } from "@/components/ui/button"
 import { SiteFooter, SiteHeader } from "@/features/landing/site-frame"
 import { pageBody, RowSkeletons } from "@/features/shell/page-body"
 import { useAccess } from "@/hooks/use-access"
+import { usePauseWhenAway } from "@/hooks/use-away"
 import { lazy, Suspense } from "react"
 
 // Only someone signed in sees the sidebar and its dialogs, so visitors to Jobs don't download them.
@@ -23,6 +24,7 @@ const FirstRun = () => {
 // Jobs sits under this layout so members keep their sidebar there, but it's open to anyone.
 const AppLayout = () => {
   const { loading, member, inApp } = useAccess()
+  usePauseWhenAway()
   // The routes this layout is rendering right now, not an address: arriving from Home or
   // leaving for Sign in, the address moves a render before the routes do.
   const open = useRouterState({

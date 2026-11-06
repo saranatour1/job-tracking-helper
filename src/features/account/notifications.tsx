@@ -1,7 +1,7 @@
 import { api } from "@/lib/api"
 import { type NotificationKind, notificationKinds } from "@convex/features/notifications/kinds"
 import { useMutation } from "convex/react"
-import { useQuery } from "convex-helpers/react/cache/hooks"
+import { useQuery } from "@/hooks/use-queries"
 
 import { Switch } from "@/components/ui/switch"
 import { Row, Section } from "@/features/account/settings"

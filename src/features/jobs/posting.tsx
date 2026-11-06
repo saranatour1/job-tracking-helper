@@ -3,7 +3,7 @@ import { track } from "@databuddy/sdk"
 import { LinkSquare02Icon } from "@hugeicons/core-free-icons"
 import { HugeiconsIcon } from "@hugeicons/react"
 import { Link, useRouterState } from "@tanstack/react-router"
-import { useQuery } from "convex-helpers/react/cache/hooks"
+import { useQuery } from "@/hooks/use-queries"
 import { startTransition } from "react"
 
 import { bodyOf, Markdown } from "@/components/markdown"

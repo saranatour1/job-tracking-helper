@@ -1,5 +1,5 @@
 import { useNavigate, useSearch } from "@tanstack/react-router"
-import { useQuery } from "convex-helpers/react/cache/hooks"
+import { useQuery } from "@/hooks/use-queries"
 import { api } from "@/lib/api"
 import { applicationText } from "@/lib/route-ids"
 import { useCallback, useMemo, useRef } from "react"

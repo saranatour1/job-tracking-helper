@@ -1,5 +1,5 @@
 import type { Id } from "@convex/_generated/dataModel"
-import { useQuery } from "convex-helpers/react/cache/hooks"
+import { useQuery } from "@/hooks/use-queries"
 import { useMemo, useRef } from "react"
 
 import { api } from "@/lib/api"

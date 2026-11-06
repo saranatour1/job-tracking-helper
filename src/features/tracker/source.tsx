@@ -2,7 +2,7 @@ import { api } from "@/lib/api"
 import type { Doc, Id } from "@convex/_generated/dataModel"
 import { useMutation } from "convex/react"
 import type { FunctionReturnType } from "convex/server"
-import { useQuery } from "convex-helpers/react/cache/hooks"
+import { useQuery } from "@/hooks/use-queries"
 import { createContext, useContext } from "react"
 
 import type { MailEvent } from "./mail"

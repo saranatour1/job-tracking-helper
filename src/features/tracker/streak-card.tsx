@@ -1,7 +1,7 @@
 import { FireIcon } from "@hugeicons/core-free-icons"
 import { HugeiconsIcon } from "@hugeicons/react"
 import { Link } from "@tanstack/react-router"
-import { useQuery } from "convex-helpers/react/cache/hooks"
+import { useQuery } from "@/hooks/use-queries"
 
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"

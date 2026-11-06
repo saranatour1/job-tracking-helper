@@ -4,7 +4,7 @@ import { api } from "@/lib/api"
 import { Link } from "@tanstack/react-router"
 import { useAction, useMutation } from "convex/react"
 import type { FunctionReturnType } from "convex/server"
-import { usePaginatedQuery } from "convex-helpers/react/cache/hooks"
+import { usePaginatedQuery } from "@/hooks/use-queries"
 import { startTransition, useActionState } from "react"
 
 import { Badge } from "@/components/ui/badge"

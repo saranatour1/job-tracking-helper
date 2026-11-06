@@ -1,5 +1,5 @@
 import { api } from "@/lib/api"
-import { useQuery } from "convex-helpers/react/cache/hooks"
+import { useQuery } from "@/hooks/use-queries"
 import { lazy, Suspense } from "react"
 
 import { ScrollArea } from "@/components/ui/scroll-area"

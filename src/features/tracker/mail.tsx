@@ -7,7 +7,7 @@ import { HugeiconsIcon } from "@hugeicons/react"
 import { Link } from "@tanstack/react-router"
 import { useAction } from "convex/react"
 import type { FunctionReturnType } from "convex/server"
-import { usePaginatedQuery, useQuery } from "convex-helpers/react/cache/hooks"
+import { usePaginatedQuery, useQuery } from "@/hooks/use-queries"
 import { startTransition, useActionState, useState } from "react"
 
 import { Badge } from "@/components/ui/badge"

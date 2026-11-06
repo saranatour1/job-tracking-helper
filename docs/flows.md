@@ -207,7 +207,15 @@ no form to sign in with there.
    breadcrumb and actions. A page you left keeps its data live for an hour, so coming
    back to it shows it right away.
 
-**Files:** `src/features/shell/`.
+**By itself:** after a minute with the tab hidden, or ten with no mouse, key or touch
+input, the app closes its Convex connection, so nothing reruns for a screen no one is
+watching. Every query but a paginated list also skips and keeps showing what it had, so a
+page doesn't fall back to loading; skipping a list would lose the pages it loaded. Showing
+the tab or any input reconnects and every open page catches up (`usePauseWhenAway` in
+`src/hooks/use-away.ts`, mounted in `src/routes/_app.tsx`; the query hooks in
+`src/hooks/use-queries.ts`).
+
+**Files:** `src/features/shell/`, `src/hooks/use-away.ts`, `src/hooks/use-queries.ts`.
 
 ## Preferences
 

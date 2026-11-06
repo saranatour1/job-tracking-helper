@@ -3,7 +3,7 @@ import { api } from "@/lib/api"
 import { getRouteApi, Link } from "@tanstack/react-router"
 import type { FunctionReturnType } from "convex/server"
 import { useMutation } from "convex/react"
-import { usePaginatedQuery, useQuery } from "convex-helpers/react/cache/hooks"
+import { usePaginatedQuery, useQuery } from "@/hooks/use-queries"
 
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"

@@ -14,7 +14,7 @@ import {
 import { HugeiconsIcon } from "@hugeicons/react"
 import { Link, useNavigate } from "@tanstack/react-router"
 import { useAction, useMutation } from "convex/react"
-import { useQuery } from "convex-helpers/react/cache/hooks"
+import { useQuery } from "@/hooks/use-queries"
 import { startTransition, useActionState } from "react"
 
 import { Badge } from "@/components/ui/badge"

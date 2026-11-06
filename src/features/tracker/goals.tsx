@@ -12,7 +12,7 @@ import {
 import { HugeiconsIcon } from "@hugeicons/react"
 import { Link, useNavigate } from "@tanstack/react-router"
 import { useAction, useMutation } from "convex/react"
-import { useQuery } from "convex-helpers/react/cache/hooks"
+import { useQuery } from "@/hooks/use-queries"
 import { ConvexError } from "convex/values"
 import { startTransition, useActionState, useRef } from "react"
 

@@ -1,6 +1,6 @@
 import { readOnlyScopes } from "@convex/features/agents/scopes"
 import { useAction, useMutation } from "convex/react"
-import { useQuery } from "convex-helpers/react/cache/hooks"
+import { useQuery } from "@/hooks/use-queries"
 import { startTransition, useActionState } from "react"
 
 import { Button } from "@/components/ui/button"

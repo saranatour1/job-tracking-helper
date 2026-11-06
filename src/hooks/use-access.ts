@@ -1,6 +1,6 @@
 import { useAuthToken } from "@convex-dev/auth/react"
 import { useConvexAuth } from "convex/react"
-import { useQueries } from "convex-helpers/react/cache/hooks"
+import { useQueries } from "@/hooks/use-queries"
 
 import { api } from "@/lib/api"
 

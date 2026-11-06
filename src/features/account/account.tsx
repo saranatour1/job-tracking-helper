@@ -5,7 +5,7 @@ import { maxImageBytes, Profile } from "@convex/features/users/validators"
 import { useForm } from "@tanstack/react-form"
 import type { FunctionReturnType } from "convex/server"
 import { useMutation } from "convex/react"
-import { useQuery } from "convex-helpers/react/cache/hooks"
+import { useQuery } from "@/hooks/use-queries"
 import { startTransition, useActionState, useRef } from "react"
 
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"

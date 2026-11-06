@@ -1,7 +1,7 @@
 import { api } from "@/lib/api"
 import type { Doc, Id } from "@convex/_generated/dataModel"
 import { useMutation } from "convex/react"
-import { useQuery } from "convex-helpers/react/cache/hooks"
+import { useQuery } from "@/hooks/use-queries"
 import { useRef } from "react"
 
 // Your events and calendar settings in Convex. Each change shows at once (an optimistic

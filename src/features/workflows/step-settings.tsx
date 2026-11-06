@@ -1,6 +1,6 @@
 import { api } from "@/lib/api"
 import type { Doc } from "@convex/_generated/dataModel"
-import { useQuery } from "convex-helpers/react/cache/hooks"
+import { useQuery } from "@/hooks/use-queries"
 import { statusLabels, statuses } from "@convex/features/applications/validators"
 import type { Block, Branch, Step, Trigger } from "@convex/features/automations/validators"
 import {
