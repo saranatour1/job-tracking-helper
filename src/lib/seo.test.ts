@@ -3,7 +3,16 @@ import { readFileSync } from "node:fs"
 import { describe, expect, it } from "vite-plus/test"
 
 const robots = readFileSync("public/robots.txt", "utf8")
-const disallowed = [...robots.matchAll(/^Disallow: (\S+)$/gm)].map((m) => m[1])
+const rules = (group: string, kind: string) =>
+  [...group.matchAll(new RegExp(`^${kind}: (\\S+)$`, "gm"))].map((m) => m[1]!)
+const groups = robots.split("\n\n").map((group) => ({
+  agents: rules(group, "User-agent"),
+  allowed: rules(group, "Allow"),
+  disallowed: rules(group, "Disallow"),
+}))
+const everyone = groups.find((group) => group.agents.includes("*"))!
+const trainers = groups.find((group) => group.agents.includes("GPTBot"))!
+const disallowed = everyone.disallowed
 const routes = Object.keys(import.meta.glob("../routes/**/*.tsx")).map((file) =>
   file.replace("../routes/", "").replace(".tsx", "")
 )
@@ -50,5 +59,11 @@ describe("robots.txt", () => {
     ]) {
       expect(disallowed.some((rule) => path.startsWith(rule))).toBe(false)
     }
+  })
+
+  it("sends AI training crawlers to each role's llms.txt, not its page", () => {
+    expect(trainers.agents).toContain("ClaudeBot")
+    expect(trainers.disallowed).toEqual(["/jobs/", ...everyone.disallowed])
+    expect(trainers.allowed).toEqual(["/jobs/llms.txt", "/jobs/trends$", "/jobs/*/llms.txt"])
   })
 })

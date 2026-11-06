@@ -20,5 +20,39 @@ Disallow: /views
 Disallow: /workflows
 Disallow: /_serverFn/
 
+# Each role's page costs a render, so AI training crawlers get its cached llms.txt instead.
+# A crawler follows only its own group, so the private routes repeat here.
+User-agent: GPTBot
+User-agent: ClaudeBot
+User-agent: anthropic-ai
+User-agent: CCBot
+User-agent: Google-Extended
+User-agent: Applebot-Extended
+User-agent: Bytespider
+User-agent: meta-externalagent
+User-agent: cohere-training-data-crawler
+Allow: /jobs/llms.txt
+Allow: /jobs/trends$
+Allow: /jobs/*/llms.txt
+Disallow: /jobs/
+Disallow: /account
+Disallow: /activity
+Disallow: /calendar
+Disallow: /connect
+Disallow: /contacts
+Disallow: /email
+Disallow: /goals
+Disallow: /inbox
+Disallow: /loops
+Disallow: /pipeline
+Disallow: /preferences
+Disallow: /prefilled
+Disallow: /resume
+Disallow: /sign-in
+Disallow: /sign-up
+Disallow: /views
+Disallow: /workflows
+Disallow: /_serverFn/
+
 Sitemap: https://ye.saranatour.dev/sitemap.xml
 Sitemap: https://ye.saranatour.dev/sitemap-jobs.xml
