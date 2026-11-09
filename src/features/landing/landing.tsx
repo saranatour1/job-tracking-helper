@@ -1,3 +1,5 @@
+import { GithubIcon } from "@hugeicons/core-free-icons"
+import { HugeiconsIcon } from "@hugeicons/react"
 import { Link } from "@tanstack/react-router"
 
 import { Button } from "@/components/ui/button"
@@ -12,6 +14,20 @@ export const Landing = () => (
       </Button>
       <Button variant="ghost" render={<Link to="/sign-in" />}>
         Sign in
+      </Button>
+      <Button
+        variant="ghost"
+        size="icon"
+        aria-label="Source on GitHub"
+        render={
+          <a
+            href="https://github.com/saranatour1/job-tracking-helper"
+            target="_blank"
+            rel="noopener"
+          />
+        }
+      >
+        <HugeiconsIcon icon={GithubIcon} />
       </Button>
     </SiteHeader>
     <main className="flex min-h-0 flex-1 flex-col gap-5 px-4 sm:gap-7 sm:px-8">
