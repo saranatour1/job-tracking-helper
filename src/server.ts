@@ -16,7 +16,8 @@ type Context = { waitUntil: (promise: Promise<void>) => void }
 const publicPages: [RegExp, number][] = [
   [/^\/jobs\/trends$/, 10 * 60],
   [/^\/jobs$/, 60],
-  [/^\/jobs\/[^/]+$/, 5 * 60],
+  // A day, so Googlebot mostly gets the cached copy: slow renders shrink its crawl budget.
+  [/^\/jobs\/[^/]+$/, 24 * 60 * 60],
 ]
 
 // AI training crawlers that send their own user agent. robots.txt asks them to read each role's
