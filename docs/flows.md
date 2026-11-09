@@ -117,7 +117,7 @@ company sites for Jobs, and preparing applications needs it.
 
 1. **Landing.** `/` is one screen: what the app does, a link to `/sign-in`, and a demo board of
    made-up applications that moves on its own, or holds still with reduced motion on. The header
-   switches between light and dark. Signed-in people go on to `/pipeline`, keeping any search
+   switches between light and dark and links to the GitHub repo. Signed-in people go on to `/pipeline`, keeping any search
    like `?app=app-4`.
 2. **Legal.** `/privacy` and `/terms` are linked from the footer and sign-in.
 3. **Crawlers.** `public/robots.txt` lists every private route, and keeps AI training crawlers
