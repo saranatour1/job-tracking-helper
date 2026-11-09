@@ -548,7 +548,7 @@ sign-in or sign-out (`onAuthChange` in `src/lib/convex.ts`), or after a mutation
 (Prepare, Add to tracker, Does it match you?, a visitor's search), which calls
 `router.invalidate`. Picking a role reads nothing. Trends reads the same way and keeps its answer
 for 10 minutes, since its counts move once an hour. Since the server renders these pages the same for everyone,
-the Worker keeps their HTML at the edge: /jobs for a minute, a role's page for 5 and Trends for 10,
+the Worker keeps their HTML at the edge: /jobs for a minute, a role's page for a day (so Googlebot mostly gets the fast copy) and Trends for 10 minutes,
 per deploy, so a kept page never points at scripts an older deploy had (`cachedPage` in
 `src/lib/worker-cache.ts`, `CF_VERSION_METADATA`). Visitors don't download the members' sidebar
 and dialogs: `_app.tsx` loads the shell only once someone signed in needs it. Sign-in lives in this browser's storage, so the server always renders
