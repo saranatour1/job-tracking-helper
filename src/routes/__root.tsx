@@ -41,6 +41,8 @@ const RootDocument = ({ children }: { children: React.ReactNode }) => {
             trackAttributes={true}
             trackOutgoingLinks={true}
             trackWebVitals={true}
+            // Record IDs in these paths would split page reports per record.
+            maskPatterns={["/pipeline/*", "/goals/*", "/prefilled/*", "/workflows/*"]}
             replay
           />
         )}

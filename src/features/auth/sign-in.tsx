@@ -10,6 +10,7 @@ import {
   type OauthFlowError,
 } from "@convex-dev/auth/methods/google/react"
 import { api } from "@/lib/api"
+import { flush, track } from "@databuddy/sdk"
 import { Link } from "@tanstack/react-router"
 import { useState } from "react"
 
@@ -57,9 +58,16 @@ export const SignIn = ({ mode }: { mode: "signIn" | "signUp" }) => {
   const error = formError ?? (flowError ? messages[flowError.error] : undefined)
   const report = (outcome: Outcome) =>
     setFormError(outcome.status === "error" ? messages[outcome.userError.error] : undefined)
+  // flush() sends it now, before OAuth navigates away from the page.
+  const started = (provider: string) => {
+    track("auth_started", { provider, mode })
+    flush()
+  }
   const oauth = [
-    ...(import.meta.env.DEV ? [{ label: "Continue with Google", signIn: signInWithGoogle }] : []),
-    { label: "Continue with GitHub", signIn: signInWithGithub },
+    ...(import.meta.env.DEV
+      ? [{ label: "Continue with Google", provider: "google", signIn: signInWithGoogle }]
+      : []),
+    { label: "Continue with GitHub", provider: "github", signIn: signInWithGithub },
   ]
 
   return (
@@ -73,6 +81,7 @@ export const SignIn = ({ mode }: { mode: "signIn" | "signUp" }) => {
             username: data.get("username") as string,
             password: data.get("password") as string,
           }
+          started("password")
           report(await (mode === "signIn" ? signIn : signUp)(credentials))
         }}
       >
@@ -107,12 +116,15 @@ export const SignIn = ({ mode }: { mode: "signIn" | "signUp" }) => {
             {mode === "signIn" ? "Sign in" : "Sign up"}
           </Button>
         )}
-        {oauth.map(({ label, signIn }) => (
+        {oauth.map(({ label, provider, signIn }) => (
           <Button
             key={label}
             type="button"
             variant="outline"
-            onClick={async () => report(await signIn())}
+            onClick={async () => {
+              started(provider)
+              report(await signIn())
+            }}
           >
             {label}
           </Button>
