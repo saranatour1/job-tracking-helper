@@ -114,7 +114,6 @@ import type * as features_jobs_models_boards from "../features/jobs/models/board
 import type * as features_jobs_models_index from "../features/jobs/models/index.js";
 import type * as features_jobs_models_jobs from "../features/jobs/models/jobs.js";
 import type * as features_jobs_public from "../features/jobs/public.js";
-import type * as features_jobs_sitemap from "../features/jobs/sitemap.js";
 import type * as features_jobs_summaries from "../features/jobs/summaries.js";
 import type * as features_jobs_trends from "../features/jobs/trends.js";
 import type * as features_jobs_utils from "../features/jobs/utils.js";
@@ -311,7 +310,6 @@ declare const fullApi: ApiFromModules<{
   "features/jobs/models/index": typeof features_jobs_models_index;
   "features/jobs/models/jobs": typeof features_jobs_models_jobs;
   "features/jobs/public": typeof features_jobs_public;
-  "features/jobs/sitemap": typeof features_jobs_sitemap;
   "features/jobs/summaries": typeof features_jobs_summaries;
   "features/jobs/trends": typeof features_jobs_trends;
   "features/jobs/utils": typeof features_jobs_utils;

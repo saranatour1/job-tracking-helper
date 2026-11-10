@@ -11,7 +11,7 @@ const groups = robots.split("\n\n").map((group) => ({
   disallowed: rules(group, "Disallow"),
 }))
 const everyone = groups.find((group) => group.agents.includes("*"))!
-const trainers = groups.find((group) => group.agents.includes("GPTBot"))!
+const previews = groups.find((group) => group.agents.includes("Twitterbot"))!
 const disallowed = everyone.disallowed
 const routes = Object.keys(import.meta.glob("../routes/**/*.tsx")).map((file) =>
   file.replace("../routes/", "").replace(".tsx", "")
@@ -54,16 +54,17 @@ describe("robots.txt", () => {
       "/terms",
       "/llms.txt",
       "/sitemap.xml",
-      "/sitemap-jobs.xml",
       "/assets/og.png",
     ]) {
-      expect(disallowed.some((rule) => path.startsWith(rule))).toBe(false)
+      expect(disallowed.some((rule) => path.startsWith(rule) && path !== "/jobs/trends")).toBe(
+        false
+      )
     }
   })
 
-  it("sends AI training crawlers to each role's llms.txt, not its page", () => {
-    expect(trainers.agents).toContain("ClaudeBot")
-    expect(trainers.disallowed).toEqual(["/jobs/", ...everyone.disallowed])
-    expect(trainers.allowed).toEqual(["/jobs/llms.txt", "/jobs/trends$", "/jobs/*/llms.txt"])
+  it("keeps crawlers off role pages and searches, but not link previews", () => {
+    expect(everyone.disallowed.slice(0, 2)).toEqual(["/jobs/", "/jobs?"])
+    expect(everyone.allowed).toEqual(["/jobs/llms.txt", "/jobs/trends", "/jobs/*/og.png"])
+    expect(previews.disallowed).toEqual(everyone.disallowed.slice(2))
   })
 })

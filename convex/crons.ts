@@ -10,13 +10,6 @@ crons.interval("refresh job boards", { hours: 12 }, internal.api.jobs.refreshDue
 crons.interval("research companies", { hours: 12 }, internal.api.jobs.researchDue, {})
 crons.daily("count job trends", { hourUTC: 2, minuteUTC: 17 }, internal.api.jobs.countTrends, {})
 crons.daily(
-  "write the jobs sitemap",
-  { hourUTC: 2, minuteUTC: 47 },
-  internal.api.jobs.startSitemap,
-  {}
-)
-
-crons.daily(
   "sweep archive and trash",
   { hourUTC: 3, minuteUTC: 17 },
   internal.api.applications.sweep,

@@ -17,7 +17,6 @@ import {
   companiesTable,
   jobBoardsTable,
   jobCatalogTable,
-  sitemapPagesTable,
   jobsTable,
   jobTrendsTable,
 } from "./features/jobs/models"
@@ -51,7 +50,6 @@ export default defineSchema({
   companies: companiesTable,
   jobBoards: jobBoardsTable,
   jobCatalog: jobCatalogTable,
-  sitemapPages: sitemapPagesTable,
   jobs: jobsTable,
   jobTrends: jobTrendsTable,
   sourceUsage: sourceUsageTable,
