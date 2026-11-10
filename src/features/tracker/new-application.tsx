@@ -1,4 +1,5 @@
 import { api } from "@/lib/api"
+import { track } from "@databuddy/sdk"
 import { useMutation } from "convex/react"
 import { ConvexError } from "convex/values"
 import { useRef, useState } from "react"
@@ -47,6 +48,7 @@ export const NewApplicationDialog = ({ trigger }: { trigger: React.ReactElement 
         ...(value("url") && { url: value("url") }),
         ...(value("notes") && { description: value("notes") }),
       })
+      track("job_track", { source: "manual" })
       form.reset()
       handle.close()
     } catch (cause) {

@@ -314,7 +314,7 @@ export const TrackButton = ({
     () =>
       addRole({ jobId: job._id }).then(
         (applicationId) => {
-          track("job_track", { job: job._id, company: job.company })
+          track("job_track", { source: "jobs" })
           void refreshJobs(router)
           return { applicationId, error: undefined }
         },

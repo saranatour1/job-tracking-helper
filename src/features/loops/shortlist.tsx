@@ -12,6 +12,7 @@ import {
   TaskAdd01Icon,
 } from "@hugeicons/core-free-icons"
 import { HugeiconsIcon } from "@hugeicons/react"
+import { track as trackEvent } from "@databuddy/sdk"
 import { Link, useNavigate } from "@tanstack/react-router"
 import { useAction, useMutation } from "convex/react"
 import { useQuery } from "@/hooks/use-queries"
@@ -55,8 +56,10 @@ const useDecide = () => {
       { leadId, action }: { leadId: Id<"jobLeads">; action: Decision }
     ) => {
       try {
-        if (action === "track") await track({ leadId })
-        else await respond({ leadId, action })
+        if (action === "track") {
+          await track({ leadId })
+          trackEvent("job_track", { source: "shortlist" })
+        } else await respond({ leadId, action })
         return said[action]
       } catch (error) {
         return messageOf(error)
