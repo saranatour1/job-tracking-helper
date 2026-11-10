@@ -124,34 +124,6 @@ const stats = query({
   },
 })
 
-const sitemap = query({
-  args: { cursor: v.union(v.string(), v.null()) },
-  returns: v.object({
-    page: v.array(
-      v.object({ _id: v.id("jobs"), title: v.string(), company: v.string(), postedAt: v.number() })
-    ),
-    isDone: v.boolean(),
-    continueCursor: v.string(),
-  }),
-  handler: async (ctx, { cursor }) => {
-    const found = await ctx.db
-      .query("jobs")
-      .withIndex("by_postedAt")
-      .order("desc")
-      .paginate({ numItems: 1000, cursor, maximumBytesRead: 4_000_000 })
-    return {
-      page: found.page.map(({ _id, title, company, postedAt }) => ({
-        _id,
-        title,
-        company,
-        postedAt,
-      })),
-      isDone: found.isDone,
-      continueCursor: found.continueCursor,
-    }
-  },
-})
-
 // How a role matches the person, once Jev has judged it for them: from a loop, a pasted link or
 // checking it here. Null until then.
 const match = authedQuery({
@@ -247,7 +219,6 @@ export const publicApi = {
   posting,
   stats,
   companies,
-  sitemap,
   track,
   match,
 }

@@ -16,15 +16,15 @@ type Context = { waitUntil: (promise: Promise<void>) => void }
 const publicPages: [RegExp, number][] = [
   [/^\/jobs\/trends$/, 10 * 60],
   [/^\/jobs$/, 60],
-  // A day, so Googlebot mostly gets the cached copy: slow renders shrink its crawl budget.
   [/^\/jobs\/[^/]+$/, 24 * 60 * 60],
 ]
 
-// AI training crawlers that send their own user agent. robots.txt asks them to read each role's
-// llms.txt instead of its page, and this refuses the ones that still ask for the page, which
-// costs a render. Google-Extended and Applebot-Extended only exist in robots.txt.
-const trainer =
-  /GPTBot|ClaudeBot|anthropic-ai|CCBot|Bytespider|meta-externalagent|cohere-training-data-crawler/i
+// Crawlers were 94% of requests, nearly all on role pages, and each one costs a render.
+// robots.txt keeps them off, and this refuses the ones that ask anyway. Link previews still get
+// the page, since they read its head.
+const crawler = /bot|crawl|spider|anthropic-ai|meta-externalagent/i
+const preview =
+  /Slackbot|Twitterbot|Discordbot|LinkedInBot|TelegramBot|facebookexternalhit|WhatsApp/i
 const rolePage = /^\/jobs\/(?!trends$)[^/]+$/
 
 export default {
@@ -41,20 +41,18 @@ export default {
       return import("@/features/jobs/og").then((og) => og.postingImage(request, posting[1], ctx))
     if (reading && pathname === "/jobs/trends/llms.txt")
       return import("@/features/jobs/llms").then((l) => l.trendsLlms(request, ctx))
-    const roleText = reading ? /^\/jobs\/([^/]+)\/llms\.txt$/.exec(pathname) : null
-    if (roleText)
-      return import("@/features/jobs/llms").then((l) => l.roleLlms(request, roleText[1]!, ctx))
     if (reading && pathname === "/jobs/llms.txt")
       return import("@/features/jobs/llms").then((l) => l.jobsLlms(request, ctx))
-    if (reading && pathname === "/sitemap-jobs.xml")
-      return import("@/features/jobs/sitemap").then((s) => s.jobsSitemap(request, ctx))
     const company = reading ? /^\/jobs\/logo\/([^/]+)$/.exec(pathname) : null
     if (company)
       return import("@/features/jobs/logo").then((l) => l.logo(request, company[1]!, ctx))
     // wrangler.jsonc runs the Worker first for .txt files, so reads of llms.txt get recorded.
     if (env && pathname.endsWith(".txt")) return env.ASSETS.fetch(request)
-    if (rolePage.test(pathname) && trainer.test(request.headers.get("user-agent") ?? ""))
-      return new Response("Read this role's llms.txt instead.", { status: 403 })
+    const agent = request.headers.get("user-agent") ?? ""
+    if (rolePage.test(pathname) && crawler.test(agent) && !preview.test(agent))
+      return new Response(`Role pages aren't for crawlers. Read ${site.url}/jobs/llms.txt.`, {
+        status: 403,
+      })
     const seconds =
       request.method === "GET" && publicPages.find(([path]) => path.test(pathname))?.[1]
     return seconds && env?.CF_VERSION_METADATA && ctx

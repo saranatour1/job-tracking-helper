@@ -68,18 +68,18 @@ A repeat gets a number (`-2`), and a real id still finds its row, so old links w
 
 ### Who acts
 
-| Actor                             | What it does                                                                                                                                                                                                     | Where                                                                                                                                               |
-| --------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------- |
-| You                               | Everything in the pages below                                                                                                                                                                                    | `src/features/*`                                                                                                                                    |
-| Crons                             | Start due loops, start due workflows, refresh job boards, research companies and restart stuck workers (every 12 hours); count job trends, write the jobs sitemap, sweep the Archive, Trash and Activity (daily) | `convex/crons.ts`                                                                                                                                   |
-| The inbound email hook            | Takes mail your Cloudflare Worker forwards                                                                                                                                                                       | `POST /email/inbound/<id>`, `convex/http.ts`                                                                                                        |
-| Jev                               | Judges roles for loops and pasted links, sorts mail, reviews resumes, re-evaluates goals, picks saved answers for forms, answers Ask Jev, drafts workflows from a sentence                                       | `convex/features/workflows/judge.ts`, `email/jev.ts`, `preferences/resume.ts`, `goals/actions.ts`, `prefilled/actions.ts`, `automations/actions.ts` |
-| The batch worker (`readPool`)     | Fetches job boards, researches companies and runs Jev's judgments, 8 at a time, with up to 3 attempts each                                                                                                       | `convex/features/workflows/manager.ts`                                                                                                              |
-| The catalog queue (`catalogPool`) | Keeps the catalog totals, one write at a time, a moment after each board's fetch ends                                                                                                                            | `convex/features/workflows/manager.ts`, `convex/features/jobs/counts.ts`                                                                            |
-| The summary queue (`summaryPool`) | Asks Claude Haiku what each role is, 4 at a time with up to 3 attempts, apart from `readPool` so a backfill never holds up loops                                                                                 | `convex/features/workflows/manager.ts`, `convex/features/jobs/summaries.ts`                                                                         |
-| Workflows                         | Runs the steps people build                                                                                                                                                                                      | `convex/features/automations/engine.ts`                                                                                                             |
-| An agent you connect              | Calls the tools you allowed, as you                                                                                                                                                                              | `POST /mcp`, `convex/mcp.ts`                                                                                                                        |
-| An agent looking at the site      | Reads what the app offers and how to connect, without an account                                                                                                                                                 | `src/lib/discovery.ts`, `src/lib/web-mcp.ts`                                                                                                        |
+| Actor                             | What it does                                                                                                                                                                             | Where                                                                                                                                               |
+| --------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------- |
+| You                               | Everything in the pages below                                                                                                                                                            | `src/features/*`                                                                                                                                    |
+| Crons                             | Start due loops, start due workflows, refresh job boards, research companies and restart stuck workers (every 12 hours); count job trends, sweep the Archive, Trash and Activity (daily) | `convex/crons.ts`                                                                                                                                   |
+| The inbound email hook            | Takes mail your Cloudflare Worker forwards                                                                                                                                               | `POST /email/inbound/<id>`, `convex/http.ts`                                                                                                        |
+| Jev                               | Judges roles for loops and pasted links, sorts mail, reviews resumes, re-evaluates goals, picks saved answers for forms, answers Ask Jev, drafts workflows from a sentence               | `convex/features/workflows/judge.ts`, `email/jev.ts`, `preferences/resume.ts`, `goals/actions.ts`, `prefilled/actions.ts`, `automations/actions.ts` |
+| The batch worker (`readPool`)     | Fetches job boards, researches companies and runs Jev's judgments, 8 at a time, with up to 3 attempts each                                                                               | `convex/features/workflows/manager.ts`                                                                                                              |
+| The catalog queue (`catalogPool`) | Keeps the catalog totals, one write at a time, a moment after each board's fetch ends                                                                                                    | `convex/features/workflows/manager.ts`, `convex/features/jobs/counts.ts`                                                                            |
+| The summary queue (`summaryPool`) | Asks Claude Haiku what each role is, 4 at a time with up to 3 attempts, apart from `readPool` so a backfill never holds up loops                                                         | `convex/features/workflows/manager.ts`, `convex/features/jobs/summaries.ts`                                                                         |
+| Workflows                         | Runs the steps people build                                                                                                                                                              | `convex/features/automations/engine.ts`                                                                                                             |
+| An agent you connect              | Calls the tools you allowed, as you                                                                                                                                                      | `POST /mcp`, `convex/mcp.ts`                                                                                                                        |
+| An agent looking at the site      | Reads what the app offers and how to connect, without an account                                                                                                                         | `src/lib/discovery.ts`, `src/lib/web-mcp.ts`                                                                                                        |
 
 ### Events that start workflows
 
@@ -120,18 +120,13 @@ company sites for Jobs, and preparing applications needs it.
    switches between light and dark and links to the GitHub repo. Signed-in people go on to `/pipeline`, keeping any search
    like `?app=app-4`.
 2. **Legal.** `/privacy` and `/terms` are linked from the footer and sign-in.
-3. **Crawlers.** `public/robots.txt` lists every private route, and keeps AI training crawlers
-   (GPTBot, ClaudeBot and the like) off each role's page, which costs a render, while they can
-   still read its cached `llms.txt`; AI search crawlers read both. The Worker (`src/server.ts`)
-   answers a role page with `403` for training crawlers that ask anyway. `public/llms.txt` and
-   `public/sitemap.xml` list the public ones. Public pages render on the server, so crawlers don't
-   need JavaScript. `/jobs` renders all of itself on the server, and its Show more is a link to
-   `?pages=2`, then 3, so crawlers page through it; each page names itself as canonical and links
-   back to the first. A filter, an order or a picked role makes a variation of the list, which is
-   `noindex, follow`. `/sitemap-jobs.xml` lists every open role's page with the day it was posted,
-   read in one query (`src/features/jobs/sitemap.ts`). Reading every role takes too long for a
-   crawler to wait, so a daily cron has a batch worker save them 500 at a time to `sitemapPages`;
-   a round shows once its last batch is in (`convex/features/jobs/sitemap.ts`).
+3. **Crawlers.** `public/robots.txt` lists every private route, and keeps every crawler off each
+   role's page and each search of the list (`/jobs/` and `/jobs?`), since crawlers were 94% of
+   requests and each one costs a render. Link preview bots (Slack, X, LinkedIn and the like) have
+   their own group and may open a role's page, since they read its head. The Worker
+   (`src/server.ts`) answers a role page with `403` for crawlers that ask anyway. `public/llms.txt`
+   and `public/sitemap.xml` list the public pages: `/`, `/jobs`, `/jobs/trends`, `/privacy` and
+   `/terms`. Public pages render on the server, so crawlers don't need JavaScript.
 4. **AI crawler tracking.** Crawlers don't run the Databuddy script, so the Worker
    (`src/server.ts`) reports each request from an AI agent to Databuddy in the background.
    `wrangler.jsonc` runs the Worker first for `.txt` files, so reads of `llms.txt` count too.
@@ -536,10 +531,10 @@ it doesn't.
    `job_apply_link` and `job_show_more`, with the words searched for or the role and company. These
    fire for everyone on Jobs, under Databuddy's own visitor ID, never the account.
 
-**For agents:** each role is Markdown at `/jobs/<words>-<id>/llms.txt` (its summary, facts, where
-to apply and the full posting). `/jobs/llms.txt` has the 10 newest in full and 190 more by title,
-and `/jobs/trends/llms.txt` last week's most new roles by country, location and job title. The
-pages link to them with `rel="alternate"` (`src/features/jobs/llms.ts`).
+**For agents:** `/jobs/llms.txt` is a snapshot: how many roles are open, the 10 newest, and a
+pointer to the MCP server for the rest. `/jobs/trends/llms.txt` has last week's most new roles by
+country, location and job title. The pages link to them with `rel="alternate"`
+(`src/features/jobs/llms.ts`). Roles have no Markdown of their own.
 
 **How it reads:** `/jobs` and `/jobs/trends` don't use the WebSocket for their data. The Jobs loader
 (`src/routes/_app/jobs/index.tsx`) asks Convex over HTTP, on the server for the first visit and

@@ -31,7 +31,6 @@ export const Route = createFileRoute("/_app/jobs/$id")({
     })
     return {
       ...head,
-      links: [...head.links, { rel: "alternate", type: "text/markdown", href: `${page}/llms.txt` }],
       scripts: [{ type: "application/ld+json", children: scriptJson(jobPostingData(job, page)) }],
     }
   },
