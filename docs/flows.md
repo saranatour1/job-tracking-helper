@@ -122,7 +122,8 @@ company sites for Jobs, and preparing applications needs it.
 2. **Legal.** `/privacy` and `/terms` are linked from the footer and sign-in.
 3. **Crawlers.** `public/robots.txt` lists every private route, and keeps every crawler off each
    role's page and each search of the list (`/jobs/` and `/jobs?`), since crawlers were 94% of
-   requests and each one costs a render. Link preview bots (Slack, X, LinkedIn and the like) have
+   requests and each one costs a render. Its `Content-Signal` line allows search and AI answers
+   but not AI training. Link preview bots (Slack, X, LinkedIn and the like) have
    their own group and may open a role's page, since they read its head. The Worker
    (`src/server.ts`) answers a role page with `403` for crawlers that ask anyway. `public/llms.txt`
    and `public/sitemap.xml` list the public pages: `/`, `/jobs`, `/jobs/trends`, `/privacy` and
@@ -1136,10 +1137,14 @@ Prefilled applications, Interface and theme, Account)
    - The homepage's `Link` header points to the API catalog, the server card, `/auth.md` and
      `/llms.txt`.
    - `/auth.md` explains both ways to connect and lists the scopes.
+   - Asking `/`, `/jobs` or `/jobs/trends` for `Accept: text/markdown` returns that page's
+     `llms.txt`. Other pages answer as before.
    - `/.well-known/` holds the API catalog, MCP server card, agent card, agent skills, OAuth metadata
      and bot key directory. The MCP server and its OAuth stay on the Convex address, since tokens are
      bound to it, so these documents point there.
    - The agent card lists MCP as its only interface, because the app has no A2A endpoint.
+   - The protected resource metadata names this site as its `resource`, as RFC 9728 asks. MCP
+     clients still read the copy under `/mcp` on Convex.
    - The OAuth metadata's `jwks_uri` leads to an empty key set, because tokens are random strings
      the server looks up and nothing signs them.
    - A browser with WebMCP gets two tools on every page: `get_site_info` and `open_page`. They only

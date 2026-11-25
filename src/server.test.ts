@@ -12,7 +12,9 @@ vi.mock("@tanstack/react-start/server-entry", () => ({ default: { fetch: mocks.a
 
 const { default: server } = await import("./server")
 
-const asset = vi.fn(() => Promise.resolve(new Response("asset")))
+const asset = vi.fn((request: Request) =>
+  Promise.resolve(new Response(new URL(request.url).pathname))
+)
 const env = { ASSETS: { fetch: asset } }
 const ctx = { waitUntil: vi.fn() }
 const get = (path: string) => new Request(`https://ye.saranatour.dev${path}`)
@@ -31,7 +33,19 @@ describe("server entry", () => {
   it("reports llms.txt and serves the file", async () => {
     const response = await server.fetch(get("/llms.txt"), env, ctx)
     expect(mocks.trackAgents).toHaveBeenCalledOnce()
-    expect(await response.text()).toBe("asset")
+    expect(await response.text()).toBe("/llms.txt")
+  })
+
+  it("answers a markdown request with the page's llms.txt, and other pages as before", async () => {
+    const markdown = (path: string) =>
+      new Request(`https://ye.saranatour.dev${path}`, { headers: { accept: "text/markdown" } })
+    const response = await server.fetch(markdown("/"), env, ctx)
+    expect(await response.text()).toBe("/llms.txt")
+    expect(response.headers.get("Content-Type")).toBe("text/markdown; charset=utf-8")
+    expect(response.headers.get("Vary")).toBe("Accept")
+    expect(mocks.trackAgents).toHaveBeenCalledOnce()
+    expect(await (await server.fetch(markdown("/privacy"), env, ctx)).text()).toBe("app")
+    expect(await (await server.fetch(get("/"), env, ctx)).text()).toBe("app")
   })
 
   it("does nothing extra in local dev, where only the request is passed", async () => {

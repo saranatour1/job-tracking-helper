@@ -64,6 +64,12 @@ describe("discovery documents", () => {
     expect(await jsonOf(new URL(metadata.jwks_uri).pathname)).toEqual({ keys: [] })
   })
 
+  it("names this site as the protected resource, keeping the rest from Convex", async () => {
+    const metadata = await jsonOf<Record<string, string>>("/.well-known/oauth-protected-resource")
+    expect(metadata.fetched).toBe("https://tiger.convex.site/.well-known/oauth-protected-resource")
+    expect(metadata.resource).toBe("https://ye.saranatour.dev")
+  })
+
   it("passes on a Convex failure instead of calling it valid metadata", async () => {
     vi.mocked(fetch).mockResolvedValueOnce(Response.json({ code: "paused" }, { status: 500 }))
     const response = await read("/.well-known/oauth-authorization-server")
