@@ -1,7 +1,9 @@
 # The home page, the jobs list and job trends are open to every crawler. Each role's page and each
 # search of the list costs a render, so crawlers stay off them: /jobs/llms.txt has a snapshot,
 # and the MCP server has the rest. Everything else needs an account or a private link.
+# Content signals (contentsignals.org): search and AI answers may use the pages, training may not.
 User-agent: *
+Content-Signal: ai-train=no, search=yes, ai-input=yes
 Allow: /jobs/llms.txt
 Allow: /jobs/trends
 Allow: /jobs/*/og.png

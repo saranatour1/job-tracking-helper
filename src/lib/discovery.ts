@@ -82,7 +82,13 @@ const sha256 = async (text: string) => {
   return Array.from(new Uint8Array(hash), (b) => b.toString(16).padStart(2, "0")).join("")
 }
 
-const fromConvex = (path: string) => fetch(`${convexSite}${path}`)
+// Convex's metadata, which knows the current scopes, with this site's own values on top. A Convex
+// failure passes on as it came.
+const fromConvex = async (path: string, ours: object) => {
+  const response = await fetch(`${convexSite}${path}`)
+  if (!response.ok) return response
+  return json({ ...((await response.json()) as object), ...ours })
+}
 
 export const discovery: Record<string, (() => Response | Promise<Response>) | undefined> = {
   // RFC 9727. There's no OpenAPI document, since MCP describes its own tools, so the server card
@@ -187,17 +193,15 @@ export const discovery: Record<string, (() => Response | Promise<Response>) | un
   [noAccountSkillPath]: () => markdown(noAccountSkill),
   [goalsSkillPath]: () => markdown(goalsSkill),
   "/auth.md": () => markdown(auth),
-  // These come from Convex, which knows the current scopes. `resource` stays the Convex address
-  // because that's what tokens are bound to, and clients find it through /mcp there anyway.
+  // RFC 9728 wants `resource` to be the address this was read from. Tokens stay bound to the MCP
+  // server on Convex, and clients get its own metadata from /mcp there, so this copy is for
+  // discovery only.
   "/.well-known/oauth-protected-resource": () =>
-    fromConvex("/.well-known/oauth-protected-resource"),
-  "/.well-known/oauth-authorization-server": async () => {
-    const response = await fromConvex("/.well-known/oauth-authorization-server")
-    if (!response.ok) return response
-    return json({ ...((await response.json()) as object), jwks_uri: `${site.url}${jwksPath}` })
-  },
+    fromConvex("/.well-known/oauth-protected-resource", { resource: site.url }),
+  "/.well-known/oauth-authorization-server": () =>
+    fromConvex("/.well-known/oauth-authorization-server", { jwks_uri: `${site.url}${jwksPath}` }),
   // Tokens are random strings the server looks up, so no key signs them and the set is empty.
   [jwksPath]: () => json({ keys: [] }),
   "/.well-known/http-message-signatures-directory": () =>
-    fromConvex("/.well-known/http-message-signatures-directory"),
+    fetch(`${convexSite}/.well-known/http-message-signatures-directory`),
 }
